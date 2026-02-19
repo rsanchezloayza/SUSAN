@@ -335,8 +335,10 @@ public:
             c_pts = PointsProvider::cuboid(n_pts,off_params.x,off_params.y,off_params.z,off_params.w);
         if( off_type == CIRCLE )
             c_pts = PointsProvider::circle(n_pts,off_params.x,off_params.y,off_params.w);
-
-        if( off_type == CIRCLE ) {
+        if( off_type == RECTANGLE )
+            c_pts = PointsProvider::rectangle(n_pts,off_params.x,off_params.y,off_params.w);
+        
+        if( (off_type == CIRCLE)  || (off_type == RECTANGLE) ) {
             c_cc = new float[n_pts*max_K];
             g_cc.alloc(n_pts*max_K);
         }

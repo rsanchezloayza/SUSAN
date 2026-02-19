@@ -356,9 +356,13 @@ bool parse_args(Info&info,int ac,char** av) {
         } /// switch
     } /// while(c)
     
-    if( info.type == 2 ) {
-        info.off_type = CIRCLE;
-        //info.off_s = 1;
+    if( info.type == 2 ){
+        if( (info.off_type == ELLIPSOID) || (info.off_type == CYLINDER) ){
+            info.off_type = CIRCLE;
+        }
+        else if( info.off_type == CUBOID ){
+            info.off_type = RECTANGLE;
+        }
     }
 
     return validate(info);
@@ -518,6 +522,12 @@ void print_full(const Info&info,FILE*fp) {
         delete [] pt;
         fprintf(fp,"Range=[%.2f,%.2f]. Total points: %d\n",info.off_x,info.off_y,total_points);
     }
+    if( info.off_type == RECTANGLE ) {
+        Vec3*pt = PointsProvider::rectangle(total_points,info.off_x,info.off_y,info.off_s);
+        fprintf(fp,"\t\tRectangular offset search (2D): ");
+        delete [] pt;
+        fprintf(fp,"Range=[%.2f,%.2f]. Total points: %d\n",info.off_x,info.off_y,total_points);
+    }
     
     if( strcmp(info.tm_type,"none") != 0 ) {
         fprintf(fp,"\t\tSaving Cross Correlation in %s format. Prefix: %s.",info.tm_type,info.tm_pfx);
@@ -644,6 +654,13 @@ void print_minimal(const Info&info,FILE*fp) {
         delete [] pt;
         fprintf(fp,"[%.2f,%.2f]. Points: %d\n",info.off_x,info.off_y,total_points);
     }
+    if( info.off_type == RECTANGLE ) {
+        Vec3*pt = PointsProvider::rectangle(total_points,info.off_x,info.off_y,info.off_s);
+        fprintf(fp,"    - Rectangular offset (2D): ");
+        delete [] pt;
+        fprintf(fp,"[%.2f,%.2f]. Points: %d\n",info.off_x,info.off_y,total_points);
+    }
+    
     if( strcmp(info.tm_type,"none") != 0 ) {
         fprintf(fp,"    - Saving Cross Correlation in %s format. Prefix: %s.",info.tm_type,info.tm_pfx);
         if( info.tm_sigma > 0 ) {

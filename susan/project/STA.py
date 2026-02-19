@@ -89,11 +89,12 @@ class STA:
         self.ctf_refiner       = _ssa_modules.CtfRefiner()
         
         self.aligner.ctf_correction = 'cfsc'
+        self.aligner.halfsets_independ = True
         
         self.averager.ctf_correction    = 'wiener'
         self.averager.rec_halfsets      = True
         self.averager.bandpass.highpass = 0
-        self.averager.bandpass.lowpass  = (self.box_size)/2-1
+        self.averager.bandpass.lowpass  = -1
     
     def get_iteration_dir(self,ite):
         return self.prj_name + '/ite_%04d/' % ite

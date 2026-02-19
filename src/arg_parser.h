@@ -174,9 +174,10 @@ namespace ArgParser {
         check_arg_and_set(type,all_ok,arg,"cylinder" ,CYLINDER );
         check_arg_and_set(type,all_ok,arg,"circle"   ,CIRCLE   );
         check_arg_and_set(type,all_ok,arg,"cuboid"   ,CUBOID   );
+        check_arg_and_set(type,all_ok,arg,"rectangle",RECTANGLE);
 
         if( !all_ok )
-            fprintf(stderr,"Invalid offset type %s. Options are: ellipsoid, cylinder or cuboid. Defaulting to ellipsoid.\n",arg);
+            fprintf(stderr,"Invalid offset type %s. Options are: ellipsoid, cylinder or cuboid for 3D search, or circle and rectangle for 2D search. Defaulting to ellipsoid.\n",arg);
 
         return type;
     }

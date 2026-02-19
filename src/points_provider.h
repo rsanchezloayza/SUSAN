@@ -35,8 +35,12 @@ class PointsProvider {
 
 public:
     static Vec3 *cuboid(uint32&counter, const float x_range, const float y_range, const float z_range, const float step) {
-
-        if( (x_range+y_range+z_range) == 0 ) {
+        float h     = (step > 0.0f) ? step : 1.0f;
+        float x_lim = h*floorf(fabsf(x_range)/h);
+        float y_lim = h*floorf(fabsf(y_range)/h);
+        float z_lim = h*floorf(fabsf(z_range)/h);
+        
+        if ((x_lim == 0) && (y_lim == 0) && (z_lim == 0)) {
             counter = 1;
             Vec3 *points = new Vec3[counter];
             points[0].x = 0;
@@ -46,15 +50,11 @@ public:
         }
 
         float x,y,z;
+        
         counter=0;
-
-        float x_lim = step*floor(x_range/step);
-        float y_lim = step*floor(y_range/step);
-        float z_lim = step*floor(z_range/step);
-
-        for(z=-z_lim; z<=z_lim; z=z+step) {
-            for(y=-y_lim; y<=y_lim; y=y+step) {
-                for(x=-x_lim; x<=x_lim; x=x+step) {
+        for(z=-z_lim; z<=z_lim; z=z+h) {
+            for(y=-y_lim; y<=y_lim; y=y+h) {
+                for(x=-x_lim; x<=x_lim; x=x+h) {
                     counter++;
                 }
             }
@@ -62,9 +62,9 @@ public:
 
         Vec3 *points = new Vec3[counter];
         counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+step) {
-            for(y=-y_lim; y<=y_lim; y=y+step) {
-                for(x=-x_lim; x<=x_lim; x=x+step) {
+        for(z=-z_lim; z<=z_lim; z=z+h) {
+            for(y=-y_lim; y<=y_lim; y=y+h) {
+                for(x=-x_lim; x<=x_lim; x=x+h) {
                     points[counter].x = x;
                     points[counter].y = y;
                     points[counter].z = z;
@@ -75,10 +75,14 @@ public:
 
         return points;
     }
-
+    
     static Vec3 *ellipsoid(uint32&counter, const float x_range, const float y_range, const float z_range, const float step) {
-
-        if( (x_range+y_range+z_range) == 0 ) {
+        float h     = (step > 0.0f) ? step : 1.0f;
+        float x_lim = h*floorf(fabsf(x_range)/h);
+        float y_lim = h*floorf(fabsf(y_range)/h);
+        float z_lim = h*floorf(fabsf(z_range)/h);
+        
+        if ((x_lim == 0) && (y_lim == 0) && (z_lim == 0)) {
             counter = 1;
             Vec3 *points = new Vec3[counter];
             points[0].x = 0;
@@ -86,22 +90,46 @@ public:
             points[0].z = 0;
             return points;
         }
-
-        float x,y,z,X,Y,Z;
+        
+        float A2 = x_lim * x_lim;
+        float B2 = y_lim * y_lim;
+        float C2 = z_lim * z_lim;
+        
+        float x,y,z,kx,ky,kz,X2,Y2,Z2,R2;
+        
+        kx = (A2 > 0.0f) ? 1.0f : 0.0f;
+        ky = (B2 > 0.0f) ? 1.0f : 0.0f;
+        kz = (C2 > 0.0f) ? 1.0f : 0.0f;
+        
+        if (A2 > 0.0f) {
+            ky *= A2;
+            kz *= A2;
+        }
+        if (B2 > 0.0f) {
+            kx *= B2;
+            kz *= B2;
+        }
+        if (C2 > 0.0f) {
+            kx *= C2;
+            ky *= C2;
+        }
+        
+        R2 = 1.0f;
+        if (A2 > 0.0f) R2 *= A2;
+        if (B2 > 0.0f) R2 *= B2;
+        if (C2 > 0.0f) R2 *= C2;
+        
+        // (x^2/a^2 + y^2/b^2 + z^2/c^2 <= 1)  --> (x^2*b^2*c^2 + y^2*a^2*c^2 + z^2*a^2*b^2 <= a^2*b^2*c^2)
+        //but if any or a, b,or c, they simply get excluded from equation of the N-k dimentional ellipsoid
+        
         counter=0;
-
-        float x_lim = step*floor(x_range/step);
-        float y_lim = step*floor(y_range/step);
-        float z_lim = step*floor(z_range/step);
-
-        for(z=-z_lim; z<=z_lim; z=z+step) {
-            Z = z/z_lim;
-            for(y=-y_lim; y<=y_lim; y=y+step) {
-                Y = y/y_lim;
-                for(x=-x_lim; x<=x_lim; x=x+step) {
-                    X = x/x_range;
-                    float R = sqrt( X*X + Y*Y + Z*Z );
-                    if( R <= 1.0f ) {
+        for(z=-z_lim; z<=z_lim; z=z+h) {
+            Z2 = z * z * kz;           
+            for(y=-y_lim; y<=y_lim; y=y+h) {
+                Y2 = y * y * ky;           
+                for(x=-x_lim; x<=x_lim; x=x+h) {
+                    X2 = x * x * kx;               
+                    if( (X2 + Y2 + Z2) <= R2 ) {
                         counter++;
                     }
                 }
@@ -110,14 +138,13 @@ public:
 
         Vec3 *points = new Vec3[counter];
         counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+step) {
-            Z = z/z_lim;
-            for(y=-y_lim; y<=y_lim; y=y+step) {
-                Y = y/y_lim;
-                for(x=-x_lim; x<=x_lim; x=x+step) {
-                    X = x/x_lim;
-                    float R = sqrt( X*X + Y*Y + Z*Z );
-                    if( R <= 1.0f ) {
+        for(z=-z_lim; z<=z_lim; z=z+h) {
+            Z2 = z * z * kz;
+            for(y=-y_lim; y<=y_lim; y=y+h) {
+                Y2 = y * y * ky; 
+                for(x=-x_lim; x<=x_lim; x=x+h) {
+                    X2 = x * x * kx;
+                    if( (X2 + Y2 + Z2) <= R2 ) {
                         points[counter].x = x;
                         points[counter].y = y;
                         points[counter].z = z;
@@ -126,17 +153,16 @@ public:
                 }
             }
         }
-
         return points;
     }
-
-    static Vec3 *sphere(uint32&counter, const float radius, const float step) {
-        return ellipsoid(counter,radius,radius,radius,step);
-    }
-
+    
     static Vec3 *cylinder(uint32&counter, const float x_range, const float y_range, const float z_range, const float step) {
-
-        if( (x_range+y_range+z_range) == 0 ) {
+        float h     = (step > 0.0f) ? step : 1.0f;
+        float x_lim = h*floorf(fabsf(x_range)/h);
+        float y_lim = h*floorf(fabsf(y_range)/h);
+        float z_lim = h*floorf(fabsf(z_range)/h);
+        
+        if ((x_lim == 0) && (y_lim == 0) && (z_lim == 0)) {
             counter = 1;
             Vec3 *points = new Vec3[counter];
             points[0].x = 0;
@@ -145,20 +171,29 @@ public:
             return points;
         }
 
-        float x,y,z,X,Y;
+        float A2 = x_lim * x_lim;
+        float B2 = y_lim * y_lim;
+        
+        float x,y,z,kx,ky,X2,Y2,R2;
+        
+        kx = (A2 > 0.0f) ? 1.0f : 0.0f;
+        ky = (B2 > 0.0f) ? 1.0f : 0.0f;
+        
+        if (A2 > 0.0f) ky *= A2;
+        if (B2 > 0.0f) kx *= B2;
+        
+        R2 = 1.0f;
+        if (A2 > 0.0f) R2 *= A2;
+        if (B2 > 0.0f) R2 *= B2;
+        
+        // (x^2/a^2 + y^2/b^2 <= 1) --> (x^2*b^2 + y^2*a^2 = a^2*b^2), but without devision and sqrt
         counter=0;
-
-        float x_lim = step*floor(x_range/step);
-        float y_lim = step*floor(y_range/step);
-        float z_lim = step*floor(z_range/step);
-
-        for(z=-z_lim; z<=z_lim; z=z+step) {
-            for(y=-y_lim; y<=y_lim; y=y+step) {
-                Y = y/y_lim;
-                for(x=-x_lim; x<=x_lim; x=x+step) {
-                    X = x/x_lim;
-                    float R = sqrt( X*X + Y*Y );
-                    if( R <= 1.0f ) {
+        for(z=-z_lim; z<=z_lim; z=z+h) {
+            for(y=-y_lim; y<=y_lim; y=y+h) {
+                Y2 = y * y * ky;
+                for(x=-x_lim; x<=x_lim; x=x+h) {
+                    X2 = x * x * kx;
+                    if( (X2 + Y2) <= R2 ) {
                         counter++;
                     }
                 }
@@ -167,13 +202,12 @@ public:
 
         Vec3 *points = new Vec3[counter];
         counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+step) {
-            for(y=-y_lim; y<=y_lim; y=y+step) {
-                Y = y/y_lim;
-                for(x=-x_lim; x<=x_lim; x=x+step) {
-                    X = x/x_lim;
-                    float R = sqrt( X*X + Y*Y );
-                    if( R <= 1.0f ) {
+        for(z=-z_lim; z<=z_lim; z=z+h) {
+            for(y=-y_lim; y<=y_lim; y=y+h) {
+                Y2 = y * y * ky;
+                for(x=-x_lim; x<=x_lim; x=x+h) {
+                    X2 = x * x * kx;
+                    if( (X2 + Y2) <= R2 ) {
                         points[counter].x = x;
                         points[counter].y = y;
                         points[counter].z = z;
@@ -182,60 +216,17 @@ public:
                 }
             }
         }
-
         return points;
     }
-
+    
+    static Vec3 *rectangle(uint32&counter, const float x_range, const float y_range, const float step) {
+        return cuboid(counter, x_range, y_range, 0.0f, step);
+    }
+    static Vec3 *sphere(uint32&counter, const float radius, const float step) {
+        return ellipsoid(counter, radius, radius, radius, step);
+    }
     static Vec3 *circle(uint32&counter, const float x_range, const float y_range, const float step) {
-
-        if( (x_range+y_range) == 0 ) {
-            counter = 1;
-            Vec3 *points = new Vec3[counter];
-            points[0].x = 0;
-            points[0].y = 0;
-            points[0].z = 0;
-            return points;
-        }
-
-        float x,y,X,Y;
-        counter=0;
-
-        float x_lim = floor(x_range);
-        float y_lim = floor(y_range);
-
-        for(y=-y_lim; y<=y_lim; y=y+step) {
-            Y = y/y_lim;
-            for(x=-x_lim; x<=x_lim; x=x+step) {
-                X = x/x_lim;
-                float R = sqrt( X*X + Y*Y );
-                if( R <= 1.0f ) {
-                    counter++;
-                }
-            }
-        }
-
-        Vec3 *points = new Vec3[counter];
-        counter=0;
-        for(y=-y_lim; y<=y_lim; y=y+step) {
-            Y = y/y_lim;
-            for(x=-x_lim; x<=x_lim; x=x+step) {
-                X = x/x_lim;
-                float R = sqrt( X*X + Y*Y );
-                if( R <= 1.0f ) {
-                    points[counter].x = x;
-                    points[counter].y = y;
-                    points[counter].z = 0;
-                    counter++;
-                }
-            }
-        }
-
-        return points;
+        return ellipsoid(counter, x_range, y_range, 0.0f, step);
     }
-
 };
-
 #endif /// POINTS_PROVIDER_H
-
-
-

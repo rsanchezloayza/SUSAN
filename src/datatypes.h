@@ -189,6 +189,7 @@ typedef enum {
     CYLINDER,
     CIRCLE,
     CUBOID,
+    RECTANGLE,
 } OffsetType_t;
 
 typedef enum {

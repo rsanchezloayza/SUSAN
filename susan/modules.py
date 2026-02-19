@@ -33,7 +33,7 @@ class Aligner:
         self.dimensionality    = 3
         self.extra_padding     = 0
         self.allow_drift       = True
-        self.halfsets_independ = False
+        self.halfsets_independ = True
         self.ignore_classes    = False
         self.cone              = _dt.search_params(0,1)
         self.inplane           = _dt.search_params(0,1)
@@ -60,8 +60,10 @@ class Aligner:
         self.inplane.step = i_s
         
     def set_offset_search(self,off_range,off_step=1,off_type='ellipsoid'):
-        if not off_type in ['ellipsoid','cylinder','cuboid']:
-            raise ValueError('Invalid offset type. Only "ellipsoid", "cylinder" or "cuboid" are valid')
+        if (self.dimensionality == 3) and (not off_type in ['ellipsoid', 'cylinder', 'cuboid']):
+            raise ValueError('Invalid offset type. Only "ellipsoid", "cylinder" or "cuboid" are valid for the 3D alignment')
+        if (self.dimensionality == 2) and (not off_type in ['ellipsoid', 'cuboid', 'circle', 'rectangle']):
+            raise ValueError('Invalid offset type. Only "circle" ("ellipsoid") and "rectangle" ("cuboid") are valid for the 2D alignment')
         
         if isinstance(off_range,int) or isinstance(off_range,float):
             self.offset.span = (off_range,off_range,off_range)
@@ -76,11 +78,13 @@ class Aligner:
         
     def _validate(self):
         if not self.dimensionality in [2,3]:
-            raise ValueError('Invalid dimensionality type. Only 3 or 3 are valid')
+            raise ValueError('Invalid dimensionality type. Only 2 or 3 are valid')
         
-        if not self.offset.kind in ['ellipsoid','cylinder','cuboid']:
-            raise ValueError('Invalid offset type. Only "ellipsoid", "cuboid" or "cylinder" are valid')
-        
+        if (self.dimensionality == 3) and (not self.offset.kind in ['ellipsoid', 'cylinder', 'cuboid']):
+            raise ValueError('Invalid offset type. Only "ellipsoid", "cylinder" or "cuboid" are valid for the 3D alignment')
+        if (self.dimensionality == 2) and (not self.offset.kind in ['ellipsoid', 'cuboid', 'circle', 'rectangle']):
+            raise ValueError('Invalid offset type. Only "circle" ("ellipsoid") and "rectangle" ("cuboid") are valid for the 2D alignment')
+            
         if not self.padding_type in ['zero','noise']:
             raise ValueError('Invalid padding type. Only "zero" or "noise" are valid')
         
@@ -113,6 +117,8 @@ class Aligner:
 
     def get_args(self,ptcls_out,refs_file,tomos_file,ptcls_in,box_size):
         self._validate()
+        if self.bandpass.lowpass <= 0:
+            self.bandpass.lowpass = (box_size + self.extra_padding) / 2 - 1
         n_threads = len(self.list_gpus_ids)*self.threads_per_gpu
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
@@ -198,7 +204,7 @@ class Averager:
     def get_args(self,out_pfx,tomos_file,ptcls_in,box_size):
         self._validate()
         if self.bandpass.lowpass <= 0:
-            self.bandpass.lowpass = box_size/2-1
+            self.bandpass.lowpass = (box_size + self.extra_padding) / 2 - 1
         n_threads = len(self.list_gpus_ids)*self.threads_per_gpu
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
@@ -463,4 +469,3 @@ class CtfRefiner:
         rslt = _os.system(cmd)
         if not rslt == 0:
             raise NameError('Error executing the refinement: ' + cmd)
-
