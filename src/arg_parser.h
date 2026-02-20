@@ -136,18 +136,33 @@ namespace ArgParser {
         return type;
     }
 
+    GriddingType_t get_gridding_type(const char*arg) {
+        GriddingType_t type = GRIDDING_LINEAR_FWD;
+        bool all_ok = false;
+
+        check_arg_and_set(type,all_ok,arg,"linear",GRIDDING_LINEAR_FWD       );
+        check_arg_and_set(type,all_ok,arg,"kb"    ,GRIDDING_KAISER_BESSEL_FWD);
+
+        if( !all_ok )
+            fprintf(stderr,"Invalid gridding type %s. Options are: linear, kb. Defaulting to linear.\n",arg);
+
+        return type;
+    }
+
     CtfInversionType_t get_inv_ctf_type(const char*arg) {
         CtfInversionType_t type = INV_NO_INV;
         bool all_ok = false;
 
-        check_arg_and_set(type,all_ok,arg,"none"       ,INV_NO_INV     );
-        check_arg_and_set(type,all_ok,arg,"phase_flip" ,INV_PHASE_FLIP );
-        check_arg_and_set(type,all_ok,arg,"wiener"     ,INV_WIENER     );
-        check_arg_and_set(type,all_ok,arg,"wiener_ssnr",INV_WIENER_SSNR);
-        check_arg_and_set(type,all_ok,arg,"pre_wiener" ,INV_PRE_WIENER );
+        check_arg_and_set(type,all_ok,arg,"none"        ,INV_NO_INV         );
+        check_arg_and_set(type,all_ok,arg,"phase_flip"  ,INV_PHASE_FLIP     );
+        check_arg_and_set(type,all_ok,arg,"wiener"      ,INV_WIENER         );
+        check_arg_and_set(type,all_ok,arg,"wiener_ssnr" ,INV_WIENER_SSNR    );
+        check_arg_and_set(type,all_ok,arg,"wiener_atan" ,INV_WIENER_ARCTAN  );
+        check_arg_and_set(type,all_ok,arg,"wiener_lgstc",INV_WIENER_LOGISTIC);
+        check_arg_and_set(type,all_ok,arg,"pre_wiener"  ,INV_PRE_WIENER     );
 
         if( !all_ok )
-            fprintf(stderr,"Invalid ctf correction type %s. Options are: none, phase_flip, wiener, pre_wiener and wiener_ssnr. Defaulting to wiener.\n",arg);
+            fprintf(stderr,"Invalid ctf correction type %s. Options are: none, phase_flip, wiener, wiener_ssnr, wiener_atan, wiener_lgstc, and pre_wiener. Defaulting to wiener.\n",arg);
 
         return type;
     }

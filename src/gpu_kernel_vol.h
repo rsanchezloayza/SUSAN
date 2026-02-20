@@ -178,125 +178,177 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
 {
     int3 ss_idx = get_th_idx();
 
-    if( ss_idx.x < M && ss_idx.y < N && ss_idx.z < K ) {
+    if( ss_idx.x >= M || ss_idx.y >= N || ss_idx.z >= K )
+        return;
 
-        if( pTlt[ss_idx.z].w > 0 ) {
-            Vec3 pt;
-            pt.x = ss_idx.x;
-            pt.y = ss_idx.y - N/2;
-            pt.z = 0;
+    if( pTlt[ss_idx.z].w <= 0 )
+        return;
 
-            float R = sqrt( pt.x*pt.x + pt.y*pt.y );
-            float bp = get_bp_wgt(bandpass.x,bandpass.y,bandpass.z,R);
+    float Nh = float(N)/2;
+    Vec3 pt;
+    pt.x = ss_idx.x;
+    pt.y = ss_idx.y - Nh;
+    pt.z = 0;
 
-            if( bp > 0.025 ) {
+    float R = sqrt( pt.x*pt.x + pt.y*pt.y );
+    float bp = get_bp_wgt(bandpass.x,bandpass.y,bandpass.z,R);
 
-                float2 val = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
-                float  wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
-                float x,y,z;
-                val.x *= pTlt[ss_idx.z].w;
-                val.y *= pTlt[ss_idx.z].w;
-                wgt   *= pTlt[ss_idx.z].w;
+    if( bp <= 1e-3f )
+        return;
 
-                rot_pt(x,y,z,pTlt[ss_idx.z].R,pt);
-                if( x < 0 ) {
-                    x = -x;
-                    y = -y;
-                    z = -z;
-                    val.y = -val.y;
+    float2 val = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    float  wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    wgt *= pTlt[ss_idx.z].w;
+
+    float x,y,z;
+    rot_pt(x,y,z,pTlt[ss_idx.z].R,pt);
+
+    int ix0 = floorf(x);
+    int iy0 = floorf(y);
+    int iz0 = floorf(z);
+
+    #pragma unroll
+    for(int dz=0; dz<=1; dz++) {
+        int iz = iz0 + dz;
+        float wz = 1.0f - fabsf(z - iz);
+        if( wz <= 0.0f ) continue;
+        if( iz <  -Nh || iz >= Nh) continue;
+
+        #pragma unroll
+        for(int dy=0; dy<=1; dy++) {
+            int iy = iy0 + dy;
+            float wy = 1.0f - fabsf(y - iy);
+            if( wy <= 0.0f ) continue;
+            if( iy <  -Nh || iy >= Nh) continue;
+
+            #pragma unroll
+            for(int dx=0; dx<=1; dx++) {
+                int ix = ix0 + dx;
+                float wx = 1.0f - fabsf(x - ix);
+                if( wx <= 0.0f ) continue;
+
+                float lin_wgt = wx*wy*wz;
+
+                /// Insert into hermitian volume
+                bool should_conj = false;
+                int ix_h = ix;
+                int iy_h = iy;
+                int iz_h = iz;
+
+                if (ix_h < 0) {
+                    ix_h = -ix_h;
+                    iy_h = -iy_h;
+                    iz_h = -iz_h;
+                    should_conj = true;
                 }
 
-                y += N/2;
-                z += N/2;
+                iy_h += Nh;
+                iz_h += Nh;
 
-                int x0 = int( floor(x) );
-                int y0 = int( floor(y) );
-                int z0 = int( floor(z) );
-                int x1 = x0 + 1;
-                int y1 = y0 + 1;
-                int z1 = z0 + 1;
+                if (ix_h < 0 || ix_h >= M) continue;
+                if (iy_h < 0 || iy_h >= N) continue;
+                if (iz_h < 0 || iz_h >= N) continue;
 
-                float wx1 = x - x0;
-                float wy1 = y - y0;
-                float wz1 = z - z0;
-                float wx0 = 1 - wx1;
-                float wy0 = 1 - wy1;
-                float wz0 = 1 - wz1;
+                float  w   = lin_wgt * wgt * bp;
+                long   idx = get_3d_idx(ix_h,iy_h,iz_h,M,N);
+                float2 out = val;
+                if( should_conj ) out.y = -out.y;
 
-                bool bx0 = (x0>=0) && (x0<M);
-                bool bx1 = (x1>=0) && (x1<M);
-                bool by0 = (y0>=0) && (y0<N);
-                bool by1 = (y1>=0) && (y1<N);
-                bool bz0 = (z0>=0) && (z0<N);
-                bool bz1 = (z1>=0) && (z1<N);
+                atomic_Add( &(p_acc[idx].x) , w*out.x );
+                atomic_Add( &(p_acc[idx].y) , w*out.y );
+                atomic_Add( &(p_wgt[idx]  ) , w*w     );
+            }
+        }
+    }
+}
 
-                long idx;
-                double w_wgt;
+__global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
+                                    cudaTextureObject_t ss_stk, cudaTextureObject_t ss_wgt, const Proj2D*pTlt,
+                                    const float3 bandpass,const int M, const int N, const int K)
+{
+    int3 ss_idx = get_th_idx();
 
-                if( bx0 && by0 && bz0 ) {
-                    idx = x0 + y0*M + z0*M*N;
-                    w_wgt = wx0*wy0*wz0;
-                    atomic_Add( &(p_acc[idx].x) , w_wgt*val.x );
-                    atomic_Add( &(p_acc[idx].y) , w_wgt*val.y );
-                    atomic_Add( &(p_wgt[idx]  ) , w_wgt*wgt   );
+    if( ss_idx.x >= M || ss_idx.y >= N || ss_idx.z >= K )
+        return;
+
+    if( pTlt[ss_idx.z].w <= 0 )
+        return;
+
+    int Nh = N/2;
+    Vec3 pt;
+    pt.x = ss_idx.x;
+    pt.y = ss_idx.y - N/2;
+    pt.z = 0;
+
+    float R  = sqrtf( pt.x*pt.x + pt.y*pt.y );
+    float bp = get_bp_wgt(bandpass.x,bandpass.y,bandpass.z,R);
+
+    if( bp <= 1e-3f )
+        return;
+
+    float2 val = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    float  wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    wgt *= pTlt[ss_idx.z].w;
+
+    float x,y,z;
+    rot_pt(x,y,z,pTlt[ss_idx.z].R,pt);
+
+    int ix0 = floorf(x);
+    int iy0 = floorf(y);
+    int iz0 = floorf(z);
+
+    #pragma unroll
+    for(int dz = -2; dz <= 2; dz++) {
+        int iz = iz0 + dz;
+        if( (iz<-Nh) || (iz>=Nh) ) continue;
+        float tz = (z-iz)/2;
+        if( fabsf(tz) > 1.0f  ) continue;
+        float kbz = get_kaisser_bessel_kernel_polyfit(tz);
+
+        #pragma unroll
+        for(int dy = -2; dy <= 2; dy++) {
+            int iy = iy0 + dy;
+            if( (iy<-Nh) || (iy>=Nh) ) continue;
+            float ty = (y-iy)/2;
+            if( fabsf(ty) > 1.0f  ) continue;
+            float kby = get_kaisser_bessel_kernel_polyfit(ty);
+
+            #pragma unroll
+            for(int dx = -2; dx <= 2; dx++) {
+                int ix = ix0 + dx;
+                float tx = (x-ix)/2;
+                if( fabsf(tx) > 1.0f  ) continue;
+                float kbx = get_kaisser_bessel_kernel_polyfit(tx);
+
+                /// Insert into hermitian volume
+                bool should_conj = false;
+                int ix_h = ix;
+                int iy_h = iy;
+                int iz_h = iz;
+
+                if (ix_h < 0) {
+                    ix_h = -ix_h;
+                    iy_h = -iy_h;
+                    iz_h = -iz_h;
+                    should_conj = true;
                 }
+                iy_h += Nh;
+                iz_h += Nh;
 
-                if( bx1 && by0 && bz0 ) {
-                    idx = x1 + y0*M + z0*M*N;
-                    w_wgt = wx1*wy0*wz0;
-                    atomic_Add( &(p_acc[idx].x) , w_wgt*val.x );
-                    atomic_Add( &(p_acc[idx].y) , w_wgt*val.y );
-                    atomic_Add( &(p_wgt[idx]  ) , w_wgt*wgt   );
-                }
+                if( (ix_h >=M) ) continue;
+                if( (iy_h < 0) || (iy_h >= N) ) continue;
+                if( (iz_h < 0) || (iz_h >= N) ) continue;
 
-                if( bx0 && by1 && bz0 ) {
-                    idx = x0 + y1*M + z0*M*N;
-                    w_wgt = wx0*wy1*wz0;
-                    atomic_Add( &(p_acc[idx].x) , w_wgt*val.x );
-                    atomic_Add( &(p_acc[idx].y) , w_wgt*val.y );
-                    atomic_Add( &(p_wgt[idx]  ) , w_wgt*wgt   );
-                }
+                float kb_wgt = kbx*kby*kbz;
+                float w = kb_wgt*wgt*bp;
 
-                if( bx1 && by1 && bz0 ) {
-                    idx = x1 + y1*M + z0*M*N;
-                    w_wgt = wx1*wy1*wz0;
-                    atomic_Add( &(p_acc[idx].x) , w_wgt*val.x );
-                    atomic_Add( &(p_acc[idx].y) , w_wgt*val.y );
-                    atomic_Add( &(p_wgt[idx]  ) , w_wgt*wgt   );
-                }
+                long   idx = get_3d_idx(ix_h,iy_h,iz_h,M,N);
+                float2 out = val;
+                if( should_conj ) out.y = -out.y;
 
-                if( bx0 && by0 && bz1 ) {
-                    idx = x0 + y0*M + z1*M*N;
-                    w_wgt = wx0*wy0*wz1;
-                    atomic_Add( &(p_acc[idx].x) , w_wgt*val.x );
-                    atomic_Add( &(p_acc[idx].y) , w_wgt*val.y );
-                    atomic_Add( &(p_wgt[idx]  ) , w_wgt*wgt   );
-                }
-
-                if( bx1 && by0 && bz1 ) {
-                    idx = x1 + y0*M + z1*M*N;
-                    w_wgt = wx1*wy0*wz1;
-                    atomic_Add( &(p_acc[idx].x) , w_wgt*val.x );
-                    atomic_Add( &(p_acc[idx].y) , w_wgt*val.y );
-                    atomic_Add( &(p_wgt[idx]  ) , w_wgt*wgt   );
-                }
-
-                if( bx0 && by1 && bz1 ) {
-                    idx = x0 + y1*M + z1*M*N;
-                    w_wgt = wx0*wy1*wz1;
-                    atomic_Add( &(p_acc[idx].x) , w_wgt*val.x );
-                    atomic_Add( &(p_acc[idx].y) , w_wgt*val.y );
-                    atomic_Add( &(p_wgt[idx]  ) , w_wgt*wgt   );
-                }
-
-                if( bx1 && by1 && bz1 ) {
-                    idx = x1 + y1*M + z1*M*N;
-                    w_wgt = wx1*wy1*wz1;
-                    atomic_Add( &(p_acc[idx].x) , w_wgt*val.x );
-                    atomic_Add( &(p_acc[idx].y) , w_wgt*val.y );
-                    atomic_Add( &(p_wgt[idx]  ) , w_wgt*wgt   );
-                }
-
+                atomic_Add( &(p_acc[idx].x) , w*out.x );
+                atomic_Add( &(p_acc[idx].y) , w*out.y );
+                atomic_Add( &(p_wgt[idx]  ) , w*w     );
             }
         }
     }
@@ -370,22 +422,41 @@ __global__ void get_std_from_fourier(double*p_acc,cudaTextureObject_t vol,const 
 }
 
 __global__ void invert_wgt(double*p_data,const int3 ss_siz) {
-	
-    int3 ss_idx = get_th_idx();
 
+    int3 ss_idx = get_th_idx();
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+        long   idx  = get_3d_idx(ss_idx,ss_siz);
+        double data = fmax(p_data[idx],1e-4);
+        p_data[idx] = 1/data;
+    }
+}
+
+__global__ void invert_wgt_arctan(double*p_data,float S, float F,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
 
-        long idx = get_3d_idx(ss_idx,ss_siz);
+        int center = ss_siz.y/2;
+        float f = l2_distance(ss_idx.x,ss_idx.y-center,ss_idx.z-center);
+        float  fsc    = 0.5 * ( 1 - (2/M_PI) * atan( (f-F)/S ) );
+        float  lambda = (1-fsc)/fsc;
+        long   idx    = get_3d_idx(ss_idx,ss_siz);
+        double data   = p_data[idx] + lambda;
+        p_data[idx] = 1/data;
+    }
+}
 
-        double data = p_data[idx];
+__global__ void invert_wgt_logistic(double*p_data,float S, float F,const int3 ss_siz) {
 
-        if( abs(data) < SUSAN_FLOAT_TOL ) {
-            if( data<0 )
-                data = -1.0;
-            else
-                data =  1.0;
-        }
-        
+    int3 ss_idx = get_th_idx();
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        int center = ss_siz.y/2;
+        float f = l2_distance(ss_idx.x,ss_idx.y-center,ss_idx.z-center);
+        float  fsc    = 1/(1+exp( (f-F)/S ));
+        float  lambda = (1-fsc)/fsc;
+        long   idx    = get_3d_idx(ss_idx,ss_siz);
+        double data   = p_data[idx] + lambda;
         p_data[idx] = 1/data;
     }
 }
@@ -464,7 +535,7 @@ __global__ void inv_wgt_ite_divide(double*p_vol_wgt, const double*p_conv,const i
     }
 }
 
-__global__ void grid_correct(float*p_data,const int N) {
+__global__ void grid_correct_linear(float*p_data,const int N) {
 
     int3 ss_idx = get_th_idx();
 
@@ -473,16 +544,42 @@ __global__ void grid_correct(float*p_data,const int N) {
         long ix = ss_idx.x + ss_idx.y*N + ss_idx.z*N*N;
 
         int center = N/2;
+        float tx = ss_idx.x-center;
+        float ty = ss_idx.y-center;
+        float tz = ss_idx.z-center;
 
-        float R = l2_distance(ss_idx.x-center,ss_idx.y-center,ss_idx.z-center);
+        float wx = sinc(tx/N);
+        float wy = sinc(ty/N);
+        float wz = sinc(tz/N);
 
-        float arg = fminf(R/N,0.5);
-        arg = arg*M_PI;
-        float sinc_coef = ( arg > 0.001 ) ? sinf(arg)/arg : 1.0;
-        sinc_coef *= sinc_coef;
-
+        float wgt = wx*wx*wy*wy*wz*wz;
+        wgt = fminf( fmaxf(wgt,1e-5f), 1-1e-5f );
         float val = p_data[ix];
-        p_data[ix] = val/sinc_coef;
+        p_data[ix] = val/wgt;
+    }
+}
+
+__global__ void grid_correct_kb(float*p_data,const int N) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < N && ss_idx.y < N && ss_idx.z < N ) {
+
+        long ix = ss_idx.x + ss_idx.y*N + ss_idx.z*N*N;
+
+        int center = N/2;
+        float tx = ss_idx.x-center;
+        float ty = ss_idx.y-center;
+        float tz = ss_idx.z-center;
+
+        float kbx = get_kaisser_bessel_correction_polyfit(tx/center);
+        float kby = get_kaisser_bessel_correction_polyfit(ty/center);
+        float kbz = get_kaisser_bessel_correction_polyfit(tz/center);
+
+        float wgt = kbx*kby*kbz;
+        wgt = fminf( fmaxf(wgt,1e-5f), 1-1e-5f );
+        float val = p_data[ix];
+        p_data[ix] = val/wgt;
     }
 }
 

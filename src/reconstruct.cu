@@ -27,9 +27,10 @@
 #include "particles.h"
 #include "tomogram.h"
 #include "reconstruct_args.h"
+#include "datatypes.h"
 
 void print_data_info(Particles&ptcls,Tomograms&tomos,ArgsRec::Info&info) {
-    if(info.verbosity>0) {
+    if(info.verbosity==VERBOSITY_FULL) {
         printf("\t\tAvailable particles:  %d.\n",ptcls.n_ptcl);
         printf("\t\tNumber of classes:    %d.\n",ptcls.n_refs);
     	printf("\t\tTomograms available:  %d.\n",tomos.num_tomo);
@@ -50,10 +51,13 @@ int main(int ac, char** av) {
 
         PBarrier barrier(2);
 
-        printf("\tLoading data files..."); fflush(stdout);
+        if( info.verbosity != VERBOSITY_MINIMAL ) {
+            printf("\tLoading data files..."); fflush(stdout);}
         ParticlesRW ptcls(info.ptcls_in);
         Tomograms tomos(info.tomos_in);
-        printf(" Done\n"); fflush(stdout);
+        if( info.verbosity != VERBOSITY_MINIMAL ) {
+            printf(" Done\n"); fflush(stdout);
+        }
 
         print_data_info(ptcls,tomos,info);
 

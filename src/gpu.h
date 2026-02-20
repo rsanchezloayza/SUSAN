@@ -61,6 +61,10 @@ dim3 calc_grid_size(dim3&block_size, int X, int Y, int Z) {
     return rslt;
 }
 
+dim3 calc_grid_size(dim3&block_size,int3&data_size) {
+    return calc_grid_size(block_size,data_size.x,data_size.y,data_size.z);
+}
+
 int count_devices() {
 	int devices=0;
     cudaError_t err = cudaGetDeviceCount(&devices);

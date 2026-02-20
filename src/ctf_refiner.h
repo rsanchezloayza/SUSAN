@@ -131,8 +131,10 @@ public:
     float ang_step;
     bool  est_dose;
     bool  use_halves;
-    float3  bandpass;
-    float2  ssnr; /// x=F; y=S;
+    bool  astigmatism;
+    float3 bandpass;
+    float2 ssnr; /// x=F; y=S;
+    float4 off_par;
 
     DoubleBufferHandler *p_buffer;
     RefMap              *p_refs;
@@ -160,7 +162,6 @@ protected:
         AliSubstack ss_data(M,N,max_K,P,stream);
 
         uint32 off_type = CIRCLE;
-        float4 off_par = {0,0,0,1};
 
         AliData ali_data(MP,NP,max_K,off_par,off_type,stream);
 
@@ -282,18 +283,50 @@ protected:
         rad_avgr.apply_FRC(ss_data.ss_fourier,ptr->ctf_vals,ssnr,ptr->K,stream);
     }
 
+    void debug_fourier_stack(const char*filename,GPU::GArrSingle2&g_fou,GPU::Stream&stream) {
+        GPU::GArrSingle2 g_work;
+        g_work.alloc( NP*NP*max_K );
+        GPU::copy_async(g_work.ptr,g_fou.ptr,MP*NP*max_K,stream.strm);
+
+        GpuFFT::IFFT2D ifft2;
+        ifft2.alloc(MP,NP,max_K);
+        ifft2.set_stream(stream.strm);
+
+        GPU::GArrSingle g_real;
+        g_real.alloc( NP*NP*max_K );
+
+        GPU::GHostSingle buffer;
+        buffer.alloc(NP*NP*max_K);
+
+        int3 ss_fou = make_int3(MP,NP,max_K);
+        int3 ss_pad = make_int3(NP,NP,max_K);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd_f = GPU::calc_grid_size(blk,MP,NP,max_K);
+        dim3 grd_r = GPU::calc_grid_size(blk,NP,NP,max_K);
+
+        GpuKernels::fftshift2D<<<grd_f,blk,0,stream.strm>>>(g_work.ptr,ss_fou);
+        GpuKernels::sampling_correction_2D<<<grd_f,blk,0,stream.strm>>>(g_work.ptr,0.5,ss_fou);
+        ifft2.exec(g_real.ptr,g_work.ptr);
+        GpuKernels::fftshift2D<<<grd_r,blk,0,stream.strm>>>(g_real.ptr,ss_pad);
+        GPU::download_async(buffer.ptr,g_real.ptr,NP*NP*max_K,stream.strm);
+        stream.sync();
+
+        Mrc::write(buffer.ptr,NP,NP,max_K,filename);
+    }
+
     void search_ctf(AliRef&vol,AliSubstack&ss_data,Refine&ctf_ref,CtfRefBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
 
         Rot33 Rot;
         single max_cc[ptr->K];
         single sum_cc[ptr->K];
         single ite_cc[ptr->K];
+        int    max_idx[ptr->K];
         int    ite_idx[ptr->K];
         Defocus def_rslt[ptr->K];
-        //int count = 0;
 
         for(int i=0;i<ptr->K;i++) max_cc[i] = -INFINITY;
         memset(def_rslt,0,sizeof(Defocus)*ptr->K);
+        memset(max_idx ,0,sizeof(single )*ptr->K);
         memset(sum_cc  ,0,sizeof(single )*ptr->K);
 
         // Apply 3D alignment
@@ -314,85 +347,92 @@ protected:
         float dU,dV,dA;
         float3 delta_w;
 
-        /*if( ptr->ptcl.ptcl_id() == 4 ) {
-            printf("arr = (");
-        }*/
+        if( astigmatism ) {
+            for( dU=-def_range; dU<(def_range+0.5*def_step); dU+=def_step ) {
+                delta_w.x  = dU;
+                for( dV=-def_range; dV<(def_range+0.5*def_step); dV+=def_step ) {
+                    delta_w.y  = dV;
+                    for( dA=-ang_range; dA<(ang_range+0.5*ang_step); dA+=ang_step ) {
+                        delta_w.z  = dA;
+                        ctf_ref.apply_ctf(ali_data.prj_c,delta_w,rad_avgr,ptr,stream);
+                        ali_data.apply_bandpass(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
+                        ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+                        ali_data.invert_fourier(ptr->K,stream);
+                        stream.sync();
+                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
 
-        for( dU=-def_range; dU<(def_range+0.5*def_step); dU+=def_step ) {
-            delta_w.x  = dU;
-            /*if( ptr->ptcl.ptcl_id() == 4 ) {
-                printf("(");
-            }*/
-            for( dV=-def_range; dV<(def_range+0.5*def_step); dV+=def_step ) {
-                delta_w.y  = dV;
-                for( dA=-ang_range; dA<(ang_range+0.5*ang_step); dA+=ang_step ) {
-                    delta_w.z  = dA;
-                    ctf_ref.apply_ctf(ali_data.prj_c,delta_w,rad_avgr,ptr,stream);
-                    ali_data.apply_bandpass(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
-                    ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-                    ali_data.invert_fourier(ptr->K,stream);
-                    stream.sync();
-                    ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
-                    //count++;
-
-                    for(int i=0;i<ptr->K;i++) {
-                        if( ptr->ptcl.prj_w[i] > 0 ) {
-                            sum_cc[i] += ite_cc[i];
-                            if( ite_cc[i] > max_cc[i] ) {
-                                def_rslt[i].angle = dA;
-                                def_rslt[i].U = dU;
-                                def_rslt[i].V = dV;
-                                max_cc[i] = ite_cc[i];
+                        for(int i=0;i<ptr->K;i++) {
+                            if( ptr->c_ali.ptr[i].w > 0 ) {
+                                sum_cc[i] += ite_cc[i];
+                                if( ite_cc[i] > max_cc[i] ) {
+                                    def_rslt[i].angle = dA;
+                                    def_rslt[i].U = dU;
+                                    def_rslt[i].V = dV;
+                                    max_cc[i]  = ite_cc[i];
+                                    max_idx[i] = ite_idx[i];
+                                }
                             }
-
-                            /*if( ptr->ptcl.ptcl_id() == 4 && i == 15 && dA == 0 ) {
-                                printf("%f,",ite_cc[i]);
-                            }*/
                         }
                     }
                 }
             }
+        }
+        else {
+            for( dU=-def_range; dU<(def_range+0.5*def_step); dU+=def_step ) {
+                delta_w.x  = dU;
+                delta_w.y  = dU;
+                delta_w.z  = 0.0f;
+                ctf_ref.apply_ctf(ali_data.prj_c,delta_w,rad_avgr,ptr,stream);
+                ali_data.apply_bandpass(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
+                ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+                ali_data.invert_fourier(ptr->K,stream);
+                stream.sync();
+                ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
 
-            /*if( ptr->ptcl.ptcl_id() == 4 ) {
-                printf("),\n");
-            }*/
-
+                for(int i=0;i<ptr->K;i++) {
+                    if( ptr->c_ali.ptr[i].w > 0 ) {
+                        sum_cc[i] += ite_cc[i];
+                        if( ite_cc[i] > max_cc[i] ) {
+                            def_rslt[i].angle = 0.0f;
+                            def_rslt[i].U = dU;
+                            def_rslt[i].V = dU;
+                            max_cc[i]  = ite_cc[i];
+                            max_idx[i] = ite_idx[i];
+                        }
+                    }
+                }
+            }
         }
 
-        /*if( ptr->ptcl.ptcl_id() == 4 ) {
-            printf(")\n");
-            printf("%f  --  %f\n",ptr->ptcl.def[15].U,ptr->ptcl.def[15].V);
-        }*/
-
+        single cc_acc=0,wgt_acc=0,cc_cur=0;
         for(int i=0;i<ptr->K;i++) {
-            if( ptr->ptcl.prj_w[i] > 0 ) {
-                max_cc[i] = max_cc[i]/sum_cc[i];
+            if( ptr->c_ali.ptr[i].w > 0 ) {
+                cc_cur  = max_cc[i];
+                cc_acc  += cc_cur;
+                wgt_acc += ptr->ptcl.prj_w[i];
+                update_particle_projection(ptr->ptcl,
+                                   def_rslt[i],ali_data.c_pts[max_idx[i]],cc_cur,
+                                   i,ptr->ctf_vals.apix);
             }
         }
-
-        update_particle(ptr->ptcl,def_rslt,max_cc,ptr->K);
-
-        /*if( ptr->ptcl.ptcl_id() == 4 ) {
-            printf("%f  --  %f\n",ptr->ptcl.def[15].U,ptr->ptcl.def[15].V);
-        }*/
+        ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
     }
 
-    void update_particle(Particle&ptcl,const Defocus*delta_def,const single*cc, const int k) {
+    void update_particle_projection(Particle&ptcl,const Defocus&delta_def,const Vec3&t,const single cc, const int prj_ix,const float apix) {
+        if( ptcl.prj_w[prj_ix] > 0 ) {
+            ptcl.prj_cc[prj_ix] = cc;
+            ptcl.prj_t[prj_ix].x += t.x*apix;
+            ptcl.prj_t[prj_ix].y += t.y*apix;
+            ptcl.def[prj_ix].U += delta_def.U;
+            ptcl.def[prj_ix].V += delta_def.V;
+            ptcl.def[prj_ix].angle += delta_def.angle;
+            ptcl.def[prj_ix].score  = cc;
 
-        for(int i=0;i<k;i++) {
-            if( ptcl.prj_w[i] > 0 ) {
-                ptcl.def[i].U += delta_def[i].U;
-                ptcl.def[i].V += delta_def[i].V;
-                ptcl.prj_cc[i] = cc[i];
-                ptcl.def[i].angle += delta_def[i].angle;
-                ptcl.def[i].score  = cc[i];
-
-                if( est_dose )
-                    ptcl.def[i].ExpFilt = delta_def[i].ExpFilt;
-
-            }
+            if( est_dose )
+                ptcl.def[prj_ix].ExpFilt = delta_def.ExpFilt;
         }
     }
+
 };
 
 class CtfRefRdrWorker : public Worker {
@@ -428,7 +468,7 @@ public:
         worker_cmd = in_worker_cmd;
 
         p_info   = info;
-	int threads_per_gpu = (info->n_threads) / (info->n_gpu);
+        int threads_per_gpu = (info->n_threads) / (info->n_gpu);
         gpu_ix   = info->p_gpu[ id / threads_per_gpu ];
         max_K    = in_max_K;
         pad_type = info->pad_type;
@@ -484,28 +524,33 @@ protected:
     void init_processing_worker(CtfRefGpuWorker&gpu_worker,DoubleBufferHandler*stack_buffer) {
         bp_pad = p_info->fpix_roll/2;
         float bp_scale = ((float)NP)/((float)N);
-        gpu_worker.worker_id  = worker_id;
-        gpu_worker.worker_cmd = worker_cmd;
-        gpu_worker.gpu_ix     = gpu_ix;
-        gpu_worker.p_buffer   = stack_buffer;
-        gpu_worker.N          = N;
-        gpu_worker.M          = M;
-        gpu_worker.P          = P;
-        gpu_worker.R          = R;
-        gpu_worker.p_refs     = p_refs;
-        gpu_worker.use_halves = p_info->use_halves;
-        gpu_worker.pad_type   = pad_type;
-        gpu_worker.max_K      = max_K;
-        gpu_worker.ssnr.x     = p_info->ssnr_F;
-        gpu_worker.ssnr.y     = p_info->ssnr_S;
-        gpu_worker.bandpass.x = max(bp_scale*p_info->fpix_min-bp_pad,0.0);
-        gpu_worker.bandpass.y = min(bp_scale*p_info->fpix_max+bp_pad,((float)NP)/2);
-        gpu_worker.bandpass.z = sqrt(p_info->fpix_roll);
-        gpu_worker.def_range  = p_info->def_range;
-        gpu_worker.def_step   = p_info->def_step;
-        gpu_worker.ang_range  = p_info->ang_range;
-        gpu_worker.ang_step   = p_info->ang_step;
-        gpu_worker.est_dose   = p_info->est_dose;
+        gpu_worker.worker_id   = worker_id;
+        gpu_worker.worker_cmd  = worker_cmd;
+        gpu_worker.gpu_ix      = gpu_ix;
+        gpu_worker.p_buffer    = stack_buffer;
+        gpu_worker.N           = N;
+        gpu_worker.M           = M;
+        gpu_worker.P           = P;
+        gpu_worker.R           = R;
+        gpu_worker.p_refs      = p_refs;
+        gpu_worker.use_halves  = p_info->use_halves;
+        gpu_worker.pad_type    = pad_type;
+        gpu_worker.max_K       = max_K;
+        gpu_worker.ssnr.x      = p_info->ssnr_F;
+        gpu_worker.ssnr.y      = p_info->ssnr_S;
+        gpu_worker.off_par.x   = p_info->off_x;
+        gpu_worker.off_par.y   = p_info->off_y;
+        gpu_worker.off_par.z   = p_info->off_z;
+        gpu_worker.off_par.w   = p_info->off_s;
+        gpu_worker.bandpass.x  = fmax(bp_scale*p_info->fpix_min-bp_pad,0.0);
+        gpu_worker.bandpass.y  = fmin(bp_scale*p_info->fpix_max+bp_pad,((float)NP)/2);
+        gpu_worker.bandpass.z  = sqrt(p_info->fpix_roll);
+        gpu_worker.def_range   = p_info->def_range;
+        gpu_worker.def_step    = p_info->def_step;
+        gpu_worker.ang_range   = p_info->ang_range;
+        gpu_worker.ang_step    = p_info->ang_step;
+        gpu_worker.est_dose    = p_info->est_dose;
+        gpu_worker.astigmatism = p_info->astigmatism;
         gpu_worker.start();
     }
 

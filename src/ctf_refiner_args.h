@@ -49,6 +49,11 @@ typedef struct {
     float  ssnr_S;
     bool   est_dose;
     bool   use_halves;
+    bool   astigmatism;
+    float  off_x;
+    float  off_y;
+    float  off_z;
+    float  off_s;
 
     char   refs_file[SUSAN_FILENAME_LENGTH];
     char   ptcls_out[SUSAN_FILENAME_LENGTH];
@@ -99,24 +104,29 @@ bool validate(const Info&info) {
 
 bool parse_args(Info&info,int ac,char** av) {
     /// Default values:
-    info.n_gpu      = 0;
-    info.n_threads  = 1;
-    info.box_size   = 200;
-    info.fpix_min   = 5;
-    info.fpix_max   = 40;
-    info.fpix_roll  = 4;
-    info.pad_size   = 0;
-    info.pad_type   = PAD_ZERO;
-    info.norm_type  = NO_NORM;
-    info.def_range  = 1000;
-    info.def_step   = 100;
-    info.ang_range  = 20;
-    info.ang_step   = 5;
-    info.verbosity  = 0;
-    info.ssnr_F     = 0;
-    info.ssnr_S     = 0;
-    info.est_dose   = false;
-    info.use_halves = false;
+    info.n_gpu       = 0;
+    info.n_threads   = 1;
+    info.box_size    = 200;
+    info.fpix_min    = 5;
+    info.fpix_max    = 40;
+    info.fpix_roll   = 4;
+    info.pad_size    = 0;
+    info.pad_type    = PAD_ZERO;
+    info.norm_type   = NO_NORM;
+    info.def_range   = 1000;
+    info.def_step    = 100;
+    info.ang_range   = 20;
+    info.ang_step    = 5;
+    info.verbosity   = 0;
+    info.ssnr_F      = 0;
+    info.ssnr_S      = 0;
+    info.est_dose    = false;
+    info.use_halves  = false;
+    info.astigmatism = false;
+    info.off_x       = 0;
+    info.off_y       = 0;
+    info.off_z       = 0;
+    info.off_s       = 1;
 
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
@@ -137,35 +147,39 @@ bool parse_args(Info&info,int ac,char** av) {
         PAD_TYPE,
         NORM_TYPE,
         SSNR,
+        ASTIGMATISM,
         BANDPASS,
         ROLLOFF_F,
         USE_HALVES,
         DEF_SEARCH,
         ANG_SEARCH,
         VERBOSITY,
+        OFF_PARAM,
         EST_DOSE
     };
 
     int c;
     static struct option long_options[] = {
-        {"tomos_file", 1, 0, TOMOS_FILE},
-        {"ptcls_in",   1, 0, PTCLS_IN  },
-        {"ptcls_out",  1, 0, PTCLS_OUT },
-        {"refs_file",  1, 0, REFS_FILE },
-        {"n_threads",  1, 0, N_THREADS },
-        {"gpu_list",   1, 0, GPU_LIST  },
-        {"box_size",   1, 0, BOX_SIZE  },
-        {"pad_size",   1, 0, PAD_SIZE  },
-        {"pad_type",   1, 0, PAD_TYPE  },
-        {"norm_type",  1, 0, NORM_TYPE },
-        {"ssnr_param", 1, 0, SSNR      },
-        {"bandpass",   1, 0, BANDPASS  },
-        {"rolloff_f",  1, 0, ROLLOFF_F },
-        {"def_search", 1, 0, DEF_SEARCH},
-        {"ang_search", 1, 0, ANG_SEARCH},
-        {"est_dose",   1, 0, EST_DOSE  },
-        {"use_halves", 1, 0, USE_HALVES},
-        {"verbosity",   1, 0, VERBOSITY },
+        {"tomos_file", 1, 0, TOMOS_FILE },
+        {"ptcls_in",   1, 0, PTCLS_IN   },
+        {"ptcls_out",  1, 0, PTCLS_OUT  },
+        {"refs_file",  1, 0, REFS_FILE  },
+        {"n_threads",  1, 0, N_THREADS  },
+        {"gpu_list",   1, 0, GPU_LIST   },
+        {"box_size",   1, 0, BOX_SIZE   },
+        {"pad_size",   1, 0, PAD_SIZE   },
+        {"pad_type",   1, 0, PAD_TYPE   },
+        {"norm_type",  1, 0, NORM_TYPE  },
+        {"ssnr_param", 1, 0, SSNR       },
+        {"bandpass",   1, 0, BANDPASS   },
+        {"rolloff_f",  1, 0, ROLLOFF_F  },
+        {"def_search", 1, 0, DEF_SEARCH },
+        {"ang_search", 1, 0, ANG_SEARCH },
+        {"est_dose",   1, 0, EST_DOSE   },
+        {"use_halves", 1, 0, USE_HALVES },
+        {"astigmatism",1, 0, ASTIGMATISM},
+        {"verbosity",  1, 0, VERBOSITY  },
+        {"off_params", 1, 0, OFF_PARAM  },
         {0, 0, 0, 0}
     };
     
@@ -222,8 +236,14 @@ bool parse_args(Info&info,int ac,char** av) {
             case USE_HALVES:
                 info.use_halves = ArgParser::get_bool(optarg);
                 break;
+            case ASTIGMATISM:
+                info.astigmatism = ArgParser::get_bool(optarg);
+                break;
             case VERBOSITY:
                 info.verbosity = atoi(optarg);
+                break;
+            case OFF_PARAM:
+                ArgParser::get_single_quad(info.off_x,info.off_y,info.off_z,info.off_s,optarg);
                 break;
             default:
                 printf("Unknown parameter %d\n",c);

@@ -750,6 +750,20 @@ void radial_avg(float*r_avg, float*r_wgt, const int L, const float*p_in, const i
     radial_avg(r_avg,r_wgt,L,p_in,N,0,N/2);
 }
 
+void fftshift_1D_batch(float*p_data,const int N,const int K) {
+    float a,b;
+    int Nh = N/2;
+    for(int k=0;k<K;k++) {
+        float*p_work = p_data + k*N;
+        for(int i=0;i<Nh;i++) {
+            a = p_work[i   ];
+            b = p_work[i+Nh];
+            p_work[i   ] = b;
+            p_work[i+Nh] = a;
+        }
+    }
+}
+
 void expand_ps_hermitian(float*p_herm, const double*p_ps, const float scale, const uint32 M, const uint32 N, const uint32 K) {
     for(int k=0;k<K;k++) {
         const double* p_in  = p_ps+k*M*N;

@@ -466,6 +466,9 @@ class Particles:
     def halfsets_even_odd(self):
         self.half_id[0::2] = 1
         self.half_id[1::2] = 2
+
+    def halfsets_randomize(self):
+        self.half_id[:] = _np.random.randint(1,3,self.half_id.shape)
         
     def update_position(self,ref_id=0):
         self.position = self.position + self.ali_t[ref_id]
@@ -479,7 +482,7 @@ class Particles:
             dU[i] = dU_in[i] + z_coef*dZ
             dV[i] = dV_in[i] + z_coef*dZ
 
-    def update_defocus(self,tomos_info,ref_id=0,z_sign=-1):
+    def update_defocus(self,tomos_info,ref_id=0,z_sign=None):
         
         # Calculate tilt rotation matrix
         R_arr = _np.zeros((tomos_info.n_tomos,tomos_info.n_projs,3,3),dtype=_np.float32)
@@ -501,7 +504,8 @@ class Particles:
             
             # Note: Numba makes it ~23.3 times faster
             pos = self.position[k] + self.ali_t[ref_id,k]
-            z_sign = tomos_info.handedness[tid]
+            if z_sign is None:
+                z_sign = tomos_info.handedness[tid]
             Particles._update_new_defocus(
                 self.def_U[k],
                 self.def_V[k],

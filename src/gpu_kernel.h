@@ -75,40 +75,179 @@ __device__ bool first_thread_in_block() {
     return (threadIdx.x==0) && (threadIdx.y==0) && (threadIdx.z==0);
 }
 
-__device__ long get_2d_idx(const int x,const int y,const int3&ss_siz) {
+__device__ __forceinline__ float hanning_1d(const int n,const int N){
+    float f = float(n)/float(N-1);
+    if (N <= 1)
+        return 1.0f;
+    else
+        return 0.5f * (1-cosf(2.0f*M_PI*f));
+}
+
+__device__ __forceinline__ long get_2d_idx(const int x,const int y,const int3&ss_siz) {
     return x + y*ss_siz.x;
 }
 
-__device__ long get_2d_idx(const int3&ss_idx,const int3&ss_siz) {
+__device__ __forceinline__ long get_2d_idx(const int3&ss_idx,const int3&ss_siz) {
     return get_2d_idx(ss_idx.x,ss_idx.y,ss_siz);
 }
 
-__device__ long get_3d_idx(const int x,const int y,const int z,const int X,const int Y) {
+__device__ __forceinline__ long get_3d_idx(const int x,const int y,const int z,const int X,const int Y) {
     return x + y*X + z*X*Y;
 }
 
-__device__ long get_3d_idx(const int x,const int y,const int z,const int3&ss_siz) {
+__device__ __forceinline__ long get_3d_idx(const int x,const int y,const int z,const int3&ss_siz) {
     return get_3d_idx(x,y,z,ss_siz.x,ss_siz.y);
 }
 
-__device__ long get_3d_idx(const int3&ss_idx,const int3&ss_siz) {
+__device__ __forceinline__ long get_3d_idx(const int3&ss_idx,const int3&ss_siz) {
     return get_3d_idx(ss_idx.x,ss_idx.y,ss_idx.z,ss_siz.x,ss_siz.y);
 }
 
-__device__ long get_3d_idx(const uint3&ss_idx,const dim3&ss_siz) {
+__device__ __forceinline__ long get_3d_idx(const uint3&ss_idx,const dim3&ss_siz) {
     return get_3d_idx(ss_idx.x,ss_idx.y,ss_idx.z,ss_siz.x,ss_siz.y);
 }
 
-__device__ int fftshift_idx(const int idx, const int center) {
+__device__  __forceinline__ float get_kaisser_bessel_kernel_polyfit(const float t) {
+    float t2 = t*t;
+    float t4 = t2*t2;
+    float t6 = t4*t2;
+    float t8 = t6*t2;
+    float rslt = 0.99939224;
+    rslt -= 3.37246839*t2;
+    rslt += 4.70532537*t4;
+    rslt -= 3.26100335*t6;
+    rslt += 0.93508816*t8;
+    return rslt;
+}
+
+__device__ __forceinline__ float get_kaisser_bessel_correction_polyfit(const float t) {
+    float t2 = t*t;
+    float t4 = t2*t2;
+    float t6 = t4*t2;
+    float rslt = 1.10650522;
+    rslt -= 0.51809905*t2;
+    rslt += 0.40407865*t4;
+    rslt -= 0.09941299*t6;
+    return rslt;
+}
+
+__device__ __forceinline__ float sinc(const float t) {
+    if( fabsf(t)<1e-6f ) return 1.0f;
+    float pt = M_PI * t;
+    return sinf(pt) / pt;
+
+}
+
+__device__ __forceinline__ int fftshift_idx(const int idx, const int center) {
     return (idx<center) ? idx + center : idx - center;
 }
 
-__device__ float l2_distance(const float x, const float y) {
+__device__ __forceinline__ float l2_distance(const float x, const float y) {
     return sqrtf( x*x + y*y );
 }
 
-__device__ float l2_distance(const float x, const float y, const float z) {
+__device__ __forceinline__ float l2_distance(const float x, const float y, const float z) {
     return sqrtf( x*x + y*y + z*z );
+}
+
+__device__ __forceinline__ void insert_into_stk(double*p_acc, double*p_wgt, float val, const float x, const float y, const int z, const int3 ss_siz) {
+    int x0 = int(floorf(x));
+    int y0 = int(floorf(y));
+
+    float dx = x - x0;
+    float dy = y - y0;
+
+    if(x0>=0 && y0>=0 && (x0+1)<ss_siz.x && (y0+1)<ss_siz.y) {
+        float w00 = (1.0f-dx)*(1.0f-dy);
+        float w10 = (     dx)*(1.0f-dy);
+        float w01 = (1.0f-dx)*(     dy);
+        float w11 = dx*dy;
+
+        long int idx00 = get_3d_idx(x0  ,y0  ,z,ss_siz);
+        long int idx10 = get_3d_idx(x0+1,y0  ,z,ss_siz);
+        long int idx01 = get_3d_idx(x0  ,y0+1,z,ss_siz);
+        long int idx11 = get_3d_idx(x0+1,y0+1,z,ss_siz);
+
+        atomic_Add(p_acc+idx00,w00*val);
+        atomic_Add(p_wgt+idx00,w00    );
+
+        atomic_Add(p_acc+idx10,w10*val);
+        atomic_Add(p_wgt+idx10,w10    );
+
+        atomic_Add(p_acc+idx01,w01*val);
+        atomic_Add(p_wgt+idx01,w01    );
+
+        atomic_Add(p_acc+idx11,w11*val);
+        atomic_Add(p_wgt+idx11,w11    );
+    }
+}
+
+__device__ __forceinline__ void insert_into_stk(float*p_acc, float*p_wgt, float val, const float x, const float y, const int z, const int3 ss_siz) {
+    int x0 = int(floorf(x));
+    int y0 = int(floorf(y));
+
+    float dx = x - x0;
+    float dy = y - y0;
+
+    if(x0>=0 && y0>=0 && (x0+1)<ss_siz.x && (y0+1)<ss_siz.y) {
+        float w00 = (1.0f-dx)*(1.0f-dy);
+        float w10 = (     dx)*(1.0f-dy);
+        float w01 = (1.0f-dx)*(     dy);
+        float w11 = dx*dy;
+
+        long int idx00 = get_3d_idx(x0  ,y0  ,z,ss_siz);
+        long int idx10 = get_3d_idx(x0+1,y0  ,z,ss_siz);
+        long int idx01 = get_3d_idx(x0  ,y0+1,z,ss_siz);
+        long int idx11 = get_3d_idx(x0+1,y0+1,z,ss_siz);
+
+        atomicAdd(p_acc+idx00,w00*val);
+        atomicAdd(p_wgt+idx00,w00    );
+
+        atomicAdd(p_acc+idx10,w10*val);
+        atomicAdd(p_wgt+idx10,w10    );
+
+        atomicAdd(p_acc+idx01,w01*val);
+        atomicAdd(p_wgt+idx01,w01    );
+
+        atomicAdd(p_acc+idx11,w11*val);
+        atomicAdd(p_wgt+idx11,w11    );
+    }
+}
+
+__device__ __forceinline__ float extract_from_stk(const float* p_data, const float x, const float y, const int z, const int3 ss_siz) {
+    int x0 = int(floorf(x));
+    int y0 = int(floorf(y));
+
+    float dx = x - x0;
+    float dy = y - y0;
+
+    if (x0 < 0 || y0 < 0 || (x0 + 1) >= ss_siz.x || (y0 + 1) >= ss_siz.y)
+        return 0.0f;
+
+    float w00 = (1.0f-dx)*(1.0f-dy);
+    float w10 = (     dx)*(1.0f-dy);
+    float w01 = (1.0f-dx)*(     dy);
+    float w11 = dx*dy;
+
+    long int idx00 = get_3d_idx(x0  ,y0  ,z,ss_siz);
+    long int idx10 = get_3d_idx(x0+1,y0  ,z,ss_siz);
+    long int idx01 = get_3d_idx(x0  ,y0+1,z,ss_siz);
+    long int idx11 = get_3d_idx(x0+1,y0+1,z,ss_siz);
+
+    float acc = 0;
+    float wgt = 0;
+
+    acc += w00*p_data[idx00];
+    acc += w10*p_data[idx10];
+    acc += w01*p_data[idx01];
+    acc += w11*p_data[idx11];
+
+    wgt += w00;
+    wgt += w10;
+    wgt += w01;
+    wgt += w11;
+
+    return (wgt > 0.0f) ? acc/wgt : 0.0f;
 }
 
 __device__ void get_xyR(float&x,float&y,float&R,const float in_x,const float in_y) {
@@ -306,6 +445,57 @@ __global__ void sampling_correction_2D(float2*p_work,const float correction,cons
             val.y *= correction;
             p_work[ idx ] = val;
         }
+    }
+}
+
+__global__ void real_to_complex(float2*p_out,const float*p_in,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        long idx = get_3d_idx(ss_idx,ss_siz);
+        float2 val = {0,0};
+        val.x = p_in[idx];
+        p_out[idx] = val;
+    }
+}
+
+__global__ void analytical_signal_1D(float2*p_work,const int M,const int N,const int R,const int K) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < N && ss_idx.y < (R*K) && ss_idx.z == 0 ) {
+
+        long int idx = ss_idx.x + ss_idx.y*N;
+        float2 val = p_work[idx];
+
+        if( ss_idx.x>0 && ss_idx.x<(N/2) ) {
+            val.x *= 2.0f;
+            val.y *= 2.0f;
+        }
+        else if( ss_idx.x>(N/2)) {
+            val.x = 0.0f;
+            val.y = 0.0f;
+        }
+
+        p_work[idx] = val;
+    }
+}
+
+__global__ void as_amplitude_normalize_clamp(float*p_out,const float2*p_in,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        long idx = get_3d_idx(ss_idx,ss_siz);
+        float2 val = p_in[idx];
+        float den = cuCabsf(val);
+        if(den<1e-10)
+            den = 1.0;
+        float rslt = ((val.x/den)/2.0f) + 0.5f;
+        p_out[idx] = fminf(fmaxf(rslt,0.0f),1.0f);
     }
 }
 
@@ -509,7 +699,59 @@ __global__ void load_surf_real_positive(cudaSurfaceObject_t out_surf,const float
     }
 }
 
-__global__ void conv_gaussian(float*p_out,const float*p_in,float num,float scl,const int3 ss_siz) {
+__global__ void conv_gauss_1D_X(float*p_out,const float*p_in,const float num,const float scl,const int3 ss_siz,const bool is_hermitian) {
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x >= ss_siz.x || ss_idx.y >= ss_siz.y || ss_idx.z >= ss_siz.z )
+        return;
+
+    float val = 0.0f;
+
+    for(int x=-15;x<=15;x++) {
+        float wgt = expf(-num*float(x)*float(x))/scl;
+
+        int X = ss_idx.x + x;
+        int Y = ss_idx.y;
+
+        if (X < 0) {
+            X = -X;
+            if (is_hermitian) {
+                Y = ss_siz.y - Y;
+                if (Y == ss_siz.y) Y = 0;
+            }
+        }
+        if (X >= ss_siz.x)
+            X = 2*(ss_siz.x-1)-X;
+
+        val += wgt*p_in[ get_3d_idx(X,Y,ss_idx.z,ss_siz) ];
+    }
+    p_out[get_3d_idx(ss_idx,ss_siz)] = val;
+}
+
+__global__ void conv_gauss_1D_Y(float*p_out,const float*p_in,const float num,const float scl,const int3 ss_siz) {
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x >= ss_siz.x || ss_idx.y >= ss_siz.y || ss_idx.z >= ss_siz.z )
+        return;
+
+    float val = 0.0f;
+
+    for(int y=-15;y<=15;y++) {
+        float wgt = expf(-num*float(y)*float(y))/scl;
+
+        int Y = ss_idx.y + y;
+
+        if (Y < 0)
+            Y = -Y;
+        if (Y >= ss_siz.y)
+            Y = 2*(ss_siz.y-1)-Y;
+
+        val += wgt*p_in[ get_3d_idx(ss_idx.x,Y,ss_idx.z,ss_siz) ];
+    }
+    p_out[get_3d_idx(ss_idx,ss_siz)] = val;
+}
+
+__global__ void conv_gaussian(float*p_out,const float*p_in,float num,float scl,const int3 ss_siz, const bool is_complex=true) {
     ///    num    scl:
     /// 0.5000, 6.2831
     /// 0.2500,12.5372
@@ -523,20 +765,27 @@ __global__ void conv_gaussian(float*p_out,const float*p_in,float num,float scl,c
 
         for(int y=-4;y<5;y++) {
             for(int x=-4;x<5;x++) {
-                float r = l2_distance(x,y);
-                float wgt = exp(-num*r*r)/scl;
+                float r2  = float(x*x + y*y);
+                float wgt = expf(-num*r2)/scl;
+
                 int X = ss_idx.x + x;
                 int Y = ss_idx.y + y;
+
                 if( X < 0 ) {
                     X = -X;
-                    Y = ss_siz.y-Y;
+                    if( is_complex )
+                        Y = ss_siz.y-Y;
+                    if( Y == ss_siz.y )
+                        Y = 0;
                 }
-                if( Y < 0 )
-                    Y = -Y;
                 if( X >= ss_siz.x )
                     X = 2*(ss_siz.x-1)-X;
+
+                if( Y < 0 )
+                    Y = -Y;
                 if( Y >= ss_siz.y )
                     Y = 2*(ss_siz.y-1)-Y;
+
                 val += wgt*p_in[ get_3d_idx(X,Y,ss_idx.z,ss_siz) ];
             }
         }
@@ -545,7 +794,30 @@ __global__ void conv_gaussian(float*p_out,const float*p_in,float num,float scl,c
     }
 }
 
-__global__ void stk_medfilt(float*p_out,const float*p_in,const int3 ss_siz) {
+__global__ void stk_hanning(float*p_val,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+        long idx = get_3d_idx(ss_idx,ss_siz);
+        float wx = hanning_1d(ss_idx.x,ss_siz.x);
+        float wy = hanning_1d(ss_idx.y,ss_siz.y);
+        p_val[idx] *= (wx*wy);
+    }
+}
+
+__global__ void arr_hanning(float*p_val,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+        long idx = get_3d_idx(ss_idx,ss_siz);
+        float wx = hanning_1d(ss_idx.x,ss_siz.x);
+        p_val[idx] *= wx;
+    }
+}
+
+__global__ void stk_medfilt_k3(float*p_out,const float*p_in,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();
 
@@ -601,28 +873,13 @@ __global__ void stk_medfilt(float*p_out,const float*p_in,const int3 ss_siz) {
         v8 = p_in[ get_3d_idx(x,y,ss_idx.z,ss_siz) ];
 
         /// SORT!
-        SN2(v0,v1,tmp);
-        SN2(v2,v3,tmp);
-        SN2(v4,v5,tmp);
-        SN2(v6,v7,tmp);
-        SN2(v0,v2,tmp);
-        SN2(v4,v6,tmp);
-        SN2(v1,v3,tmp);
-        SN2(v5,v7,tmp);
-        SN2(v1,v2,tmp);
-        SN2(v6,v7,tmp);
-        SN2(v0,v4,tmp);
-        SN2(v1,v5,tmp);
-        SN2(v2,v6,tmp);
-        SN2(v3,v7,tmp);
-        SN2(v2,v4,tmp);
-        SN2(v3,v5,tmp);
-        SN2(v1,v2,tmp);
-        SN2(v3,v4,tmp);
-        SN2(v5,v6,tmp);
-        SN2(v0,v7,tmp);
-        SN2(v4,v8,tmp);
-        SN2(v2,v4,tmp);
+        SN2(v1,v2,tmp); SN2(v4,v5,tmp); SN2(v7,v8,tmp);
+        SN2(v0,v1,tmp); SN2(v3,v4,tmp); SN2(v6,v7,tmp);
+        SN2(v1,v2,tmp); SN2(v4,v5,tmp); SN2(v7,v8,tmp);
+        SN2(v0,v3,tmp); SN2(v5,v8,tmp); SN2(v4,v7,tmp);
+        SN2(v3,v6,tmp); SN2(v1,v4,tmp); SN2(v2,v5,tmp);
+        SN2(v4,v7,tmp); SN2(v4,v2,tmp); SN2(v6,v4,tmp);
+        SN2(v4,v2,tmp);
 
         p_out[get_3d_idx(ss_idx,ss_siz)] = v4;
     }
@@ -787,6 +1044,19 @@ __global__ void load_abs(float*p_out,const float2*p_in,const int3 ss_siz) {
     }
 }
 
+__global__ void load_ps(float*p_out,const float2*p_in,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        long idx = get_3d_idx(ss_idx,ss_siz);
+        float2 val = p_in[idx];
+        float v = cuCabsf(val);
+        p_out[idx] = (v*v);
+    }
+}
+
 __global__ void radial_ps_avg(float*p_avg,float*p_wgt,const float*p_in,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();
@@ -802,6 +1072,43 @@ __global__ void radial_ps_avg(float*p_avg,float*p_wgt,const float*p_in,const int
         if( r < ss_siz.x ) {
             atomicAdd(p_avg + idx,val);
             atomicAdd(p_wgt + idx,1.0);
+        }
+    }
+}
+
+__global__ void radial_ps_avg_linearized(float*p_avg,float*p_wgt,const float*p_in,const float max_res,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        int N  = ss_siz.y;
+        int Nh = N/2;
+        float x = ss_idx.x;
+        float y = ss_idx.y - Nh;
+        float s = l2_distance(x,y)/(Nh*max_res);
+
+        if(s<1.0) {
+            float r = s*s;
+            float u = r*Nh;
+            float val = p_in[get_3d_idx(ss_idx,ss_siz)];
+            float w0 = 1.0f - (u - floorf(u));
+            float w1 = u - floorf(u);
+
+            #pragma unroll
+            for(int b=0;b<2;b++) {
+                int bin = (int)floorf(u) + b;
+                float w = (b==0)? w0 : w1;
+
+                #pragma unroll
+                for(int sym=0;sym<2;sym++) {
+                    int idx = (sym==0) ? (Nh+bin) : (Nh-bin);
+                    if( idx>=0 && idx<N) {
+                        atomicAdd(p_avg+idx+ss_idx.z*N, w*val);
+                        atomicAdd(p_wgt+idx+ss_idx.z*N, w);
+                    }
+                }
+            }
         }
     }
 }
@@ -1010,6 +1317,103 @@ __global__ void radial_frc_norm_vol(float2*p_data,const float*p_avg,const int3 s
     }
 }
 
+__global__ void to_polar(float*p_out,const float*p_data,const float ang_step, const int3 ss_stk,const int3 ss_out) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_out.x && ss_idx.y < ss_out.y && ss_idx.z < ss_out.z ) {
+
+        int   Nh  = ss_out.x/2;
+        int   rad = ss_idx.x - Nh;
+        float ang = ss_idx.y*ang_step;
+
+        float x = rad*sinf(ang)+Nh;
+        float y = rad*cosf(ang)+Nh;
+
+        p_out[ get_3d_idx(ss_idx,ss_out) ] = extract_from_stk(p_data,x,y,ss_idx.z,ss_stk);
+    }
+
+}
+
+__global__ void to_polar_complex(float2*p_out,const float*p_data,const float ang_step, const int3 ss_stk,const int3 ss_out) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_out.x && ss_idx.y < ss_out.y && ss_idx.z < ss_out.z ) {
+
+        float2 val = {0,0};
+
+        int   Nh  = ss_out.x/2;
+        int   rad = ss_idx.x - Nh;
+        float ang = ss_idx.y*ang_step;
+
+        float x = rad*sinf(ang)+Nh;
+        float y = rad*cosf(ang)+Nh;
+
+        val.x = extract_from_stk(p_data,x,y,ss_idx.z,ss_stk);
+        p_out[ get_3d_idx(ss_idx,ss_out) ] = val;
+    }
+
+}
+
+__global__ void polar_to_cart_complex(float2*p_out,const float2*p_data,const float ang_step, const int N, const int R, const int K) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < N && ss_idx.y < N && ss_idx.z < K ) {
+
+        int   Nh  = N/2;
+
+        float x = ss_idx.x - Nh;
+        float y = ss_idx.y - Nh;
+
+        float r = l2_distance(x,y);
+        float a = atan2f(x,y);
+
+        if(a<0)
+            a += M_PI;
+
+        if(a>=M_PI)
+            a -= M_PI;
+
+        r += Nh;
+        a  = a / ang_step;
+
+        float2 val = {0,0};
+
+        if( (r>=0) && (r<(N-1)) ) {
+            int r0 = floorf(r);
+            int a0 = floorf(a);
+            int r1 = r0 + 1;
+            int a1 = a0 + 1;
+
+            float wr = r - r0;
+            float wa = a - a0;
+
+            a0 = a0 % R;
+            a1 = a1 % R;
+
+            float2 v00 = p_data[ get_3d_idx(r0,a0,ss_idx.z,N,R) ];
+            float2 v01 = p_data[ get_3d_idx(r0,a1,ss_idx.z,N,R) ];
+            float2 v10 = p_data[ get_3d_idx(r1,a0,ss_idx.z,N,R) ];
+            float2 v11 = p_data[ get_3d_idx(r1,a1,ss_idx.z,N,R) ];
+
+            val.x = (1-wr)*(1-wa)*v00.x +
+                    (1-wr)*(  wa)*v01.x +
+                    (  wr)*(1-wa)*v10.x +
+                    (  wr)*(  wa)*v11.x;
+            val.y = (1-wr)*(1-wa)*v00.y +
+                    (1-wr)*(  wa)*v01.y +
+                    (  wr)*(1-wa)*v10.y +
+                    (  wr)*(  wa)*v11.y;
+
+        }
+
+        p_out[ get_3d_idx(ss_idx.x,ss_idx.y,ss_idx.z,N,N) ] = val;
+    }
+
+}
+
 __global__ void get_energy_stk(float*p_avg,const float*p_ctf,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();
@@ -1091,6 +1495,19 @@ __global__ void divide(float*p_avg,const float wgt,const int3 ss_siz) {
     }
 }
 
+__global__ void substract(float*p_out,const float*p_sub,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        int idx = get_3d_idx(ss_idx,ss_siz);
+        float v1 = p_out[ idx ];
+        float v2 = p_sub[ idx ];
+        p_out[ idx ] = v1 - v2;
+    }
+}
+
 __global__ void load_pad(float*p_out,const float*p_in,const int3 half_pad,const int3 ss_raw,const int3 ss_pad) {
 
     int3 ss_idx = get_th_idx();
@@ -1104,6 +1521,21 @@ __global__ void load_pad(float*p_out,const float*p_in,const int3 half_pad,const 
     }
 
 }
+
+__global__ void load_pad(float2*p_out,const float2*p_in,const int3 half_pad,const int3 ss_raw,const int3 ss_pad) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_raw.x && ss_idx.y < ss_raw.y && ss_idx.z < ss_raw.z ) {
+
+        int idx_in  = get_3d_idx(ss_idx,ss_raw);
+        int idx_out = get_3d_idx(ss_idx.x+half_pad.x,ss_idx.y+half_pad.y,ss_idx.z+half_pad.z,ss_pad);
+        float2 data = p_in[idx_in];
+        p_out[idx_out] = data;
+    }
+
+}
+
 
 __global__ void remove_pad_vol(float*p_out,const float*p_in,const int half_pad,const int3 ss_raw,const int3 ss_pad) {
 
@@ -1406,21 +1838,6 @@ __global__ void norm_complex(float2*p_data,const int3 ss_siz) {
         p_data[ idx ] = val;
     }
 }
-
-
-/*
-__global__ void fftshift_and_load_surf(cudaSurfaceObject_t out_surf, const float*p_in, const int N, const int K)
-{
-    int thx, thy, thz;
-    get_th_idx(thx,thy,thz);
-
-    if( thx < N && thy < N && thz < K ) {
-        float val = p_in[ get_3d_idx(thx,thy,thz,N,N) ];
-        int x = fftshift_idx(thx,N/2);
-        int y = fftshift_idx(thy,N/2);
-        surf2DLayeredwrite<float>(val,out_surf,x*sizeof(float),y,thz);
-    }
-}*/
 
 }
 

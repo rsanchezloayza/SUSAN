@@ -113,7 +113,7 @@ protected:
         while( p_buffer->RO_get_status() > DONE ) {
             if( p_buffer->RO_get_status() == READY ) {
                 CtfBuffer*ptr = (CtfBuffer*)p_buffer->RO_get_buffer();
-                gpu.average(ptr->g_substack.ptr,binning);
+                gpu.average(ptr->g_substack.ptr,ptr->g_factor.ptr);
             }
             p_buffer->RO_sync();
         }
@@ -128,7 +128,7 @@ protected:
         while( p_buffer->RO_get_status() > DONE ) {
             if( p_buffer->RO_get_status() == READY ) {
                 CtfBuffer*ptr = (CtfBuffer*)p_buffer->RO_get_buffer();
-                gpu.normal(ptr->g_substack.ptr,ptr->g_factor.ptr,binning);
+                gpu.normal(ptr->g_substack.ptr,ptr->g_factor.ptr);
             }
             p_buffer->RO_sync();
         }
@@ -148,16 +148,20 @@ public:
     Tomogram        *p_tomo;
     int             gpu_ix;
     int             max_K;
-    float           base_defocus;
+    int             k0;
+    float           *base_defocus;
 
     GPU::GHostSingle c_rslt;
 
     SubstackCrop    ss_cropper;
 
     CtfRdrWorker() {
+        base_defocus = NULL;
     }
 
     ~CtfRdrWorker() {
+        if( base_defocus == NULL )
+            delete [] base_defocus;
     }
 
     void setup_global_data(int id,int in_max_K,ArgsCTF::Info*info,WorkerCommand*in_worker_cmd) {
@@ -167,7 +171,12 @@ public:
         int threads_per_gpu = (info->n_threads) / (info->n_gpu);
         gpu_ix     = info->p_gpu[ id / threads_per_gpu ];
         max_K      = in_max_K;
-        base_defocus = 1;
+        k0         = 0;
+        base_defocus = new float [max_K];
+        for(int k=0;k<max_K;k++) {
+            base_defocus[k] = 1.0f;
+        }
+
     }
 
     void setup_working_data(float*stack,ParticlesSubset*ptcls,Tomogram*tomo) {
@@ -258,7 +267,7 @@ protected:
             pt_crop = pt_stack/p_tomo->pix_size + p_tomo->stk_center;
 
             /// Setup data for upload to GPU
-            p_factor[k].x = sqrt(base_defocus/(base_defocus-pt_stack(2)));
+            p_factor[k].x = sqrt(base_defocus[k]/(base_defocus[k]-pt_stack(2)));
             p_factor[k].y = 1;
 
             /// Crop
@@ -275,7 +284,7 @@ protected:
                     p_factor[k].y = 0;
                 }
                 else {
-                    Math::vst(ss_ptr,N*N,std);
+                    Math::normalize(ss_ptr,N*N,avg,std);
                 }
 
             }
@@ -351,18 +360,24 @@ protected:
 
         w_cmd.presend_sync();
         clear_workers();
-        reduce_and_bcast();
+        reduce_and_bcast(tomo.stk_dim.z);
         if( p_info->verbose > 1 ) {
             sprintf(filename,"%s/Tomo%03d/ctf_average_raw.mrc",p_info->out_dir,tomo.tomo_id);
             Mrc::write(workers[0].c_rslt.ptr,(p_info->box_size/2)+1,p_info->box_size,tomo.num_proj,filename);
         }
         sprintf(filename,"%s/Tomo%03d",p_info->out_dir,tomo.tomo_id);
-        float tomo_def = initial_estimation(filename,workers[0].c_rslt.ptr,tomo);
+        int k0;
+        float tomo_def = initial_estimation(workers[0].base_defocus,k0,filename,workers[0].c_rslt.ptr,tomo);
         printf(" Initial tomogram Defocus: %8.1f Å\n",tomo_def);
 
         for(int i=0;i<p_info->n_threads;i++) {
-            workers[i].base_defocus = tomo_def;
+            workers[i].k0 = k0;
         }
+        for(int i=1;i<p_info->n_threads;i++) {
+            for(int k=0;k<tomo.num_proj;k++)
+                workers[i].base_defocus[k] = workers[0].base_defocus[k];
+        }
+
         w_cmd.send_command(CtfCmd::CTF_NORM);
 
         while( (count=count_progress()) < ptcls.n_ptcl ) {
@@ -372,16 +387,17 @@ protected:
         }
         printf("\r        Normalizing [%5d particles]: %6.2f%%.",ptcls.n_ptcl,100.0);
         fflush(stdout);
+        printf("\n");
 
         w_cmd.presend_sync();
         clear_workers();
-        reduce_and_bcast();
+        reduce_and_bcast(tomo.stk_dim.z);
         if( p_info->verbose > 1 ) {
             sprintf(filename,"%s/Tomo%03d/ctf_normalized_raw.mrc",p_info->out_dir,tomo.tomo_id);
             Mrc::write(workers[0].c_rslt.ptr,(p_info->box_size/2)+1,p_info->box_size,tomo.num_proj,filename);
         }
         sprintf(filename,"%s/Tomo%03d",p_info->out_dir,tomo.tomo_id);
-        post_process(filename,workers[0].c_rslt.ptr,tomo);
+        post_process(filename,workers[0].c_rslt.ptr,tomo,k0);
         w_cmd.send_command(WorkerCommand::BasicCommands::CMD_IDLE);
 
     }
@@ -401,11 +417,13 @@ protected:
         return count;
     }
 
-    void reduce_and_bcast() {
-        int l = (p_info->box_size/2+1)*p_info->box_size*max_K;
+    void reduce_and_bcast(const int K) {
+        int p = (p_info->box_size/2+1)*p_info->box_size;
+        int l = p*K;
         if( p_info->n_threads > 1 ) {
             for(int i=1;i<p_info->n_threads;i++)
                 Math::sum(workers[0].c_rslt.ptr,workers[i].c_rslt.ptr,l);
+            Math::mul(workers[0].c_rslt.ptr,1.0f/p_info->n_threads,l);
 
             for(int i=1;i<p_info->n_threads;i++)
                 memcpy(workers[i].c_rslt.ptr,workers[0].c_rslt.ptr,l);
@@ -417,16 +435,21 @@ protected:
             workers[i].work_progress = 0;
     }
 
-    float initial_estimation(const char*out_dir,single*ptr,Tomogram&tomo) {
-        CtfLinearizer ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj);
+    float initial_estimation(single*p_def_rslt,int&k0,const char*out_dir,single*p_data,Tomogram&tomo) {
+        CtfLinearizer1D ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj);
         ctf_lin.load_info(p_info,&tomo);
-        return ctf_lin.initial_estimation(out_dir,ptr,&tomo);
+        float defocus = ctf_lin.get_rough_estimate(out_dir,p_data);
+        for(int k=0;k<tomo.num_proj;k++)
+            p_def_rslt[k] = ctf_lin.c_defocus[k];
+        k0 = ctf_lin.k0;
+        return defocus;
     }
 
-    void post_process(const char*out_dir,single*ptr,Tomogram&tomo) {
+    void post_process(const char*out_dir,single*p_data,Tomogram&tomo,int k0) {
         CtfLinearizer ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj);
         ctf_lin.load_info(p_info,&tomo);
-        ctf_lin.process(out_dir,ptr,&tomo);
+        ctf_lin.initial_estimation(out_dir,p_data);
+        ctf_lin.process(out_dir,p_data,&tomo,k0);
     }
 
 };

@@ -382,7 +382,7 @@ protected:
     }
 
     void insert_vol(RecAcc&vol,RecSubstack&ss_data,RecBuffer&ptr,GPU::Stream&stream) {
-        vol.insert(ss_data.ss_tex,ss_data.ss_ctf,ptr.g_ali,bandpass,ptr.K,stream);
+        vol.insert_linear_fwd(ss_data.ss_tex,ss_data.ss_ctf,ptr.g_ali,bandpass,ptr.K,stream);
     }
 
     void reconstruct_core(GPU::GArrSingle&p_vol,RecInvWgt&inv_wgt,RecInvVol&inv_vol,GPU::GArrDouble2&p_acc,GPU::GArrDouble&p_wgt) {

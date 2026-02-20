@@ -44,6 +44,7 @@ typedef struct {
     uint32 ctf_type;
     uint32 wgt_type;
     uint32 norm_type;
+    uint32 grid_type;
     int    w_inv_ite;
     float  w_inv_std;
     float  ssnr_F;
@@ -106,6 +107,7 @@ bool parse_args(Info&info,int ac,char** av) {
     info.ctf_type    = INV_WIENER;
     info.wgt_type    = WGT_NONE;
     info.norm_type   = NO_NORM;
+    info.grid_type   = GRIDDING_LINEAR_FWD;
     info.w_inv_ite   = 10;
     info.w_inv_std   = 0.75;
     info.ssnr_F      = 0;
@@ -136,6 +138,7 @@ bool parse_args(Info&info,int ac,char** av) {
         NORM_TYPE,
         CTF_TYPE,
         WGT_TYPE,
+        GRID_TYPE,
         SSNR,
         W_INV_ITE,
         W_INV_STD,
@@ -162,6 +165,7 @@ bool parse_args(Info&info,int ac,char** av) {
         {"norm_type",   1, 0, NORM_TYPE  },
         {"ctf_type",    1, 0, CTF_TYPE   },
         {"wgt_type",    1, 0, WGT_TYPE   },
+        {"grid_type",   1, 0, GRID_TYPE  },
         {"ssnr_param",  1, 0, SSNR       },
         {"w_inv_iter",  1, 0, W_INV_ITE  },
         {"w_inv_gstd",  1, 0, W_INV_STD  },
@@ -210,6 +214,9 @@ bool parse_args(Info&info,int ac,char** av) {
                 break;
             case WGT_TYPE:
                 info.wgt_type = ArgParser::get_weighting_type(optarg);
+                break;
+            case GRID_TYPE:
+                info.grid_type = ArgParser::get_gridding_type(optarg);
                 break;
             case BANDPASS:
                 ArgParser::get_single_pair(info.fpix_min,info.fpix_max,optarg);
@@ -332,7 +339,7 @@ void print_full(const Info&info,FILE*fp) {
 
 }
 
-void print_minimal(const Info&info,FILE*fp) {
+void print_basic(const Info&info,FILE*fp) {
     fprintf(fp,"    Volume reconstruction");
     if( info.rec_halves )
         fprintf(fp," (including half-sets)");
@@ -411,9 +418,31 @@ void print_minimal(const Info&info,FILE*fp) {
     }
 }
 
+void print_minimal(const Info&info,FILE*fp) {
+    if( info.rec_halves )
+        fprintf(fp,"    Reconstructing halfmaps");
+    else
+        fprintf(fp,"    Reconstructing volumes");
+
+    fprintf(fp," [%d",info.box_size);
+    if( info.pad_size > 0 )
+        fprintf(fp,"+%d",info.pad_size);
+    fprintf(fp,"]:");
+
+    fprintf(fp," %s | %s ",info.ptcls_in,info.tomos_in);
+    fprintf(fp,"-> %s",info.out_pfx);
+
+    if( info.n_gpu > 1 )
+        fprintf(fp," on %d GPUs.\n",info.n_gpu);
+    else
+        fprintf(fp," on 1 GPU.\n");
+}
+
 void print(const Info&info,FILE*fp=stdout) {
-    if( info.verbosity > 0 )
+    if( info.verbosity == VERBOSITY_FULL )
         print_full(info,fp);
+    else if( info.verbosity == VERBOSITY_BASIC )
+        print_basic(info,fp);
     else
         print_minimal(info,fp);
 }

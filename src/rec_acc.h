@@ -181,11 +181,19 @@ public:
         vol_wgt.clear();
     }
 
-    void insert(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
-        /// insert_stk faster for small volumes (no bottleneck, more operations).
+    void insert_linear_fwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
         /// insert_stk_atomic faster for larger volumes (small bottleneck, less operations).
-        //GpuKernelsVol::insert_stk<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
         GpuKernelsVol::insert_stk_atomic<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
+    }
+
+    void insert_linear_bwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
+        /// insert_stk faster for small volumes (no bottleneck, more operations).
+        GpuKernelsVol::insert_stk<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
+    }
+
+    void insert_kaiser_bessel_fwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
+        /// insert_stk_atomic faster for larger volumes (small bottleneck, less operations).
+        GpuKernelsVol::insert_stk_kb_atomic<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
     }
 
     void fftshift_wgt(GPU::Stream&stream) {
@@ -228,8 +236,15 @@ public:
         alloc();
     }
 
-    void invert(GPU::GArrDouble&vol_wgt) {
-        if( inv_iter > 0 ) {
+    void invert(GPU::GArrDouble&vol_wgt,int lambda_type=INV_PHASE_FLIP,float s=0,float f=0) {
+
+        if( lambda_type == INV_WIENER_ARCTAN ) {
+            GpuKernelsVol::invert_wgt_arctan<<<grd,blk>>>(vol_wgt.ptr,s,f,siz);
+        }
+        else if( lambda_type == INV_WIENER_LOGISTIC ) {
+            GpuKernelsVol::invert_wgt_logistic<<<grd,blk>>>(vol_wgt.ptr,s,f,siz);
+        }
+        else if( inv_iter > 0 ) {
             /// gWgt = gVolWgt;
             /// gVolWgt = sphere(N/2,N);
             /// for ...
@@ -318,7 +333,7 @@ public:
         GpuKernelsVol::boost_low_freq<<<grd,blk>>>(vol_fou.ptr,scale,value,decay,siz);
     }
 
-    void invert_and_extract(GPU::GArrSingle&vol_out) {
+    void invert_and_extract(GPU::GArrSingle&vol_out,int grid_type=GRIDDING_LINEAR_FWD) {
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,NP);
         GpuKernels::fftshift3D<<<grd,blk>>>(vol_fou.ptr,MP,NP);
@@ -326,8 +341,15 @@ public:
         ifft3.exec(vol_pad.ptr,vol_fou.ptr);
         GpuKernels::fftshift3D<<<grd,blk>>>(vol_pad.ptr,NP);
 
-        //dim3 grdP = GPU::calc_grid_size(blk,NP,NP,NP);
-        //GpuKernelsVol::grid_correct<<<grdP,blk>>>(vol_pad.ptr,NP);
+        if(grid_type == GRIDDING_LINEAR_FWD) {
+            dim3 grdP = GPU::calc_grid_size(blk,NP,NP,NP);
+            GpuKernelsVol::grid_correct_linear<<<grdP,blk>>>(vol_pad.ptr,NP);
+        }
+        else
+        if(grid_type == GRIDDING_KAISER_BESSEL_FWD) {
+            dim3 grdP = GPU::calc_grid_size(blk,NP,NP,NP);
+            GpuKernelsVol::grid_correct_kb<<<grdP,blk>>>(vol_pad.ptr,NP);
+        }
 
         int3 siz_raw = make_int3(N,N,N);
         int3 siz_pad = make_int3(NP,NP,NP);

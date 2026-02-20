@@ -28,9 +28,10 @@
 #include "tomogram.h"
 #include "reference.h"
 #include "aligner_args.h"
+#include "datatypes.h"
 
 void print_data_info(Particles&ptcls,Tomograms&tomos,ArgsAli::Info&info) {
-    if(info.verbosity>0) {
+    if(info.verbosity==VERBOSITY_FULL) {
         printf("\t\tAvailable particles:  %d.\n",ptcls.n_ptcl);
         printf("\t\tNumber of classes:    %d.\n",ptcls.n_refs);
         printf("\t\tTomograms available:  %d.\n",tomos.num_tomo);

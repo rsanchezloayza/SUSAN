@@ -179,11 +179,12 @@ class Averager:
         self.normalize_type    = 'zero_mean_one_std'
         self.weighting_type    = 'none'
         self.ctf_correction    = 'wiener'
+        self.gridding_type     = 'linear'
         self.symmetry          = 'c1'
         self.ssnr              = _dt.ssnr(1,0.01)
-        self.inversion         = _dt.inversion_params(0,0.75)
+        self.inversion         = _dt.inversion_params(10,0.75)
         self.mpi               = _dt.mpi_params('srun -n %d ',1)
-        self.verbosity         = 0
+        self.verbosity         = 1
         self.normalize_output  = True
         self.ignore_classes    = False
         self.boost_lowfreq     = _dt.boost_lowfreq_params(0,0,0)
@@ -191,15 +192,18 @@ class Averager:
     def _validate(self):
         if not self.padding_type in ['zero','noise']:
             raise NameError('Invalid padding type. Only "zero" or "noise" are valid')
-        
+
+        if not self.gridding_type in ['linear','kb']:
+            raise NameError('Invalid gridding type. Only "linear" or "kb" are valid')
+
         if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_proj_weight']:
             raise NameError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_proj_weight" are valid')
 
         if not self.weighting_type in ['none','particle','projection','3DCC','2DCC']:
             raise NameError('Invalid weighting type. Only "none", "particle", "projection", "3DCC" or "2DCC" are valid')
 
-        if not self.ctf_correction in ['none','phase_flip','wiener','wiener_ssnr']:
-            raise NameError('Invalid ctf correction type. Only "none", "phase_flip", "wiener" ot "wiener_ssnr" are valid')
+        if not self.ctf_correction in ['none','phase_flip','wiener','wiener_ssnr','wiener_atan','wiener_lgstc']:
+            raise NameError('Invalid ctf correction type. Only "none", "phase_flip", "wiener", "wiener_ssnr", "wiener_atan" or "wiener_lgstc" are valid')
             
     def get_args(self,out_pfx,tomos_file,ptcls_in,box_size):
         self._validate()
@@ -218,6 +222,7 @@ class Averager:
         args = args + ' -norm_type '       + self.normalize_type
         args = args + ' -ctf_type '        + self.ctf_correction
         args = args + ' -wgt_type '        + self.weighting_type
+        args = args + ' -grid_type '       + self.gridding_type
         args = args + ' -ssnr_param %f,%f' % (self.ssnr.F,self.ssnr.S)
         args = args + ' -w_inv_iter %d'    % self.inversion.ite
         args = args + ' -w_inv_gstd %f'    % self.inversion.std
@@ -404,19 +409,44 @@ class CtfEstimator:
 
 class CtfRefiner:
     def __init__(self):
-        self.list_gpus_ids     = [0]
-        self.threads_per_gpu   = 1
-        self.bandpass          = _dt.bandpass(0,-1,2)
-        self.extra_padding     = 0
-        self.padding_type      = 'noise'
+        self.list_gpus_ids      = [0]
+        self.threads_per_gpu    = 1
+        self.bandpass           = _dt.bandpass(0,-1,2)
+        self.extra_padding      = 0
+        self.padding_type       = 'noise'
+        self.normalize_type     = 'zero_mean_one_std'
+        self.halfsets_independ  = False
+        self.estimate_dose_wgt  = False
+        self.refine_astigmatism = False
+        self.defocus_angstroms  = _dt.search_params(1000,100)
+        self.angles             = _dt.search_params(2,1)
+        self.ssnr               = _dt.ssnr(0,0.001)
+        self.mpi                = _dt.mpi_params('srun -n %d ',1)
+        self.verbosity          = 0
+        self.offset            = _dt.offset_params([4,4,4],1,'circle')
+        self.padding_type      = 'zero'
         self.normalize_type    = 'zero_mean_one_std'
-        self.halfsets_independ = False
-        self.estimate_dose_wgt = False
-        self.defocus_angstroms = _dt.search_params(1000,100)
-        self.angles            = _dt.search_params(2,1)
+        self.ctf_correction    = 'on_reference'
+        self.cc_type           = 'basic'
+        self.cc_stats_type     = 'none'
+        self.pseudo_symmetry   = 'c1'
         self.ssnr              = _dt.ssnr(0,0.001)
         self.mpi               = _dt.mpi_params('srun -n %d ',1)
         self.verbosity         = 0
+        self.tm_type           = "none"
+        self.tm_prefix         = "template_matching"
+        self.tm_sigma          = 0
+        self.dilate            = 0
+
+    def set_offset_search(self,off_range):
+        if isinstance(off_range,int) or isinstance(off_range,float):
+            self.offset.span = (off_range,off_range,off_range)
+        elif len(off_range) == 3:
+            self.offset.span = off_range
+        elif len(off_range) == 2:
+            self.offset.span = (off_range[0],off_range[0],off_range[1])
+        else:
+            raise ValueError('Offset range can have up to 3 elements.')
         
     def _validate(self):
         if not self.padding_type in ['zero','noise']:
@@ -456,6 +486,8 @@ class CtfRefiner:
         args = args + ' -use_halves %d'    % self.halfsets_independ
         args = args + ' -est_dose %d'      % self.estimate_dose_wgt
         args = args + ' -verbosity %d'     % self.verbosity
+        args = args + ' -astigmatism %d'   % self.refine_astigmatism
+        args = args + ' -off_params %f,%f,%f,%f' % (self.offset.span[0],self.offset.span[1],self.offset.span[2],self.offset.step)
         return args
     
     def refine(self,ptcls_out,refs_file,tomos_file,ptcls_in,box_size):
@@ -469,3 +501,4 @@ class CtfRefiner:
         rslt = _os.system(cmd)
         if not rslt == 0:
             raise NameError('Error executing the refinement: ' + cmd)
+

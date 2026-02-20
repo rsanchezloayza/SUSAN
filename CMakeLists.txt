@@ -24,6 +24,21 @@ endif()
 ########################################################################
 ########################################################################
 
+# Configure LodePNG
+include(FetchContent)
+FetchContent_Declare(
+  lodepng
+  GIT_REPOSITORY https://github.com/lvandeve/lodepng.git
+  GIT_TAG        master
+  GIT_SHALLOW    ON
+)
+FetchContent_MakeAvailable(lodepng)
+add_library(lodepng ${lodepng_SOURCE_DIR}/lodepng.cpp)
+target_include_directories(lodepng PUBLIC ${lodepng_SOURCE_DIR})
+
+########################################################################
+########################################################################
+
 # Configure CUDA:
 # Below SM 5.2: DEPRECATED [for SUSAN]
 # v10.2: up to SM 7.5
@@ -64,7 +79,10 @@ set(target_list estimate_ctf reconstruct rec_subtomos aligner refs_aligner ctf_r
 foreach(target IN LISTS target_list)
 	set(bin susan_${target})
 	add_executable(${bin} src/${target}.cu)
-	target_link_libraries(${bin} cufft Eigen3::Eigen)
+	target_link_libraries(${bin} PRIVATE cufft Eigen3::Eigen)
+	if(target STREQUAL "estimate_ctf")
+        target_link_libraries(${bin} PRIVATE lodepng)
+    endif()
 	set_property(TARGET ${bin} PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCHS})
 	add_custom_command(TARGET ${bin} POST_BUILD 
 		COMMAND mkdir -p ${CMAKE_SOURCE_DIR}/susan/bin

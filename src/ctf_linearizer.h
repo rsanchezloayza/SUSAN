@@ -34,1031 +34,208 @@
 #include "io.h"
 #include "points_provider.h"
 #include "svg.h"
+#include "math_cpu.h"
 #include "estimate_ctf_args.h"
 #include <algorithm>
 #include <iostream>
 
-class CtfLinearizer{
+#include "Eigen/Dense"
 
-protected:
-    class Normal {
-    public:
-        int3 ss_c;
-        dim3 blk;
-        dim3 grd_c;
-        GPU::GArrSingle ss_foreground;
-        GPU::GArrSingle ss_fg_masked;
-        long numel;
-
-        Normal(int m, int n, int k) {
-            numel = m*n*k;
-            ss_c  = make_int3(m,n,k);
-            blk   = GPU::get_block_size_2D();
-            grd_c = GPU::calc_grid_size(blk,ss_c.x,ss_c.y,ss_c.z);
-
-            ss_foreground.alloc(m*n*k);
-            ss_fg_masked.alloc(m*n*k);
-        }
-
-        void load_rmv_bg_msk(const float*cpu_input,float2 fpix_range) {
-            GPU::GArrSingle3 ss_filter;
-            uint32           n_filter;
-            create_filter(n_filter,ss_filter);
-
-            GPU::GTex2DSingle ss_lin;
-            ss_lin.alloc(ss_c.x,ss_c.y,ss_c.z);
-
-            /// use ss_fg_masked as an upload buffer:
-            cudaMemcpy( (void*)ss_fg_masked.ptr, (const void*)(cpu_input), sizeof(float)*numel, cudaMemcpyHostToDevice);
-            GpuKernelsCtf::rmv_bg<<<grd_c,blk>>>(ss_foreground.ptr,ss_fg_masked.ptr,ss_filter.ptr,n_filter,ss_c);
-            //GpuKernels::load_surf<<<grd_c,blk>>>(ss_lin.surface,ss_foreground.ptr,ss_c);
-            //GpuKernelsCtf::tangential_blur<<<grd_c,blk>>>(ss_foreground.ptr,ss_lin.texture,ss_c);
-            //GpuKernels::conv_gaussian<<<grd_c,blk>>>(ss_fg_masked.ptr,ss_foreground.ptr,0.1250,23.9907,ss_c);
-            //cudaMemcpy( (void*)ss_foreground.ptr, (const void*)(ss_fg_masked.ptr), sizeof(float)*numel, cudaMemcpyDeviceToDevice);
-            cudaMemcpy( (void*)ss_fg_masked.ptr, (const void*)(ss_foreground.ptr), sizeof(float)*numel, cudaMemcpyDeviceToDevice);
-            GpuKernels::conv_gaussian<<<grd_c,blk>>>(ss_foreground.ptr,ss_fg_masked.ptr,0.1250,23.9907,ss_c);
-            GpuKernelsCtf::keep_fpix_range<<<grd_c,blk>>>(ss_fg_masked.ptr,fpix_range,ss_c);
-        }
-
-    protected:
-        static void create_filter(uint32&n_filter,GPU::GArrSingle3&ss_filter) {
-            Vec3*c_filt = PointsProvider::circle(n_filter,10,10,1);
-            ss_filter.alloc(n_filter);
-            for(uint32 i=0;i<n_filter;i++) {
-                float R2 = (c_filt[i].x*c_filt[i].x) + (c_filt[i].y*c_filt[i].y);
-                float R4 = R2*R2;
-                // h = firls(20,[0 1/16 1/16 1],[1 1 0 0]);
-                // [X,Y] = meshgrid(-10:10,-10:10);
-                // R = sqrt( X.*X + Y.*Y )+11;
-                // hh = interp1(h,R,'linear',0);
-                // hh = hh/sum(hh(:));
-                // % From quadratic fit: hh = 4.7764e-08*R.^4 -2.8131e-05*R.^2 0.0044146
-                c_filt[i].z = 0.0044146 + 4.7764e-08*R4 - 2.8131e-05*R2;
-            }
-            cudaMemcpy( (void*)ss_filter.ptr, (const void*)(c_filt), sizeof(Vec3)*n_filter, cudaMemcpyHostToDevice);
-            delete [] c_filt;
-        }
-    };
-
-    class Linear {
-    public:
-        float4*c_def;
-        int3 ss_c;
-        int3 ss_r;
-        dim3 blk;
-        dim3 grd_c;
-        dim3 grd_r;
-        GPU::GArrSingle  r_linear_in;
-        GPU::GArrSingle  r_lin_expnd;
-        GPU::GArrSingle  r_lin_mskd;
-        GPU::GArrSingle  ss_pow_spct;
-        GPU::GArrSingle  ss_ps_sum_z;
-        GPU::GArrSingle2 c_linear;
-        GPU::GArrSingle4 g_def;
-
-        GpuFFT::FFT2D     fft2;
-        GPU::GTex2DSingle ss_lin;
-
-        Linear(int m, int n, int k) {
-            ss_c  = make_int3(m,n,k);
-            ss_r  = make_int3(n,n,k);
-            blk   = GPU::get_block_size_2D();
-            grd_c = GPU::calc_grid_size(blk,ss_c.x,ss_c.y,ss_c.z);
-            grd_r = GPU::calc_grid_size(blk,ss_r.x,ss_r.y,ss_r.z);
-
-            r_linear_in.alloc(m*n*k);
-            r_lin_expnd.alloc(n*n*k);
-            r_lin_mskd.alloc(n*n*k);
-            ss_pow_spct.alloc(m*n*k);
-            ss_ps_sum_z.alloc(m*n);
-            c_linear.alloc(m*n*k);
-            g_def.alloc(k);
-
-            ss_lin.alloc(m,n,k);
-            fft2.alloc(m,n,k);
-
-            c_def = new float4[k];
-        }
-
-        ~Linear() {
-            delete [] c_def;
-        }
-
-        void load_linearize(const float*gpu_input,float linearization_scale) {
-            /// ss_pow_spct as input buffer
-            GpuKernels::load_surf<<<grd_c,blk>>>(ss_lin.surface,gpu_input,ss_c);
-            GpuKernelsCtf::ctf_linearize<<<grd_c,blk>>>(ss_pow_spct.ptr,ss_lin.texture,linearization_scale,ss_c);
-            GpuKernels::conv_gaussian<<<grd_c,blk>>>(r_linear_in.ptr,ss_pow_spct.ptr,0.1250,23.9907,ss_c);
-            GpuKernels::expand_ps_hermitian<<<grd_r,blk>>>(r_lin_expnd.ptr,r_linear_in.ptr,ss_r);
-        }
-
-        void mask_and_power_spectrum(const float2*gpu_fp_mask,const float2 def_lin_range) {
-            GpuKernels::apply_circular_mask<<<grd_r,blk>>>(r_lin_mskd.ptr,r_lin_expnd.ptr,gpu_fp_mask,ss_r);
-            GpuKernels::stk_scale<<<grd_r,blk>>>(r_lin_mskd.ptr,gpu_fp_mask,ss_r);
-            GpuKernels::fftshift2D<<<grd_r,blk>>>(r_lin_mskd.ptr,ss_r);
-            fft2.exec(c_linear.ptr,r_lin_mskd.ptr);
-            GpuKernels::fftshift2D<<<grd_c,blk>>>(c_linear.ptr,ss_c);
-            GpuKernels::load_surf_real<<<grd_c,blk>>>(ss_lin.surface,c_linear.ptr,ss_c);
-            GpuKernelsCtf::tangential_blur<<<grd_c,blk>>>(ss_pow_spct.ptr,ss_lin.texture,ss_c);
-            GpuKernels::load_surf<<<grd_c,blk>>>(ss_lin.surface,ss_pow_spct.ptr,ss_c);
-            GpuKernelsCtf::radial_edge_detect<<<grd_c,blk>>>(ss_pow_spct.ptr,ss_lin.texture,ss_c);
-            GpuKernels::load_surf<<<grd_c,blk>>>(ss_lin.surface,ss_pow_spct.ptr,ss_c);
-            GpuKernelsCtf::radial_highpass<<<grd_c,blk>>>(ss_pow_spct.ptr,ss_lin.texture,ss_c);
-            GpuKernelsCtf::keep_fpix_range<<<grd_c,blk>>>(ss_pow_spct.ptr,def_lin_range,ss_c);
-        }
-
-        void sum_z() {
-            GpuKernelsCtf::sum_along_z<<<grd_c,blk>>>(ss_ps_sum_z.ptr,ss_pow_spct.ptr,ss_c);
-        }
-
-        void load_def_range(float def_u_fpix,float def_v_fpix,float def_ang,float tlt_fpix,Tomogram*p_tomo) {
-            for(int k=0;k<ss_c.z;k++) {
-                V3f euZYZ;
-                Math::Rmat_eZYZ(euZYZ,p_tomo->R[k]);
-                c_def[k].x = def_u_fpix;
-                c_def[k].y = def_v_fpix;
-                c_def[k].z = def_ang;
-                c_def[k].w = tlt_fpix*(2-abs(cos(euZYZ(1))));
-            }
-            cudaMemcpy( (void*)g_def.ptr, (const void*)(c_def), sizeof(float4)*ss_c.z, cudaMemcpyHostToDevice);
-        }
-
-        void apply_def_range() {
-            GpuKernelsCtf::mask_ellipsoid<<<grd_c,blk>>>(ss_pow_spct.ptr,g_def.ptr,ss_c);
-        }
-
-    };
-
-    class FitEllipse {
-    public:
-        Eigen::MatrixXf points;
-        Eigen::MatrixXf points_work;
-        int n_pts;
-
-        FitEllipse(int num_points) {
-            n_pts = num_points;
-            points = Eigen::MatrixXf::Zero(2,n_pts);
-        }
-
-        void fit(float&def_u,float&def_v,float&def_ang,const float*cpu_frame,const int M, const int N) {
-            float x_c = 0;
-            float y_c = N/2;
-
-            for(int n_p=0;n_p<n_pts;n_p++) {
-
-                float ang = n_p;
-                ang *= (M_PI/n_pts);
-                ang = ang - (M_PI/2);
-
-                float x_v = cos(ang);
-                float y_v = sin(ang);
-
-                float max_val=0,max_x=0,max_y=0;
-
-                for(float r=0;r<M-3;r+=1.0) {
-                    float x = x_c + r*x_v;
-                    float y = y_c + r*y_v;
-                    int xx = (int)round(x);
-                    int yy = (int)round(y);
-                    float val = cpu_frame[ (int)xx + yy*(int)M ];
-                    if( val > max_val ) {
-                        max_val = val;
-                        max_x = x;
-                        max_y = y-y_c;
-                    }
-                }
-                points(0,n_p)=max_x;
-                points(1,n_p)=max_y;
-            }
-
-            exec_fit(def_u,def_v,def_ang);
-        }
-
-        void save_points(const char*name,const char*out_dir) {
-            char filename[SUSAN_FILENAME_LENGTH];
-            sprintf(filename,"%s/%s",out_dir,name);
-            FILE*fp = fopen(filename,"w");
-            fprintf(fp,"points = [ ...\n");
-            for(int i=0;i<points_work.cols();i++) {
-                 fprintf(fp,"\t%8.2f, %8.2f;...\n",points_work(0,i),points_work(1,i));
-            }
-            fprintf(fp,"];\n");
-            fclose(fp);
-        }
-
-    protected:
-        void exec_fit(float&def_u,float&def_v,float&def_ang) {
-
-            float *radius = new float[n_pts];
-            float *sorted = new float[n_pts];
-
-            for(int i=0;i<points.cols();i++) {
-                 radius[i] = sqrt(points(0,i)*points(0,i)+points(1,i)*points(1,i));
-                 sorted[i] = radius[i];
-            }
-
-            Math::sort(sorted,points.cols());
-
-            float r_median = sorted[(int)round(points.cols()/2)];
-            float r_std = 0;
-
-            for(int i=0;i<points.cols();i++) {
-                float tmp = radius[i]-r_median;
-                r_std += (tmp*tmp);
-            }
-            r_std = sqrt(r_std)/points.cols();
-
-            r_std = max(r_std,1.75);
-            float r_min = r_median-2*r_std;
-            float r_max = r_median+2*r_std;
-
-            int count = 0;
-            for(int i=0;i<points.cols();i++) {
-                if(radius[i] > r_min && radius[i] < r_max ) {
-                    count++;
-                }
-            }
-
-            int j=0;
-            points_work = Eigen::MatrixXf::Zero(2,count);
-            for(int i=0;i<points.cols();i++) {
-                if(radius[i] > r_min && radius[i] < r_max ) {
-                    points_work(0,j)=points(0,i);
-                    points_work(1,j)=points(1,i);
-                    j++;
-                }
-            }
-
-            Math::fit_ellipsoid(def_u,def_v,def_ang,points_work);
-
-            delete [] radius;
-            delete [] sorted;
-        }
-
-    };
-
-    class RadialAvgr {
-    public:
-        int3 ss_c;
-        int3 ss_2;
-        dim3 blk;
-        dim3 grd_c;
-        dim3 grd_2;
-        GPU::GArrSingle   rad_normal;
-        GPU::GTex2DSingle ss_raw;
-        GPU::GArrSingle   rad_avg;
-        GPU::GArrSingle   rad_env;
-        GPU::GArrSingle2  rad_fourier;
-        GPU::GArrSingle2  rad_hilbert;
-
-        GpuFFT::FFT1D_full  fft1fwd;
-        GpuFFT::IFFT1D_full fft1inv;
-
-        long numel;
-        float apix;
-        float ix2def;
-        float pi_lambda;
-
-        RadialAvgr(int m, int n, int k,float in_ix2def,float in_pi_lambda,float in_apix) {
-            apix = in_apix;
-            ix2def = in_ix2def;
-            pi_lambda = in_pi_lambda;
-
-            numel = m*n*k;
-            ss_c  = make_int3(m,n,k);
-            ss_2  = make_int3(n,k,1);
-            blk   = GPU::get_block_size_2D();
-            grd_c = GPU::calc_grid_size(blk,ss_c.x,ss_c.y,ss_c.z);
-            grd_2 = GPU::calc_grid_size(blk,ss_2.x,ss_2.y,ss_2.z);
-
-            rad_normal.alloc(m*n*k);
-            ss_raw.alloc(m,n,k);
-            rad_avg.alloc(n*k);
-            rad_env.alloc(n*k);
-            rad_fourier.alloc(n*k);
-            rad_hilbert.alloc(n*k);
-            fft1fwd.alloc(n,k);
-            fft1inv.alloc(n,k);
-        }
-
-        void load_and_radial_normalize(const float*gpu_in,const float4*gpu_def_in_fp) {
-            GpuKernels::load_surf<<<grd_c,blk>>>(ss_raw.surface,gpu_in,ss_c);
-            GpuKernelsCtf::ctf_radial_normalize<<<grd_c,blk>>>(rad_normal.ptr,ss_raw.texture,gpu_def_in_fp,ix2def,pi_lambda,apix,ss_c);
-        }
-
-        void calc_rad_average(float*cpu_rad_avg) {
-            rad_avg.clear();
-            rad_env.clear();
-            GpuKernels::radial_ps_avg_double_side<<<grd_c,blk>>>(rad_avg.ptr,rad_env.ptr,rad_normal.ptr,ss_c);
-            GpuKernels::divide<<<grd_2,blk>>>(rad_avg.ptr,rad_env.ptr,ss_2);
-
-            int m = ss_c.x;
-            int n = ss_c.y;
-            int k = ss_c.z;
-
-            cudaMemcpy((void*)cpu_rad_avg, (const void*)rad_avg.ptr, sizeof(float)*n*k, cudaMemcpyDeviceToHost);
-            float avg,std,tmp;
-            float *work;
-            for(int j=0;j<k;j++) {
-                avg = 0;
-                std = 0;
-                work = cpu_rad_avg + j*n;
-                for(int i=0;i<m;i++) {
-                    avg += work[ i ];
-                }
-                avg = avg/m;
-                for(int i=0;i<m;i++) {
-                    tmp = work[ i ] - avg;
-                    std += (tmp*tmp);
-                }
-                std = sqrt(std/m);
-
-                float th_min = avg - std;
-                float th_max = avg + std;
-
-                avg = 0;
-                std = 0;
-                for(int i=0;i<m;i++) {
-                    if( work[ i ] > th_min && work[ i ] < th_max ) {
-                        avg += work[ i ];
-                    }
-                }
-                avg = avg/m;
-                for(int i=0;i<m;i++) {
-                    if( work[ i ] > th_min && work[ i ] < th_max ) {
-                        tmp = work[ i ] - avg;
-                        std += (tmp*tmp);
-                    }
-                }
-                std = sqrt(std/m);
-
-                for(int i=0;i<n;i++) {
-                    work[ i ] = min( max( work[ i ] , avg-2.5*std ), avg+2.5*std );
-                }
-            }
-
-        }
-
-        void calc_env(float*cpu_rad_env,const float*cpu_rad_avg) {
-            cudaMemcpy((void*)rad_avg.ptr, (const void*)cpu_rad_avg, sizeof(float)*ss_c.y*ss_c.z, cudaMemcpyHostToDevice);
-            fft1fwd.exec(rad_fourier.ptr,rad_avg.ptr);
-            GpuKernelsCtf::prepare_hilbert<<<grd_2,blk>>>(rad_fourier.ptr,ss_c.y/2,ss_2);
-            fft1inv.exec(rad_hilbert.ptr,rad_fourier.ptr);
-            GpuKernels::load_abs<<<grd_2,blk>>>(rad_env.ptr,rad_hilbert.ptr,ss_2);
-            cudaMemcpy((void*)cpu_rad_env, (const void*)rad_env.ptr, sizeof(float)*ss_c.y*ss_c.z, cudaMemcpyDeviceToHost);
-            for(int i=0;i<ss_c.y*ss_c.z;i++) {
-                cpu_rad_env[i] = cpu_rad_env[i]/ss_c.y;
-            }
-        }
-    };
-
-    class FitCtf {
-    public:
-        float *ctf_signal;
-        float *ctf_fitted;
-        float *ctf_qualit;
-        int N;
-        int M;
-        int K;
-
-        float apix;
-        float lambda_pi;
-
-        float *s2;
-        float *s4_lambda3_Cs_pi_2;
-        float AC;
-        float CA;
-
-        FitCtf(int m, int n, int k,float in_apix,float in_lambda_pi,float in_lambda3_Cs_pi_2,float ac) {
-            N = n;
-            M = m;
-            K = k;
-            ctf_signal = new float[M*K];
-            ctf_fitted = new float[M*K];
-            ctf_qualit = new float[M*K];
-
-            apix = in_apix;
-            lambda_pi = in_lambda_pi;
-
-            AC = ac;
-            CA = sqrt(1-AC*AC);
-
-            s2 = new float[M];
-            s4_lambda3_Cs_pi_2 = new float[M];
-
-            for(int i=0;i<M;i++) {
-                s2[i] = (float)i;
-                s2[i] = s2[i]/(N*apix);
-                s2[i] = s2[i]*s2[i];
-                s4_lambda3_Cs_pi_2[i] = s2[i]*s2[i]*in_lambda3_Cs_pi_2;
-            }
-        }
-
-        ~FitCtf() {
-            delete [] ctf_signal;
-            delete [] ctf_fitted;
-            delete [] ctf_qualit;
-            delete [] s2;
-            delete [] s4_lambda3_Cs_pi_2;
-        }
-
-        void load_ctf_avg(const float*ctf_avg,const float*ctf_env) {
-            for(int j=0;j<K;j++) {
-                for(int i=0;i<M;i++) {
-                    ctf_signal[i + j*M] = ctf_avg[i + j*N]/ctf_env[i + j*N];
-                    ctf_signal[i + j*M] = ctf_signal[i + j*M]/2 + 0.5;
-                }
-            }
-        }
-
-        void estimate(float4*ctf_info,float*score,float def_range,float def_step,float fpix_range_min,float fpix_range_max,float res_thres=0.5) {
-            float it_sim,it_def;
-            int off;
-            int ix_min = floor(fpix_range_min);
-            int ix_max = ceil (fpix_range_max);
-            for(int k=0;k<K;k++) {
-                float cur_ctf = min(ctf_info[k].x,ctf_info[k].y);
-                float cur_ph  = 0.0;
-
-                off = k*M;
-                create_ctf(ctf_fitted+off,cur_ctf,cur_ph);
-                score[k] = l1_norm(ctf_signal+off,ctf_fitted+off,ix_min,ix_max);
-
-                it_def = 0;
-                float w_range = def_range;
-                float w_step  = def_range/10;
-
-                do {
-                    for(float delta_def=-w_range;delta_def<=w_range;delta_def+=w_step ) {
-                        for(float ph_shift=-M_PI_2;ph_shift<M_PI_2;ph_shift+=(M_PI/100) ) {
-                            create_ctf(ctf_fitted+off,cur_ctf+delta_def,ph_shift);
-                            it_sim = l1_norm(ctf_signal+off,ctf_fitted+off,ix_min,ix_max);
-                            if( it_sim < score[k] ) {
-                                it_def = delta_def;
-                                cur_ph = ph_shift;
-                                score[k] = it_sim;
-                            }
-                        }
-                    }
-
-                    w_step = w_step/2;
-                    w_range = w_range/2;
-                    cur_ctf = cur_ctf+it_def;
-                    it_def = 0;
-                } while( w_step>def_step );
-
-                create_ctf(ctf_fitted+off,cur_ctf,cur_ph);
-                float ctf_dif = abs(ctf_info[k].x-ctf_info[k].y);
-                ctf_info[k].x = cur_ctf + ctf_dif;
-                ctf_info[k].y = cur_ctf;
-                ctf_info[k].w = cur_ph;
-                int min_ix = get_initial_ix(cur_ctf,cur_ph);
-                calc_quality(ctf_qualit+off,min_ix,ctf_signal+off,ctf_fitted+off);
-            }
-        }
-
-        void update_max_res(float2*max_res,const float4*ctf_info,float range,float res_thres=0.5) {
-            int i=0;
-            for(int k=0;k<K;k++) {
-                int min_ix = get_initial_ix(ctf_info[k].y,ctf_info[k].w)+1;
-                for(i=min_ix;i<M;i++) {
-                    if( ctf_qualit[i+k*M] < res_thres )
-                        break;
-                }
-                float current_res = ((float)N)*apix/((float)i);
-                if( max_res[k].x < 0 || current_res < max_res[k].x ) {
-                    max_res[k].x = current_res;
-                    max_res[k].y = range;
-                }
-            }
-        }
-
-        void update_energy_shell(float2*shell_info,float4*ctf_info,float shell_value,float2 fpix_range) {
-            for(int k=0;k<K;k++) {
-                float energy  = 0;
-                float cur_ctf = min(ctf_info[k].x,ctf_info[k].y);
-
-                int   off = k*M;
-
-                create_ctf(ctf_fitted+off,cur_ctf,ctf_info[k].w);
-                energy = l1_norm(ctf_signal+off,ctf_fitted+off,floor(fpix_range.x),ceil(fpix_range.y));
-
-                if( shell_info[k].y < 0 | energy < shell_info[k].y ) {
-                    shell_info[k].x = shell_value;
-                    shell_info[k].y = energy;
-                }
-            }
-        }
-
-        void save_svg_report(const float*ctf_avg,const float*ctf_env,float4*ctf_info,const char*out_dir,float2 fpix_range) {
-
-            char filename[SUSAN_FILENAME_LENGTH];
-
-            sprintf(filename,"%s/ctf_fit",out_dir);
-            IO::create_dir(filename);
-
-            float *signal_tmp = new float[M];
-
-            for(int k=0;k<K;k++) {
-                int min_ix = get_initial_ix(ctf_info[k].y,ctf_info[k].w);
-                float nrm_max = 0;
-                for(int i=0;i<M;i++) {
-                    signal_tmp[i] = ctf_avg[i + k*N]+ctf_env[i + k*N];
-                    if( i > min_ix ) {
-                        if( ctf_env[i + k*N] > nrm_max ) {
-                            nrm_max = ctf_env[i + k*N];
-                        }
-                    }
-                }
-
-                for(int i=0;i<M;i++) {
-                    float env = 2*ctf_env[i + k*N];
-                    if( i > min_ix ) {
-                        env = 2*nrm_max;
-                    }
-                    signal_tmp[i] = signal_tmp[i]/env;
-                }
-
-                float def = (ctf_info[k].x+ctf_info[k].y)/2;
-                sprintf(filename,"%s/ctf_fit/projection_%03d.svg",out_dir,k+1);
-                SvgCtf report(filename,apix);
-                report.create_grid(fpix_range.x,fpix_range.y,N);
-                report.create_title(k+1,def);
-                report.add_est(ctf_qualit+k*M,M);
-                report.add_avg(signal_tmp    ,M);
-                report.add_fit(ctf_fitted+k*M,M);
-                report.create_legend();
-            }
-
-            delete [] signal_tmp;
-        }
-
-        void save_estimation(float4*ctf_info,float*score,float res_thres,const char*out_dir) {
-
-            char filename[SUSAN_FILENAME_LENGTH];
-            sprintf(filename,"%s/defocus.txt",out_dir);
-            FILE*fp = fopen(filename,"w");
-            Defocus def;
-            def.ph_shft = 0;
-            def.Bfactor = 0;
-            def.ExpFilt = 0;
-
-            int i=0;
-            for(int k=0;k<K;k++) {
-                int min_ix = get_initial_ix(ctf_info[k].y,ctf_info[k].w)+1;
-                for(i=min_ix;i<M;i++) {
-                    if( ctf_qualit[i+k*M] < res_thres )
-                        break;
-                }
-                def.U       = ctf_info[k].x;
-                def.V       = ctf_info[k].y;
-                def.angle   = ctf_info[k].z*180.0/M_PI;
-                def.ph_shft = ctf_info[k].w;
-                def.max_res = ((float)N)*apix/((float)i);
-                def.score   = score[k];
-                IO::DefocusIO::write(fp,def);
-            }
-
-            fclose(fp);
-        }
-
-        void get_max_env_for_final_rslt(float2*p_out,const float*ctf_env,float4*ctf_info) {
-            for(int k=0;k<K;k++) {
-                int min_ix = get_initial_ix(ctf_info[k].y,ctf_info[k].w);
-                float nrm_max = 0;
-                for(int i=0;i<M;i++) {
-                    if( i > min_ix ) {
-                        if( ctf_env[i + k*N] > nrm_max ) {
-                            nrm_max = ctf_env[i + k*N];
-                        }
-                    }
-                }
-                p_out[k].x = nrm_max;
-                p_out[k].y = min_ix;
-            }
-        }
-
-    protected:
-        float calc_gamma_ix(int i,float def,float ph_shift) {
-            return lambda_pi*def*s2[i] - s4_lambda3_Cs_pi_2[i] + ph_shift;
-        }
-
-        void create_ctf(float*p_out,float def,float ph_shift) {
-            float gamma,ctf;
-            for(int i=0;i<M;i++) {
-                gamma = calc_gamma_ix(i,def,ph_shift);
-                ctf = CA*sin(gamma) + AC*cos(gamma);
-                p_out[i] = ctf*ctf;
-            }
-        }
-
-        float l2_norm(const float*p_sgn,const float*p_fit,int range_min,int range_max) {
-            float acc = 0, tmp;
-            for(int i=range_min;i<range_max;i++) {
-                tmp = (p_sgn[i]-p_fit[i]);
-                acc += (tmp*tmp);
-            }
-            acc = acc/(range_max-range_min);
-            return sqrt(acc);
-        }
-
-        float l1_norm(const float*p_sgn,const float*p_fit,int range_min,int range_max) {
-            float l1 = 0;
-            for(int i=range_min;i<range_max;i++) {
-                l1 += abs(p_sgn[i]-p_fit[i]);
-            }
-            return l1;
-        }
-
-        int get_initial_ix(float def,float ph_shift) {
-            int i=0;
-            for(i=0;i<M;i++) {
-                float gamma = calc_gamma_ix(i,def,ph_shift);
-                if( gamma > M_PI )
-                    break;
-            }
-            return i;
-        }
-
-        void calc_quality(float*p_out,int min_ix,const float*p_sgn,const float*p_fit) {
-            float num;
-            for(int i=0;i<M;i++) {
-                if(i < min_ix || i == (M-1)) {
-                    p_out[i] = 0.5;
-                }
-                else {
-                    //num = min(abs(p_sgn[i-1]-p_fit[i-1]),min(abs(p_sgn[i]-p_fit[i]),abs(p_sgn[i+1]-p_fit[i+1])));
-                    num = abs(p_sgn[i-1]-p_fit[i-1])+abs(p_sgn[i]-p_fit[i])+abs(p_sgn[i+1]-p_fit[i+1]);
-                    num = num/3;
-                    p_out[i] = min(max(float(1-num),0.0),1.0);
-                }
-            }
-        }
-
-        int get_res_fp(const float*p_data,int range_min,int range_max,const float res_thres) {
-            int i=0;
-            for(i=range_min;i<range_max;i++) {
-                if( p_data[i] < res_thres )
-                    break;
-            }
-            return i;
-        }
-
-        void get_max_idx(float&max_val,int&max_idx,const float*p_data,int range_min,int range_max) {
-            max_val = p_data[range_min];
-            max_idx = range_min;
-            for(int i=range_min;i<range_max;i++) {
-                if( max_val < p_data[i] ) {
-                    max_val = p_data[i];
-                    max_idx = i;
-                }
-            }
-        }
-
-        void get_max_idx(float&max_val,int&max_idx,const float*p_data) {
-            get_max_idx(max_val,max_idx,p_data,0,M);
-        }
-
-    };
-
-    class Result {
-    public:
-        float *c_rslt;
-        float *c_env;
-        float2 *c_min_ix;
-        int N;
-        int M;
-        int K;
-        int3 ss_c;
-        int3 ss_r;
-        dim3 blk;
-        dim3 grd_c;
-        dim3 grd_r;
-        GPU::GArrSingle g_rslt;
-        GPU::GArrSingle g_env;
-        GPU::GArrSingle2 g_min_ix;
-
-        Result(int m, int n, int k) {
-            M = m;
-            N = n;
-            K = k;
-            ss_c  = make_int3(m,n,k);
-            ss_r  = make_int3(n,n,k);
-            blk   = GPU::get_block_size_2D();
-            grd_c = GPU::calc_grid_size(blk,ss_c.x,ss_c.y,ss_c.z);
-            grd_r = GPU::calc_grid_size(blk,ss_r.x,ss_r.y,ss_r.z);
-
-            g_rslt.alloc(n*n*k);
-            g_env.alloc(m*k);
-            g_min_ix.alloc(k);
-
-            c_rslt = new float[N*N*K];
-            c_env = new float[M*K];
-            c_min_ix = new float2[K];
-        }
-
-        ~Result() {
-            delete [] c_rslt;
-            delete [] c_env;
-            delete [] c_min_ix;
-        }
-
-        void load_env(const float*in_c_env) {
-            for(int k=0;k<K;k++) {
-                for(int i=0;i<M;i++) {
-                    c_env[i + k*M] = in_c_env[i + k*N];
-                }
-            }
-            cudaMemcpy( (void*)g_env.ptr, (const void*)(c_env), sizeof(float)*M*K, cudaMemcpyHostToDevice);
-        }
-
-        void gen_fitting_result(const float*g_ctf_avg,const float4*g_def_inf,const float apix,const float lambda_pi,const float lambda3_Cs_pi_2,const float ac) {
-            cudaMemcpy( (void*)g_min_ix.ptr, (const void*)(c_min_ix), sizeof(float2)*K, cudaMemcpyHostToDevice);
-            GpuKernelsCtf::vis_copy_data<<<grd_r,blk>>>(g_rslt.ptr,g_ctf_avg,g_env.ptr,g_min_ix.ptr,ss_r);
-            GpuKernelsCtf::vis_add_ctf<<<grd_r,blk>>>(g_rslt.ptr,g_def_inf,apix,lambda_pi,lambda3_Cs_pi_2,ac,ss_r);
-        }
-    };
+class CtfLinearizer1D{
 
 public:
-    GPU::GArrSingle2  ss_lin_mask;
-    GPU::GArrSingle4  g_def_inf;
+    GPU::GArrSingle  g_input;
+    GPU::GArrSingle  g_linear;
+    GPU::GArrSingle  g_weight;
+    GPU::GArrSingle  g_bufferA;
+    GPU::GArrSingle  g_bufferB;
+    GPU::GArrSingle2 g_fourier;
+    GPU::GArrSingle  g_power;
 
-    float2 *lin_mask;
-    float2 *max_res_log;
-    float  *score_log;
-    float4 *c_def_inf;
-    float4 *c_def_rslt;
-    float  *p_rad_avg;
-    float  *p_rad_env;
-    float  *p_ps_lin_avg;
-    float  *p_final_rslt;
+    GpuFFT::FFT1D rfft;
 
-    float  apix;
-    float  apix_scaled;
-    float2 fpix_range;
-    float2 def_lin_range;
-    float  ref_step;
-    float  ref_range;
-    float  lambda;
-    float  lambda_pi;
-    float  lambda3_Cs_pi_2;
-    float  ix2def;
-    float  tlt_fpix;
-    float  linearization_scale;
-
-    float  AC;
-    float  CA;
+    float  *c_linear;
+    float  *c_defocus;
 
     float N;
     float M;
     float K;
 
+    float apix;
+    float new_apix;
+    float max_nyquist;
+    float lin_fpix_to_defocus;
+
     int   verbose;
-    float res_thres;
-    float bfac_max;
 
     char filename[SUSAN_FILENAME_LENGTH];
 
-    CtfLinearizer(int gpu_ix, int n, int k) {
+    float u0;
+    float s0;
+    int   k0;
+
+    CtfLinearizer1D(int gpu_ix, int n, int k, float w_target_apix=3.5f) {
 
         N = n;
         M = n/2 + 1;
         K = k;
 
+        apix = 1.0;
+        new_apix = w_target_apix;
+
         GPU::set_device(gpu_ix);
 
-        ss_lin_mask.alloc(K);
-        g_def_inf.alloc(K);
+        rfft.alloc(N,K);
 
+        g_power.alloc(M*K);
+        g_input.alloc(M*N*K);
+        g_linear.alloc(N*K);
+        g_weight.alloc(N*K);
+        g_bufferA.alloc(M*N*K);
+        g_bufferB.alloc(M*N*K);
+        g_fourier.alloc(M*K);
 
-        lin_mask  = new float2[int(K)];
-        p_rad_avg = new float[int(N*K)];
-        p_rad_env = new float[int(N*K)];
-        c_def_inf = new float4[int(K)];
-        score_log = new float[int(K)];
-        c_def_rslt = new float4[int(K)];
-        max_res_log = new float2[int(K)];
-        p_ps_lin_avg = new float[int(M*N)];
-        p_final_rslt = new float[int(N*N*K)];
+        c_linear  = new float[int(N*K)];
+        c_defocus = new float[int(K)];
     }
 
-    ~CtfLinearizer() {
-        delete [] lin_mask;
-        delete [] p_rad_avg;
-        delete [] p_rad_env;
-        delete [] c_def_inf;
-        delete [] score_log;
-        delete [] c_def_rslt;
-        delete [] max_res_log;
-        delete [] p_ps_lin_avg;
-        delete [] p_final_rslt;
+    ~CtfLinearizer1D() {
+        delete [] c_linear;
+        delete [] c_defocus;
     }
-	
+
     void load_info(ArgsCTF::Info*info,Tomogram*p_tomo) {
 
+        float lambda = Math::get_lambda(p_tomo->KV);
+
         verbose   = info->verbose;
-        res_thres = info->res_thres;
-        bfac_max  = info->bfac_max;
 
-        lambda = Math::get_lambda(p_tomo->KV);
-        lambda_pi = lambda*M_PI;
-        lambda3_Cs_pi_2 = lambda*lambda*lambda*(p_tomo->CS*1e7)*M_PI/2;
-        apix = p_tomo->pix_size*pow(2.0,info->binning);
-
-        AC = p_tomo->AC;
-        CA = sqrt(1.0-AC*AC);
-
-        ref_step = info->ref_step;
-        ref_range = info->ref_range;
-
-        fpix_range.x = N*apix/info->res_min;
-        fpix_range.y = N*apix/info->res_max;
-        fpix_range.x = max(fpix_range.x-5,5.0);
-        fpix_range.y = min(fpix_range.y+5,M-7.0);
-
-        linearization_scale = (2.3*fpix_range.y/N);
-
-        apix_scaled = apix/linearization_scale;
-        ix2def = 2*apix_scaled*apix_scaled/lambda;
-
-        def_lin_range.x = info->def_min/ix2def;
-        def_lin_range.y = info->def_max/ix2def;
-        def_lin_range.x = max(def_lin_range.x-2,3.0);
-        def_lin_range.y = min(def_lin_range.y+2,M-4.0);
-
-        tlt_fpix = ceilf(2+info->tlt_range/ix2def);
-    }
-	
-    float initial_estimation(const char*out_dir,float*input,Tomogram*p_tomo) {
-
-        float max_lin_r_px = calc_initial_range_max(def_lin_range.x);
-
-        for(int k=0;k<K;k++) {
-            max_res_log[k].x = -1; /// max res
-            max_res_log[k].y =  0; /// shells
-
-            c_def_rslt[k].w = -1;
-        }
-
-        Normal ctf_normal(M,N,K);
-        Linear ctf_linear(M,N,K);
-        FitEllipse fit_ellipe(90);
-
-        set_lin_range(10.0,max_lin_r_px);
-
-        ctf_normal.load_rmv_bg_msk(input,fpix_range);
-        save_gpu_mrc(input,ctf_normal.ss_fg_masked.ptr,M,N,K,out_dir,"ctf_average.mrc",2);
-
-        ctf_linear.load_linearize(ctf_normal.ss_fg_masked.ptr,linearization_scale);
-        ctf_linear.mask_and_power_spectrum(ss_lin_mask.ptr,def_lin_range);
-
-        float3 avg_def;
-        ctf_linear.sum_z();
-        save_gpu_mrc(p_ps_lin_avg,ctf_linear.ss_ps_sum_z.ptr,M,N,1,out_dir,"ctf_ps_lin_initial.mrc",3);
-        fit_ellipe.fit(avg_def.x,avg_def.y,avg_def.z,p_ps_lin_avg,M,N);
-
-        return ix2def*(avg_def.x+avg_def.y)/2;
+        apix = p_tomo->pix_size;
+        max_nyquist = apix/new_apix;
+        lin_fpix_to_defocus = 2.0f*new_apix*new_apix/lambda;
     }
 
-    void process(const char*out_dir,float*input,Tomogram*p_tomo) {
+    float get_rough_estimate(const char*out_dir,float*input) {
 
-        float max_lin_r_px = calc_initial_range_max(def_lin_range.x);
+        preprocess(input);
+        radial_average();
+        calculate_power_spectrum();
 
-        for(int k=0;k<K;k++) {
-            max_res_log[k].x = -1; /// max res
-            max_res_log[k].y =  0; /// shells
+        cudaMemcpy( (void*)c_linear, (const void*)g_power.ptr, sizeof(float)*M*K, cudaMemcpyDeviceToHost);
+        save_gpu_mrc(c_linear,g_power.ptr,M,K,1,out_dir,"ps_lin_raw.mrc",2);
 
-            c_def_rslt[k].w = -1;
-        }
+        float max_val=0;
+        float *tmp = new float[int(M)];
+        int ix0,ix1;
 
-        Normal ctf_normal(M,N,K);
-        Linear ctf_linear(M,N,K);
-        FitEllipse fit_ellipe(90);
-        FitCtf fit_ctf(M,N,K,apix,lambda_pi,lambda3_Cs_pi_2,AC);
-        RadialAvgr rad_avgr(M,N,K,ix2def,lambda_pi,apix);
-        Result results(M,N,K);
+        /// AVERAGE ALL PROJECTIONS
+        for(int m=0;m<M;m++)
+            tmp[m] = 0;
 
-        ctf_normal.load_rmv_bg_msk(input,fpix_range);
-        save_gpu_mrc(input,ctf_normal.ss_fg_masked.ptr,M,N,K,out_dir,"ctf_normalized.mrc",1);
-
-        ctf_linear.load_linearize(ctf_normal.ss_fg_masked.ptr,linearization_scale);
-        save_gpu_mrc(input,ctf_linear.r_linear_in.ptr,M,N,K,out_dir,"ctf_linearized.mrc",1);
-
-        set_lin_range(10.0,max_lin_r_px);
-        ctf_linear.mask_and_power_spectrum(ss_lin_mask.ptr,def_lin_range);
-        save_gpu_mrc(input,ctf_linear.ss_pow_spct.ptr,M,N,K,out_dir,"ctf_ps_lin_raw.mrc",2);
-
-        float3 avg_def;
-        ctf_linear.sum_z();
-        save_gpu_mrc(p_ps_lin_avg,ctf_linear.ss_ps_sum_z.ptr,M,N,1,out_dir,"ctf_ps_lin_avg.mrc",1);
-        fit_ellipe.fit(avg_def.x,avg_def.y,avg_def.z,p_ps_lin_avg,M,N);
-        printf("\n        Avg defocus: U=%7.0fÅ, V=%7.0fÅ, angle=%5.0fº.\n",
-               avg_def.x*ix2def,avg_def.y*ix2def,avg_def.z*180.0/M_PI);
-
-        if( verbose >= 3 )
-            fit_ellipe.save_points("plane_pts.txt",out_dir);
-
-        ctf_linear.load_def_range(avg_def.x,avg_def.y,avg_def.z,tlt_fpix,p_tomo);
-
-        float def_avg        = (avg_def.x+avg_def.y)/2;
-        float min_lin_r_px   = calc_range_min(def_avg);
-
-        for(int i=0;i<6;i++) {
-            char tmp[1024];
-
-            max_lin_r_px = calc_range_max(i,def_avg);
-            set_lin_range(min_lin_r_px,max_lin_r_px);
-            ctf_linear.mask_and_power_spectrum(ss_lin_mask.ptr,def_lin_range);
-            ctf_linear.apply_def_range();
-
-            sprintf(tmp,"ctf_ps_lin_%d.mrc",i);
-            save_gpu_mrc(input,ctf_linear.ss_pow_spct.ptr,M,N,K,out_dir,tmp,3);
-
-            for(int k=0;k<K;k++) {
-                fit_ellipe.fit(c_def_inf[k].x,c_def_inf[k].y,c_def_inf[k].z,input+k*int(M*N),M,N);
+        for(int k=0;k<K;k++)
+            for(int m=0;m<M;m++) {
+                if( c_linear[m+k*int(M)] > max_val ) {
+                    max_val = c_linear[m+k*int(M)];
+                    k0 = k;
+                }
+                tmp[m] += c_linear[m+k*int(M)];
             }
-            update_def_info();
-            rad_avgr.load_and_radial_normalize(ctf_normal.ss_foreground.ptr,g_def_inf.ptr);
-            rad_avgr.calc_rad_average(p_rad_avg);
-            rad_avgr.calc_env(p_rad_env,p_rad_avg);
 
-            sprintf(tmp,"ctf_rad_norm_%d.mrc",i);
-            save_gpu_mrc(input,rad_avgr.rad_normal.ptr,M,N,K,out_dir,tmp,3);
-
-
-            for(int k=0;k<K;k++) {
-                c_def_inf[k].x *= ix2def;
-                c_def_inf[k].y *= ix2def;
+        max_val = 0;
+        for(int m=0;m<M;m++) {
+            if( tmp[m] > max_val ) {
+                max_val = tmp[m];
+                u0 = m;
             }
-            fit_ctf.load_ctf_avg(p_rad_avg,p_rad_env);
-            fit_ctf.estimate(c_def_inf,score_log,ref_range,ref_step,fpix_range.x,calc_fpix_max(i,def_avg),0.5);
-            fit_ctf.update_max_res(max_res_log,c_def_inf,max_lin_r_px,res_thres);
-
-            sprintf(tmp,"ctf_rad_avg_raw_%d.mrc",i);
-            save_cpu_mrc(p_rad_avg,N,K,1,out_dir,tmp,3);
-
-            sprintf(tmp,"ctf_rad_avg_est_%d.mrc",i);
-            save_cpu_mrc(fit_ctf.ctf_fitted,M,K,1,out_dir,tmp,3);
         }
 
-        set_lin_range(min_lin_r_px,max_res_log);
-        ctf_linear.mask_and_power_spectrum(ss_lin_mask.ptr,def_lin_range);
-        ctf_linear.apply_def_range();
-        save_gpu_mrc(input,ctf_linear.ss_pow_spct.ptr,M,N,K,out_dir,"ctf_ps_lin.mrc",1);
+        /// GET INITIAL U0 AND S0
+        estimate_mu_sigma(u0,s0,tmp,fmax(int(u0)-4,0),fmin(int(u0)+4,M-1));
 
-        for(int k=0;k<K;k++) {
-            fit_ellipe.fit(c_def_inf[k].x,c_def_inf[k].y,c_def_inf[k].z,input+k*int(M*N),M,N);
+        /// GO FROM CENTRAL TO THE END
+        float u = u0;
+        float s = s0;
+        for(int k=k0;k<K;k++) {
+            int P = int(ceilf(3*s));
+            ix0 = int(fmax(fmin(u0,u)-P,0));
+            ix1 = int(fmin(fmax(u0,u)+P,M-1));
+            estimate_mu_sigma(u,s,c_linear+(k*int(M)),ix0,ix1);
+            c_defocus[k] = lin_fpix_to_defocus*u;
         }
 
-        update_def_info();
-        for(int k=0;k<K;k++) {
-            c_def_inf[k].x *= ix2def;
-            c_def_inf[k].y *= ix2def;
+        /// GO FROM CENTRAL TO THE BEGINNING
+        u = u0;
+        s = s0;
+        for(int k=k0-1;k>=0;k--) {
+            int P = int(ceilf(3*s));
+            ix0 = int(fmax(fmin(u0,u)-P,0));
+            ix1 = int(fmin(fmax(u0,u)+P,M-1));
+            estimate_mu_sigma(u,s,c_linear+(k*int(M)),ix0,ix1);
+            c_defocus[k] = lin_fpix_to_defocus*u;
         }
 
-        rad_avgr.load_and_radial_normalize(ctf_normal.ss_foreground.ptr,g_def_inf.ptr);
-        rad_avgr.calc_rad_average(p_rad_avg);
-        rad_avgr.calc_env(p_rad_env,p_rad_avg);
-
-        fit_ctf.load_ctf_avg(p_rad_avg,p_rad_env);
-        fit_ctf.estimate(c_def_inf,score_log,ref_range,ref_step,fpix_range.x,fpix_range.y,res_thres);
-        fit_ctf.save_estimation(c_def_inf,score_log,res_thres,out_dir);
-        if( verbose >= 2 )
-            fit_ctf.save_svg_report(p_rad_avg,p_rad_env,c_def_inf,out_dir,fpix_range);
-
-        save_cpu_mrc(p_rad_avg,N,K,1,out_dir,"ctf_rad_avg_raw.mrc",3);
-        save_cpu_mrc(p_rad_env,N,K,1,out_dir,"ctf_rad_avg_env.mrc",3);
-        save_cpu_mrc(fit_ctf.ctf_signal,M,K,1,out_dir,"ctf_rad_avg_nrm.mrc",3);
-        save_cpu_mrc(fit_ctf.ctf_fitted,M,K,1,out_dir,"ctf_rad_avg_est.mrc",3);
-        save_cpu_mrc(fit_ctf.ctf_qualit,M,K,1,out_dir,"ctf_rad_avg_qly.mrc",3);
-
-        update_def_info();
-        fit_ctf.get_max_env_for_final_rslt(results.c_min_ix,p_rad_env,c_def_inf);
-        results.load_env(p_rad_env);
-        results.gen_fitting_result(ctf_normal.ss_foreground.ptr,g_def_inf.ptr,apix,lambda_pi,lambda3_Cs_pi_2,AC);
-        save_gpu_mrc(p_final_rslt,results.g_rslt.ptr,N,N,K,out_dir,"ctf_fitting_result.mrc",0);
-
+        delete [] tmp;
+        return lin_fpix_to_defocus*u0;
     }
-	
+
 protected:
-    void set_lin_range(const float min_fp,const float max_fp) {
-        for(int k=0;k<K;k++) {
-            lin_mask[k].x = min_fp;
-            lin_mask[k].y = max_fp;
-        }
-        cudaMemcpy( (void*)ss_lin_mask.ptr, (const void*)(lin_mask), sizeof(float2)*K, cudaMemcpyHostToDevice);
+    void preprocess(float*input) {
+        int3 siz = make_int3(M,N,K);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,siz.x,siz.y,siz.z);
+        cudaMemcpy( (void*)g_input.ptr, (const void*)(input), sizeof(float)*M*N*K, cudaMemcpyHostToDevice);
+        float num = 0.0625f/2;
+        float scl = 10.02548736875733f;
+        GpuKernels::conv_gauss_1D_Y<<<grd,blk>>>(g_bufferA.ptr,g_input.ptr,num,scl,siz);
+        GpuKernels::conv_gauss_1D_X<<<grd,blk>>>(g_bufferB.ptr,g_bufferA.ptr,num,scl,siz,true);
+        GpuKernels::substract<<<grd,blk>>>(g_input.ptr,g_bufferB.ptr,siz);
     }
 
-    void set_lin_range(const float min_fp,const float2*factor_per_proj) {
-        for(int k=0;k<K;k++) {
-            lin_mask[k].x = min_fp;
-            lin_mask[k].y = factor_per_proj[k].y;
-        }
-        cudaMemcpy( (void*)ss_lin_mask.ptr, (const void*)(lin_mask), sizeof(float2)*K, cudaMemcpyHostToDevice);
+    void radial_average() {
+        g_linear.clear();
+        g_weight.clear();
+
+        int3 siz_ps = make_int3(M,N,K);
+        dim3 blk_ps = GPU::get_block_size_2D();
+        dim3 grd_ps = GPU::calc_grid_size(blk_ps,siz_ps.x,siz_ps.y,siz_ps.z);
+
+        GpuKernels::radial_ps_avg_linearized<<<grd_ps,blk_ps>>>(g_linear.ptr,g_weight.ptr,g_input.ptr,max_nyquist,siz_ps);
+
+        int3 siz_rad = make_int3(N,K,1);
+        dim3 blk_rad = GPU::get_block_size_2D();
+        dim3 grd_rad = GPU::calc_grid_size(blk_rad,siz_rad.x,siz_rad.y,siz_rad.z);
+
+        GpuKernels::divide<<<grd_rad,blk_rad>>>(g_linear.ptr,g_weight.ptr,siz_rad);
+        GpuKernels::arr_hanning<<<grd_rad,blk_rad>>>(g_linear.ptr,siz_rad);
     }
 
-    void download(single*p_cpu,const single*p_gpu,const int m,const int n,const int k) {
-        cudaMemcpy((void*)p_cpu, (const void*)p_gpu, sizeof(float)*m*n*k, cudaMemcpyDeviceToHost);
+    void calculate_power_spectrum() {
+        int3 siz_rad = make_int3(M,K,1);
+        dim3 blk_rad = GPU::get_block_size_2D();
+        dim3 grd_rad = GPU::calc_grid_size(blk_rad,siz_rad.x,siz_rad.y,siz_rad.z);
+
+        rfft.exec(g_fourier.ptr,g_linear.ptr);
+        GpuKernels::divide<<<grd_rad,blk_rad>>>(g_fourier.ptr,N,siz_rad);
+        GpuKernels::load_ps<<<grd_rad,blk_rad>>>(g_power.ptr,g_fourier.ptr,siz_rad);
+    }
+
+    void estimate_mu_sigma(float&mu,float&sigma,float*p_data,int ix0,int ix1) {
+        float acc = 0;
+        mu    = 0;
+        sigma = 0;
+
+        for(int ix=ix0;ix<=ix1;ix++) {
+            mu  += p_data[ix]*ix;
+            acc += p_data[ix];
+        }
+        mu = mu/acc;
+
+        for(int ix=ix0;ix<=ix1;ix++) {
+            sigma += p_data[ix]*((ix-mu)*(ix-mu)) ;
+        }
+        sigma = sigma/acc;
+
+        sigma = sqrtf(sigma);
     }
 
     void save_gpu_mrc(single*p_cpu,const single*p_gpu,const int m,const int n,const int k,const char*out_dir,const char*name,const int req_verb) {
@@ -1069,6 +246,456 @@ protected:
         }
     }
 
+
+};
+
+
+class CtfLinearizer{
+
+protected:
+    class CtfRefiner {
+    public:
+        int M;
+        int N;
+        int K;
+        float*buf_ctf;
+        float*buf_metric;
+        float*buf_m_var;
+        float*buf_cum_s1;
+        float*buf_cum_s2;
+
+        float apix;
+        float lambda_pi;
+        float lambda3_Cs_pi_2;
+        float AC;
+        float CA;
+
+        int last_th;
+
+        CtfRefiner(int m, int n, int k, float apix_in, float lambda_kv, float ac, float cs) {
+            M = m;
+            N = n;
+            K = k;
+            buf_ctf    = new float[M];
+            buf_metric = new float[M];
+            buf_m_var  = new float[M];
+            buf_cum_s1 = new float[M];
+            buf_cum_s2 = new float[M];
+
+            AC = ac;
+            CA = sqrt(1.0-AC*AC);
+            apix = apix_in;
+            lambda_pi = lambda_kv*M_PI;
+            lambda3_Cs_pi_2 = lambda_kv*lambda_kv*lambda_kv*(cs*1e7)*M_PI/2;
+        }
+
+        ~CtfRefiner() {
+            delete [] buf_ctf;
+            delete [] buf_metric;
+            delete [] buf_m_var;
+            delete [] buf_cum_s1;
+            delete [] buf_cum_s2;
+        }
+
+        void refine_ctf_hybrid(float&best_score,float&delta_def,float&phase_shift,int&max_fpix,const float*p_data,float init_defocus) {
+
+            const float def_steps[3]   = {200.0f, 50.0f, 10.0f};
+            const float phase_steps[3] = {2.0f, 0.5f, 0.5f}; // degrees
+
+            delta_def   = 0.0f;
+            phase_shift = 0.0f;
+
+            best_score = compute_score(delta_def,phase_shift,p_data,init_defocus);
+            max_fpix   = last_th;
+
+            float phase_span = (float)M_PI/2.0f;
+
+            for(int level=0;level<3;level++) {
+
+                float d_step = def_steps[level];
+                float p_step = phase_steps[level]*DEG2RAD;
+
+                delta_def  = parabolic_defocus(delta_def,phase_shift,d_step,p_data,init_defocus);
+                best_score = compute_score(delta_def,phase_shift,p_data,init_defocus);
+                max_fpix   = last_th;
+
+                float local_best_score = best_score;
+                float best_phase_local = phase_shift;
+
+                int n_phase = (int)ceilf(phase_span/p_step);
+
+                for (int i=-n_phase;i<=n_phase;i++) {
+
+                    float phase_i = phase_shift + p_step*i;
+                    float score_i = compute_score(delta_def, phase_i,p_data,init_defocus);
+
+                    if( score_i>local_best_score) {
+                        local_best_score = score_i;
+                        best_phase_local = phase_i;
+                    }
+                }
+
+                phase_shift = best_phase_local;
+                best_score  = local_best_score;
+
+                phase_span = p_step * 4.0f;
+            }
+
+            best_score = compute_score(delta_def,phase_shift,p_data,init_defocus);
+            max_fpix   = last_th;
+        }
+
+    protected:
+        void ctf_1D(float def_angs,float phase_shift_rad) {
+
+            float df = 1.0f/(N*apix);
+            float lambda_pi_def = lambda_pi*def_angs;
+
+            for (int i=0;i<M;i++) {
+                float s  = i*df;
+                float s2 = s*s;
+                float s4 = s2*s2;
+
+                float gamma = lambda_pi_def*s2 - lambda3_Cs_pi_2*s4 + phase_shift_rad;
+                buf_ctf[i] = -CA*sinf(gamma)-AC*cosf(gamma);
+            }
+        }
+
+        void local_std(int window) {
+            int wsize = 2*window+1;
+
+            for(int i=0;i<M;i++) {
+
+                float s = 0.0f;
+                float s2 = 0.0f;
+
+                for(int k=-window;k<=window;k++) {
+
+                    int j = i+k;
+
+                    if (j < 0)
+                        j = -j-1;
+                    else if (j>=M)
+                        j = 2*M-j-1;
+
+                    float val = buf_metric[j];
+                    s  += val;
+                    s2 += val*val;
+                }
+
+                float mean = s/wsize;
+                float var  = s2/wsize - mean*mean;
+
+                if (var < 0.0f) var = 0.0f;
+
+                buf_m_var[i] = sqrtf(var);
+            }
+        }
+
+        int var_split_index() {
+
+            if(M<4)
+                return M;
+
+            float total  = 0.0f;
+            float total2 = 0.0f;
+
+            for(int i=0;i<M;i++) {
+                float v = buf_m_var[i];
+                total  += v;
+                total2 += v*v;
+                buf_cum_s1[i]  = total;
+                buf_cum_s2[i] = total2;
+            }
+
+            int best_k = 1;
+            float best_score = 99999.9f;
+
+            for(int k=2;k<=M-2;k++) {
+
+                // Left segment
+                int n1 = k;
+                float sum1  = buf_cum_s1 [k-1];
+                float sum12 = buf_cum_s2[k-1];
+                float mean1 = sum1 /n1;
+                float var1  = sum12/n1 - mean1*mean1;
+                if (var1 < 0.0f) var1 = 0.0f;
+
+                // Right segment
+                int n2 = M - k;
+                float sum2  = total -sum1;
+                float sum22 = total2-sum12;
+                float mean2 = sum2 /n2;
+                float var2  = sum22/n2 - mean2*mean2;
+                if (var2 < 0.0f) var2 = 0.0f;
+
+                float score = var1 + var2;
+
+                if (score < best_score) {
+                    best_score = score;
+                    best_k = k;
+                }
+            }
+
+            return best_k;
+        }
+
+        float var_split_improvement(int best_k) {
+
+            if (best_k <= 0 || best_k >= M)
+                return 0.0f;
+
+            float total_sum    = 0.0f;
+            float total_sq_sum = 0.0f;
+
+            for(int i=0;i<M;i++) {
+                float val     = buf_m_var[i];
+                total_sum    += val;
+                total_sq_sum += val*val;
+            }
+
+            float mean_global = total_sum/M;
+            float var_global  = total_sq_sum/M - mean_global * mean_global;
+            float rss1 = M*var_global;
+
+            if (rss1 <= 0.0f)
+                return 0.0f;
+
+            float left_sum    = 0.0f;
+            float left_sq_sum = 0.0f;
+            for (int i=0;i<best_k;i++) {
+                float val    = buf_m_var[i];
+                left_sum    += val;
+                left_sq_sum += val*val;
+            }
+
+            float mean1 = left_sum/best_k;
+            float var1  = left_sq_sum/best_k - mean1*mean1;
+
+            int   right_n      = M-best_k;
+            float right_sum    = total_sum-left_sum;
+            float right_sq_sum = total_sq_sum-left_sq_sum;
+
+            float mean2 = right_sum/right_n;
+            float var2  = right_sq_sum/right_n - mean2*mean2;
+
+            if(var1<0.0f) var1=0.0f;
+            if(var2<0.0f) var2=0.0f;
+
+            float rss2 = best_k*var1 + right_n*var2;
+
+            return (rss1-rss2)/rss1;
+        }
+
+        float compute_score(float delta_def,float phase,const float*p_data,float init_defocus) {
+
+            ctf_1D(init_defocus+delta_def,phase);
+
+            for(int i=0;i<M;i++) {
+                float c = buf_ctf[i];
+                buf_metric[i] = 1.0f - fabsf(p_data[i] - (c*c));
+            }
+
+            local_std(3);
+
+            last_th = var_split_index();
+
+            if (var_split_improvement(last_th) < 0.05f)
+                last_th = M;
+
+            float score = 0.0f;
+            for(int i=0;i<last_th; i++)
+                score += buf_metric[i];
+
+            return score/float(M);
+        }
+
+        float parabolic_defocus(float delta_def,float phase,float def_step,const float* p_data,float init_defocus) {
+
+            float x = delta_def;
+
+            for(int iter=0;iter<3; iter++) {
+                float f_0 = compute_score(x         ,phase,p_data,init_defocus);
+                float f_p = compute_score(x+def_step,phase,p_data,init_defocus);
+                float f_m = compute_score(x-def_step,phase,p_data,init_defocus);
+
+                float den = (f_m-2.0f*f_0+f_p);
+
+                if (fabsf(den) < 1e-12f)
+                    break;
+
+                float dx = 0.5f*def_step*(f_m-f_p)/den;
+
+                if (dx >  def_step) dx =  def_step;
+                if (dx < -def_step) dx = -def_step;
+
+                x += dx;
+            }
+
+            return x;
+        }
+
+    };
+
+public:
+    float N;
+    float M;
+    float K;
+    float R;
+    float ang_step;
+
+    float apix;
+    float new_apix;
+    float max_nyquist;
+    float lin_fpix_to_defocus;
+
+    int def_ix_min;
+    int def_ix_max;
+
+    int verbose;
+
+    float   *c_ini_idx;
+    Defocus *c_estimate;
+
+    float lambda_kv;
+    float lambda_pi;
+    float lambda3_Cs_pi_2;
+
+    float CS;
+    float AC;
+    float CA;
+
+    char filename[SUSAN_FILENAME_LENGTH];
+
+    CtfLinearizer(int gpu_ix, int n, int k, float w_target_apix=3.5f, float r=90) {
+
+        N = n;
+        M = n/2 + 1;
+        K = k;
+        R = r;
+
+        apix = 1.0;
+        new_apix = w_target_apix;
+        ang_step = M_PI/R;
+
+        GPU::set_device(gpu_ix);
+
+        c_ini_idx  = new float[int(K)];
+        c_estimate = new Defocus[int(K)];
+        memset((void*)c_estimate,0,sizeof(Defocus)*int(K));
+    }
+
+    ~CtfLinearizer() {
+
+        delete [] c_ini_idx;
+        delete [] c_estimate;
+    }
+
+    void load_info(ArgsCTF::Info*info,Tomogram*p_tomo) {
+
+        float lambda = Math::get_lambda(p_tomo->KV);
+
+        apix = p_tomo->pix_size;
+        verbose = info->verbose;
+        max_nyquist = apix/new_apix;
+        lin_fpix_to_defocus = 2.0f*new_apix*new_apix/lambda;
+
+        def_ix_min = int( floorf( info->def_min/lin_fpix_to_defocus ) );
+        def_ix_max = int( ceilf ( info->def_max/lin_fpix_to_defocus ) );
+
+        CS = p_tomo->CS;
+        AC = p_tomo->AC;
+        CA = sqrt(1.0-AC*AC);
+        lambda_kv = Math::get_lambda(p_tomo->KV);
+        lambda_pi = lambda_kv*M_PI;
+        lambda3_Cs_pi_2 = lambda_kv*lambda_kv*lambda_kv*(CS*1e7)*M_PI/2;
+    }
+
+    void initial_estimation(const char*out_dir,float*input) {
+        GPU::GArrSingle  g_input;
+        GPU::GArrSingle  g_ps;
+
+        GpuFFT::FFT1D rfft;
+
+        float  *c_linear;
+
+        rfft.alloc(N,K);
+
+        g_ps.alloc(M*K);
+        g_input.alloc(M*N*K);
+
+        c_linear  = new float[int(N*K)];
+
+        /// LOAD AND REMOVE BACKGROUND
+        load_remove_bg_normalize(g_input,input);
+
+        /// RADIAL AVERAGE AND LINEARIZE THEN GET POWER SPECTRUM
+        radial_avg_and_power_spectrum(g_ps,g_input);
+
+        /// DOWNLOAD TO CPU AND FIND INITIAL PEAKS
+        cudaMemcpy( (void*)c_linear, (const void*)g_ps.ptr, sizeof(float)*M*K, cudaMemcpyDeviceToHost);
+        if( verbose > 1 ) {
+            sprintf(filename,"%s/ps_lin_norm.mrc",out_dir);
+            Mrc::write(c_linear,M,K,1,filename);
+            Mrc::set_apix(filename,new_apix,M,K,1);
+        }
+        track_peaks_in_linear_ps(c_linear);
+
+        delete [] c_linear;
+    }
+
+    void process(const char*out_dir,float*input,Tomogram*p_tomo,int k0) {
+
+        GPU::GArrSingle  g_input;
+        GPU::GArrSingle  g_linear;
+        GPU::GArrSingle2 g_polar_as;
+        GPU::GArrSingle2 g_analytical;
+        GPU::GArrSingle  g_ps;
+
+        GpuFFT::FFT1D  rfft;
+        rfft.alloc(N,R*K);
+
+        g_input.alloc(M*N*K);
+        g_linear.alloc(N*N*K);
+        g_analytical.alloc(N*N*K);
+        g_polar_as.alloc(N*R*K);
+        g_ps.alloc(N*N*K);
+
+        float*c_buffer = new float[int(fmax(2*N*N*K,N*R*K))];
+
+        /// LOAD AND REMOVE BACKGROUND
+        load_remove_bg_normalize(g_input,input);
+        save_gpu_mrc(c_buffer,g_input.ptr,M,N,K,out_dir,"ctf_normalized.mrc",1);
+
+        /// LINEARIZE IN 2D
+        fully_linearize(g_linear,g_input);
+        save_gpu_mrc(c_buffer,g_linear.ptr,N,N,K,out_dir,"ctf_linearized.mrc",1);
+
+        /// CONVERT TO POLAR
+        to_polar_complex(g_polar_as,g_linear);
+        save_gpu_mrc(c_buffer,g_polar_as.ptr,N,R,K,out_dir,"ctf_linear_polar.mrc",2);
+
+        /// GET THE ANALYTICAL SIGNAL AND THE ELLIPSOIDAL POWER SPECTRUM
+        polar_to_analytical_signal_to_cartesian(g_analytical,g_polar_as);
+        get_power_spectrum(g_ps,g_analytical);
+        save_gpu_mrc(c_buffer,g_ps.ptr,N,N,K,out_dir,"ctf_ps.mrc",2);
+
+        /// DOWNLOAD FOR ELLIPSOIDAL FITTING
+        cudaMemcpy( (void*)c_buffer, (const void*)g_ps.ptr, sizeof(float)*N*N*K, cudaMemcpyDeviceToHost);
+        fit_ellipsoid(c_buffer,out_dir);
+
+        /// REFINE AND ESTIMATE PHASE SHIFT
+        estimate_phase_shift(c_buffer,g_input,out_dir);
+
+        /// SAVE RESULTS
+        save_fitting(out_dir,c_buffer,g_input);
+        save_defocus_result(out_dir);
+
+        delete [] c_buffer;
+    }
+
+
+protected:
     void save_cpu_mrc(single*p_cpu,const int m,const int n,const int k,const char*out_dir,const char*name,const int req_verb) {
         if( verbose >= req_verb ) {
             sprintf(filename,"%s/%s",out_dir,name);
@@ -1076,29 +703,561 @@ protected:
         }
     }
 
-    void update_def_info() {
-        cudaMemcpy( (void*)g_def_inf.ptr, (const void*)(c_def_inf), sizeof(float4)*K, cudaMemcpyHostToDevice);
+    void save_gpu_mrc(single*p_cpu,const single*p_gpu,const int m,const int n,const int k,const char*out_dir,const char*name,const int req_verb) {
+        cudaMemcpy((void*)p_cpu, (const void*)p_gpu, sizeof(float)*m*n*k, cudaMemcpyDeviceToHost);
+        save_cpu_mrc(p_cpu,m,n,k,out_dir,name,req_verb);
     }
 
-    float calc_initial_range_max(float max_range) {
-        return min(2.5*max_range,M-10);
+    void save_gpu_mrc(single*p_cpu,const float2*p_gpu,const int m,const int n,const int k,const char*out_dir,const char*name,const int req_verb,bool save_real=true) {
+        cudaMemcpy((void*)p_cpu, (const void*)p_gpu, sizeof(float2)*m*n*k, cudaMemcpyDeviceToHost);
+        if(save_real)
+            for(int i=0;i<(m*n*k);i++)
+                p_cpu[i] = p_cpu[2*i];
+        else
+            for(int i=0;i<(m*n*k);i++)
+                p_cpu[i] = p_cpu[(2*i)+1];
+        save_cpu_mrc(p_cpu,m,n,k,out_dir,name,req_verb);
     }
 
-    float calc_range_min(float cur_def) {
-        return N/(4*cur_def);
+    void estimate_mu_sigma_1D(float&mu,float&sigma,float*p_data,int ix0,int ix1) {
+        float acc = 0;
+        mu    = 0;
+        sigma = 0;
+
+        for(int ix=ix0;ix<=ix1;ix++) {
+            mu  += p_data[ix]*ix;
+            acc += p_data[ix];
+        }
+        mu = mu/acc;
+
+        for(int ix=ix0;ix<=ix1;ix++) {
+            sigma += p_data[ix]*((ix-mu)*(ix-mu)) ;
+        }
+        sigma = sigma/acc;
+
+        sigma = sqrtf(sigma);
     }
 
-    float calc_range_max(float i,float cur_def) {
-        return min((i+1)*N/cur_def,M-10);
+    void track_peaks_in_linear_ps(float*c_linear) {
+        float max_val=0;
+        float *p_avg = new float[int(M)];
+        float u0, s0;
+        int ix0,ix1;
+        int k0;
+
+        /// AVERAGE ALL PROJECTIONS
+        for(int m=0;m<M;m++)
+            p_avg[m] = 0;
+
+        for(int k=0;k<K;k++)
+            for(int m=0;m<M;m++) {
+                if( c_linear[m+k*int(M)] > max_val ) {
+                    max_val = c_linear[m+k*int(M)];
+                    k0 = k;
+                }
+                p_avg[m] += c_linear[m+k*int(M)];
+            }
+
+        max_val = 0;
+        for(int m=0;m<M;m++) {
+            if( p_avg[m] > max_val ) {
+                max_val = p_avg[m];
+                u0 = m;
+            }
+        }
+
+        /// GET INITIAL U0 AND S0
+        estimate_mu_sigma_1D(u0,s0,p_avg,fmax(int(u0)-4,0),fmin(int(u0)+4,M-1));
+
+        /// GO FROM CENTRAL TO THE END
+        float u = u0;
+        float s = s0;
+        for(int k=k0;k<K;k++) {
+            int P = int(ceilf(3*s));
+            ix0 = int(fmax(fmin(u0,u)-P,0));
+            ix1 = int(fmin(fmax(u0,u)+P,M-1));
+            estimate_mu_sigma_1D(u,s,c_linear+(k*int(M)),ix0,ix1);
+            c_ini_idx[k] = u;
+        }
+
+        /// GO FROM CENTRAL TO THE BEGINNING
+        u = u0;
+        s = s0;
+        for(int k=k0-1;k>=0;k--) {
+            int P = int(ceilf(3*s));
+            ix0 = int(fmax(fmin(u0,u)-P,0));
+            ix1 = int(fmin(fmax(u0,u)+P,M-1));
+            estimate_mu_sigma_1D(u,s,c_linear+(k*int(M)),ix0,ix1);
+            c_ini_idx[k] = u;
+        }
+
+        delete [] p_avg;
     }
 
-    float calc_fpix_max(float i,float cur_def) {
-        float tmp = 2*(i+1);
-        tmp = tmp/(lambda*cur_def);
-        return N*apix*sqrt(tmp);
+    void radial_avg_and_power_spectrum(GPU::GArrSingle&g_ps,GPU::GArrSingle&g_input) {
+        GPU::GArrSingle  g_acc;
+        GPU::GArrSingle  g_wgt;
+        GPU::GArrSingle2 g_fou;
+        g_acc.alloc(N*K);
+        g_wgt.alloc(N*K);
+        g_fou.alloc(M*K);
+
+        GpuFFT::FFT1D rfft;
+        rfft.alloc(N,K);
+
+        g_acc.clear();
+        g_wgt.clear();
+
+        dim3 blk = GPU::get_block_size_2D();
+
+        int3 siz_ps = make_int3(M,N,K);
+        dim3 grd_ps = GPU::calc_grid_size(blk,siz_ps);
+
+        GpuKernels::radial_ps_avg_linearized<<<grd_ps,blk>>>(g_acc.ptr,g_wgt.ptr,g_input.ptr,max_nyquist,siz_ps);
+
+        int3 siz_rad = make_int3(N,K,1);
+        dim3 grd_rad = GPU::calc_grid_size(blk,siz_rad);
+
+        GpuKernels::divide<<<grd_rad,blk>>>(g_acc.ptr,g_wgt.ptr,siz_rad);
+        GpuKernels::arr_hanning<<<grd_rad,blk>>>(g_acc.ptr,siz_rad);
+
+        /// CALCULATE POWER SPECTRUM AND DOWNLOAD TO CPU
+        int3 siz_lin = make_int3(M,K,1);
+        dim3 grd_lin = GPU::calc_grid_size(blk,siz_lin);
+
+        rfft.exec(g_fou.ptr,g_acc.ptr);
+        GpuKernels::divide<<<grd_lin,blk>>>(g_fou.ptr,N,siz_lin);
+        GpuKernels::load_ps<<<grd_lin,blk>>>(g_ps.ptr,g_fou.ptr,siz_lin);
     }
+
+    void load_remove_bg_normalize(GPU::GArrSingle&rslt,float*input) {
+
+        GPU::GArrSingle g_bufferA;
+        GPU::GArrSingle g_bufferB;
+        g_bufferA.alloc(M*N*K);
+        g_bufferB.alloc(M*N*K);
+
+        cudaMemcpy( (void*)rslt.ptr, (const void*)(input), sizeof(float)*M*N*K, cudaMemcpyHostToDevice);
+
+        int3 siz = make_int3(M,N,K);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,siz.x,siz.y,siz.z);
+        float num = 0.0625f/2;
+        float scl = 10.02548736875733f;
+
+        GpuKernels::conv_gauss_1D_Y<<<grd,blk>>>(g_bufferA.ptr,rslt.ptr,num,scl,siz);
+        GpuKernels::conv_gauss_1D_X<<<grd,blk>>>(g_bufferB.ptr,g_bufferA.ptr,num,scl,siz,true);
+        GpuKernels::substract<<<grd,blk>>>(rslt.ptr,g_bufferB.ptr,siz);
+        g_bufferA.clear();
+        g_bufferB.clear();
+        GpuKernels::get_avg_std<<<grd,blk>>>(g_bufferA.ptr,g_bufferB.ptr,rslt.ptr,siz);
+        GpuKernels::zero_avg_one_std<<<grd,blk>>>(rslt.ptr,g_bufferA.ptr,g_bufferB.ptr,siz);
+    }
+
+    void fully_linearize(GPU::GArrSingle&rslt,GPU::GArrSingle&hermitian_input) {
+        GPU::GArrSingle g_acc;
+        GPU::GArrSingle g_wgt;
+        GPU::GArrSingle g_tmp;
+
+        g_acc.alloc(N*N*K);
+        g_wgt.alloc(N*N*K);
+
+        g_acc.clear();
+        g_wgt.clear();
+
+        dim3 blk = GPU::get_block_size_2D();
+
+        int3 siz_hermitian = make_int3(M,N,K);
+        dim3 grd_hermitian = GPU::calc_grid_size(blk,siz_hermitian);
+
+        int3 siz_full = make_int3(N,N,K);
+        dim3 grd_full = GPU::calc_grid_size(blk,siz_full);
+
+        GpuKernelsCtf::ctf_linearize_ps<<<grd_hermitian,blk>>>(g_acc.ptr,g_wgt.ptr,hermitian_input.ptr,apix,new_apix,siz_hermitian);
+
+        GpuKernels::divide<<<grd_full,blk>>>(g_acc.ptr,g_wgt.ptr,siz_full);
+        GpuKernels::stk_hanning<<<grd_full,blk>>>(g_acc.ptr,siz_full);
+        GpuKernels::stk_medfilt_k3<<<grd_full,blk>>>(rslt.ptr,g_acc.ptr,siz_full);
+    }
+
+    void to_polar_complex(GPU::GArrSingle2&polar_complex,GPU::GArrSingle&input) {
+        dim3 blk = GPU::get_block_size_2D();
+        int3 siz = make_int3(N,R,K);
+        dim3 grd = GPU::calc_grid_size(blk,siz);
+        int3 siz_input = make_int3(N,N,K);
+        GpuKernels::to_polar_complex<<<grd,blk>>>(polar_complex.ptr,input.ptr,ang_step,siz_input,siz);
+    }
+
+    void polar_to_analytical_signal_to_cartesian(GPU::GArrSingle2&stk_complex,GPU::GArrSingle2&polar_complex) {
+        GPU::GArrSingle2    g_fourier;
+        GpuFFT::FFT1D_full  fft;
+        GpuFFT::IFFT1D_full ifft;
+
+        g_fourier.alloc(N*R*K);
+        fft.alloc(N,R*K);
+        ifft.alloc(N,R*K);
+
+        dim3 blk = GPU::get_block_size_2D();
+
+        int3 siz_polar = make_int3(N,R*K,1);
+        dim3 grd_polar = GPU::calc_grid_size(blk,siz_polar);
+
+        int3 siz_cart = make_int3(N,N,K);
+        dim3 grd_cart = GPU::calc_grid_size(blk,siz_cart);
+
+        fft.exec(g_fourier.ptr,polar_complex.ptr);
+        GpuKernels::analytical_signal_1D<<<grd_polar,blk>>>(g_fourier.ptr,M,N,R,K);
+        ifft.exec(polar_complex.ptr,g_fourier.ptr);
+        GpuKernels::divide<<<grd_polar,blk>>>(polar_complex.ptr,N,siz_polar);
+        GpuKernels::polar_to_cart_complex<<<grd_cart,blk>>>(stk_complex.ptr,polar_complex.ptr,ang_step,N,R,K);
+
+    }
+
+    void get_power_spectrum(GPU::GArrSingle&g_ps,GPU::GArrSingle2&stk_complex,int scale=2) {
+
+        GPU::GArrSingle2   g_pad;
+        GPU::GArrSingle2   g_fourier;
+        GPU::GArrSingle    g_bufferA;
+        GPU::GArrSingle    g_bufferB;
+        GPU::GArrSingle    g_bufferC;
+        GpuFFT::FFT2D_full fft2;
+
+        dim3 blk = GPU::get_block_size_2D();
+
+        int3 siz_raw = make_int3(N,N,K);
+        dim3 grd_raw = GPU::calc_grid_size(blk,siz_raw);
+
+        int3 siz_pad = make_int3(scale*N,scale*N,K);
+        dim3 grd_pad = GPU::calc_grid_size(blk,siz_pad);
+
+        g_pad.alloc(scale*scale*N*N*K);
+        g_bufferA.alloc(scale*scale*N*N*K);
+        g_bufferB.alloc(scale*scale*N*N*K);
+        g_bufferC.alloc(scale*scale*N*N*K);
+        g_fourier.alloc(scale*scale*N*N*K);
+        fft2.alloc(scale*N,scale*N,K);
+
+        int  padding = ((int)(scale*N-N))/2;
+        int3 half_pad;
+        half_pad.x = padding;
+        half_pad.y = padding;
+        half_pad.z = 0;
+
+        g_pad.clear();
+        GpuKernels::load_pad<<<grd_raw,blk>>>(g_pad.ptr,stk_complex.ptr,half_pad,siz_raw,siz_pad);
+
+        fft2.exec(g_fourier.ptr,g_pad.ptr);
+
+        GpuKernels::load_ps<<<grd_pad,blk>>>(g_bufferC.ptr,g_fourier.ptr,siz_pad);
+        GpuKernels::divide<<<grd_pad,blk>>>(g_bufferC.ptr,scale*scale*N*N,siz_pad);
+        GpuKernels::fftshift2D<<<grd_pad,blk>>>(g_bufferC.ptr,siz_pad);
+
+        /*
+        import numpy as np
+        from scipy.ndimage import convolve
+
+        cc = np.zeros((31,31))
+        cc[15,15] = 1
+
+        sigma = 4
+        t   = np.arange(-15,16)
+        num = 1/(2*(sigma**2))
+        wx  = np.exp(-num*t*t)[:,np.newaxis]
+        wy  = wx.T
+        est = convolve(convolve(cc,wx),wy)
+        print('num',num)
+        print('scl',np.sqrt(est.sum()))
+        */
+
+        float num = 0.03125;
+        float scl = 10.025487368757329f;
+
+        GpuKernels::conv_gauss_1D_Y<<<grd_pad,blk>>>(g_bufferA.ptr,g_bufferC.ptr,num,scl,siz_pad);
+        GpuKernels::conv_gauss_1D_X<<<grd_pad,blk>>>(g_bufferB.ptr,g_bufferA.ptr,num,scl,siz_pad,false);
+        GpuKernels::substract<<<grd_pad,blk>>>(g_bufferC.ptr,g_bufferB.ptr,siz_pad);
+
+        GpuKernels::remove_pad_stk<<<grd_raw,blk>>>(g_ps.ptr,g_bufferC.ptr,padding,siz_raw,siz_pad);
+
+    }
+
+    void init_estimate(int scale) {
+        for(int k=0;k<K;k++){
+            c_estimate[k].U = scale*c_ini_idx[k];
+            c_estimate[k].V = scale*c_ini_idx[k];
+            c_estimate[k].angle = 0.0;
+        }
+    }
+
+    float rad_from_ellipsoid(int ix,int k) {
+        float num = c_estimate[k].U * c_estimate[k].V;
+        float ang = (ang_step*ix) - c_estimate[k].angle;
+        float ca  = c_estimate[k].V*cosf(ang);
+        float sa  = c_estimate[k].U*sinf(ang);
+        float den = sqrtf( ca*ca + sa*sa );
+        return num/den;
+    }
+
+    float sample_peak(int ix,int k,float*p_frame,float search_range=3) {
+        int   n = (int)N;
+        float rad = rad_from_ellipsoid(ix,k);
+        float rad_min = rad - search_range;
+        float rad_max = rad + search_range;
+
+        float num=0;
+        float den=0;
+        float ca = cosf(ang_step*ix);
+        float sa = sinf(ang_step*ix);
+
+        for(float r=rad_min;r<=rad_max;r++) {
+            float x = r*ca + N/2;
+            float y = r*sa + N/2;
+
+            int ix0 = (int)floorf(x);
+            int iy0 = (int)floorf(y);
+
+            if (ix0 < 0 || ix0 >= n-1 || iy0 < 0 || iy0 >= n - 1)
+                continue;
+
+            float wx = x - ix0;
+            float wy = y - iy0;
+
+            float v00 = p_frame[ ix0   + n*(iy0  ) ];
+            float v10 = p_frame[ ix0+1 + n*(iy0  ) ];
+            float v01 = p_frame[ ix0   + n*(iy0+1) ];
+            float v11 = p_frame[ ix0+1 + n*(iy0+1) ];
+
+            float val = 0.0f;
+
+            val += v00*(1-wx)*(1-wy);
+            val += v10*(  wx)*(1-wy);
+            val += v01*(1-wx)*(  wy);
+            val += v11*(  wx)*(  wy);
+
+            if(val>0) {
+                num += (r*val);
+                den += val;
+            }
+        }
+
+        if(den < SUSAN_FLOAT_TOL)
+            return rad;
+        else
+            return num/den;
+    }
+
+    Eigen::Matrix2f get_covariance(float *r_arr) {
+
+        float Cxx = 0.0f;
+        float Cyy = 0.0f;
+        float Cxy = 0.0f;
+
+        for(int ix=0;ix<2*int(R);ix++) {
+
+            float r = r_arr[ix];
+            float a = ang_step*ix;
+
+            float x = r*cosf(a);
+            float y = r*sinf(a);
+
+            Cxx += x*x;
+            Cyy += y*y;
+            Cxy += x*y;
+        }
+
+        float invN = 1.0f / (float)(2*R);
+
+        Cxx *= invN;
+        Cyy *= invN;
+        Cxy *= invN;
+
+        Eigen::Matrix2f C;
+        C(0,0) = Cxx;
+        C(0,1) = Cxy;
+        C(1,0) = Cxy;
+        C(1,1) = Cyy;
+
+        return C;
+    }
+
+    void update_estimate_from_covariance(int k,Eigen::Matrix2f&cov) {
+
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> solver(cov);
+
+        Eigen::Vector2f eigvals = solver.eigenvalues();
+        Eigen::Matrix2f eigvect = solver.eigenvectors();
+
+        c_estimate[k].U = sqrtf(2.0f*eigvals(1));
+        c_estimate[k].V = sqrtf(2.0f*eigvals(0));
+        c_estimate[k].angle = atan2f(eigvect(1,1),eigvect(0,1));
+    }
+
+    void fit_ellipsoid(float*p_data,const char*out_dir,int scale=2) {
+
+        init_estimate(scale); /// set angles to 0 and U=V=intial_estimate.
+
+        float *r_arr = new float[2*int(R)]; /// R is from 0 to pi, 2*R is from 0 to 2pi.
+
+        int n = (int)N;
+        for(int k=0;k<K;k++) {
+            float*p_frame = p_data + k*n*n;
+            for(int ix=0;ix<2*int(R);ix++) {
+                r_arr[ix] = sample_peak(ix,k,p_frame);
+            }
+
+            Eigen::Matrix2f cov = get_covariance(r_arr);
+            update_estimate_from_covariance(k,cov);
+        }
+
+        if( verbose > 0 ) {
+            sprintf(filename,"%s/ctf_ellipse_fit",out_dir);
+            IO::create_dir(filename);
+            float vmin=0;
+            float vmax=0;
+            float vavg=0;
+            float vstd=0;
+            Math::get_min_max_avg_std(vmin,vmax,vavg,vstd,p_data,(int)(N*N*K));
+            float min_val = fmaxf( vmin, vavg - 10*vstd );
+            float max_val = fminf( vmax, vavg + 25*vstd );
+            for(int k=0;k<K;k++) {
+                float*p_frame = p_data + k*n*n;
+                sprintf(filename,"%s/ctf_ellipse_fit/projection_%02d.svg",out_dir,k);
+                ctf_ellipse_fit_to_svg(filename,p_frame,(int)N,min_val,max_val,lin_fpix_to_defocus/scale,c_estimate[k].U,c_estimate[k].V,c_estimate[k].angle);
+            }
+        }
+
+        /// To Angstroms
+        for(int k=0;k<K;k++) {
+            c_estimate[k].U *= lin_fpix_to_defocus/scale;
+            c_estimate[k].V *= lin_fpix_to_defocus/scale;
+            c_estimate[k].angle *= RAD2DEG;
+        }
+
+        delete [] r_arr;
+    }
+
+    void estimate_phase_shift(float*c_buffer,GPU::GArrSingle&hermitian_input,const char*out_dir) {
+        GPU::GArrSingle  g_acc;
+        GPU::GArrSingle  g_wgt;
+        GPU::GArrSingle  g_blr;
+        GPU::GArrSingle2 g_tmp;
+        GPU::GArrSingle2 g_fou;
+        GPU::GArrDefocus g_def;
+        g_blr.alloc(M*N*K);
+        g_tmp.alloc(N*K);
+        g_acc.alloc(N*K);
+        g_wgt.alloc(N*K);
+        g_fou.alloc(N*K);
+        g_def.alloc(K);
+
+        GpuFFT::FFT1D_full  fft;
+        GpuFFT::IFFT1D_full ifft;
+        fft.alloc(N,K);
+        ifft.alloc(N,K);
+
+        g_acc.clear();
+        g_wgt.clear();
+
+        float*c_ps_raw  = new float[int(N*K)];
+        float*c_ps_norm = new float[int(N*K)];
+
+        cudaMemcpy((void*)g_def.ptr, (const void*)c_estimate, sizeof(Defocus)*int(K), cudaMemcpyHostToDevice);
+
+        dim3 blk = GPU::get_block_size_2D();
+
+        int3 siz_ps = make_int3(M,N,K);
+        dim3 grd_ps = GPU::calc_grid_size(blk,siz_ps);
+
+        int3 siz_rad = make_int3(N,K,1);
+        dim3 grd_rad = GPU::calc_grid_size(blk,siz_rad);
+
+        GpuKernels::conv_gaussian<<<grd_ps,blk>>>(g_blr.ptr,hermitian_input.ptr,0.5000,6.2831,siz_ps);
+        GpuKernelsCtf::ctf_radial_normalize_and_avg<<<grd_ps,blk>>>(g_acc.ptr,g_wgt.ptr,g_blr.ptr,g_def.ptr,siz_ps);
+        GpuKernels::divide<<<grd_rad,blk>>>(g_acc.ptr,g_wgt.ptr,siz_rad);
+        cudaMemcpy((void*)c_ps_raw, (const void*)g_acc.ptr, sizeof(float)*int(N)*int(K), cudaMemcpyDeviceToHost);
+        Math::fftshift_1D_batch(c_ps_raw,int(N),int(K));
+
+        GpuKernels::real_to_complex<<<grd_rad,blk>>>(g_tmp.ptr,g_acc.ptr,siz_rad);
+
+        fft.exec(g_fou.ptr,g_tmp.ptr);
+        GpuKernels::analytical_signal_1D<<<grd_rad,blk>>>(g_fou.ptr,M,N,1,K);
+        ifft.exec(g_tmp.ptr,g_fou.ptr);
+        GpuKernels::divide<<<grd_rad,blk>>>(g_tmp.ptr,N,siz_rad);
+
+        GpuKernels::as_amplitude_normalize_clamp<<<grd_rad,blk>>>(g_acc.ptr,g_tmp.ptr,siz_rad);
+        cudaMemcpy((void*)c_ps_norm, (const void*)g_acc.ptr, sizeof(float)*int(N)*int(K), cudaMemcpyDeviceToHost);
+        Math::fftshift_1D_batch(c_ps_norm,int(N),int(K));
+
+        /// REFINE CTF
+        CtfRefiner ctf_refiner(int(M),int(N),int(K),apix,lambda_kv,AC,CS);
+        float delta_def,phase_shift,max_score;
+        int   max_fpix;
+
+        if( verbose>0 ) {
+            sprintf(filename,"%s/ctf_radial_fit",out_dir);
+            IO::create_dir(filename);
+        }
+
+        for(int k=0;k<int(K);k++) {
+            float*p_data  = c_ps_norm + k*int(N);
+            float ini_def = (c_estimate[k].U+c_estimate[k].V)/2;
+            ctf_refiner.refine_ctf_hybrid(max_score,delta_def,phase_shift,max_fpix,p_data,ini_def);
+            c_estimate[k].U += delta_def;
+            c_estimate[k].V += delta_def;
+            c_estimate[k].ph_shft = phase_shift;
+            c_estimate[k].score   = max_score;
+            c_estimate[k].max_res = N*apix/max_fpix;
+            c_estimate[k].Bfactor = 0.0f;
+            c_estimate[k].ExpFilt = 0.0f;
+            if( verbose>0 ) {
+                float p_tmp[int(M)];
+                sprintf(filename,"%s/ctf_radial_fit/projection_%02d.svg",out_dir,k);
+                SvgCtf svg_ctf(filename,apix);
+                svg_ctf.create_grid(0.0f,float(max_fpix),int(N));
+                svg_ctf.add_est(ctf_refiner.buf_metric,int(M),true);
+                for(int i=0;i<int(M);i++) p_tmp[i] = ctf_refiner.buf_ctf[i]*ctf_refiner.buf_ctf[i];
+                svg_ctf.add_fit(p_tmp,int(M));
+                for(int i=0;i<int(M);i++) p_tmp[i] = fminf( fmaxf(c_ps_raw[i+k*int(N)]+0.5,0),1.0f);
+                svg_ctf.add_avg(p_tmp,int(M));
+                svg_ctf.create_legend();
+                svg_ctf.create_title(k,ini_def+delta_def);
+            }
+        }
+    }
+
+    void save_fitting(const char*out_dir,float*c_buffer,GPU::GArrSingle&hermitian_input) {
+        GPU::GArrSingle  g_vis;
+        GPU::GArrDefocus g_def;
+        g_def.alloc(K);
+        g_vis.alloc(N*N*K);
+        g_vis.clear();
+
+        cudaMemcpy((void*)g_def.ptr, (const void*)c_estimate, sizeof(Defocus)*int(K),cudaMemcpyHostToDevice);
+
+        dim3 blk = GPU::get_block_size_2D();
+
+        int3 siz_hermitian = make_int3(M,N,K);
+        dim3 grd_hermitian = GPU::calc_grid_size(blk,siz_hermitian);
+
+        int3 siz_full = make_int3(N,N,K);
+        dim3 grd_full = GPU::calc_grid_size(blk,siz_full);
+
+        GpuKernelsCtf::vis_copy_data<<<grd_hermitian,blk>>>(g_vis.ptr,hermitian_input.ptr,1.0f/6,0.5f,siz_full,siz_hermitian);
+        GpuKernelsCtf::vis_add_ctf<<<grd_full,blk>>>(g_vis.ptr,g_def.ptr,apix,lambda_pi,lambda3_Cs_pi_2,AC,siz_full);
+
+        save_gpu_mrc(c_buffer,g_vis.ptr,N,N,K,out_dir,"ctf_fitting.mrc",0);
+    }
+
+    void save_defocus_result(const char*out_dir) {
+        sprintf(filename,"%s/defocus.txt",out_dir);
+        FILE*fp = fopen(filename,"w");
+        for(int k=0;k<K;k++) {
+            IO::DefocusIO::write(fp,c_estimate[k]);
+        }
+
+        fclose(fp);
+    }
+
 };
 
 #endif /// CTF_LINEARIZER_H
-
 

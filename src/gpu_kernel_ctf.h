@@ -43,12 +43,18 @@ __device__ float calc_s(const float r, const float R, const float apix) {
 }
 
 __device__ float calc_def(const float x, const float y, const float u, const float v, const float ang) {
-    float rad = M_PI*ang/180.0;
-    float rx = x*cos(rad)-y*sin(rad);
-    float ry = x*sin(rad)+y*cos(rad);
-    float wx = u*rx;
-    float wy = v*ry;
-    return l2_distance(wx,wy);
+    float a  = ang*DEG2RAD;
+    float ca = cosf(a);
+    float sa = sinf(a);
+    float rx = ca*x - sa*y;
+    float ry = sa*x + ca*y;
+
+    float num = u*u*rx*rx + v*v*ry*ry;
+    float den = x*x + y*y;
+
+    if( den < SUSAN_FLOAT_TOL )
+        return (u+v)/2;
+    return sqrtf(num/den);
 }
 
 __device__ float calc_def(const float x, const float y, const Defocus&def) {
@@ -175,6 +181,28 @@ __global__ void ctf_normalize( float*p_out, cudaTextureObject_t texture,
     }
 }
 
+__global__ void ctf_normalize_ps(double*p_acc, double*p_wgt, const float2*p_in, const float2*p_factor, const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        if( p_factor[ss_idx.z].y > 0 ) {
+            float2 val = p_in[get_3d_idx(ss_idx,ss_siz)]; // p_in is a stack of hermitian rfft
+            double ps  = cuCabsf(val);
+            ps *= ps;
+
+            float x = ss_idx.x;
+            float y = ss_idx.y - (ss_siz.y/2);
+            float factor = p_factor[ss_idx.z].x;
+            x =  x/factor;
+            y = (y/factor) + (ss_siz.y/2);
+
+            insert_into_stk(p_acc,p_wgt,ps,x,y,ss_idx.z,ss_siz);
+        }
+    }
+}
+
 __global__ void ctf_radial_normalize( float*p_out, cudaTextureObject_t texture, const float4*p_defocus, const float ix2def,
                                       const float pi_lambda, const float apix, const int3 ss_siz)
 {
@@ -187,10 +215,6 @@ __global__ void ctf_radial_normalize( float*p_out, cudaTextureObject_t texture, 
         vec_r.x = ss_idx.x;
         vec_r.y = ss_idx.y-ss_siz.y/2;
         vec_r.z = l2_distance(vec_r.x,vec_r.y);
-        if( vec_r.z > 0 ) {
-            vec_r.x = vec_r.x/vec_r.z;
-            vec_r.y = vec_r.y/vec_r.z;
-        }
 
         float s2 = calc_s(vec_r.z,ss_siz.y,apix);
         s2 = s2*s2;
@@ -200,13 +224,10 @@ __global__ void ctf_radial_normalize( float*p_out, cudaTextureObject_t texture, 
         def = ix2def*def;
         if(def_dif<0) def = -def;
         float factor = vec_r.z*sqrtf( def_avg/(def_avg+def_dif) );
-        //float factor = pi_lambda*def*s2;
-        //float x = ss_idx.x-factor*vec_r.x;
-        //float y = ss_idx.y-factor*vec_r.y;
-        //if( vec_r.z-factor >= ss_siz.y/2 ) {
-        //    x = ss_idx.x;
-        //    y = ss_idx.y;
-        //}
+        if( vec_r.z > 0 ) {
+            vec_r.x = vec_r.x/vec_r.z;
+            vec_r.y = vec_r.y/vec_r.z;
+        }
         float x = factor*vec_r.x;
         float y = factor*vec_r.y + ss_siz.y/2;
 
@@ -215,6 +236,69 @@ __global__ void ctf_radial_normalize( float*p_out, cudaTextureObject_t texture, 
 
         float val = tex2DLayered<float>(texture,x+0.5,y+0.5,ss_idx.z);
         p_out[ get_3d_idx(ss_idx,ss_siz) ] = val;
+    }
+}
+
+__global__ void ctf_linearize_ps(float*p_acc, float*p_wgt, const float*p_in, const float apix, const float new_apix, const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        float Nh    = int(ss_siz.y/2);
+        float val   = p_in[get_3d_idx(ss_idx,ss_siz)];
+
+        float x = ss_idx.x;
+        float y = ss_idx.y - int(Nh);
+
+        float r  = sqrtf(x*x + y*y);
+        float s  = r*new_apix/(Nh*apix);
+        float scale = (r>0.0) ? s*s*Nh/r : 0.0f;
+
+        x *= scale;
+        y *= scale;
+
+        int3 ss_out = {ss_siz.y,ss_siz.y,ss_siz.z};
+        insert_into_stk(p_acc,p_wgt,val,Nh+x,Nh+y,ss_idx.z,ss_out);
+        insert_into_stk(p_acc,p_wgt,val,Nh-x,Nh-y,ss_idx.z,ss_out);
+    }
+}
+
+__global__ void ctf_radial_normalize_and_avg(float*p_avg,float*p_wgt,const float*p_in,const Defocus*p_def,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        int N  = ss_siz.y;
+        int Nh = N/2;
+        float x = ss_idx.x;
+        float y = ss_idx.y - Nh;
+        float r = l2_distance(x,y);
+
+        float def_ref = (p_def[ss_idx.z].U+p_def[ss_idx.z].V)/2;
+        float def_ang = calc_def(x,y,p_def[ss_idx.z].U,p_def[ss_idx.z].V,p_def[ss_idx.z].angle);
+
+        r = r*def_ang/def_ref;
+
+        float val = p_in[get_3d_idx(ss_idx,ss_siz)];
+        float w0 = 1.0f - (r - floorf(r));
+        float w1 = r - floorf(r);
+
+        #pragma unroll
+        for(int b=0;b<2;b++) {
+            int bin = (int)floorf(r) + b;
+            float w = (b==0)? w0 : w1;
+
+            #pragma unroll
+            for(int sym=0;sym<2;sym++) {
+                int idx = (sym==0) ? (Nh+bin) : (Nh-bin);
+                if( idx>=0 && idx<N) {
+                    atomicAdd(p_avg+idx+ss_idx.z*N, w*val);
+                    atomicAdd(p_wgt+idx+ss_idx.z*N, w);
+                }
+            }
+        }
     }
 }
 
@@ -230,7 +314,25 @@ __global__ void accumulate( double*p_acc, double*p_wgt, const float*p_in, const 
         if( abs(val) > SUSAN_FLOAT_TOL ) {
             p_wgt[ idx ]++;
         }
+    }
+}
 
+__global__ void accumulate_ps( double*p_acc, double*p_wgt, const float2*p_in, const float2*p_factor, const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        if( p_factor[ss_idx.z].y > 0 ) {
+            long idx = get_3d_idx(ss_idx,ss_siz);
+            float2 val = p_in[idx];
+            double ps  = cuCabsf(val);
+            ps *= ps;
+            if( ps > SUSAN_FLOAT_TOL ) {
+                p_acc[idx] += ps;
+                p_wgt[idx] += 1.0f;
+            }
+        }
     }
 }
 
@@ -244,7 +346,7 @@ __global__ void divide(float*p_out,const double*p_acc,const double*p_wgt,const i
         double acc = p_acc[ix];
         double wgt = p_wgt[ix];
 
-        if( wgt < 0.000001 ) wgt = 1;
+        if( wgt < 1e-6 ) wgt = 1;
 
         p_out[ix] = (float)(acc/wgt);
     }
@@ -473,9 +575,6 @@ __global__ void mask_ellipsoid(float*p_work, const float4*p_def_inf, const int3 
         float R = l2_distance(x,y);
         if(R<0.5) R = 1;
 
-        x = x/R;
-        y = y/R;
-
         float r = calc_def(x,y,p_def_inf[ss_idx.z].x,p_def_inf[ss_idx.z].y,p_def_inf[ss_idx.z].z);
 
         float val = 0;
@@ -650,16 +749,31 @@ __global__ void vis_copy_data(float*p_out,const float*p_in,const float*p_env,con
     }
 }
 
-__global__ void vis_add_ctf(float*p_out,const float4*p_def_inf,const float apix,const float lambda_pi,const float lambda3_Cs_pi_2,const float ac,const int3 ss_siz) {
+__global__ void vis_copy_data(float*p_out,const float*p_in,const float scale,const float offset,const int3 ss_stk,const int3 ss_herm) {
 
     int3 ss_idx = get_th_idx();
 
-    int N  = ss_siz.y;
+    int N  = ss_herm.y;
     int Nh = N/2;
 
-    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+    if( ss_idx.x < Nh && ss_idx.y < ss_herm.y && ss_idx.z < ss_herm.z ) {
 
-        float val = p_out[ get_3d_idx(ss_idx,ss_siz) ];
+        float val = p_in[ get_3d_idx(ss_idx,ss_herm) ];
+        val = (val*scale) + offset;
+        p_out[ get_3d_idx(ss_idx.x+Nh,ss_idx.y,ss_idx.z,ss_stk) ] = val;
+    }
+}
+
+__global__ void vis_add_ctf(float*p_out,const Defocus*p_def_inf,const float apix,const float lambda_pi,const float lambda3_Cs_pi_2,const float ac,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    int N  = ss_siz.x;
+    int Nh = N/2;
+
+    if( ss_idx.x < Nh && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        float val = 0.5f;
         int x = ss_idx.x-Nh;
         int y = ss_idx.y-Nh;
         float R = l2_distance(x,y);
@@ -667,10 +781,9 @@ __global__ void vis_add_ctf(float*p_out,const float4*p_def_inf,const float apix,
         if( x < 0 && R < Nh ) {
             float s2 = calc_s(R,N,apix);
             s2 *= s2;
-            if(R<0.5) R = 1;
 
-            float def   = calc_def(x/R,y/R,p_def_inf[ss_idx.z].x,p_def_inf[ss_idx.z].y,p_def_inf[ss_idx.z].z);
-            float gamma = calc_gamma(def,lambda_pi,lambda3_Cs_pi_2,s2,p_def_inf[ss_idx.z].w);
+            float def   = calc_def(x,y,p_def_inf[ss_idx.z].U,p_def_inf[ss_idx.z].V,p_def_inf[ss_idx.z].angle);
+            float gamma = calc_gamma(def,lambda_pi,lambda3_Cs_pi_2,s2,p_def_inf[ss_idx.z].ph_shft);
             float ctf   = calc_ctf(gamma,ac);
             val = ctf*ctf;
         }
@@ -725,7 +838,7 @@ __global__ void ctf_stk_phase_flip( cudaSurfaceObject_t s_stk,cudaSurfaceObject_
         float  ctf = 0;
 
         float x,y,R;
-        get_xyR_unit(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
+        get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
         if( def[ss_idx.z].max_res > 0 )
@@ -766,7 +879,7 @@ __global__ void ctf_stk_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_
         float  ctf = 0;
 
         float x,y,R;
-        get_xyR_unit(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
+        get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
         if( def[ss_idx.z].max_res > 0 )
@@ -806,7 +919,7 @@ __global__ void ctf_stk_pre_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_
         float  ctf = 0;
 
         float x,y,R;
-        get_xyR_unit(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
+        get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
         if( def[ss_idx.z].max_res > 0 )
@@ -847,7 +960,7 @@ __global__ void ctf_stk_wiener_ssnr( cudaSurfaceObject_t s_stk,cudaSurfaceObject
         float  ctf = 0;
 
         float x,y,R;
-        get_xyR_unit(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
+        get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
         if( def[ss_idx.z].max_res > 0 )
@@ -885,7 +998,7 @@ __global__ void create_ctf( float*g_ctf,const float3 delta,
         if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
 
             float x,y,R;
-            get_xyR_unit(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
+            get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
             float U = def[ss_idx.z].U + delta.x;
             float V = def[ss_idx.z].V + delta.y;
@@ -912,7 +1025,7 @@ __global__ void create_ctf( float*g_ctf,
         if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
 
             float x,y,R;
-            get_xyR_unit(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
+            get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
             float s = calc_s(R,ss_siz.y,ctf_const.apix);
             float z = calc_def(x,y,def[ss_idx.z]);

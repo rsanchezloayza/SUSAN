@@ -130,6 +130,12 @@ typedef enum {
 } Status_t;
 
 typedef enum {
+    VERBOSITY_MINIMAL = 0,
+    VERBOSITY_BASIC,
+    VERBOSITY_FULL
+} Verbosity_t;
+
+typedef enum {
     NO_NORM=0,
     ZERO_MEAN,
     ZERO_MEAN_W_STD,
@@ -172,10 +178,17 @@ typedef enum {
 } CcStatsType_t;
 
 typedef enum {
+    GRIDDING_LINEAR_FWD=0,
+    GRIDDING_KAISER_BESSEL_FWD,
+} GriddingType_t;
+
+typedef enum {
     INV_NO_INV=0,
     INV_PHASE_FLIP,
     INV_WIENER,
     INV_WIENER_SSNR,
+    INV_WIENER_ARCTAN,
+    INV_WIENER_LOGISTIC,
     INV_PRE_WIENER,
 } CtfInversionType_t;
 

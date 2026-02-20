@@ -25,10 +25,295 @@
 #include <cstdlib>
 #include <string.h>
 #include <string>
+#include <vector>
+#include <cstdint>
+#include <cmath>
+#include <fstream>
+#include <sstream>
 #include "datatypes.h"
+#include "lodepng.h"
+
+std::string base64_encode(const uint8_t* p_data, size_t n_data) {
+    static const char table[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz"
+        "0123456789+/";
+
+    if (!p_data || n_data == 0)
+        return std::string();
+
+    size_t output_length = 4*((n_data+2)/3);
+    std::string encoded;
+    encoded.reserve(output_length);
+
+    size_t i = 0;
+    while(i<n_data) {
+        uint32_t octet_a = i < n_data ? p_data[i++] : 0;
+        uint32_t octet_b = i < n_data ? p_data[i++] : 0;
+        uint32_t octet_c = i < n_data ? p_data[i++] : 0;
+
+        uint32_t triple = (octet_a << 16) |
+                          (octet_b << 8)  |
+                          octet_c;
+
+        encoded.push_back(table[(triple >> 18) & 0x3F]);
+        encoded.push_back(table[(triple >> 12) & 0x3F]);
+        encoded.push_back(table[(triple >> 6)  & 0x3F]);
+        encoded.push_back(table[triple & 0x3F]);
+    }
+
+    size_t mod = n_data % 3;
+    if(mod>0) {
+        encoded[output_length - 1] = '=';
+        if(mod==1)
+            encoded[output_length - 2] = '=';
+    }
+
+    return encoded;
+}
+
+void array_to_turbo_cmap(uint8_t* p_out,const float* p_in,int W,int H,float vmin,float vmax) {
+
+    const int numel = W*H;
+
+    float scale = 0.0f;
+    if (vmax>vmin)
+        scale = 1.0f/(vmax-vmin);
+
+    for(int i=0;i<numel;++i) {
+
+        float x = scale*(p_in[i]-vmin);
+        x = fminf(fmaxf(x,0.0f),1.0f);
+
+        float x2 =  x*x;
+        float x3 = x2*x;
+        float x4 = x3*x;
+        float x5 = x4*x;
+
+        // Turbo polynomial
+        float r =     0.13572138f
+                  +   4.61539260f*x
+                  -  42.66032258f*x2
+                  + 132.13108234f*x3
+                  - 152.94239396f*x4
+                  +  59.28637943f*x5;
+
+        float g =     0.09140261f
+                  +   2.19418839f*x
+                  +   4.84296658f*x2
+                  -  14.18503333f*x3
+                  +   4.27729857f*x4
+                  +   2.82956604f*x5;
+
+        float b =     0.10667330f
+                  +  12.64194608f*x
+                  -  60.58204836f*x2
+                  + 110.36276771f*x3
+                  -  89.90310912f*x4
+                  +  27.34824973f*x5;
+
+        r = fminf(fmaxf(r,0.0f),1.0f);
+        g = fminf(fmaxf(g,0.0f),1.0f);
+        b = fminf(fmaxf(b,0.0f),1.0f);
+
+        p_out[3*i  ] = (uint8_t)(roundf(r*255.0f));
+        p_out[3*i+1] = (uint8_t)(roundf(g*255.0f));
+        p_out[3*i+2] = (uint8_t)(roundf(b*255.0f));
+    }
+}
+
+void array_to_cividis_cmap(uint8_t* p_out,const float* p_in,int W,int H,float vmin,float vmax) {
+
+    const int numel = W*H;
+
+    float scale = 0.0f;
+    if (vmax>vmin)
+        scale = 1.0f/(vmax-vmin);
+
+    for(int i=0;i<numel;++i) {
+
+        float x = scale*(p_in[i]-vmin);
+        x = fminf(fmaxf(x,0.0f),1.0f);
+
+        float x2 =  x*x;
+        float x3 = x2*x;
+        float x4 = x3*x;
+        float x5 = x4*x;
+
+        // Cividis polynomial
+        float r =   0.00021894f
+                  + 0.11378068f*x
+                  + 2.08656617f*x2
+                  - 4.77258489f*x3
+                  + 3.61987054f*x4
+                  - 1.00911555f*x5;
+
+        float g =   0.00403110f
+                  + 0.50732958f*x
+                  + 1.60068260f*x2
+                  - 4.35907890f*x3
+                  + 3.18223883f*x4
+                  - 0.90215879f*x5;
+
+        float b =   0.34982430f
+                  + 0.46254292f*x
+                  - 1.62227345f*x2
+                  + 2.66765961f*x3
+                  - 1.73149361f*x4
+                  + 0.48913915f*x5;
+
+        r = fminf(fmaxf(r,0.0f),1.0f);
+        g = fminf(fmaxf(g,0.0f),1.0f);
+        b = fminf(fmaxf(b,0.0f),1.0f);
+
+        p_out[3*i  ] = (uint8_t)(roundf(r*255.0f));
+        p_out[3*i+1] = (uint8_t)(roundf(g*255.0f));
+        p_out[3*i+2] = (uint8_t)(roundf(b*255.0f));
+    }
+}
+
+void array_to_viridis_cmap(uint8_t* p_out,const float* p_in,int W,int H,float vmin,float vmax) {
+
+    const int numel = W*H;
+
+    float scale = 0.0f;
+    if (vmax>vmin)
+        scale = 1.0f/(vmax-vmin);
+
+    for(int i=0;i<numel;++i) {
+
+        float x = scale*(p_in[i]-vmin);
+        x = fminf(fmaxf(x,0.0f),1.0f);
+
+        float x2 =  x*x;
+        float x3 = x2*x;
+        float x4 = x3*x;
+        float x5 = x4*x;
+
+        // Viridis polynomial
+        float r =   0.28026800f
+                  + 0.23051900f * x
+                  + 0.14351000f * x2
+                  - 0.35108000f * x3
+                  + 0.19157000f * x4
+                  - 0.04216000f * x5;
+
+        float g =   0.16536800f
+                  + 1.02324000f * x
+                  - 0.13231000f * x2
+                  - 0.38131000f * x3
+                  + 0.26384000f * x4
+                  - 0.06545000f * x5;
+
+        float b =   0.47623400f
+                  + 0.63103000f * x
+                  - 1.18146000f * x2
+                  + 1.35776000f * x3
+                  - 0.82564000f * x4
+                  + 0.20030000f * x5;
+
+        r = fminf(fmaxf(r,0.0f),1.0f);
+        g = fminf(fmaxf(g,0.0f),1.0f);
+        b = fminf(fmaxf(b,0.0f),1.0f);
+
+        p_out[3*i  ] = (uint8_t)(roundf(r*255.0f));
+        p_out[3*i+1] = (uint8_t)(roundf(g*255.0f));
+        p_out[3*i+2] = (uint8_t)(roundf(b*255.0f));
+    }
+}
+
+void ctf_ellipse_fit_to_svg(const char*fname,const float*p_in,int N,float vmin,float vmax,float apix,float U,float V,float ang) {
+
+    std::vector<uint8_t> rgb(N*N*3);
+    //array_to_turbo_cmap(rgb.data(),p_in,N,N,vmin,vmax);
+    array_to_viridis_cmap(rgb.data(),p_in,N,N,vmin,vmax);
+    //array_to_cividis_cmap(rgb.data(),p_in,N,N,vmin,vmax);
+
+    std::vector<uint8_t> png_data;
+    unsigned error = lodepng::encode(png_data,rgb,N,N,LCT_RGB);
+    if(error)
+        throw std::runtime_error("PNG encoding failed");
+
+    std::string b64 = base64_encode(png_data.data(), png_data.size());
+
+    float cx = N/2.0f+0.5f;
+    float cy = N/2.0f+0.5f;
+
+    float theta= ang*RAD2DEG;
+
+    float umstep = 2.0f*1e4f/apix;
+
+    std::ostringstream svg;
+
+    svg << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    svg << "<svg xmlns=\"http://www.w3.org/2000/svg\"\n";
+    svg << "     width=\"" << N << "\"\n";
+    svg << "     height=\"" << N << "\"\n";
+    svg << "     viewBox=\"0 0 " << N << " " << N << "\">\n";
+
+    svg << "<g transform=\"translate(0," << N
+        << ") scale(1,-1)\">\n";
+
+    // Image
+    svg << "<image href=\"data:image/png;base64,"
+        << b64
+        << "\" width=\"" << N
+        << "\" height=\"" << N
+        << "\" style=\"image-rendering: pixelated; image-rendering: crisp-edges;\"/>\n";
+
+    // Grid
+    svg << "<line x1=\"0\" y1=\"" << cy
+        << "\" x2=\"" << N
+        << "\" y2=\"" << cy
+        << "\" style=\"stroke:#333333;stroke-width:0.5\" />\n";
+
+    svg << "<line x1=\"" << cx
+        << "\" y1=\"0\" x2=\"" << cx
+        << "\" y2=\"" << N
+        << "\" style=\"stroke:#333333;stroke-width:0.5\" />\n";
+
+    for(float r=umstep;r<N/2.0f;r+=umstep) {
+        svg << "<circle r=\"" << r
+            << "\" cx=\"" << cx
+            << "\" cy=\"" << cy
+            << "\" fill=\"none\" stroke=\"#333333\" stroke-width=\"0.5\" />\n";
+    }
+
+    // Defocus fitting
+    svg << "<ellipse cx=\"" << cx
+        << "\" cy=\"" << cy
+        << "\" rx=\"" << U
+        << "\" ry=\"" << V
+        << "\" fill=\"none\" stroke=\"#e64343\" stroke-width=\"0.8\" "
+        << "transform=\"rotate(" << theta
+        << "," << cx << "," << cy << ")\" />\n";
+
+    svg << "</g>\n";
+
+    // Add grid markers
+    for(int k=2;k<11;k+=2) {
+        //<text x="5" y="30" fill="pink" stroke="blue" font-size="35">I love SVG!</text>
+        float r = k*umstep/2;
+        svg << "<text x=\"" << (cx+r+1)
+            << "\" y=\"" << (cy+6)
+            << "\" fill=\"#333333\" stroke=\"none\" font-size=\"8\">" << k
+            << "µm</text>\n";
+    }
+
+    svg << "</svg>\n";
+
+    std::ofstream file(fname, std::ios::out | std::ios::binary);
+    if (!file)
+        throw std::runtime_error("Cannot open SVG file");
+
+    file << svg.str();
+
+
+
+}
 
 class SvgCtf {
-	
+
 public:
     SvgCtf(const char*filename,const float in_apix) {
         fp = fopen(filename,"w");
@@ -51,10 +336,14 @@ public:
         /// Background and Grid
         fprintf(fp,"  <rect x=\"60\" y=\"40\" width=\"720\" height=\"400\" style=\"stroke-width:0\"/>\n");
         fprintf(fp,"  <g style=\"fill:" SUSAN_SVG_SHADOW_BG ";stroke-width:0\">\n");
-        x = 720*(2*res_min/N);
-        fprintf(fp,"  <rect x=\"60\" y=\"40\" width=\"%.1f\" height=\"400\"/>\n",x);
-        x = 720*(2*res_max/N);
-        fprintf(fp,"  <rect x=\"%.1f\" y=\"40\" width=\"%.1f\" height=\"400\"/>\n",x+60,720-x);
+        if( res_min > 0 ) {
+            x = 720*(2*res_min/N);
+            fprintf(fp,"  <rect x=\"60\" y=\"40\" width=\"%.1f\" height=\"400\"/>\n",x);
+        }
+        if( res_max > 0 ) {
+            x = 720*(2*res_max/N);
+            fprintf(fp,"  <rect x=\"%.1f\" y=\"40\" width=\"%.1f\" height=\"400\"/>\n",x+60,720-x);
+        }
         fprintf(fp,"  </g>\n");
         fprintf(fp,"  <g style=\"stroke:#E6E6E6\">\n");
         for(int i=1;i<10;i++) {
@@ -99,29 +388,33 @@ public:
         has_avg = true;
     }
 
-    void add_fit(const float*ptr,const float M) {
+    void add_fit(const float*ptr,const float M,bool do_square=false) {
         add_signal(ptr,M,SUSAN_SVG_FG_B);
         has_fit = true;
     }
 
-    void add_est(const float*ptr,const float M) {
-        fprintf(fp,"  <g style=\"stroke:" SUSAN_SVG_FG_C ";fill:none\">\n");
-        fprintf(fp,"    <polyline points=\"60,40");
-        float x,y,prev_x=60,prev_y=40;
-        for(int i=0;i<M;i++) {
-            if( ptr[i] > 0 ) {
-                x = i;
-                x = 60 + 720*(x/(M-1));
-                y = (1-ptr[i])*400 + 40;
-                fprintf(fp," %.2f,%.2f",(prev_x+x)/2,prev_y);
-                fprintf(fp," %.2f,%.2f",(prev_x+x)/2,y);
-                prev_x = x;
-                prev_y = y;
+    void add_est(const float*ptr,const float M,bool as_signal=false) {
+        if( as_signal )
+            add_signal(ptr,M,SUSAN_SVG_FG_C);
+        else {
+            fprintf(fp,"  <g style=\"stroke:" SUSAN_SVG_FG_C ";fill:none\">\n");
+            fprintf(fp,"    <polyline points=\"60,40");
+            float x,y,prev_x=60,prev_y=40;
+            for(int i=0;i<M;i++) {
+                if( ptr[i] > 0 ) {
+                    x = i;
+                    x = 60 + 720*(x/(M-1));
+                    y = (1-ptr[i])*400 + 40;
+                    fprintf(fp," %.2f,%.2f",(prev_x+x)/2,prev_y);
+                    fprintf(fp," %.2f,%.2f",(prev_x+x)/2,y);
+                    prev_x = x;
+                    prev_y = y;
+                }
             }
+            fprintf(fp," 780,%.2f",y);
+            fprintf(fp,"\" />\n");
+            fprintf(fp,"  </g>\n");
         }
-        fprintf(fp," 780,%.2f",y);
-        fprintf(fp,"\" />\n");
-        fprintf(fp,"  </g>\n");
         has_est = true;
     }
 
@@ -148,7 +441,7 @@ protected:
     bool has_fit;
     bool has_est;
 
-    void add_signal(const float*ptr,const float M,const char*color) {
+    void add_signal(const float*ptr,const float M,const char*color,bool do_square=false) {
         fprintf(fp,"  <g style=\"stroke:%s;fill:none\">\n",color);
         fprintf(fp,"    <polyline points=\"");
         for(int i=0;i<M;i++) {
@@ -157,6 +450,8 @@ protected:
             float x = i;
             x = 60 + 720*(x/(M-1));
             float y = (1-ptr[i])*400 + 40;
+            if(do_square)
+                y = (1-(ptr[i]*ptr[i]))*400 + 40;
             fprintf(fp,"%.2f,%.2f",x,y);
         }
         fprintf(fp,"\" />\n");

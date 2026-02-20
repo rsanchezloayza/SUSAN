@@ -84,6 +84,7 @@ public:
     int R;
     int pad_type;
     int ctf_type;
+    int grid_type;
     int max_K;
     float3  bandpass;
     float2  ssnr; /// x=F; y=S;
@@ -163,10 +164,17 @@ protected:
             ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
         if( ctf_type == INV_WIENER_SSNR )
             ss_data.set_wiener_ssnr(ptr->ctf_vals,ptr->g_def,bandpass,ssnr,ptr->K,stream);
+        if( ctf_type == INV_WIENER_ARCTAN )
+            ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
+        if( ctf_type == INV_WIENER_LOGISTIC )
+            ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
     }
 
     void insert_vol(RecAcc&vol,RecSubstack&ss_data,RecBuffer*ptr,GPU::Stream&stream) {
-        vol.insert(ss_data.ss_tex,ss_data.ss_ctf,ptr->g_ali,bandpass,ptr->K,stream);
+        if(grid_type == GRIDDING_LINEAR_FWD)
+            vol.insert_linear_fwd(ss_data.ss_tex,ss_data.ss_ctf,ptr->g_ali,bandpass,ptr->K,stream);
+        else if(grid_type == GRIDDING_KAISER_BESSEL_FWD)
+            vol.insert_kaiser_bessel_fwd(ss_data.ss_tex,ss_data.ss_ctf,ptr->g_ali,bandpass,ptr->K,stream);
     }
 
     void download_vol(double2*p_acc,double*p_wgt,RecAcc&vol) {
@@ -300,13 +308,14 @@ protected:
         gpu_worker.R          = R;
         gpu_worker.pad_type   = pad_type;
         gpu_worker.ctf_type   = p_info->ctf_type;
+        gpu_worker.grid_type  = p_info->grid_type;
         gpu_worker.max_K      = max_K;
         gpu_worker.c_acc      = c_acc;
         gpu_worker.c_wgt      = c_wgt;
-        gpu_worker.bandpass.x = max(bp_scale*p_info->fpix_min-bp_pad,0.0);
-        gpu_worker.bandpass.y = min(bp_scale*p_info->fpix_max+bp_pad,((float)NP)/2);
+        gpu_worker.bandpass.x = fmax(bp_scale*p_info->fpix_min-bp_pad,0.0);
+        gpu_worker.bandpass.y = fmin(bp_scale*p_info->fpix_max+bp_pad,((float)NP)/2);
         gpu_worker.bandpass.z = sqrt(p_info->fpix_roll);
-        gpu_worker.ssnr.x     = p_info->ssnr_F;
+        gpu_worker.ssnr.x     = p_info->ssnr_F*bp_scale;
         gpu_worker.ssnr.y     = p_info->ssnr_S;
         gpu_worker.start();
     }
@@ -678,7 +687,14 @@ protected:
         char out_file[SUSAN_FILENAME_LENGTH];
         for(int r=0;r<R;r++) {
             sprintf(out_file,"%s_class%03d.mrc",p_info->out_pfx,r+1);
-            printf("        Reconstructing %s ... ",out_file); fflush(stdout);
+            if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                printf("        Reconstructing %s ... ",out_file);
+                fflush(stdout);
+            }
+            else {
+                printf("    Class %3d:",r+1);
+                fflush(stdout);
+            }
             reconstruct_upload(workers[0].c_acc[r],workers[0].c_wgt[r],p_acc,p_wgt);
             reconstruct_sym(p_acc,p_wgt);
             reconstruct_invert(p_wgt);
@@ -687,7 +703,12 @@ protected:
             Mrc::write(vol,N,N,N,out_file);
             Mrc::set_apix(out_file,tomos->at(0).pix_size,N,N,N);
             Mrc::set_as_volume(out_file);
-            printf(" Done.\n");
+            if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                printf(" Done.\n"); fflush(stdout);
+            }
+            else {
+                printf(" full map.\n"); fflush(stdout);
+            }
         }
     }
 
@@ -697,7 +718,13 @@ protected:
         for(int r=0;r<R/2;r++) {
 
             sprintf(out_file,"%s_class%03d_half1.mrc",p_info->out_pfx,r+1);
-            printf("        Reconstructing %s ... ",out_file); fflush(stdout);
+            if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                printf("        Reconstructing %s ... ",out_file); fflush(stdout);
+            }
+            else {
+                printf("    Class %3d:",r+1);
+                fflush(stdout);
+            }
             reconstruct_upload(workers[0].c_acc[2*r  ],workers[0].c_wgt[2*r  ],p_acc,p_wgt);
             reconstruct_sym(p_acc,p_wgt);
             reconstruct_invert(p_wgt);
@@ -706,10 +733,17 @@ protected:
             Mrc::write(vol,N,N,N,out_file);
             Mrc::set_apix(out_file,tomos->at(0).pix_size,N,N,N);
             Mrc::set_as_volume(out_file);
-            printf(" Done.\n");
+            if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                printf(" Done.\n"); fflush(stdout);
+            }
+            else {
+                printf(" halfmap 1"); fflush(stdout);
+            }
 
             sprintf(out_file,"%s_class%03d_half2.mrc",p_info->out_pfx,r+1);
-            printf("        Reconstructing %s ... ",out_file); fflush(stdout);
+            if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                printf("        Reconstructing %s ... ",out_file); fflush(stdout);
+            }
             reconstruct_upload(workers[0].c_acc[2*r+1],workers[0].c_wgt[2*r+1],p_acc,p_wgt);
             reconstruct_sym(p_acc,p_wgt);
             reconstruct_invert(p_wgt);
@@ -718,12 +752,19 @@ protected:
             Mrc::write(vol,N,N,N,out_file);
             Mrc::set_apix(out_file,tomos->at(0).pix_size,N,N,N);
             Mrc::set_as_volume(out_file);
-            printf(" Done.\n");
+            if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                printf(" Done.\n"); fflush(stdout);
+            }
+            else {
+                printf(", halfmap 2"); fflush(stdout);
+            }
 
             Math::sum(workers[0].c_acc[2*r],workers[0].c_acc[2*r+1],l);
             Math::sum(workers[0].c_wgt[2*r],workers[0].c_wgt[2*r+1],l);
             sprintf(out_file,"%s_class%03d.mrc",p_info->out_pfx,r+1);
-            printf("        Reconstructing %s ... ",out_file); fflush(stdout);
+            if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                printf("        Reconstructing %s ... ",out_file); fflush(stdout);
+            }
             reconstruct_upload(workers[0].c_acc[2*r  ],workers[0].c_wgt[2*r  ],p_acc,p_wgt);
             reconstruct_sym(p_acc,p_wgt);
             reconstruct_invert(p_wgt);
@@ -732,7 +773,12 @@ protected:
             Mrc::write(vol,N,N,N,out_file);
             Mrc::set_apix(out_file,tomos->at(0).pix_size,N,N,N);
             Mrc::set_as_volume(out_file);
-            printf(" Done.\n");
+            if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                printf(" Done.\n"); fflush(stdout);
+            }
+            else {
+                printf(", full map.\n"); fflush(stdout);
+            }
         }
     }
 
@@ -747,8 +793,9 @@ protected:
     }
 
     void reconstruct_invert(GPU::GArrDouble&p_wgt) {
+        float frq_scale = float(NP)/float(N);
         RecInvWgt inv_wgt(NP,MP,p_info->w_inv_ite,p_info->w_inv_std);
-        inv_wgt.invert(p_wgt);
+        inv_wgt.invert(p_wgt,p_info->ctf_type,p_info->ssnr_S*frq_scale,p_info->ssnr_F*frq_scale);
     }
 
     void reconstruct_core(GPU::GArrSingle&p_vol,GPU::GArrDouble2&p_acc,GPU::GArrDouble&p_wgt) {
@@ -761,7 +808,7 @@ protected:
                                    p_info->boost_low_fq_value*factor,
                                    p_info->boost_low_fq_decay*factor);
         }
-        inv_vol.invert_and_extract(p_vol);
+        inv_vol.invert_and_extract(p_vol,p_info->grid_type);
     }
 
     void reconstruct_download(float*vol,GPU::GArrSingle&p_vol) {
@@ -771,7 +818,10 @@ protected:
             Math::get_avg_std(avg,std,vol,N*N*N);
             if( !Math::normalize(vol,N*N*N,avg,std,1.0) ) {
                 Math::randn(vol,N*N*N);
-                printf("(Empty, filling with noise)");
+                if( p_info->verbosity != VERBOSITY_MINIMAL ) {
+                    printf("(Empty, filling with noise)");
+                    fflush(stdout);
+                }
             }
         }
     }

@@ -49,8 +49,9 @@ public:
     GPU::GArrDouble   ss_wgt;
     GPU::GArrSingle   ss_norm;
     GPU::GArrSingle3  ss_vec_r;
-    GPU::GArrSingle   ss_buffer;
     GPU::GArrSingle   ss_ctf_ps;
+    GPU::GArrSingle   ss_bufferA;
+    GPU::GArrSingle   ss_bufferB;
     GPU::GArrSingle   ss_acc_avg;
     GPU::GArrSingle   ss_acc_std;
     GPU::GArrSingle2  ss_fourier;
@@ -71,8 +72,9 @@ public:
         ss_wgt.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
         ss_norm.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
         ss_vec_r.alloc(ss_siz.x*ss_siz.y);
-        ss_buffer.alloc(ss_buf.x*ss_buf.y*ss_buf.z);
         ss_ctf_ps.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
+        ss_bufferA.alloc(ss_buf.x*ss_buf.y*ss_buf.z);
+        ss_bufferB.alloc(ss_buf.x*ss_buf.y*ss_buf.z);
         ss_acc_avg.alloc(ss_siz.z);
         ss_acc_std.alloc(ss_siz.z);
         ss_fourier.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
@@ -90,40 +92,27 @@ public:
         stream.sync();
     }
 
-    void average(float*p_data,float bin_factor) {
-        fft2.exec(ss_fourier.ptr,p_data);
-        fftshift();
-        load_ps();
-        bin(bin_factor);
-        accumulate();
-        stream.sync();
-
-        rot180(p_data);
-        fft2.exec(ss_fourier.ptr,ss_buffer.ptr);
-        fftshift();
-        load_ps();
-        bin(bin_factor);
-        accumulate();
-
+    void average(float*p_data,float2*p_factor) {
+        remove_bg(p_data);
+        exec_fft2(p_data);
+        accumulate(p_factor);
         stream.sync();
     }
 
-    void normal(float*p_data,float2*p_factor,float bin_factor) {
-        fft2.exec(ss_fourier.ptr,p_data);
-        fftshift();
-        load_ps();
-        normalize(p_factor,bin_factor);
-        accumulate();
+    void normal(float*p_data,float2*p_factor) {
+        remove_bg(p_data);
+        exec_fft2(p_data);
+        normalize(p_factor);
         stream.sync();
+    }
 
-        rot180(p_data);
-        fft2.exec(ss_fourier.ptr,ss_buffer.ptr);
-        fftshift();
-        load_ps();
-        normalize(p_factor,bin_factor);
-        accumulate();
-
-        stream.sync();
+    void remove_bg(float*p_data) {
+        float num = 0.0625f/2;
+        float scl = 10.02548736875733f;
+        GpuKernels::conv_gauss_1D_Y<<<grd_buf,blk,0,stream.strm>>>(ss_bufferA.ptr,p_data,num,scl,ss_buf);
+        GpuKernels::conv_gauss_1D_X<<<grd_buf,blk,0,stream.strm>>>(ss_bufferB.ptr,ss_bufferA.ptr,num,scl,ss_buf,false);
+        GpuKernels::substract    <<<grd_buf,blk,0,stream.strm>>>(p_data,ss_bufferB.ptr,ss_buf);
+        GpuKernels::stk_hanning  <<<grd_buf,blk,0,stream.strm>>>(p_data,ss_buf);
     }
 
     void apply_wgt() {
@@ -134,12 +123,9 @@ public:
         GPU::download_async(c_rslt,ss_ctf_ps.ptr,ss_siz.x*ss_siz.y*ss_siz.z,stream.strm);
     }
 
-    protected:
-    void rot180(float*p_data) {
-        GpuKernels::rotate_180_stk<<<grd_buf,blk,0,stream.strm>>>(ss_buffer.ptr,p_data,ss_buf);
-    }
-
-    void fftshift() {
+protected:
+    void exec_fft2(float*p_data) {
+        fft2.exec(ss_fourier.ptr,p_data);
         GpuKernels::fftshift2D<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ss_siz);
     }
 
@@ -155,15 +141,12 @@ public:
         GpuKernels::zero_avg_one_std<<<grd,blk,0,stream.strm>>>(ss_ctf_ps.ptr,ss_acc_std.ptr,ss_acc_avg.ptr,ss_siz);
     }
 
-    void normalize(float2*p_factor,float bin_factor) {
-        ss_acc_avg.clear(stream.strm);
-        ss_acc_std.clear(stream.strm);
-        GpuKernelsCtf::ctf_normalize<<<grd,blk,0,stream.strm>>>(ss_ctf_ps.ptr,ss_ps.texture,p_factor,ss_vec_r.ptr,bin_factor,ss_siz);
-        GpuKernels::get_avg_std<<<grd,blk,0,stream.strm>>>(ss_acc_std.ptr,ss_acc_avg.ptr,ss_ctf_ps.ptr,ss_siz);
-        GpuKernels::zero_avg_one_std<<<grd,blk,0,stream.strm>>>(ss_ctf_ps.ptr,ss_acc_std.ptr,ss_acc_avg.ptr,ss_siz);
-        GpuKernels::load_surf<<<grd,blk,0,stream.strm>>>(ss_ps.surface,ss_ctf_ps.ptr,ss_siz);
-        GpuKernelsCtf::tangential_blur<<<grd,blk,0,stream.strm>>>(ss_norm.ptr,ss_ps.texture,ss_siz);
-        GpuKernels::conv_gaussian<<<grd,blk,0,stream.strm>>>(ss_ctf_ps.ptr,ss_norm.ptr,0.5000,6.2831,ss_siz);
+    void normalize(float2*p_factor) {
+        GpuKernelsCtf::ctf_normalize_ps<<<grd,blk,0,stream.strm>>>(ss_acc.ptr,ss_wgt.ptr,ss_fourier.ptr,p_factor,ss_siz);
+    }
+
+    void accumulate(float2*p_factor) {
+        GpuKernelsCtf::accumulate_ps<<<grd,blk,0,stream.strm>>>(ss_acc.ptr,ss_wgt.ptr,ss_fourier.ptr,p_factor,ss_siz);
     }
 
     void accumulate() {
@@ -173,5 +156,4 @@ public:
 };
 
 #endif /// CTF_NORMALIZER_H
-
 

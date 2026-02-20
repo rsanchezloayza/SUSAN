@@ -82,14 +82,14 @@ class STA:
         self.reweight_classification = False
         
         self.mpi               = _dt.mpi_params('srun -n %d ',1)
-        self.verbosity         = 0
+        self.verbosity         = 1
         
         self.aligner           = _ssa_modules.Aligner()
         self.averager          = _ssa_modules.Averager()
         self.ctf_refiner       = _ssa_modules.CtfRefiner()
         
-        self.aligner.ctf_correction = 'cfsc'
-        self.aligner.halfsets_independ = True
+        self.aligner.ctf_correction    = 'cfsc'
+        self.aligner.halfsets_independ = False
         
         self.averager.ctf_correction    = 'wiener'
         self.averager.rec_halfsets      = True

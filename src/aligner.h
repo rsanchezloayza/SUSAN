@@ -281,7 +281,7 @@ class CcStatsTracker {
 protected:
     single running_sum;
     single running_sqsum;
-    single running_count;
+    int    running_count;
 
     single current_cc;
 
@@ -296,6 +296,9 @@ protected:
         max_val = p_data[max_idx];
         sum_val = 0;
         sqsum_val = 0;
+        if(!allow_negative){
+            max_val = fmax(max_val,0.0);
+        }
         for(int i=0;i<n_data;i++) {
             float cur_val = p_data[i];
             if(!allow_negative){
@@ -312,22 +315,22 @@ protected:
 
     bool check_stats_failed() {
         if( type == CC_STATS_NONE ) {
-            return isinf(current_cc);
+            return isinf(current_cc) || (running_sum==0);
         }
 
         if( type == CC_STATS_PROB ) {
-            return isinf(current_cc) || (current_cc>running_sum);
+            return isinf(current_cc) || (current_cc>running_sum) || (running_sum==0);
         }
 
         if( type == CC_STATS_SIGMA ) {
-            return isinf(current_cc) || (current_cc>running_sum) || (running_count<1);
+            return isinf(current_cc) || (current_cc>running_sum) || (running_count<1) || (running_sum==0);
         }
 
         if( type == CC_STATS_WGT_AVG ) {
-            return isinf(current_cc) || (current_cc>running_sum) || (running_count<1);
+            return isinf(current_cc) || (current_cc>running_sum) || (running_count<1) || (running_sum==0);
         }
 
-        return isinf(current_cc) || (current_cc>running_sum) || (running_count<1);
+        return isinf(current_cc) || (current_cc>running_sum) || (running_count<1) || (running_sum==0);
     }
 
 public:
@@ -337,7 +340,6 @@ public:
     }
 
     ~CcStatsTracker() {
-
     }
 
     void clear() {
@@ -345,7 +347,7 @@ public:
         running_sum = 0;
         running_sqsum = 0;
         running_count = 0;
-        current_rot = Eigen::MatrixXf::Identity(3,3);
+        current_rot = M33f::Identity();
         current_vec.x = 0;
         current_vec.y = 0;
         current_vec.z = 0;
@@ -436,6 +438,8 @@ public:
             single std = running_sqsum / running_count;
             std = std - (avg*avg);
             std = sqrtf( fmax( std, 0.0 ) );
+            if( std <= 0 )
+                return 0;
             return fmax( (current_cc - avg) / std, 0.0 );
         }
 
@@ -443,24 +447,25 @@ public:
     }
 
     Vec3 get_vec() {
-        if( check_stats_failed() ) {
-            current_vec.x = 0;
-            current_vec.y = 0;
-            current_vec.z = 0;
-            return current_vec;
-        }
+        Vec3 out = current_vec;
 
+        if( check_stats_failed() ) {
+            out.x = 0;
+            out.y = 0;
+            out.z = 0;
+            return out;
+        }
 
         if( (type==CC_STATS_NONE) || (type==CC_STATS_PROB) || (type==CC_STATS_SIGMA) )
-            return current_vec;
+            return out;
 
         if( type == CC_STATS_WGT_AVG ) {
-            current_vec.x = current_vec.x / running_sum;
-            current_vec.y = current_vec.y / running_sum;
-            current_vec.z = current_vec.z / running_sum;
-            return current_vec;
+            out.x = current_vec.x / running_sum;
+            out.y = current_vec.y / running_sum;
+            out.z = current_vec.z / running_sum;
+            return out;
         }
-        return current_vec;
+        return out;
     }
 
     M33f get_rot() {
@@ -472,13 +477,13 @@ public:
             return current_rot;
 
         if( type == CC_STATS_WGT_AVG ) {
-            weighted_rotation = (1/running_sum) * weighted_rotation;
-            Eigen::SelfAdjointEigenSolver<Matrix4f> eig(weighted_rotation);
+            Eigen::Matrix4f W = (1.0f/running_sum) * weighted_rotation;
+            Eigen::SelfAdjointEigenSolver<Matrix4f> eig(W);
             Eigen::Vector4f q = eig.eigenvectors().col(3);
             Eigen::Quaternionf quat(q);
-            current_rot = quat.toRotationMatrix();
-            return current_rot;
+            return quat.toRotationMatrix();
         }
+
         return current_rot;
     }
 
@@ -1319,7 +1324,7 @@ protected:
         gpu_worker.bandpass.x = fmax(bp_scale*p_info->fpix_min-bp_pad,0.0);
         gpu_worker.bandpass.y = fmin(bp_scale*p_info->fpix_max+bp_pad,((float)NP)/2);
         gpu_worker.bandpass.z = sqrt(p_info->fpix_roll);
-        gpu_worker.ssnr.x     = p_info->ssnr_F;
+        gpu_worker.ssnr.x     = p_info->ssnr_F*bp_scale;
         gpu_worker.ssnr.y     = p_info->ssnr_S;
         gpu_worker.drift2D    = drift2D;
         gpu_worker.drift3D    = drift3D;

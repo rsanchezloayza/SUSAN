@@ -21,11 +21,16 @@ from susan.utils import is_extension as _is_ext
 from susan.utils import force_extension as _force_ext
 
 class Reference:
+    ref = []
+    msk = []
+    h1  = []
+    h2  = []
+    
     def __init__(self,filename=None,n_refs=0):
-        self.ref = []
-        self.msk = []
-        self.h1  = []
-        self.h2  = []
+        self.ref.clear()
+        self.msk.clear()
+        self.h1.clear()
+        self.h2.clear()
         
         if isinstance(filename,str):
             fp = open(filename,"rb")
@@ -81,3 +86,4 @@ class Reference:
             _prsr.write(fp,'h1'  ,self.h1[i] )
             _prsr.write(fp,'h2'  ,self.h2[i] )
         fp.close()
+

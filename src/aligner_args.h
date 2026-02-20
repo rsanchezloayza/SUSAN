@@ -164,7 +164,7 @@ bool parse_args(Info&info,int ac,char** av) {
     info.off_y         = 0;
     info.off_z         = 0;
     info.off_s         = 1;
-    info.verbosity     = 0;
+    info.verbosity     = VERBOSITY_BASIC;
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     memset(info.ptcls_out,0,SUSAN_FILENAME_LENGTH*sizeof(char));
@@ -541,7 +541,7 @@ void print_full(const Info&info,FILE*fp) {
         fprintf(fp,"\t\tAligning each particle to its class/reference only.\n");
 }
 
-void print_minimal(const Info&info,FILE*fp) {
+void print_basic(const Info&info,FILE*fp) {
     fprintf(fp,"  Volume %dD alignment",info.type);
     if( info.ali_halves )
         fprintf(fp," (independent half-sets)");
@@ -627,8 +627,8 @@ void print_minimal(const Info&info,FILE*fp) {
     fprintf(fp,"%.3f,%.3f | ",info.cone_range,info.cone_step);
     fprintf(fp,"%.3f,%.3f | ",info.inplane_range,info.inplane_step);
     fprintf(fp,"%d|%d ]: ",info.refine_level,info.refine_factor);
-    print_angles(info,fp,info.verbosity>0);
-	
+    print_angles(info,fp,info.verbosity==VERBOSITY_FULL);
+
     uint32_t total_points=0;
     if( info.off_type == ELLIPSOID ) {
         Vec3*pt = PointsProvider::ellipsoid(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
@@ -673,11 +673,32 @@ void print_minimal(const Info&info,FILE*fp) {
         fprintf(fp,"    - Aligning each particle to its class/reference only.\n");
 }
 
+void print_minimal(const Info&info,FILE*fp) {
+    fprintf(fp,"  %dD Alignment",info.type);
+    if( info.ali_halves )
+        fprintf(fp," (halfmaps)");
+
+    fprintf(fp," [%d",info.box_size);
+    if( info.pad_size > 0 )
+        fprintf(fp,"+%d",info.pad_size);
+    fprintf(fp,"]:");
+
+    fprintf(fp," %s | %s | %s ",info.ptcls_in,info.tomo_file,info.refs_file);
+    fprintf(fp,"-> %s",info.ptcls_out);
+
+    if( info.n_gpu > 1 )
+        fprintf(fp," on %d GPUs.\n",info.n_gpu);
+    else
+        fprintf(fp," on 1 GPU.\n");
+}
+
 void print(const Info&info,FILE*fp=stdout) {
-	if( info.verbosity > 0 )
-		print_full(info,fp);
-	else
-		print_minimal(info,fp);
+    if( info.verbosity == VERBOSITY_FULL )
+        print_full(info,fp);
+    else if( info.verbosity == VERBOSITY_BASIC )
+        print_basic(info,fp);
+    else
+        print_minimal(info,fp);
 }
 
 }
