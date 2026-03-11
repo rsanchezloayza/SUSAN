@@ -37,6 +37,7 @@
 #include "ref_ali.h"
 #include "aligner_args.h"
 #include "progress.h"
+#include "cc_tracker.h"
 
 #include "Eigen/Geometry"
 #include <Eigen/Eigenvalues>
@@ -249,8 +250,11 @@ public:
                 float cc_avg = p_avg[cc_index]/p_cnt[cc_index];
                 float cc_std = p_std[cc_index]/p_cnt[cc_index];
                 cc_std = cc_std - (cc_avg*cc_avg);
-                cc_std = sqrtf(cc_std);
-                c_cc[cc_index] = (c_cc[cc_index]-cc_avg)/cc_std;
+                cc_std = sqrtf(fmax(cc_std,0.0));
+                if( cc_std > SUSAN_FLOAT_TOL )
+                    c_cc[cc_index] = (c_cc[cc_index]-cc_avg)/cc_std;
+                else
+                    c_cc[cc_index] = 0.0;
             }
 
 	    if (tm_dim == 2){
@@ -274,292 +278,6 @@ public:
         block_id++;
     }
 
-};
-
-class CcStatsTracker {
-
-protected:
-    single running_sum;
-    single running_sqsum;
-    int    running_count;
-
-    single current_cc;
-
-    Vec3 current_vec;
-    M33f current_rot;
-    Eigen::Matrix4f weighted_rotation;
-    int type;
-
-protected:
-    static void get_max_argmax_sum_sqsum(single&max_val,int&max_idx,single&sum_val,single&sqsum_val,const single*p_data,const int n_data,bool allow_negative=false) {
-        max_idx = 0;
-        max_val = p_data[max_idx];
-        sum_val = 0;
-        sqsum_val = 0;
-        if(!allow_negative){
-            max_val = fmax(max_val,0.0);
-        }
-        for(int i=0;i<n_data;i++) {
-            float cur_val = p_data[i];
-            if(!allow_negative){
-                cur_val = fmax(cur_val,0.0);
-            }
-            sum_val += cur_val;
-            sqsum_val += (cur_val*cur_val);
-            if( max_val < cur_val ) {
-                max_val = cur_val;
-                max_idx = i;
-            }
-        }
-    }
-
-    bool check_stats_failed() {
-        if( type == CC_STATS_NONE ) {
-            return isinf(current_cc) || (running_sum==0);
-        }
-
-        if( type == CC_STATS_PROB ) {
-            return isinf(current_cc) || (current_cc>running_sum) || (running_sum==0);
-        }
-
-        if( type == CC_STATS_SIGMA ) {
-            return isinf(current_cc) || (current_cc>running_sum) || (running_count<1) || (running_sum==0);
-        }
-
-        if( type == CC_STATS_WGT_AVG ) {
-            return isinf(current_cc) || (current_cc>running_sum) || (running_count<1) || (running_sum==0);
-        }
-
-        return isinf(current_cc) || (current_cc>running_sum) || (running_count<1) || (running_sum==0);
-    }
-
-public:
-    CcStatsTracker(int cc_stats_type=CC_STATS_NONE) {
-        type = cc_stats_type;
-        clear();
-    }
-
-    ~CcStatsTracker() {
-    }
-
-    void clear() {
-        current_cc  = -INFINITY;
-        running_sum = 0;
-        running_sqsum = 0;
-        running_count = 0;
-        current_rot = M33f::Identity();
-        current_vec.x = 0;
-        current_vec.y = 0;
-        current_vec.z = 0;
-        weighted_rotation = Eigen::Matrix4f::Zero();
-
-    }
-
-    void push( const Vec3*p_pts,const float*p_cc,const int n_pts,const M33f&Rot) {
-        single max_val;
-        int    max_idx;
-        single sum_val;
-        single sqsum_val;
-        get_max_argmax_sum_sqsum(max_val,max_idx,sum_val,sqsum_val,p_cc,n_pts,type == CC_STATS_NONE);
-
-        if( type == CC_STATS_NONE ) {
-            if( current_cc < max_val ) {
-                current_cc    = max_val;
-                current_vec.x = p_pts[max_idx].x;
-                current_vec.y = p_pts[max_idx].y;
-                current_vec.z = p_pts[max_idx].z;
-                current_rot   = Rot;
-            }
-        }
-
-        if( type == CC_STATS_PROB ) {
-            if( current_cc < max_val ) {
-                current_cc     = max_val;
-                current_vec.x  = p_pts[max_idx].x;
-                current_vec.y  = p_pts[max_idx].y;
-                current_vec.z  = p_pts[max_idx].z;
-                current_rot    = Rot;
-            }
-            running_sum   += sum_val;
-        }
-
-        if( type == CC_STATS_SIGMA ) {
-            if( current_cc < max_val ) {
-                current_cc     = max_val;
-                current_vec.x  = p_pts[max_idx].x;
-                current_vec.y  = p_pts[max_idx].y;
-                current_vec.z  = p_pts[max_idx].z;
-                current_rot    = Rot;
-            }
-            running_sum   += sum_val;
-            running_sqsum += sqsum_val;
-            running_count += n_pts;
-        }
-
-        if( type == CC_STATS_WGT_AVG ) {
-            if( current_cc  < max_val ) {
-                current_cc  = max_val;
-                current_rot = Rot;
-            }
-            running_sum   += sum_val;
-            running_sqsum += sqsum_val;
-            running_count += n_pts;
-
-            for(int i=0;i<n_pts;i++) {
-                single wgt = fmax(p_cc[i],0.0);
-                current_vec.x += wgt*p_pts[i].x;
-                current_vec.y += wgt*p_pts[i].y;
-                current_vec.z += wgt*p_pts[i].z;
-            }
-
-            Eigen::Quaternionf quat(Rot);
-            Eigen::Vector4f q;
-            if( quat.w() < 0 )
-                q = -quat.coeffs();
-            else
-                q = quat.coeffs();
-            weighted_rotation = q*q.adjoint()*sum_val + weighted_rotation;
-        }
-    }
-
-    single get_cc() {
-        if( check_stats_failed() )
-            return 0;
-
-        if( type == CC_STATS_NONE )
-            return current_cc;
-
-        if( (type == CC_STATS_PROB) || (type==CC_STATS_WGT_AVG) ){
-            return current_cc / running_sum;
-        }
-
-        if( type==CC_STATS_SIGMA ) {
-            single avg = running_sum   / running_count;
-            single std = running_sqsum / running_count;
-            std = std - (avg*avg);
-            std = sqrtf( fmax( std, 0.0 ) );
-            if( std <= 0 )
-                return 0;
-            return fmax( (current_cc - avg) / std, 0.0 );
-        }
-
-        return 0;
-    }
-
-    Vec3 get_vec() {
-        Vec3 out = current_vec;
-
-        if( check_stats_failed() ) {
-            out.x = 0;
-            out.y = 0;
-            out.z = 0;
-            return out;
-        }
-
-        if( (type==CC_STATS_NONE) || (type==CC_STATS_PROB) || (type==CC_STATS_SIGMA) )
-            return out;
-
-        if( type == CC_STATS_WGT_AVG ) {
-            out.x = current_vec.x / running_sum;
-            out.y = current_vec.y / running_sum;
-            out.z = current_vec.z / running_sum;
-            return out;
-        }
-        return out;
-    }
-
-    M33f get_rot() {
-        if( check_stats_failed() ) {
-            return Eigen::MatrixXf::Identity(3,3);
-        }
-
-        if( (type==CC_STATS_NONE) || (type==CC_STATS_PROB) || (type==CC_STATS_SIGMA) )
-            return current_rot;
-
-        if( type == CC_STATS_WGT_AVG ) {
-            Eigen::Matrix4f W = (1.0f/running_sum) * weighted_rotation;
-            Eigen::SelfAdjointEigenSolver<Matrix4f> eig(W);
-            Eigen::Vector4f q = eig.eigenvectors().col(3);
-            Eigen::Quaternionf quat(q);
-            return quat.toRotationMatrix();
-        }
-
-        return current_rot;
-    }
-
-    M33f get_lvl_rot() {
-        return current_rot;
-    }
-
-    void print_stats() {
-        if( type == CC_STATS_NONE ) {
-            printf("CC: %e\n",current_cc);
-        }
-
-        if( type == CC_STATS_PROB ) {
-            printf("CC: %e\nsum_cc: %e\n",current_cc,running_sum);
-        }
-
-        if( type == CC_STATS_SIGMA ) {
-            printf("CC: %e\nsum_cc: %e\n",current_cc,running_sum);
-            printf("sqsum: %e\ncount: %.0f\n",running_sqsum,running_count);
-
-        }
-
-        if( type == CC_STATS_WGT_AVG ) {
-            printf("WGT_CC: %e\nsum_cc: %e\n",current_cc,running_sum);
-            printf("sqsum: %e\ncount: %.0f\n",running_sqsum,running_count);
-        }
-    }
-};
-
-class CcStatsTrackerArr {
-
-public:
-    CcStatsTracker**cc_stats_arr;
-protected:
-    int numel;
-
-public:
-    CcStatsTrackerArr(int cc_stats_type,const int k) {
-        numel = k;
-        cc_stats_arr = new CcStatsTracker*[numel];
-        for(int i=0;i<numel;i++) {
-            cc_stats_arr[i] = new CcStatsTracker(cc_stats_type);
-        }
-    }
-
-    ~CcStatsTrackerArr() {
-        for(int i=0;i<numel;i++) {
-            delete cc_stats_arr[i];
-        }
-        delete [] cc_stats_arr;
-    }
-
-    void clear() {
-        for(int i=0;i<numel;i++) {
-            cc_stats_arr[i]->clear();
-        }
-    }
-
-    void push( const Vec3*p_pts,const float*p_cc,const int n_pts,const M33f&Rot) {
-        for(int i=0;i<numel;i++) {
-            int off = i*n_pts;
-            cc_stats_arr[i]->push(p_pts,p_cc+off,n_pts,Rot);
-        }
-    }
-
-    single get_cc(int idx) {
-        return cc_stats_arr[idx]->get_cc();
-    }
-
-    Vec3 get_vec(int idx) {
-        return cc_stats_arr[idx]->get_vec();
-    }
-
-    M33f get_rot(int idx) {
-        return cc_stats_arr[idx]->get_rot();
-    }
 };
 
 class AliGpuWorker : public Worker {
@@ -866,7 +584,7 @@ protected:
         M33f R_lvl = Eigen::MatrixXf::Identity(3,3);
         M33f R_ite,R_tmp,R_ali;
 
-        CcStatsTracker cc_tracker(cc_stats);
+        CcTrackerAlignment cc_tracker((CcStatsType_t)cc_stats,ali_data.c_pts,ali_data.n_pts,ang_prov.max_num_angles_any_level(),ptr->ctf_vals.apix);
 
         Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
 
@@ -885,6 +603,7 @@ protected:
         }*/
 
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next() ) {
+            cc_tracker.clear();
             //if( ptr->ptcl.ptcl_id() == 2 ) printf("Level ======\n");
             for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
                 for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
@@ -936,7 +655,7 @@ protected:
                         ali_data.sparse_reconstruct(ptr->g_ali,dilate,ptr->K,stream);
                         stream.sync();
 
-                        cc_tracker.push(ali_data.c_pts,ali_data.c_cc,ali_data.n_pts,R_ite*R_lvl);
+                        cc_tracker.push(ali_data.c_cc,ali_data.n_pts,R_ite*R_lvl);
 
                         //if( ptr->ptcl.ptcl_id() == 2 ) printf("cc = %f\n",cc);
 
@@ -945,7 +664,7 @@ protected:
                 } // CONE
             } // SYMMETRY
             //R_lvl = max_R;
-            R_lvl = cc_tracker.get_lvl_rot();
+            R_lvl = cc_tracker.get_rot();
         } // REFINE
 
         update_particle_3D( ptr->ptcl,
@@ -959,12 +678,13 @@ protected:
         Rot33 Rot;
         M33f  R_ite,R_ali;
 
-        CcStatsTrackerArr cc_tracker_arr(cc_stats,ptr->K);
+        CcTrackerAlignmentArr cc_tracker_arr((CcStatsType_t)cc_stats,ptr->K,ali_data.c_pts,ali_data.n_pts,ang_prov.max_num_angles_any_level(),ptr->ctf_vals.apix);
 
         single max_cc [ptr->K];
         single ite_cc [ptr->K];
         int    max_idx[ptr->K];
         int    ite_idx[ptr->K];
+        Rot33  R_rslt [ptr->K];
         M33f   max_R  [ptr->K];
         // single := float //
         single cc_placeholder[(ptr->K)*(ali_data.n_pts)];
@@ -999,7 +719,9 @@ protected:
             // print_R(ptr->g_ali,ptr->K,stream);
         //}
 
+        // int cur_it = 0;
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next() ) {
+            cc_tracker_arr.clear();
             for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
                 for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
                     for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next() ) {
@@ -1043,6 +765,10 @@ protected:
                             sprintf(name,"cc_%ld_%03d.mrc",cur_time,it);
                             debug_fourier_stack(name,ali_data.prj_c,stream);
                         }*/
+                        // char name[2048];
+                        // sprintf(name,"cc_%04d.mrc",cur_it++);
+                        // debug_fourier_stack(name,ali_data.prj_c,stream);
+                        // debug_fourier_stack("cc.mrc",ali_data.prj_c,stream);
                         // if( ptr->ptcl.ptcl_id() == 0 )
                             // debug_fourier_stack("cc.mrc",ali_data.prj_c,stream);
 
@@ -1051,7 +777,7 @@ protected:
 
                         ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
 
-                        cc_tracker_arr.push(ali_data.c_pts,ali_data.c_cc,ali_data.n_pts,R_ite);
+                        cc_tracker_arr.push(ali_data.c_cc,ali_data.n_pts,R_ite);
 
                         /*if( ptr->ptcl.ptcl_id() == 295 ) {
                             printf("\n\nCC_ARR = np.array((\n");
@@ -1090,6 +816,37 @@ protected:
             } // SYMMETRY
         } // REFINE
 
+        for(int i=0;i<ptr->K;i++)
+            Math::set(R_rslt[i],cc_tracker_arr.get_rot(i));
+
+        if( ang_prov.max_num_angles_any_level() > 1 && cc_stats == CC_STATS_WGT_AVG ) {
+            for(int i=0;i<ptr->K;i++)
+                Math::post_transposed_rotation(ptr->c_ali.ptr[i].R,R_rslt[i]);
+
+            GPU::upload_async(ptr->g_ali.ptr,ptr->c_ali.ptr,ptr->K,stream.strm);
+            cc_tracker_arr.clear();
+            Math::set(Rot,R_ali.transpose());
+            ali_data.rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
+            ali_data.project(vol.ref,bandpass,ptr->K,stream);
+
+            if( cc_type == CC_TYPE_CFSC ) {
+                rad_avgr.calculate_FRC(ali_data.prj_c,ptr->K,stream);
+                rad_avgr.apply_FRC(ali_data.prj_c,ptr->K,stream);
+            }
+
+            if( ctf_type == ALI_CTF_ON_REFERENCE )
+                ali_data.multiply(ctf_wgt,ptr->K,stream);
+
+            ali_data.apply_bandpass(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
+            ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+
+            ali_data.invert_fourier(ptr->K,stream);
+            stream.sync();
+
+            ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
+            cc_tracker_arr.push(ali_data.c_cc,ali_data.n_pts,R_ite);
+        }
+
         tm_rep.push_cc(cc_placeholder);
 
         single cc_acc=0,wgt_acc=0,cc_cur=0;
@@ -1098,9 +855,12 @@ protected:
                 cc_cur  = cc_tracker_arr.get_cc(i);
                 cc_acc += cc_cur;
                 wgt_acc += ptr->ptcl.prj_w[i];
+                Math::set(max_R[i],R_rslt[i]);
                 update_particle_2D(ptr->ptcl,
-                                   cc_tracker_arr.get_rot(i),cc_tracker_arr.get_vec(i),cc_cur,
+                                   max_R[i],cc_tracker_arr.get_vec(i),cc_cur,
                                    i,ptr->ctf_vals.apix);
+                if( cc_stats == CC_STATS_GAUSSIAN_FIT )
+                    ptr->ptcl.def[i].ExpFilt = cc_tracker_arr.get_dose(i);
             }
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);

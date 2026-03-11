@@ -166,6 +166,23 @@ float get_Y_angle_rad(const M33f&R) {
     return atan2( p(0), l );
 }
 
+void post_transposed_rotation(Rot33& R_work, const Rot33& Rot) {
+    Rot33 result;
+
+    const float*A = &(R_work.xx);
+    const float*B = &(Rot.xx);
+          float*C = &(result.xx);
+
+    for(int y=0;y<3;y++) {
+        for (int x=0;x<3;x++) {
+            C[y*3+x]  = A[y*3  ] * B[x*3  ];
+            C[y*3+x] += A[y*3+1] * B[x*3+1];
+            C[y*3+x] += A[y*3+2] * B[x*3+2];
+        }
+    }
+    R_work = result;
+}
+
 int make_even_up(const float val) {
     return (int)(2*ceil(val/2));
 }

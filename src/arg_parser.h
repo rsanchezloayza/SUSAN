@@ -75,13 +75,14 @@ namespace ArgParser {
         CcStatsType_t type = CC_STATS_NONE;
         bool all_ok = false;
 
-        check_arg_and_set(type,all_ok,arg,"none"       ,CC_STATS_NONE);
-        check_arg_and_set(type,all_ok,arg,"probability",CC_STATS_PROB);
-        check_arg_and_set(type,all_ok,arg,"sigma"      ,CC_STATS_SIGMA);
-        check_arg_and_set(type,all_ok,arg,"wgt_avg"    ,CC_STATS_WGT_AVG);
+        check_arg_and_set(type,all_ok,arg,"none"        ,CC_STATS_NONE);
+        check_arg_and_set(type,all_ok,arg,"probability" ,CC_STATS_PROB);
+        check_arg_and_set(type,all_ok,arg,"sigma"       ,CC_STATS_SIGMA);
+        check_arg_and_set(type,all_ok,arg,"wgt_avg"     ,CC_STATS_WGT_AVG);
+        check_arg_and_set(type,all_ok,arg,"gaussian_fit",CC_STATS_GAUSSIAN_FIT);
 
         if( !all_ok )
-            fprintf(stderr,"Invalid cc statistics type %s. Options are: none, probability or sigma. Defaulting to none.\n",arg);
+            fprintf(stderr,"Invalid cc statistics type %s. Options are: none, sigma, wgt_avg or gaussian_fit. Defaulting to none.\n",arg);
 
         return type;
     }

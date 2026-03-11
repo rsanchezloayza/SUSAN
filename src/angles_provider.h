@@ -84,6 +84,24 @@ public:
         free_array(pseudo_sym_list);
     }
 
+    int max_num_angles_any_level() {
+        int count_max  =0;
+        int count_level=0;
+        for( levels_init(); levels_available(); levels_next() ) {
+            count_level=0;
+            for( sym_init(); sym_available(); sym_next() ) {
+                for( cone_init(); cone_available(); cone_next() ) {
+                    for( inplane_init(); inplane_available(); inplane_next() ) {
+                        count_level++;
+                    } /// inplane
+                } /// cone
+            } /// symmetry
+            if( count_level > count_max )
+                count_max = count_level;
+        }
+        return count_max;
+    }
+
     void set_symmetry(const char*sym_type) {
         free_array(pseudo_sym_list);
         pseudo_sym_list = AnglesSymmetry::get_rotation_list(pseudo_sym_length,sym_type);

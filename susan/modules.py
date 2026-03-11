@@ -94,8 +94,8 @@ class Aligner:
         if not self.ctf_correction in ['none','on_reference','on_substack','wiener_ssnr','cfsc']:
             raise ValueError('Invalid ctf correction type. Only "none", "on_reference", "on_substack" or "wiener_ssnr" are valid')
         
-        if not self.cc_stats_type in ['none','probability','sigma','wgt_avg']:
-            raise ValueError('Invalid cc statistic method. Only "none", "probability", "sigma" or "wgt_avg" are valid')
+        if not self.cc_stats_type in ['none','probability','sigma','wgt_avg','gaussian_fit']:
+            raise ValueError('Invalid cc statistic method. Only "none", "probability", "sigma", "wgt_avg" or "gaussian_fit" are valid')
         
         if not self.offset.step > 0 or not self.cone.step > 0 or not self.inplane.step > 0:
             raise ValueError('The steps values must be larger than 0')

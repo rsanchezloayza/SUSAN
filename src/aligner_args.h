@@ -369,7 +369,7 @@ bool parse_args(Info&info,int ac,char** av) {
 }
 
 void print_angles(const Info&info,FILE*fp,bool show_full=false) {
-	
+
     AnglesProvider angles;
     angles.cone_range    = info.cone_range;
     angles.cone_step     = info.cone_step;
