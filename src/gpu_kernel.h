@@ -1572,20 +1572,23 @@ __global__ void subpixel_shift(float2*p_data,const Proj2D*g_ali,const int3 ss_si
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
 
         int idx  = get_3d_idx(ss_idx,ss_siz);
-
-        float x,y,R;
-        get_xyR_unit(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
-
         float2 data = p_data[idx];
 
-        float phase_shift = x*g_ali[ss_idx.z].t.x + y*g_ali[ss_idx.z].t.y;
-        float sin_cos_arg = -2*M_PI*phase_shift/ss_siz.y;
+        float x = ss_idx.x;
+        float y = ss_idx.y-ss_siz.y/2;
+        float N = ss_siz.y;
+
+        float dx = g_ali[ss_idx.z].t.x;
+        float dy = g_ali[ss_idx.z].t.y;
+
+        float phase_shift = (x*dx + y*dy) / N;
+        float sin_cos_arg = -2*M_PI*phase_shift;
 
         /// exp(-ix) = cos(x) - i sin(x);
         float tmp_real = data.x;
         float tmp_imag = data.y;
-        float c = cos(sin_cos_arg);
-        float s = sin(sin_cos_arg);
+        float c = cosf(sin_cos_arg);
+        float s = sinf(sin_cos_arg);
         data.x = tmp_real*c + tmp_imag*s;
         data.y = tmp_imag*c - tmp_real*s;
 
@@ -1671,6 +1674,7 @@ __global__ void print_proj2D(Proj2D*g_tlt,const int in_K) {
 
 __global__ void rotate_post(Proj2D*g_tlt,Rot33 R,Proj2D*g_tlt_in,const int in_K) {
 
+    /// R_out = R @ R_in
     int3 ss_idx = get_th_idx();
 
     if( ss_idx.x < in_K*9 && ss_idx.y == 0 && ss_idx.z == 0 ) {
@@ -1705,6 +1709,7 @@ __global__ void rotate_post(Proj2D*g_tlt,Rot33 R,Proj2D*g_tlt_in,const int in_K)
 
 __global__ void rotate_pre(Proj2D*g_tlt,Rot33 R,Proj2D*g_tlt_in,const int in_K) {
 
+    /// R_out = R_in @ R
     int3 ss_idx = get_th_idx();
 
     if( ss_idx.x < in_K*9 && ss_idx.y == 0 && ss_idx.z == 0 ) {
