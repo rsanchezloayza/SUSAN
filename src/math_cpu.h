@@ -588,7 +588,7 @@ bool normalize_non_zero(float*ptr,const uint32 length) {
     for(i=0;i<length;i++) {
         if( ptr[i] != 0 ) {
             ptr[i] = ptr[i] - avg;
-            std = (ptr[i]*ptr[i]);
+            std += (ptr[i]*ptr[i]);
         }
     }
 

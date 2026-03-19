@@ -179,7 +179,7 @@ public:
         if( c_ite >= c_lim ) {
             c_ite = 0;
             eu2 += c_stp;
-            c_lim = (uint32)round( 360*sin(eu2*M_PI/180.0f)/c_stp );
+            c_lim = (uint32)fmax(round( 360*sin(eu2*M_PI/180.0f)/c_stp ),1.0);
         }
         if( c_lim > 0 )
             eu1 = 360*(double)c_ite/(double)c_lim;
@@ -213,18 +213,36 @@ public:
     }
 
     void get_current_R(M33f&R) {
-        M33f Rcone,Rinplane;
-        V3f eu;
-        eu(0) =  eu1;
-        eu(1) =  eu2;
-        eu(2) = -eu1;
-        eu *= DEG2RAD;
-        eZYZ_Rmat(Rcone,eu);
-        eu(0) = eu3;
-        eu(1) = 0;
-        eu(2) = 0;
-        eu *= DEG2RAD;
-        eZYZ_Rmat(Rinplane,eu);
+        /// Sample Cone trying to keep the Y axis always point forward
+        /// (avoid twisting from the cone sampling)
+        float phi   = eu1 * DEG2RAD;
+        float theta = eu2 * DEG2RAD;
+        float psi   = eu3 * DEG2RAD;
+
+        // current forward
+        V3f forward;
+        forward << sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta);
+
+        // Direction trying to keep
+        V3f face_direction(0,1,0);
+
+        if (fabs(forward.dot(face_direction)) > 0.999f)
+            face_direction = V3f(1,0,0);
+
+        // Be sure to continue looking forward
+        V3f right = face_direction.cross(forward).normalized();
+        V3f up    = forward.cross(right);
+
+        M33f Rcone;
+        Rcone.col(0) = right;
+        Rcone.col(1) = up;
+        Rcone.col(2) = forward;
+
+        // Add in plane rotations
+        Eigen::AngleAxisf rz(psi, forward);
+        M33f Rinplane = rz.toRotationMatrix();
+
+        // Final rotation
         R = Rcone*Rinplane*pseudo_sym_list[curr_sym];
     }
 

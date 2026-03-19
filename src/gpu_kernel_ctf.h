@@ -66,7 +66,7 @@ __device__ float calc_gamma(const float def,const float lambda_pi,const float la
 }
 
 __device__ float calc_ctf(const float gamma,const float ac,const float ca) {
-    return (ca*sin(gamma) + ac*cos(gamma));
+    return ca*sin(gamma) + ac*cos(gamma);
 }
 
 __device__ float calc_ctf(const float gamma,const float ac) {
@@ -1058,7 +1058,7 @@ __global__ void apply_bandpass_fourier(float2*p_w,const CtfConst ctf_const,const
         if( bp > 0.025 ) {
             val = p_w[ idx ];
 
-            float s = calc_s(R,M,ctf_const.apix);
+            float s = calc_s(R,N,ctf_const.apix);
             if( p_def[ss_idx.z].Bfactor > 0 )
                 bp *= calc_bfactor(s,p_def[ss_idx.z].Bfactor);
             if( p_def[ss_idx.z].ExpFilt > 0 )
@@ -1155,9 +1155,7 @@ __global__ void correct_stk_wiener( float2*g_data,const float*g_ctf,const Defocu
 
             float ctf = g_ctf [ ix ];
 
-            float s = calc_s(R,ss_siz.y,ctf_const.apix);;
-            if( def[ss_idx.z].ExpFilt > 0 )
-                w *= calc_bfactor(s,def[ss_idx.z].ExpFilt);
+            float s = calc_s(R,ss_siz.y,ctf_const.apix);
 
             val.x = w*ctf*val.x;
             val.y = w*ctf*val.y;

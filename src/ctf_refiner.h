@@ -165,7 +165,7 @@ protected:
 
         AliData ali_data(MP,NP,max_K,off_par,off_type,stream);
 
-        RadialAverager rad_avgr(M,N,max_K);
+        RadialAverager rad_avgr(MP,NP,max_K);
 
         Refine ctf_ref(MP,NP,max_K);
 
@@ -245,10 +245,12 @@ protected:
         dim3 blk = GPU::get_block_size_2D();
         dim3 grdR = GPU::calc_grid_size(blk,NP,NP,NP);
         dim3 grdC = GPU::calc_grid_size(blk,MP,NP,NP);
+        int3 ss   = make_int3(MP,NP,NP);
         GpuKernels::fftshift3D<<<grdR,blk>>>(g_pad.ptr,NP);
-        GpuKernels::sampling_correction_3D<<<grdC,blk>>>(g_fou.ptr,2.0,MP,NP);
         fft3.exec(g_fou.ptr,g_pad.ptr);
+        GpuKernels::sampling_correction_3D<<<grdC,blk>>>(g_fou.ptr,2.0,MP,NP);
         GpuKernels::fftshift3D<<<grdC,blk>>>(g_fou.ptr,MP,NP);
+        GpuKernels::divide<<<grdC,blk>>>(g_fou.ptr,NP*NP*NP,ss);
     }
 
     void refine_ctf(AliRef*vols,Refine&ctf_ref,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
@@ -536,7 +538,7 @@ protected:
         gpu_worker.use_halves  = p_info->use_halves;
         gpu_worker.pad_type    = pad_type;
         gpu_worker.max_K       = max_K;
-        gpu_worker.ssnr.x      = p_info->ssnr_F;
+        gpu_worker.ssnr.x      = p_info->ssnr_F*bp_scale;
         gpu_worker.ssnr.y      = p_info->ssnr_S;
         gpu_worker.off_par.x   = p_info->off_x;
         gpu_worker.off_par.y   = p_info->off_y;

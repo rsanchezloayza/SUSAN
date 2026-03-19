@@ -708,8 +708,7 @@ public:
 
         float sigma_phys = current_sigma_ * pix_size_;
 
-        // return 2.f * float(M_PI*M_PI) * sigma_phys * sigma_phys;
-        return 0.25f * float(M_PI*M_PI) * sigma_phys * sigma_phys;
+        return float(M_PI*M_PI) * sigma_phys * sigma_phys;
     }
 };
 

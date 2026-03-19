@@ -66,6 +66,7 @@ typedef struct {
     float  off_y;
     float  off_z;
     float  off_s;
+    float  bfactor_gain;
 
     char   pseudo_sym[64];
 
@@ -164,6 +165,7 @@ bool parse_args(Info&info,int ac,char** av) {
     info.off_y         = 0;
     info.off_z         = 0;
     info.off_s         = 1;
+    info.bfactor_gain  = 1.0;
     info.verbosity     = VERBOSITY_BASIC;
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
@@ -208,6 +210,7 @@ bool parse_args(Info&info,int ac,char** av) {
         TM_TYPE,
         TM_PREFIX,
         TM_SIGMA,
+        BFACTOR,
         TYPE
     };
 
@@ -244,7 +247,8 @@ bool parse_args(Info&info,int ac,char** av) {
         {"tm_prefix",   1, 0, TM_PREFIX },
         {"tm_sigma",    1, 0, TM_SIGMA  },
         {"dilate",      1, 0, DILATE    },
-        {"type",        1, 0, TYPE },
+        {"bfactor_gain",1, 0, BFACTOR   },
+        {"type",        1, 0, TYPE      },
         {0, 0, 0, 0}
     };
     
@@ -348,6 +352,9 @@ bool parse_args(Info&info,int ac,char** av) {
                 break;
             case TM_SIGMA:
                 info.tm_sigma = atof(optarg);
+                break;
+            case BFACTOR:
+                info.bfactor_gain = atof(optarg);
                 break;
             default:
                 printf("Unknown parameter %d\n",c);

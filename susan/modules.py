@@ -52,6 +52,7 @@ class Aligner:
         self.tm_prefix         = "template_matching"
         self.tm_sigma          = 0
         self.dilate            = 0
+        self.bfactor_gain      = 1
         
     def set_angular_search(self,c_r=0,c_s=1,i_r=0,i_s=1):
         self.cone.span    = c_r
@@ -152,6 +153,7 @@ class Aligner:
         args = args + ' -tm_type '         + self.tm_type
         args = args + ' -tm_prefix '       + self.tm_prefix
         args = args + ' -tm_sigma %f'      % self.tm_sigma
+        args = args + ' -bfactor_gain %f'  % self.bfactor_gain
         return args
     
     def align(self,ptcls_out,refs_file,tomos_file,ptcls_in,box_size):

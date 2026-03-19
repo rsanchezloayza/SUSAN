@@ -357,7 +357,7 @@ protected:
                 float s4 = s2*s2;
 
                 float gamma = lambda_pi_def*s2 - lambda3_Cs_pi_2*s4 + phase_shift_rad;
-                buf_ctf[i] = -CA*sinf(gamma)-AC*cosf(gamma);
+                buf_ctf[i] = CA*sinf(gamma)+AC*cosf(gamma);
             }
         }
 

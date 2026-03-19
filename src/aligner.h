@@ -295,8 +295,9 @@ public:
     int max_K;
     int dilate;
     bool ali_halves;
-    float3  bandpass;
-    float2  ssnr; /// x=F; y=S;
+    float bfactor_gain;
+    float3 bandpass;
+    float2 ssnr; /// x=F; y=S;
     DoubleBufferHandler *p_buffer;
     RefMap              *p_refs;
 
@@ -844,7 +845,7 @@ protected:
             stream.sync();
 
             ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
-            cc_tracker_arr.push(ali_data.c_cc,ali_data.n_pts,R_ite);
+            cc_tracker_arr.push(ali_data.c_cc,ali_data.n_pts,M33f::Identity());
         }
 
         tm_rep.push_cc(cc_placeholder);
@@ -852,15 +853,15 @@ protected:
         single cc_acc=0,wgt_acc=0,cc_cur=0;
         for(int i=0;i<ptr->K;i++) {
             if( ptr->ptcl.prj_w[i] > 0 ) {
-                cc_cur  = cc_tracker_arr.get_cc(i);
-                cc_acc += cc_cur;
+                cc_cur   = cc_tracker_arr.get_cc(i);
+                cc_acc  += cc_cur;
                 wgt_acc += ptr->ptcl.prj_w[i];
                 Math::set(max_R[i],R_rslt[i]);
                 update_particle_2D(ptr->ptcl,
                                    max_R[i],cc_tracker_arr.get_vec(i),cc_cur,
                                    i,ptr->ctf_vals.apix);
                 if( cc_stats == CC_STATS_GAUSSIAN_FIT )
-                    ptr->ptcl.def[i].ExpFilt = cc_tracker_arr.get_dose(i);
+                    ptr->ptcl.def[i].ExpFilt = bfactor_gain*cc_tracker_arr.get_dose(i);
             }
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
@@ -1066,46 +1067,47 @@ protected:
     void init_processing_worker(AliGpuWorker&gpu_worker,DoubleBufferHandler*stack_buffer) {
         bp_pad = p_info->fpix_roll/2;
         float bp_scale = ((float)NP)/((float)N);
-        gpu_worker.worker_id  = worker_id;
-        gpu_worker.worker_cmd = worker_cmd;
-        gpu_worker.gpu_ix     = gpu_ix;
-        gpu_worker.p_buffer   = stack_buffer;
-        gpu_worker.N          = N;
-        gpu_worker.M          = M;
-        gpu_worker.P          = P;
-        gpu_worker.R          = R;
-        gpu_worker.p_refs     = p_refs;
-        gpu_worker.pad_type   = pad_type;
-        gpu_worker.ali_halves = p_info->ali_halves;
-        gpu_worker.cc_stats   = p_info->cc_stats;
-        gpu_worker.cc_type    = p_info->cc_type;
-        gpu_worker.ctf_type   = p_info->ctf_type;
-        gpu_worker.max_K      = max_K;
-        gpu_worker.bandpass.x = fmax(bp_scale*p_info->fpix_min-bp_pad,0.0);
-        gpu_worker.bandpass.y = fmin(bp_scale*p_info->fpix_max+bp_pad,((float)NP)/2);
-        gpu_worker.bandpass.z = sqrt(p_info->fpix_roll);
-        gpu_worker.ssnr.x     = p_info->ssnr_F*bp_scale;
-        gpu_worker.ssnr.y     = p_info->ssnr_S;
-        gpu_worker.drift2D    = drift2D;
-        gpu_worker.drift3D    = drift3D;
-        gpu_worker.cone.x     = p_info->cone_range;
-        gpu_worker.cone.y     = p_info->cone_step;
-        gpu_worker.inplane.x  = p_info->inplane_range;
-        gpu_worker.inplane.y  = p_info->inplane_step;
-        gpu_worker.ref_factor = p_info->refine_factor;
-        gpu_worker.ref_level  = p_info->refine_level;
-        gpu_worker.off_type   = p_info->off_type;
-        gpu_worker.off_space  = p_info->off_space;
-        gpu_worker.off_par.x  = p_info->off_x;
-        gpu_worker.off_par.y  = p_info->off_y;
-        gpu_worker.off_par.z  = p_info->off_z;
-        gpu_worker.off_par.w  = p_info->off_s;
-        gpu_worker.psym       = p_info->pseudo_sym;
-        gpu_worker.tm_type    = p_info->tm_type;
-        gpu_worker.tm_prefix  = p_info->tm_pfx;
-        gpu_worker.tm_dim     = p_info->type;
-        gpu_worker.tm_sigma   = p_info->tm_sigma;
-        gpu_worker.dilate     = p_info->dilate;
+        gpu_worker.worker_id    = worker_id;
+        gpu_worker.worker_cmd   = worker_cmd;
+        gpu_worker.gpu_ix       = gpu_ix;
+        gpu_worker.p_buffer     = stack_buffer;
+        gpu_worker.N            = N;
+        gpu_worker.M            = M;
+        gpu_worker.P            = P;
+        gpu_worker.R            = R;
+        gpu_worker.p_refs       = p_refs;
+        gpu_worker.pad_type     = pad_type;
+        gpu_worker.ali_halves   = p_info->ali_halves;
+        gpu_worker.cc_stats     = p_info->cc_stats;
+        gpu_worker.cc_type      = p_info->cc_type;
+        gpu_worker.ctf_type     = p_info->ctf_type;
+        gpu_worker.max_K        = max_K;
+        gpu_worker.bandpass.x   = fmax(bp_scale*p_info->fpix_min-bp_pad,0.0);
+        gpu_worker.bandpass.y   = fmin(bp_scale*p_info->fpix_max+bp_pad,((float)NP)/2);
+        gpu_worker.bandpass.z   = sqrt(p_info->fpix_roll);
+        gpu_worker.ssnr.x       = p_info->ssnr_F*bp_scale;
+        gpu_worker.ssnr.y       = p_info->ssnr_S;
+        gpu_worker.drift2D      = drift2D;
+        gpu_worker.drift3D      = drift3D;
+        gpu_worker.cone.x       = p_info->cone_range;
+        gpu_worker.cone.y       = p_info->cone_step;
+        gpu_worker.inplane.x    = p_info->inplane_range;
+        gpu_worker.inplane.y    = p_info->inplane_step;
+        gpu_worker.ref_factor   = p_info->refine_factor;
+        gpu_worker.ref_level    = p_info->refine_level;
+        gpu_worker.off_type     = p_info->off_type;
+        gpu_worker.off_space    = p_info->off_space;
+        gpu_worker.off_par.x    = p_info->off_x;
+        gpu_worker.off_par.y    = p_info->off_y;
+        gpu_worker.off_par.z    = p_info->off_z;
+        gpu_worker.off_par.w    = p_info->off_s;
+        gpu_worker.psym         = p_info->pseudo_sym;
+        gpu_worker.tm_type      = p_info->tm_type;
+        gpu_worker.tm_prefix    = p_info->tm_pfx;
+        gpu_worker.tm_dim       = p_info->type;
+        gpu_worker.tm_sigma     = p_info->tm_sigma;
+        gpu_worker.dilate       = p_info->dilate;
+        gpu_worker.bfactor_gain = p_info->bfactor_gain;
         gpu_worker.start();
     }
 
