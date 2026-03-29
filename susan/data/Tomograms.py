@@ -29,8 +29,149 @@ from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.utils import rotm_euZYZ as _rotm_euZYZ
 
 class Tomograms:
-    
-    def __init__(self,filename=None,n_tomo=0,n_proj=0):
+    """Per-tomogram metadata container for SUSAN workflows.
+
+    Holds geometry, CTF, and acquisition parameters for a set of tomograms.
+    Each tomogram entry stores per-projection tilt angles, alignment shifts,
+    defocus values, and microscope optics.
+
+    File format: plain-text ``.tomostxt`` (key-value header per tomogram
+    followed by one data row per projection).
+
+    .. rubric:: Geometry & acquisition
+
+    .. attribute:: tomo_id
+       :type: ndarray, uint32, shape (N,)
+
+       User-assigned integer ID for each tomogram.
+
+    .. attribute:: tomo_size
+       :type: ndarray, uint32, shape (N, 3)
+
+       Tomogram dimensions (X, Y, Z) in pixels.
+
+    .. attribute:: stack_file
+       :type: list of str, length N
+
+       Path to the tilt-series image stack for each tomogram.
+
+    .. attribute:: stack_size
+       :type: ndarray, uint32, shape (N, 3)
+
+       Stack dimensions (X, Y, n_proj) in pixels.
+
+    .. attribute:: num_proj
+       :type: ndarray, uint32, shape (N,)
+
+       Number of valid projections for each tomogram.
+
+    .. attribute:: pix_size
+       :type: ndarray, float32, shape (N,)
+
+       Pixel size in Ångströms.
+
+    .. attribute:: proj_eZYZ
+       :type: ndarray, float32, shape (N, P, 3)
+
+       Per-projection tilt orientation as ZYZ Euler angles in degrees.
+
+    .. attribute:: proj_shift
+       :type: ndarray, float32, shape (N, P, 2)
+
+       Per-projection in-plane shifts (X, Y) in Ångströms.
+
+    .. attribute:: proj_wgt
+       :type: ndarray, float32, shape (N, P)
+
+       Per-projection weight (0 = excluded, 1 = active).
+
+    .. attribute:: doses
+       :type: ndarray, float32, shape (N, P)
+
+       Cumulative electron dose per projection in e⁻/Ų.
+
+    .. attribute:: nominal_tilt_angles
+       :type: ndarray, float32, shape (N, P)
+
+       Stage tilt angles in degrees (from the .tlt file).
+
+    .. rubric:: Optics
+
+    .. attribute:: voltage
+       :type: ndarray, float32, shape (N,)
+
+       Accelerating voltage in kV.  Default 300.
+
+    .. attribute:: sph_aber
+       :type: ndarray, float32, shape (N,)
+
+       Spherical aberration Cs in mm.  Default 2.7.
+
+    .. attribute:: amp_cont
+       :type: ndarray, float32, shape (N,)
+
+       Amplitude contrast fraction.  Default 0.07.
+
+    .. attribute:: handedness
+       :type: ndarray, float32, shape (N,)
+
+       Z-axis handedness (+1 or −1).  Default −1.
+
+    .. rubric:: CTF
+
+    .. attribute:: def_U, def_V
+       :type: ndarray, float32, shape (N, P)
+
+       Per-projection defocus major/minor axis in Ångströms.
+
+    .. attribute:: def_ang
+       :type: ndarray, float32, shape (N, P)
+
+       Defocus astigmatism angle in degrees.
+
+    .. attribute:: def_phas
+       :type: ndarray, float32, shape (N, P)
+
+       Phase shift in degrees.
+
+    .. attribute:: def_Bfct
+       :type: ndarray, float32, shape (N, P)
+
+       B-factor for the exposure filter.
+
+    .. attribute:: def_ExFl
+       :type: ndarray, float32, shape (N, P)
+
+       Exposure filter value (dose-weighting).
+
+    .. attribute:: def_mres
+       :type: ndarray, float32, shape (N, P)
+
+       Maximum resolution used for CTF fitting in Ångströms.
+
+    .. attribute:: def_scor
+       :type: ndarray, float32, shape (N, P)
+
+       CTF fit score.
+
+    .. attribute:: ctf_scale_factor
+       :type: ndarray, float32, shape (N, P)
+
+       Per-projection CTF scale factor (RELION convention).
+    """
+
+    def __init__(self, filename=None, n_tomo=0, n_proj=0):
+        """Load from file or allocate an empty container.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Path to a ``.tomostxt`` file to load.
+        n_tomo : int
+            Number of tomograms to allocate (used when filename is None).
+        n_proj : int
+            Maximum number of projections per tomogram (used when filename is None).
+        """
         if isinstance(filename, str):
             self._load(filename) 
         else:
@@ -39,8 +180,13 @@ class Tomograms:
             else:
                 raise NameError('Invalid input')
     
-    def get_n_tomos(self): return self.tomo_id.shape[0]
-    def get_n_projs(self): return self.proj_eZYZ.shape[1]
+    def get_n_tomos(self):
+        """Return the number of tomograms stored."""
+        return self.tomo_id.shape[0]
+
+    def get_n_projs(self):
+        """Return the maximum number of projections per tomogram."""
+        return self.proj_eZYZ.shape[1]
     
     n_tomos = property(get_n_tomos)
     n_projs = property(get_n_projs)
@@ -130,7 +276,14 @@ class Tomograms:
                 if len(buffer) > 16:
                     self.ctf_scale_factor[i,p] = buffer[16]
     
-    def save(self,filename):
+    def save(self, filename):
+        """Save to a ``.tomostxt`` file.
+
+        Parameters
+        ----------
+        filename : str
+            Output path; must have a ``.tomostxt`` extension.
+        """
         Tomograms._check_filename(filename)
         
         fp=open(filename,'w')
@@ -168,7 +321,20 @@ class Tomograms:
                 fp.write('\n')
         fp.close()
     
-    def set_stack(self,idx,stk_name):
+    def set_stack(self, idx, stk_name):
+        """Populate tomogram entry from a tilt-series stack file.
+
+        Reads the MRC header to fill ``stack_file``, ``stack_size``,
+        ``pix_size``, and ``num_proj``.  Projection weights are set to 1
+        for all valid projections and 0 for the rest.
+
+        Parameters
+        ----------
+        idx : int
+            Tomogram index to update.
+        stk_name : str
+            Path to the MRC tilt-series stack.
+        """
         stk_dims,apix,_ = _mrc_info(stk_name)
         P = stk_dims[2]
         self.stack_file[idx]   = stk_name
@@ -178,7 +344,27 @@ class Tomograms:
         self.proj_wgt[idx,:]   = 0
         self.proj_wgt[idx,:P]  = 1
     
-    def set_angles(self, idx, tlt_filename, xf_filename = None, xf_apix = None):
+    def set_angles(self, idx, tlt_filename, xf_filename=None, xf_apix=None):
+        """Set per-projection tilt angles and optional IMOD alignment transforms.
+
+        If only ``tlt_filename`` is provided, tilt angles are set directly
+        as the Y Euler angle (ZYZ convention) with no in-plane shifts.
+        If ``xf_filename`` is also provided, the IMOD .xf affine transforms
+        are combined with the tilt angles to produce full ZYZ orientations
+        and X/Y shifts in Ångströms.
+
+        Parameters
+        ----------
+        idx : int
+            Tomogram index to update.
+        tlt_filename : str
+            Path to a IMOD .tlt file with one tilt angle per line (degrees).
+        xf_filename : str, optional
+            Path to a IMOD .xf alignment transform file.
+        xf_apix : float, optional
+            Pixel size to use when converting .xf shifts to Ångströms.
+            Defaults to ``pix_size[idx]`` if not given.
+        """
         self.proj_eZYZ [idx,:,:] = 0
         self.proj_shift[idx,:,:] = 0
         self.proj_wgt  [idx,:, ] = 0
@@ -213,7 +399,27 @@ class Tomograms:
          
          
 
-    def set_defocus(self,idx,def_file,skip_max_res=True):
+    def set_defocus(self, idx, def_file, skip_max_res=True):
+        """Load CTF defocus parameters from file into a tomogram entry.
+
+        Supports two file formats:
+
+        * ``.defocus`` — IMOD CTFPlotter output (versions 2 and 3).
+          Version 2 stores one isotropic defocus per projection; version 3
+          stores astigmatic defocus (def_U, def_V, def_ang).
+        * ``.txt`` — SUSAN per-projection text format with eight columns:
+          def_U, def_V, def_ang, def_phas, def_Bfct, def_ExFl, def_mres, def_scor.
+
+        Parameters
+        ----------
+        idx : int
+            Tomogram index to update.
+        def_file : str
+            Path to the defocus file (``.defocus`` or ``.txt``).
+        skip_max_res : bool, optional
+            If True (default), zero out ``def_mres`` after loading so the
+            stored maximum-resolution limit is ignored during processing.
+        """
         if( _is_ext(def_file,'defocus') ):
             line = _np.loadtxt(def_file,dtype=_np.float32,comments='#',max_rows=1)
             version = int(line[-1])

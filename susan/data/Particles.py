@@ -26,18 +26,166 @@ from ._PtclsGeom import PtclsGeom       as _Geom
 from ._PtclsMRA  import PtclsMRA        as _MRA
 
 class Particles:
-    
+    """Per-particle metadata container for SUSAN subtomogram averaging.
+
+    Stores coordinates, 3-D alignment, per-projection 2-D alignment,
+    CTF defocus, and half-set assignments for a set of particles.
+
+    Two auxiliary modules are accessible as class attributes:
+
+    * ``Particles.Geom`` (:class:`~susan.data._PtclsGeom.PtclsGeom`) —
+      geometry operations: in-place rotation/translation, symmetry
+      expansion, tilt-angle filtering, and distance-based deduplication.
+    * ``Particles.MRA`` (:class:`~susan.data._PtclsMRA.PtclsMRA`) —
+      multi-reference alignment helpers: duplicating and selecting
+      reference slots.
+
+    File format: binary ``.ptclsraw`` (magic ``SsaPtcl1`` + uint32 header
+    + one packed float32 record per particle).
+
+    .. rubric:: Identification & bookkeeping
+
+    .. attribute:: ptcl_id
+       :type: ndarray, uint32, shape (M,)
+
+       User-assigned particle identifier.
+
+    .. attribute:: tomo_id
+       :type: ndarray, uint32, shape (M,)
+
+       Tomogram ID the particle belongs to (matches ``Tomograms.tomo_id``).
+
+    .. attribute:: tomo_cix
+       :type: ndarray, uint32, shape (M,)
+
+       Contiguous index into the Tomograms array for fast look-up.
+
+    .. attribute:: ref_cix
+       :type: ndarray, uint32, shape (M,)
+
+       Current reference-class assignment (0-based index).
+
+    .. attribute:: half_id
+       :type: ndarray, uint32, shape (M,)
+
+       Half-set label: 1 or 2.  0 means unassigned.
+
+    .. attribute:: extra_1, extra_2
+       :type: ndarray, float32, shape (M,)
+
+       User-defined auxiliary fields.
+
+    .. rubric:: Position & 3-D alignment
+
+    .. attribute:: position
+       :type: ndarray, float32, shape (M, 3)
+
+       Particle centre in Ångströms (X, Y, Z).
+
+    .. attribute:: ali_eu
+       :type: ndarray, float32, shape (R, M, 3)
+
+       3-D alignment: ZYZ Euler angles in radians, one set per reference.
+
+    .. attribute:: ali_t
+       :type: ndarray, float32, shape (R, M, 3)
+
+       3-D alignment: translations (X, Y, Z) in Ångströms.
+
+    .. attribute:: ali_cc
+       :type: ndarray, float32, shape (R, M)
+
+       3-D cross-correlation score per reference.
+
+    .. attribute:: ali_w
+       :type: ndarray, float32, shape (R, M)
+
+       3-D alignment weight per reference.
+
+    .. rubric:: Per-projection 2-D alignment
+
+    .. attribute:: prj_eu
+       :type: ndarray, float32, shape (M, P, 3)
+
+       Per-projection 2-D alignment: ZYZ Euler angles in radians.
+
+    .. attribute:: prj_t
+       :type: ndarray, float32, shape (M, P, 2)
+
+       Per-projection 2-D alignment: shifts (X, Y) in Ångströms.
+
+    .. attribute:: prj_cc
+       :type: ndarray, float32, shape (M, P)
+
+       Per-projection cross-correlation score.
+
+    .. attribute:: prj_w
+       :type: ndarray, float32, shape (M, P)
+
+       Per-projection weight (0 = excluded).
+
+    .. rubric:: CTF
+
+    .. attribute:: def_U, def_V
+       :type: ndarray, float32, shape (M, P)
+
+       Per-projection defocus major/minor axis in Ångströms.
+
+    .. attribute:: def_ang
+       :type: ndarray, float32, shape (M, P)
+
+       Defocus astigmatism angle in degrees.
+
+    .. attribute:: def_phas
+       :type: ndarray, float32, shape (M, P)
+
+       Phase shift in degrees.
+
+    .. attribute:: def_Bfct
+       :type: ndarray, float32, shape (M, P)
+
+       B-factor for exposure filtering.
+
+    .. attribute:: def_ExFl
+       :type: ndarray, float32, shape (M, P)
+
+       Exposure filter value.
+
+    .. attribute:: def_mres
+       :type: ndarray, float32, shape (M, P)
+
+       Maximum resolution for CTF fitting in Ångströms.
+
+    .. attribute:: def_scor
+       :type: ndarray, float32, shape (M, P)
+
+       CTF fit score.
+    """
+
     Geom = _Geom
     MRA  = _MRA
-    
-    def __init__(self,filename=None,n_ptcl=0,n_proj=0,n_refs=0):
+
+    def __init__(self, filename=None, n_ptcl=0, n_proj=0, n_refs=0):
+        """Load from file or allocate an empty container.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Path to a ``.ptclsraw`` file to load.
+        n_ptcl : int
+            Number of particles to allocate (used when filename is None).
+        n_proj : int
+            Maximum number of projections per particle.
+        n_refs : int
+            Number of reference slots (multi-reference alignment).
+        """
         if isinstance(filename, str):
-            self._load(filename) 
+            self._load(filename)
         else:
-            if n_ptcl > 0 and n_proj > 0 and n_refs>0:
+            if n_proj > 0 and n_refs > 0:
                 self._alloc(n_ptcl,n_proj,n_refs)
             else:
-                raise NameError('Invalid input')
+                raise ValueError('Invalid input')
 
     def get_n_ptcl(self): return self.ptcl_id.shape[0]
     def get_n_refs(self): return self.ali_eu.shape[0]
@@ -87,7 +235,7 @@ class Particles:
     def _load_header(self,fp):
         buffer = fp.read( 8 + 4*3 )
         if not _np.array_equal( buffer[:8], b'SsaPtcl1' ):
-            raise NameError("Invalid File signature")
+            raise ValueError("Invalid File signature")
         return _np.frombuffer(buffer[8:],_np.uint32)
     
     @staticmethod
@@ -187,6 +335,7 @@ class Particles:
                                      self.def_mres,self.def_scor)
         
     def sort(self):
+        """Sort particles in-place by (tomo_id, ptcl_id)."""
         idx = _np.lexsort((self.ptcl_id,self.tomo_id))
         self.ptcl_id  = self.ptcl_id [idx]
         self.tomo_id  = self.tomo_id [idx]
@@ -307,7 +456,14 @@ class Particles:
             buffer[i+7] = scr[ix,j]
             i = i+8
     
-    def save(self,filename):
+    def save(self, filename):
+        """Save to a ``.ptclsraw`` binary file.
+
+        Parameters
+        ----------
+        filename : str
+            Output path; must have a ``.ptclsraw`` extension.
+        """
         Particles._check_filename(filename)
         
         fp = open(filename,"wb")
@@ -343,22 +499,42 @@ class Particles:
             buffer.tofile(fp)
         fp.close()
     
-    def __getitem__(self,idx):
+    def __getitem__(self, idx):
+        """Select particles by index, boolean mask, or slice.
+
+        Parameters
+        ----------
+        idx : int, array-like, or slice
+            Integer indices, a boolean mask of length ``n_ptcl``, or a
+            standard Python slice.
+
+        Returns
+        -------
+        Particles
+            New container holding only the selected particles.
+        """
         if isinstance(idx,slice):
-            idx = _np.arange(idx.start,idx.stop,idx.step)
+            idx = _np.arange(*idx.indices(self.n_ptcl))
         return self.select(idx)
     
-    def select(self,idx):
-        idx = _np.array(idx)
-        if( idx.ndim >= 2 ):
+    def select(self, idx):
+        """Return a new Particles containing only the selected entries.
+
+        Parameters
+        ----------
+        idx : array-like of int or bool
+            Integer indices or boolean mask selecting which particles to keep.
+
+        Returns
+        -------
+        Particles
+        """
+        idx = _np.atleast_1d(_np.array(idx))
+        if idx.ndim >= 2:
             idx = idx[:,0]
-            number_of_particles = idx.shape[0]
-        elif( idx.ndim == 1):
-            number_of_particles = idx.shape[0]
-        elif( idx.ndim == 0):
-            number_of_particles = 1
+        number_of_particles = int(idx.sum()) if idx.dtype == _np.bool_ else idx.shape[0]
         ptcls_out = Particles(n_ptcl=number_of_particles,n_proj=self.n_proj,n_refs=self.n_refs)
-        if (number_of_particles > 1):
+        if number_of_particles > 0:
             ptcls_out.ptcl_id  = self.ptcl_id [idx]
             ptcls_out.tomo_id  = self.tomo_id [idx]
             ptcls_out.tomo_cix = self.tomo_cix[idx]
@@ -386,40 +562,20 @@ class Particles:
             ptcls_out.def_ExFl = self.def_ExFl[idx,:]
             ptcls_out.def_mres = self.def_mres[idx,:]
             ptcls_out.def_scor = self.def_scor[idx,:]
-        elif (number_of_particles == 1):
-            ptcls_out.ptcl_id  = _np.expand_dims(_np.array(self.ptcl_id [idx]), 0).astype('uint32')
-            ptcls_out.tomo_id  = _np.expand_dims(_np.array(self.tomo_id [idx]), 0).astype('uint32')
-            ptcls_out.tomo_cix = _np.expand_dims(_np.array(self.tomo_cix[idx]), 0).astype('uint32')
-            ptcls_out.position = _np.expand_dims(_np.array(self.position[idx,:]), 0).astype('float32')
-            ptcls_out.ref_cix  = _np.expand_dims(_np.array(self.ref_cix [idx]), 0).astype('uint32')
-            ptcls_out.half_id  = _np.expand_dims(_np.array(self.half_id [idx]), 0).astype('uint32')
-            ptcls_out.extra_1  = _np.expand_dims(_np.array(self.extra_1 [idx]), 0).astype('float32')
-            ptcls_out.extra_2  = _np.expand_dims(_np.array(self.extra_2 [idx]), 0).astype('float32')
-            # 3D alignment
-            ptcls_out.ali_eu   = _np.expand_dims(_np.array(self.ali_eu[:,idx,:]),1).astype('float32')
-            ptcls_out.ali_t    = _np.expand_dims(_np.array(self.ali_t [:,idx,:]),1).astype('float32')
-            ptcls_out.ali_cc   = _np.expand_dims(_np.array(self.ali_cc[:,idx])  ,1).astype('float32')
-            ptcls_out.ali_w    = _np.expand_dims(_np.array(self.ali_w [:,idx])  ,1).astype('float32')
-            # 2D alignment
-            ptcls_out.prj_eu   = _np.expand_dims(_np.array(self.prj_eu[idx,:,:]),0).astype('float32')
-            ptcls_out.prj_t    = _np.expand_dims(_np.array(self.prj_t [idx,:,:]),0).astype('float32')
-            ptcls_out.prj_cc   = _np.expand_dims(_np.array(self.prj_cc[idx,:]),0).astype('float32')
-            ptcls_out.prj_w    = _np.expand_dims(_np.array(self.prj_w [idx,:]),0).astype('float32')
-            # Defocus
-            ptcls_out.def_U    = _np.expand_dims(_np.array(self.def_U   [idx,:]),0).astype('float32')
-            ptcls_out.def_V    = _np.expand_dims(_np.array(self.def_V   [idx,:]),0).astype('float32')
-            ptcls_out.def_ang  = _np.expand_dims(_np.array(self.def_ang [idx,:]),0).astype('float32')
-            ptcls_out.def_phas = _np.expand_dims(_np.array(self.def_phas[idx,:]),0).astype('float32')
-            ptcls_out.def_Bfct = _np.expand_dims(_np.array(self.def_Bfct[idx,:]),0).astype('float32')
-            ptcls_out.def_ExFl = _np.expand_dims(_np.array(self.def_ExFl[idx,:]),0).astype('float32')
-            ptcls_out.def_mres = _np.expand_dims(_np.array(self.def_mres[idx,:]),0).astype('float32')
-            ptcls_out.def_scor = _np.expand_dims(_np.array(self.def_scor[idx,:]),0).astype('float32')
-        # Sort
-        if (number_of_particles > 1):
+        if number_of_particles > 1:
             ptcls_out.sort()
         return ptcls_out
     
-    def append_ptcls(self,ptcls):
+    def append_ptcls(self, ptcls):
+        """Append another Particles object to this one in-place.
+
+        Both objects must have the same ``n_proj`` and ``n_refs``.
+        The combined list is sorted by (tomo_id, ptcl_id) after appending.
+
+        Parameters
+        ----------
+        ptcls : Particles
+        """
         self.ptcl_id  = _np.concatenate( (self.ptcl_id ,ptcls.ptcl_id ),axis=0 )
         self.tomo_id  = _np.concatenate( (self.tomo_id ,ptcls.tomo_id ),axis=0 )
         self.tomo_cix = _np.concatenate( (self.tomo_cix,ptcls.tomo_cix),axis=0 )
@@ -450,12 +606,25 @@ class Particles:
         # Sort
         self.sort()
 
-    def set_weights(self,in_wgt):
-        mask = (self.prj_w > 0).transpose()
-        mask = mask * in_wgt
-        self.prj_w[:,:] = mask.transpose()
+    def set_weights(self, in_wgt):
+        """Set per-projection weights, preserving already-excluded projections.
+
+        Multiplies ``in_wgt`` by the existing ``prj_w > 0`` mask so that
+        projections already set to zero remain excluded.
+
+        Parameters
+        ----------
+        in_wgt : array-like, shape (P,) or (M, P)
+            New weight values.
+        """
+        self.prj_w[:,:] = (self.prj_w > 0) * in_wgt
         
     def halfsets_by_Y(self):
+        """Assign half-sets by splitting each tomogram at its Y-median.
+
+        Particles above the median Y coordinate get half_id=2; those at
+        or below get half_id=1.  Applied per tomogram independently.
+        """
         tomo_ids = _np.unique( self.tomo_id )
         for tid in tomo_ids:
             idx = self.tomo_id == tid
@@ -464,13 +633,25 @@ class Particles:
             self.half_id[idx] = self.half_id[idx] + (self.position[idx,1]>th)
 
     def halfsets_even_odd(self):
+        """Assign half-sets by even/odd index (half_id alternates 1, 2, 1, 2…)."""
         self.half_id[0::2] = 1
         self.half_id[1::2] = 2
 
     def halfsets_randomize(self):
+        """Assign half-sets randomly (each particle independently drawn from {1, 2})."""
         self.half_id[:] = _np.random.randint(1,3,self.half_id.shape)
         
-    def update_position(self,ref_id=0):
+    def update_position(self, ref_id=0):
+        """Absorb the 3-D alignment translation into the particle position.
+
+        Adds ``ali_t[ref_id]`` to ``position`` and resets ``ali_t[ref_id]``
+        to zero.  Useful after alignment to make coordinates absolute again.
+
+        Parameters
+        ----------
+        ref_id : int, optional
+            Reference index whose translation to absorb. Default 0.
+        """
         self.position = self.position + self.ali_t[ref_id]
         self.ali_t[ref_id,:,:] = 0
 
@@ -482,7 +663,24 @@ class Particles:
             dU[i] = dU_in[i] + z_coef*dZ
             dV[i] = dV_in[i] + z_coef*dZ
 
-    def update_defocus(self,tomos_info,ref_id=0,z_sign=None):
+    def update_defocus(self, tomos_info, ref_id=0, z_sign=None):
+        """Recompute per-projection defocus values from the current 3-D positions.
+
+        For each particle, projects the 3-D position (position + ali_t[ref_id])
+        onto each tilt projection's Z-axis and corrects the tomogram-level
+        defocus by the resulting depth offset.  Also copies projection weights,
+        astigmatism, B-factor, and CTF scores from the Tomograms metadata.
+
+        Parameters
+        ----------
+        tomos_info : Tomograms
+            Tomogram metadata providing tilt geometries and base defocus values.
+        ref_id : int, optional
+            Reference index whose translation is included in the position. Default 0.
+        z_sign : float, optional
+            Override the Z-axis handedness (+1 or −1).  If None (default),
+            ``tomos_info.handedness`` is used per tomogram.
+        """
         
         # Calculate tilt rotation matrix
         R_arr = _np.zeros((tomos_info.n_tomos,tomos_info.n_projs,3,3),dtype=_np.float32)
@@ -504,34 +702,37 @@ class Particles:
             
             # Note: Numba makes it ~23.3 times faster
             pos = self.position[k] + self.ali_t[ref_id,k]
-            if z_sign is None:
-                z_sign = tomos_info.handedness[tid]
+            z_sign_k = z_sign if z_sign is not None else tomos_info.handedness[tid]
             Particles._update_new_defocus(
                 self.def_U[k],
                 self.def_V[k],
                 R_arr[tid],
                 pos,
                 tomos_info.num_proj[tid],
-                z_sign,
+                z_sign_k,
                 tomos_info.def_U[tid],
                 tomos_info.def_V[tid]
             )
 
-    def x(self,ref_idx=0):
+    def x(self, ref_idx=0):
+        """Absolute X coordinate: position[:,0] + ali_t[ref_idx,:,0] (Ångströms)."""
         return self.position[:,0] + self.ali_t[ref_idx,:,0]
 
-    def y(self,ref_idx=0):
+    def y(self, ref_idx=0):
+        """Absolute Y coordinate: position[:,1] + ali_t[ref_idx,:,1] (Ångströms)."""
         return self.position[:,1] + self.ali_t[ref_idx,:,1]
 
-    def z(self,ref_idx=0):
+    def z(self, ref_idx=0):
+        """Absolute Z coordinate: position[:,2] + ali_t[ref_idx,:,2] (Ångströms)."""
         return self.position[:,2] + self.ali_t[ref_idx,:,2]
 
-    def pos(self,ref_idx=0):
+    def pos(self, ref_idx=0):
+        """Absolute (X, Y, Z) positions: position + ali_t[ref_idx], shape (M, 3), Ångströms."""
         return self.position + self.ali_t[ref_idx]
 
     @staticmethod
     def _get_tomo_limit_angstroms(tomo_size,tomo_apix,border):
-        return tomo_apix*( tomo_size-border )/2
+        return tomo_apix*( (_np.int32(tomo_size)-_np.int32(border)).clip(0) )/2
 
     @staticmethod
     def _validate_tomogram(tomograms):
@@ -564,7 +765,30 @@ class Particles:
             raise ValueError('skip_border_pixels must be either a scalar or a 3-element vector')
 
     @staticmethod
-    def grid_2d(tomograms,step_angstroms=None,step_pixels=None,skip_border_pixels=0,angle_deg_Y=0):
+    def grid_2d(tomograms, step_angstroms=None, step_pixels=None,
+                skip_border_pixels=0, angle_deg_Y=0):
+        """Create a 2-D regular grid of particles at Z=0 across all tomograms.
+
+        Positions are placed on an XY grid centred at the tomogram origin.
+        Defocus values are initialised from the Tomograms metadata.
+
+        Parameters
+        ----------
+        tomograms : Tomograms
+            All tomograms must share the same pixel size.
+        step_angstroms : float, optional
+            Grid spacing in Ångströms. Mutually exclusive with step_pixels.
+        step_pixels : float, optional
+            Grid spacing in pixels. Mutually exclusive with step_angstroms.
+        skip_border_pixels : int or array-like of int (3,), optional
+            Pixels to exclude near each tomogram edge. Default 0.
+        angle_deg_Y : float, optional
+            Rotate the grid plane by this angle around Y (degrees). Default 0.
+
+        Returns
+        -------
+        Particles
+        """
         apix = Particles._validate_tomogram(tomograms)
         step = Particles._get_grid_step(step_angstroms,step_pixels,apix)
         brdr = Particles._get_border_pixels(skip_border_pixels)
@@ -598,7 +822,29 @@ class Particles:
         return ptcls
     
     @staticmethod
-    def grid_3d(tomograms,step_angstroms=None,step_pixels=None,skip_border_pixels=0):
+    def grid_3d(tomograms, step_angstroms=None, step_pixels=None,
+                skip_border_pixels=0):
+        """Create a 3-D regular grid of particles across all tomograms.
+
+        Positions fill the full XYZ volume of each tomogram.  Half-sets are
+        assigned by even/odd index; defocus values are initialised from the
+        Tomograms metadata.
+
+        Parameters
+        ----------
+        tomograms : Tomograms
+            All tomograms must share the same pixel size.
+        step_angstroms : float, optional
+            Grid spacing in Ångströms. Mutually exclusive with step_pixels.
+        step_pixels : float, optional
+            Grid spacing in pixels. Mutually exclusive with step_angstroms.
+        skip_border_pixels : int or array-like of int (3,), optional
+            Pixels to exclude near each tomogram edge. Default 0.
+
+        Returns
+        -------
+        Particles
+        """
         apix = Particles._validate_tomogram(tomograms)
         step = Particles._get_grid_step(step_angstroms,step_pixels,apix)
         brdr = Particles._get_border_pixels(skip_border_pixels)
@@ -656,7 +902,32 @@ class Particles:
             p_out[i,:] = apix*pos
             
     @staticmethod
-    def import_data(tomograms,position,tomos_id,ptcls_id=None,randomize_angles=False):
+    def import_data(tomograms, position, tomos_id, ptcls_id=None,
+                    randomize_angles=False):
+        """Create a Particles object from external coordinate data.
+
+        Converts pixel-space coordinates (relative to tomogram corner) to
+        Ångström-space coordinates centred at the tomogram origin, and
+        initialises defocus from the Tomograms metadata.
+
+        Parameters
+        ----------
+        tomograms : Tomograms
+            All tomograms must share the same pixel size.
+        position : ndarray, shape (N, 3)
+            Particle positions in pixels, relative to the tomogram corner.
+        tomos_id : array-like, shape (N,)
+            Tomogram ID for each particle (must match ``Tomograms.tomo_id``).
+        ptcls_id : array-like of int, shape (N,), optional
+            Particle identifiers.  Defaults to 0, 1, …, N−1.
+        randomize_angles : bool, optional
+            If True, initialise ``ali_eu`` with random ZYZ Euler angles.
+            Default False.
+
+        Returns
+        -------
+        Particles
+        """
         if ptcls_id is None:
             ptcls_id = _np.arange(tomos_id.shape[0])
         apix = Particles._validate_tomogram(tomograms)
@@ -671,10 +942,31 @@ class Particles:
         ptcls.sort()
         ptcls.update_defocus(tomograms)
         if randomize_angles:
-            ptcls.ali_eu[:,:,:] = _np.random.uniform(0,_np.pi,ptcls.ali_eu.shape)
+            n_refs, n_ptcl = ptcls.ali_eu.shape[:2]
+            ptcls.ali_eu[:,:,0] = _np.random.uniform(0, 2*_np.pi, (n_refs,n_ptcl))
+            ptcls.ali_eu[:,:,1] = _np.arccos(_np.random.uniform(-1, 1, (n_refs,n_ptcl)))
+            ptcls.ali_eu[:,:,2] = _np.random.uniform(0, 2*_np.pi, (n_refs,n_ptcl))
         return ptcls
     
-    def export_positions(self,tomograms,ref_cix=0):
+    def export_positions(self, tomograms, ref_cix=0):
+        """Convert particle positions back to pixel coordinates relative to the tomogram corner.
+
+        Inverse of the conversion done by ``import_data``.  Useful for
+        exporting coordinates to IMOD or other tools that expect pixel-space
+        positions.
+
+        Parameters
+        ----------
+        tomograms : Tomograms
+            Provides pixel size and tomogram dimensions.
+        ref_cix : int, optional
+            Reference index whose translation is included. Default 0.
+
+        Returns
+        -------
+        ndarray, float32, shape (M, 3)
+            Positions in pixels, relative to the tomogram corner.
+        """
         apix = Particles._validate_tomogram(tomograms)
         pos = _np.zeros_like(self.pos(ref_cix))
         for i in range(pos.shape[0]):

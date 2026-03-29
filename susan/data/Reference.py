@@ -21,12 +21,44 @@ from susan.utils import is_extension as _is_ext
 from susan.utils import force_extension as _force_ext
 
 class Reference:
+    """Container for one or more reference maps used in STA alignment.
+
+    Each reference entry holds paths to four MRC files: the full map,
+    a soft mask, and the two independent half-maps.  The half-maps are
+    used for FSC-based resolution estimation and as N2N training pairs.
+
+    File format: plain-text ``.refstxt``.
+
+    .. rubric:: Attributes
+
+    Attributes
+    ----------
+    ref : list of str
+        Paths to the full reference maps.
+    msk : list of str
+        Paths to the soft masks (same box size as the references).
+    h1  : list of str
+        Paths to half-map 1 for each reference.
+    h2  : list of str
+        Paths to half-map 2 for each reference.
+    """
+
     ref = []
     msk = []
     h1  = []
     h2  = []
-    
-    def __init__(self,filename=None,n_refs=0):
+
+    def __init__(self, filename=None, n_refs=0):
+        """Load from file or allocate an empty container.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Path to a ``.refstxt`` file to load.
+        n_refs : int, optional
+            Number of empty reference slots to allocate (used when
+            filename is None).
+        """
         self.ref.clear()
         self.msk.clear()
         self.h1.clear()
@@ -47,7 +79,9 @@ class Reference:
                 self.h1.append('')
                 self.h2.append('')
     
-    def get_n_refs(self): return len(self.ref)
+    def get_n_refs(self):
+        """Return the number of references stored."""
+        return len(self.ref)
     
     n_refs = property(get_n_refs)
     
@@ -61,11 +95,29 @@ class Reference:
     
     @staticmethod
     def load(filename):
+        """Load a Reference from a ``.refstxt`` file.
+
+        Parameters
+        ----------
+        filename : str
+            Path to a ``.refstxt`` file.
+
+        Returns
+        -------
+        Reference
+        """
         Reference._check_filename(filename)
         result = Reference(filename=filename)
         return result
     
-    def save(self,filename):
+    def save(self, filename):
+        """Save to a ``.refstxt`` file.
+
+        Parameters
+        ----------
+        filename : str
+            Output path; must have a ``.refstxt`` extension.
+        """
         Reference._check_filename(filename)
         
         if len(self.ref) is not len(self.msk):

@@ -22,11 +22,30 @@ from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.utils import rotm_euZYZ as _rotm_euZYZ
 
 class PtclsMRA:
+    """Multi-reference alignment helpers for Particles.
+
+    All methods are static and operate on a Particles instance.
+    Accessible as ``Particles.MRA``.
+    """
     
     @staticmethod
-    def duplicate(ptcls,ref_idx=0):
+    def duplicate(ptcls, ref_idx=0):
+        """Append a copy of one or more reference slots to the alignment arrays.
+
+        Adds a new reference entry (or entries) to ``ali_eu``, ``ali_t``,
+        ``ali_cc``, and ``ali_w`` by copying from the specified slot(s).
+        Modifies ``ptcls`` in-place.
+
+        Parameters
+        ----------
+        ptcls : Particles
+            Modified in-place; ``n_refs`` increases by one (or more).
+        ref_idx : int or array-like of int, optional
+            Index (or indices) of the reference slot(s) to duplicate.
+            Default 0.
+        """
         idx = _np.array(ref_idx)
-        if idx.size == 1:
+        if idx.ndim == 0:
             ptcls.ali_eu = _np.concatenate((ptcls.ali_eu,ptcls.ali_eu[ref_idx][_np.newaxis,:,:]))
             ptcls.ali_t  = _np.concatenate((ptcls.ali_t ,ptcls.ali_t [ref_idx][_np.newaxis,:,:]))
             ptcls.ali_cc = _np.concatenate((ptcls.ali_cc,ptcls.ali_cc[ref_idx][_np.newaxis,:]  ))
@@ -38,9 +57,26 @@ class PtclsMRA:
             ptcls.ali_w  = _np.concatenate((ptcls.ali_w ,ptcls.ali_w [ref_idx,:]))
     
     @staticmethod
-    def select_ref(ptcls,ref_idx):
+    def select_ref(ptcls, ref_idx):
+        """Select particles assigned to specific reference(s) and keep only those slots.
+
+        Filters ``ptcls`` to particles whose ``ref_cix`` matches ``ref_idx``
+        and trims the alignment arrays to only the requested reference(s).
+        ``ref_cix`` values in the result are remapped to 0-based indices.
+        Returns a new Particles object; the original is unchanged.
+
+        Parameters
+        ----------
+        ptcls : Particles
+        ref_idx : int or array-like of int
+            Reference index (or indices) to retain.
+
+        Returns
+        -------
+        Particles
+        """
         idx = _np.array(ref_idx)
-        if idx.size == 1:
+        if idx.ndim == 0:
             rslt = ptcls.select( ptcls.ref_cix == idx )
             rslt.ali_eu = rslt.ali_eu[idx,:,:][_np.newaxis,:,:]
             rslt.ali_t  = rslt.ali_t [idx,:,:][_np.newaxis,:,:]
@@ -51,13 +87,14 @@ class PtclsMRA:
             mask = _np.zeros( ptcls.n_ptcl, bool )
             for i in range(idx.shape[0]):
                 mask = mask | (ptcls.ref_cix == idx[i])
-            rslt = ptcls.select( mask == True )
+            rslt = ptcls.select( mask )
             rslt.ali_eu = rslt.ali_eu[idx,:,:]
             rslt.ali_t  = rslt.ali_t [idx,:,:]
             rslt.ali_cc = rslt.ali_cc[idx,:]
             rslt.ali_w  = rslt.ali_w [idx,:]
+            orig = rslt.ref_cix.copy()
             for i in range(idx.shape[0]):
-                rslt.ref_cix[ rslt.ref_cix==idx[i] ] = i
+                rslt.ref_cix[ orig==idx[i] ] = i
         return rslt
 
         

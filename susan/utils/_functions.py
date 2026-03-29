@@ -16,13 +16,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
-__all__ = ['radial_average',
+__all__ = ['dose_from_fsc',
+           'radial_average',
            'radial_expansion',
            'fsc_get',
            'fsc_analyse',
-           'denoise_l0',
            'bandpass',
-           'radial_blurring',
            'apply_FOM',
            'euDYN_rotm',
            'euZYZ_rotm',
@@ -33,14 +32,14 @@ __all__ = ['radial_average',
            'time_now',
            'create_sphere',
            'bin_vol',
-           'BayesianEstimator3D'
+           'mask_diameter',
+           'angular_step_from_fsc',
           ]
 
 import datetime
 import susan.io.mrc as mrc
 import numpy as np
 from numba import jit
-from scipy.ndimage import gaussian_filter
 from os.path import splitext as split_ext
 import susan.utils.datatypes as datatypes
 
@@ -48,6 +47,22 @@ import susan.utils.datatypes as datatypes
 
 @jit(nopython=True,cache=True)
 def radial_average(v):
+    """Compute the radial (shell) average of a 3-D volume.
+
+    Each output bin k contains the mean of all voxels at radius r ≈ k pixels
+    from the volume centre.  The output length is set by the largest dimension
+    so that all voxels are included.
+
+    Parameters
+    ----------
+    v : ndarray, shape (Z, Y, X)
+        Input 3-D volume.
+
+    Returns
+    -------
+    ndarray, shape (N,)
+        Radially averaged values.  N = max(Z, Y, X) // 2 + 1.
+    """
     assert v.ndim == 3, "Volume must be three-dimensional"
 
     N = (max( max(v.shape[0],v.shape[1]), v.shape[2] )//2)+1
@@ -74,6 +89,21 @@ def radial_average(v):
 
 @jit(nopython=True,cache=True)
 def radial_expansion(arr):
+    """Expand a 1-D radial profile into a 3-D spherically symmetric volume.
+
+    The inverse of ``radial_average``: each voxel at radius r is assigned the
+    value ``arr[round(r)]``.  The output cube has side 2*(len(arr)-1).
+
+    Parameters
+    ----------
+    arr : ndarray, shape (N,)
+        1-D radial profile.
+
+    Returns
+    -------
+    ndarray, shape (2*(N-1), 2*(N-1), 2*(N-1)), float32
+        3-D volume with spherical symmetry.
+    """
     cnt = arr.shape[0]-1
     N = 2*cnt
     rslt = np.zeros((N,N,N),np.float32)
@@ -88,99 +118,6 @@ def radial_expansion(arr):
                 r = np.int32(np.round(r))
                 if r < cnt:
                     rslt[k,j,i] = arr[r]
-    return rslt
-
-###########################################
-
-@jit(nopython=True)
-def _get_weight(s_r,s_a):
-    acc = 0
-    for k in range(-2,3):
-        for j in range(-2,3):
-            for i in range(-2,3):
-                rad = k
-                arc = np.sqrt((i**2)+(j**2))
-                blr = np.exp( -((arc/s_a)**2 + (rad/s_r)**2)/2 )
-                acc += blr
-    return acc
-
-@jit(nopython=True)
-def _apply_radial_blur(v_out,v_in,sigma,weight,min_rad,max_rad,sigma_shell):
-    Nh = v_in.shape[0]//2
-    s_r = sigma_shell
-    for z in range(v_in.shape[0]):
-        for y in range(v_in.shape[1]):
-            for x in range(v_in.shape[2]):
-                x_w = x-Nh
-                y_w = y-Nh
-                z_w = z-Nh
-                n_w = np.sqrt((x_w**2)+(y_w**2)+(z_w**2))
-                if (n_w >= min_rad) and (n_w <= max_rad):
-                    s_index = int( np.round( 2*(n_w - min_rad) ) )
-                    s_a = sigma[s_index]
-                    s_w = weight[s_index]
-                    acc = 0
-                    for k in range(-2,3):
-                        for j in range(-2,3):
-                            for i in range(-2,3):
-                                x_r = x_w + i
-                                y_r = y_w + j
-                                z_r = z_w + k
-                                n_r = np.abs(np.sqrt((x_r**2)+(y_r**2)+(z_r**2)))
-                                rad = n_r - n_w
-                                if n_r < 1e-6: n_r = 1
-                                if n_w < 1e-6: n_w = 1
-                                ang = (x_w*x_r + y_w*y_r + z_w*z_r)/(n_r*n_w)
-                                arc = n_r*np.abs(np.arccos( min(max(ang,-1),1) ))
-                                blr = np.exp( -((arc/s_a)**2 + (rad/s_r)**2)/2 )
-                                acc += blr * v_in[ z+k, y+j, x+i ]
-                    v_out[z,y,x] = acc/s_w
-
-def radial_blurring(v,max_sigma=1.0,min_rad=10,max_rad=None,min_sigma=0.4,sigma_shell=0.4):
-    if max_rad is None:
-        max_rad = v.shape[0]//4
-
-    radii  = np.arange(min_rad,max_rad+0.5,0.5)
-    sigma  = np.linspace(min_sigma,max_sigma,radii.size)
-    weight = np.zeros_like(sigma)
-    for i in range(sigma.shape[0]):
-        weight[i] = _get_weight(sigma_shell,sigma[i])
-
-    msk = create_sphere((max_rad+min_rad)/2,v.shape[0] )
-    v_out = gaussian_filter(v,min_sigma)*msk + (1-msk)*gaussian_filter(v,max_sigma)
-    _apply_radial_blur(v_out,v,sigma,weight,min_rad,max_rad,sigma_shell)
-    return v_out
-
-###########################################
-
-class BayesianEstimator3D:
-    def __init__(self, ini_vol: np.ndarray, ini_var: np.ndarray):
-        self.post_avg = ini_vol
-        self.post_var = ini_var
-
-    def update(self, new_vol: np.ndarray, new_var: np.ndarray) -> np.ndarray:
-        # Bayesian update (assuming Gaussian prior and likelihood):
-        var = 1 / ( (1/self.post_var) + (1/new_var) )
-        avg = var * ( (self.post_avg/self.post_var) + (new_vol/new_var) )
-
-        # Update internal state
-        self.post_avg = avg
-        self.post_var = var
-
-        return self.post_avg
-
-###########################################
-
-def denoise_l0(v,l0_lambda,rho=1,max_clip=-1):
-    rho  = max(min(rho,1),0)
-    th   = np.quantile(v,l0_lambda)
-    rslt = np.copy(v)
-    rslt[rslt>th] = 0
-    if max_clip > 0:
-        th   = np.quantile(rslt,max_clip)
-        rslt = np.maximum(rslt,th)
-    if rho < 1:
-        rslt = rho*rslt + (1-rho)*v
     return rslt
 
 ###########################################
@@ -224,10 +161,58 @@ def _gen_bandpass_wgt(box_size,lowpass,highpass=0,rolloff=1):
     return wgt
 
 def bandpass(v,lowpass,highpass=0,rolloff=1):
+    """Apply a bandpass filter to a 3-D volume in Fourier space.
+
+    Both the low-pass and high-pass edges use a cosine rolloff, giving a
+    smooth (Hann-like) transition rather than a hard cut.
+
+    Parameters
+    ----------
+    v        : ndarray, shape (Z, Y, X)
+        Input volume.
+    lowpass  : float
+        Low-pass cutoff in Fourier pixels (0 = no low-pass).  Shells above
+        this radius are attenuated.
+    highpass : float, optional
+        High-pass cutoff in Fourier pixels (0 = no high-pass, default).
+        Shells below this radius are attenuated.
+    rolloff  : int, optional
+        Width of the cosine rolloff in Fourier pixels.  Default 1.
+
+    Returns
+    -------
+    ndarray, float32
+        Filtered volume, same shape as ``v``.
+    """
     bp  = _gen_bandpass_wgt(v.shape[1],lowpass,highpass,rolloff)
     return _apply_fourier_rad_wgt(v,bp)
 
 def apply_FOM(v,fsc_array):
+    """Apply a figure-of-merit (FOM) filter derived from an FSC curve.
+
+    Multiplies each Fourier shell by :math:`\\sqrt{FSC}`:
+
+    .. math::
+        v_{\\text{FOM}} = \\mathcal{F}^{-1}\\!\\left\\{
+            \\mathcal{F}\\{v\\} \\cdot \\sqrt{\\text{fsc\\_array}}
+        \\right\\}
+
+    See `Rosenthal & Henderson (2003)
+    <https://www.sciencedirect.com/science/article/pii/S104784771200144X>`_.
+
+    Parameters
+    ----------
+    v         : ndarray, shape (Z, Y, X)
+        Input volume.
+    fsc_array : array_like, shape (N,)
+        FSC curve as returned by ``fsc_get``.  Values are clipped to [0, 1]
+        before taking the square root.
+
+    Returns
+    -------
+    ndarray, float32
+        FOM-weighted volume, same shape as ``v``.
+    """
     wgt = np.sqrt(fsc_array.clip(0,1))
     return _apply_fourier_rad_wgt(v,wgt)
 
@@ -250,13 +235,46 @@ def _fsc_get_core(n,d1,d2):
                     rslt[r] = rslt[r] +  n[k,j,i]
                     tmp1[r] = tmp1[r] + d1[k,j,i]
                     tmp2[r] = tmp2[r] + d2[k,j,i]
-    tmp1[0] = 1.0
-    tmp2[0] = 1.0
     rslt[0] = 1.0
-    rslt = rslt/np.sqrt(tmp1*tmp2)
+    for r in range(1,rslt.size):
+        denom = np.sqrt(tmp1[r]*tmp2[r])
+        if denom > 0:
+            rslt[r] = rslt[r] / denom
+        else:
+            rslt[r] = 0.0
     return rslt
 
 def fsc_get(v1,v2,msk=None):
+    """Compute the Fourier Shell Correlation (FSC) between two half-maps.
+
+    .. math::
+        FSC(r) = \\frac{
+            \\text{RadialAvg}_r\\!\\left(
+                \\mathcal{F}\\{v_1 \\cdot m\\} \\cdot
+                \\overline{\\mathcal{F}\\{v_2 \\cdot m\\}}
+            \\right)
+        }{\\sqrt{
+            \\text{RadialAvg}_r\\!\\left(|\\mathcal{F}\\{v_1 \\cdot m\\}|^2\\right)
+            \\cdot
+            \\text{RadialAvg}_r\\!\\left(|\\mathcal{F}\\{v_2 \\cdot m\\}|^2\\right)
+        }}
+
+    where *m* is the mask (1 everywhere if not provided).
+
+    Parameters
+    ----------
+    v1, v2 : ndarray or str
+        Input half-maps.  Can be 3-D numpy arrays or paths to MRC files.
+        Both must have the same shape.
+    msk    : ndarray or str or None, optional
+        Real-space mask applied to both half-maps before the FFT.  Can be
+        a numpy array or a path to an MRC file.  None (default) uses no mask.
+
+    Returns
+    -------
+    ndarray, shape (N,)
+        FSC curve.  Shell 0 is set to 1.0; N = v1.shape[2] // 2 + 1.
+    """
     apix = 1
     if isinstance(v1,str):
         v1,apix = mrc.read(v1)
@@ -283,6 +301,26 @@ def fsc_get(v1,v2,msk=None):
     return fsc
 
 def fsc_analyse(fsc,apix=1.0,thres=0.143):
+    """Find the resolution where the FSC drops below a threshold.
+
+    Parameters
+    ----------
+    fsc   : array_like
+        FSC curve as returned by ``fsc_get``.
+    apix  : float or array_like, optional
+        Pixel size in Angstroms.  Default 1.0 (returns resolution in pixels).
+    thres : float, optional
+        FSC threshold.  Default 0.143 (gold-standard half-map criterion).
+
+    Returns
+    -------
+    datatypes.fsc_info
+        Named tuple with fields:
+
+        * ``fpix``  — resolution in Fourier pixels (int).
+        * ``res``   — resolution in Angstroms (float).  0.0 if the FSC never
+          drops below ``thres``.
+    """
     apix = np.array(apix)
     if( apix.size > 1 ):
         apix = apix[0]
@@ -302,6 +340,20 @@ def fsc_analyse(fsc,apix=1.0,thres=0.143):
 
 @jit(nopython=True,cache=True)
 def euDYN_rotm(R,eu):
+    """Fill rotation matrix R from dynamic (intrinsic ZXZ-like) Euler angles.
+
+    Uses SUSAN's internal DYN convention:
+    eu = [psi, phi, theta] in radians, where phi is the tilt (polar) angle
+    measured from the Z-axis.  The rotation is applied in the order
+    theta → phi → psi (intrinsic, right-handed).
+
+    Parameters
+    ----------
+    R  : ndarray, shape (3, 3)
+        Output array filled in-place.
+    eu : ndarray, shape (3,)
+        Euler angles [psi, phi, theta] in radians.
+    """
     cos_theta = np.cos(eu[2])
     cos_phi   = np.cos(eu[1])
     cos_psi   = np.cos(eu[0])
@@ -320,7 +372,18 @@ def euDYN_rotm(R,eu):
 
 @jit(nopython=True,cache=True)
 def euZYZ_rotm(R,eu):
-    #R = np.zeros((3,3))
+    """Fill rotation matrix R from ZYZ Euler angles.
+
+    Standard extrinsic ZYZ convention:
+    R = R_z(theta) · R_y(phi) · R_z(psi).
+
+    Parameters
+    ----------
+    R  : ndarray, shape (3, 3)
+        Output array filled in-place.
+    eu : ndarray, shape (3,)
+        Euler angles [theta, phi, psi] in radians.
+    """
     cos_theta = np.cos(eu[0])
     cos_phi = np.cos(eu[1])
     cos_psi = np.cos(eu[2])
@@ -336,26 +399,67 @@ def euZYZ_rotm(R,eu):
     R[2,0] = -cos_psi*sin_phi
     R[2,1] = sin_phi*sin_psi
     R[2,2] = cos_phi
-    #return R
 
 @jit(nopython=True,cache=True)
 def rotm_euZYZ(euler, R):
+    """Extract ZYZ Euler angles from a rotation matrix.
+
+    Inverse of ``euZYZ_rotm``.  Handles the two degenerate cases
+    (phi=0 and phi=π) by setting theta=0 and expressing the remaining
+    degree of freedom in psi.
+
+    Parameters
+    ----------
+    euler : ndarray, shape (3,)
+        Output array filled in-place with [theta, phi, psi] in radians.
+    R     : ndarray, shape (3, 3)
+        Input rotation matrix.
+    """
     if np.abs(R[2,2]-1)<1e-6:
+        # phi=0: only (theta+psi) is determined; set theta=0
         euler[0] = 0
         euler[1] = 0
-        euler[2] = np.arcsin(R[1,0])
+        euler[2] = np.arctan2(R[1,0], R[1,1])
+    elif np.abs(R[2,2]+1)<1e-6:
+        # phi=pi: only (psi-theta) is determined; set theta=0
+        euler[0] = 0
+        euler[1] = np.pi
+        euler[2] = np.arctan2(R[1,0], R[1,1])
     else:
         euler[0] = np.arctan2(R[1,2],R[0,2])
-        euler[1] = np.arctan2(np.sqrt( 1-(R[2,2]*R[2,2]) ),R[2,2])
+        euler[1] = np.arctan2(np.sqrt(np.abs(1-(R[2,2]*R[2,2]))),R[2,2])
         euler[2] = np.arctan2(R[2,1],-R[2,0])
 
 ###########################################
 
 def get_extension(filename):
+    """Return the file extension including the leading dot.
+
+    Parameters
+    ----------
+    filename : str
+
+    Returns
+    -------
+    str
+        Extension, e.g. ``'.mrc'``.  Empty string if there is no extension.
+    """
     _,ext = split_ext(filename)
     return ext
 
 def is_extension(filename,extension):
+    """Check whether ``filename`` has the given extension (case-sensitive).
+
+    Parameters
+    ----------
+    filename  : str
+    extension : str
+        With or without a leading dot (both forms are accepted).
+
+    Returns
+    -------
+    bool
+    """
     _,ext = split_ext(filename)
     if( extension[0] == '.' ):
         return ext == extension
@@ -363,6 +467,19 @@ def is_extension(filename,extension):
         return ext == '.'+extension
 
 def force_extension(filename,extension):
+    """Return ``filename`` with its extension replaced by ``extension``.
+
+    Parameters
+    ----------
+    filename  : str
+    extension : str
+        With or without a leading dot (both forms are accepted).
+
+    Returns
+    -------
+    str
+        Path with the new extension.
+    """
     base,ext = split_ext(filename)
     new_ext = extension
     if new_ext[0] != '.':
@@ -372,11 +489,34 @@ def force_extension(filename,extension):
 ###########################################
 
 def time_now():
+    """Return the current local date and time.
+
+    Returns
+    -------
+    datetime.datetime
+    """
     return datetime.datetime.now()
 
 ###########################################
 
 def create_sphere(r,N):
+    """Create a soft spherical mask of radius ``r`` in a cube of side ``N``.
+
+    The mask value at each voxel is ``clip(r - radius, 0, 1)``, giving a
+    smooth 1-pixel-wide transition at the sphere boundary.
+
+    Parameters
+    ----------
+    r : float
+        Sphere radius in pixels.
+    N : int
+        Side length of the output cube.
+
+    Returns
+    -------
+    ndarray, shape (N, N, N), float32
+        Soft spherical mask; 1 inside, 0 outside, linear transition at edge.
+    """
     M = N//2
     t = np.arange(-M,M)
     x,y,z = np.meshgrid(t,t,t)
@@ -386,7 +526,131 @@ def create_sphere(r,N):
 ###########################################
 
 def bin_vol(vol,bin_level):
+    """Low-pass filter and downsample a volume by a power of two.
+
+    Applies a low-pass filter at the new Nyquist frequency before
+    downsampling to prevent aliasing.
+
+    Parameters
+    ----------
+    vol       : ndarray, shape (N, N, N)
+        Input volume.
+    bin_level : int
+        Downsampling factor as a power of two.  bin_level=1 halves each
+        dimension; bin_level=2 quarters it, etc.
+
+    Returns
+    -------
+    ndarray, float32
+        Downsampled volume of shape (N//s, N//s, N//s) where s = 2**bin_level.
+    """
     s = (2**bin_level)
-    v = bandpass(vol,vol.shape[0]//s-1)
+    v = bandpass(vol,vol.shape[0]//(2*s)-1)
     v = v[::s,::s,::s]
     return np.float32(v)
+
+###########################################
+
+def mask_diameter(mask_file, threshold=0.5):
+    """Estimate the particle diameter in pixels from a soft mask MRC file.
+
+    The diameter is that of the sphere whose volume equals the volume of mask
+    voxels above *threshold*.  Returning pixels (not Angstroms).
+
+    Parameters
+    ----------
+    mask_file : str
+        Path to the mask MRC file.
+    threshold : float, optional
+        Voxel values above this level are considered 'inside' the mask.
+        Default 0.5 works for all standard soft masks.
+
+    Returns
+    -------
+    float
+        Equivalent-sphere diameter in pixels.
+    """
+    mask, _ = mrc.read(mask_file)
+    n_inside    = float(np.sum(mask > threshold))
+    # V_pix = n_inside voxels  →  D_pix = 2·(3·V/(4π))^(1/3)
+    diameter_px = 2.0 * (3.0 * n_inside / (4.0 * np.pi)) ** (1.0 / 3.0)
+    return diameter_px
+
+###########################################
+
+def angular_step_from_fsc(fsc_fpix):
+    """Angular step from an FSC resolution in Fourier pixels.
+
+    Returns the angle subtended by one Fourier pixel at the resolution shell
+    ``fsc_fpix``::
+
+        Δθ = atan2(1, fsc_fpix)   [degrees]
+
+    This is the smallest orientation change that moves the projected signal
+    by one pixel at the resolution limit — i.e. the Nyquist angular step for
+    the given resolution.  No pixel size or particle diameter is needed.
+
+    Parameters
+    ----------
+    fsc_fpix : int or float
+        Resolution in Fourier pixels as returned by ``fsc_analyse``.
+
+    Returns
+    -------
+    float
+        Suggested angular step in degrees.
+    """
+    if fsc_fpix <= 0:
+        return float('inf')
+    return float(np.degrees(np.arctan2(1.0, float(fsc_fpix))))
+
+###########################################
+
+def dose_from_fsc(fsc, apix, freq_range=(0.1, 0.8), fsc_min=0.1):
+    """Estimate effective dose from the Guinier slope of the FSC curve.
+
+    The ExpFilt dose is applied in reconstruction as exp(−s²·dose/4), where s
+    is in 1/Å.  In the intermediate frequency range the FSC decays as the same
+    Gaussian envelope, so fitting ln(FSC) vs s² gives slope = −dose/4, and:
+
+        dose = −4 · d(ln FSC)/d(s²)
+
+    This can be compared to the mean of ``ptcls.def_ExFl`` (excluding failures
+    marked as 9999) to calibrate ``aligner.expfilt_gain``:
+
+        expfilt_gain = dose_from_fsc(fsc, apix) / mean_estimated_dose
+
+    Parameters
+    ----------
+    fsc : array_like
+        FSC curve as returned by ``fsc_get``.  Assumed to have n shells
+        spanning a box of size 2n (i.e. shell k → s = k / (2n·apix)).
+    apix : float
+        Pixel size in Angstroms.
+    freq_range : tuple of float
+        (low, high) as fractions of Nyquist over which to fit.  The default
+        (0.1, 0.8) covers the Guinier decay while stopping before the
+        noise-dominated tail.
+    fsc_min : float
+        Minimum FSC value included in the fit.  Shells at or below the noise
+        floor would bias the slope.  Default 0.1.
+
+    Returns
+    -------
+    float
+        Effective dose in Å² consistent with the ExpFilt convention.
+        Returns NaN if the fit cannot be performed.
+    """
+    fsc   = np.asarray(fsc, dtype=np.float64)
+    n     = len(fsc)
+    s_nyq = 1.0 / (2.0 * float(apix))
+    s     = np.arange(n) / n * s_nyq   # shell k → s = k/(2n·apix); s[n-1] ≈ s_nyq
+    s2    = s * s
+
+    lo, hi = freq_range
+    mask   = (s >= lo * s_nyq) & (s <= hi * s_nyq) & (fsc > fsc_min)
+    if mask.sum() < 3:
+        return float('nan')
+
+    slope, _ = np.polyfit(s2[mask], np.log(fsc[mask]), 1)
+    return -4.0 * slope   # dose = −4 · slope  (matches exp(−s²·dose/4) convention)

@@ -22,6 +22,11 @@ from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.utils import rotm_euZYZ as _rotm_euZYZ
 
 class PtclsGeom:
+    """Geometry operations on Particles alignment data.
+
+    All methods are static and operate on a Particles instance in-place or
+    return a new one.  Accessible as ``Particles.Geom``.
+    """
     
 ###############################################################################
     @staticmethod
@@ -78,7 +83,24 @@ class PtclsGeom:
             ali_t[i,:] = ali_t[i,:] + tout
     
     @staticmethod
-    def rot_shift(ptcls,eZYZdeg=None,R=None,t=None,ref_idx=0):
+    def rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0):
+        """Apply a single rotation and/or translation to all particles in-place.
+
+        Modifies ``ali_eu[ref_idx]`` and ``ali_t[ref_idx]`` directly.
+        Supply either ``eZYZdeg`` or ``R``, not both.
+
+        Parameters
+        ----------
+        ptcls : Particles
+        eZYZdeg : array-like of float (3,), optional
+            ZYZ Euler angles in degrees.
+        R : ndarray, float32 (3, 3), optional
+            Rotation matrix.
+        t : array-like of float (3,), optional
+            Translation in Ångströms. Default zeros.
+        ref_idx : int, optional
+            Reference alignment slot to modify. Default 0.
+        """
         R = PtclsGeom._validate_single_rotation(eZYZdeg,R)
         t = PtclsGeom._validate_single_translation(t)
                 
@@ -176,7 +198,30 @@ class PtclsGeom:
                 out_ix = out_ix + 1
 
     @staticmethod
-    def expand_by_rot_shift(ptcls,eZYZdeg=None,R=None,t=None,ref_idx=0):
+    def expand_by_rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0):
+        """Expand a particle list by applying multiple rotations/translations.
+
+        For each particle, produces one output copy per supplied
+        rotation/translation, resulting in ``n_ptcl × n_transforms`` particles.
+        Useful for symmetry expansion.  Returns a new Particles object;
+        the original is unchanged.
+
+        Parameters
+        ----------
+        ptcls : Particles
+        eZYZdeg : array-like, shape (K, 3) or (3,), optional
+            ZYZ Euler angles in degrees for each transform.
+        R : ndarray, float32, shape (K, 3, 3) or (3, 3), optional
+            Rotation matrices. Mutually exclusive with eZYZdeg.
+        t : array-like, shape (K, 3) or (3,), optional
+            Translations in Ångströms for each transform. Default zeros.
+        ref_idx : int, optional
+            Reference alignment slot to use as input and output. Default 0.
+
+        Returns
+        -------
+        Particles
+        """
         R   = PtclsGeom._validate_multiple_rotations(eZYZdeg,R)
         t   = PtclsGeom._validate_multiple_translations(t)
         R,t = PtclsGeom._validate_multiple_inputs(R,t)
@@ -206,10 +251,91 @@ class PtclsGeom:
                     prj_w[p,k] = 0
     
     @staticmethod
-    def enable_by_tilt(ptcls,tomos,tilt_deg_max,tilt_deg_min=0):
+    def enable_by_tilt(ptcls, tomos, tilt_deg_max, tilt_deg_min=0):
+        """Set per-projection weights based on tilt angle range.
+
+        Projections whose absolute tilt angle falls within
+        [tilt_deg_min, tilt_deg_max) are set to weight 1; all others are
+        set to 0.  Projections already excluded in the Tomograms metadata
+        (``proj_wgt == 0``) remain excluded.
+
+        Parameters
+        ----------
+        ptcls : Particles
+            Modified in-place (``prj_w`` updated).
+        tomos : Tomograms
+        tilt_deg_max : float
+            Maximum absolute tilt angle to include (degrees).
+        tilt_deg_min : float, optional
+            Minimum absolute tilt angle to include (degrees). Default 0.
+        """
         tilt_max = _np.abs(tilt_deg_max)
         tilt_min = _np.abs(tilt_deg_min)
         PtclsGeom._enable_by_tilt(ptcls.prj_w,ptcls.tomo_cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
+
+    @staticmethod
+    @_jit(nopython=True,cache=True)
+    def _enable_by_tilt_range(prj_w,tomo_cix,prj_eu,prj_wgt,tilt_min,tilt_max):
+        R  = _np.zeros((3,3),_np.float32)
+        eu = _np.zeros(3,    _np.float32)
+        for p in range(prj_w.shape[0]):
+            t_id = tomo_cix[p]
+            for k in range(prj_w.shape[1]):
+                if prj_wgt[t_id,k] > 0:
+                    eu[0] = prj_eu[t_id,k,0] * _np.pi / 180.0
+                    eu[1] = prj_eu[t_id,k,1] * _np.pi / 180.0
+                    eu[2] = prj_eu[t_id,k,2] * _np.pi / 180.0
+                    _euZYZ_rotm(R, eu)
+                    # Beam direction is the third column of R.
+                    # Project it onto the tilt direction [cos(eu0), sin(eu0), 0]
+                    # (perpendicular to the tilt axis) to get the signed
+                    # horizontal component; atan2 with R[2,2] gives the signed
+                    # tilt angle robustly in [-pi, pi].
+                    c0    = _np.cos(eu[0])
+                    s0    = _np.sin(eu[0])
+                    horiz = c0*R[0,2] + s0*R[1,2]
+                    tilt  = _np.arctan2(horiz, R[2,2])
+                    prj_w[p,k] = (tilt >= tilt_min) & (tilt < tilt_max)
+                else:
+                    prj_w[p,k] = 0
+
+    @staticmethod
+    def enable_by_tilt_range(ptcls, tomos, tilt_deg_min, tilt_deg_max):
+        """Set per-projection weights based on a signed tilt-angle range.
+
+        The tilt angle is derived from the full ZYZ rotation matrix of each
+        projection (not from ``proj_eZYZ[:,1]`` directly), making it robust
+        to non-canonical Euler-angle storage.  The signed angle is defined as
+        the angle between the beam direction and the tomogram Z axis, positive
+        in the direction of increasing stage tilt.
+
+        Projections whose signed tilt falls within ``[tilt_deg_min,
+        tilt_deg_max)`` are set to weight 1; all others are set to 0.
+        Projections already excluded in the Tomograms metadata
+        (``proj_wgt == 0``) remain excluded.
+
+        Unlike :meth:`enable_by_tilt`, both bounds are signed, so asymmetric
+        ranges such as ``(-20, 40)`` are supported.
+
+        Parameters
+        ----------
+        ptcls : Particles
+            Modified in-place (``prj_w`` updated).
+        tomos : Tomograms
+        tilt_deg_min : float
+            Lower bound of the signed tilt range in degrees (inclusive).
+        tilt_deg_max : float
+            Upper bound of the signed tilt range in degrees (exclusive).
+        """
+        if tilt_deg_min >= tilt_deg_max:
+            raise ValueError(
+                f'tilt_deg_min ({tilt_deg_min}) must be less than tilt_deg_max ({tilt_deg_max}).')
+        if tilt_deg_min < -180.0 or tilt_deg_max > 180.0:
+            raise ValueError(
+                f'Tilt range [{tilt_deg_min}, {tilt_deg_max}) exceeds [-180, 180] degrees.')
+        tilt_min = _np.float32(_np.deg2rad(tilt_deg_min))
+        tilt_max = _np.float32(_np.deg2rad(tilt_deg_max))
+        PtclsGeom._enable_by_tilt_range(ptcls.prj_w,ptcls.tomo_cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
 
 ###############################################################################
     @staticmethod
@@ -228,7 +354,28 @@ class PtclsGeom:
                             w_mask[idx_nxt] = False
         
     @staticmethod
-    def discard_closer(ptcls,min_dist_angs,ref_idx=0,verbose=False):
+    def discard_closer(ptcls, min_dist_angs, ref_idx=0, verbose=False):
+        """Remove duplicate/overlapping particles closer than a minimum distance.
+
+        Within each tomogram, particles are sorted by descending ``ali_cc``
+        and greedily kept; any particle within ``min_dist_angs`` of an already
+        kept particle is discarded.  Returns a new Particles object.
+
+        Parameters
+        ----------
+        ptcls : Particles
+        min_dist_angs : float
+            Minimum allowed inter-particle distance in Ångströms.
+        ref_idx : int, optional
+            Reference index used to compute effective positions
+            (position + ali_t[ref_idx]). Default 0.
+        verbose : bool, optional
+            Print per-tomogram particle counts. Default False.
+
+        Returns
+        -------
+        Particles
+        """
         t_id = _np.unique( ptcls.tomo_cix )
         mask = _np.ones(ptcls.tomo_cix.shape,bool)
         dist = min_dist_angs*min_dist_angs
@@ -258,17 +405,33 @@ class PtclsGeom:
     def _get_min_dist(dist,pos):
         N = pos.shape[0]
         for idx_cur in range(N):
-            min_d   = -1
+            min_d   = _np.inf
             for idx_wrk in range(N):
                 if idx_cur != idx_wrk:
-                    d = pos[idx_cur] - pos[idx_wrk]
-                    d = _np.sqrt( (d*d).sum() )
-                    if min_d < 0 or d < min_d:
+                    vec = pos[idx_cur] - pos[idx_wrk]
+                    d   = _np.sqrt( (vec*vec).sum() )
+                    if d < min_d:
                         min_d = d
             dist[idx_cur] = min_d
     
     @staticmethod
-    def get_min_distance(ptcls,ref_idx=0):
+    def get_min_distance(ptcls, ref_idx=0):
+        """Return the distance to the nearest neighbour for every particle.
+
+        Computed per tomogram using effective positions
+        (position + ali_t[ref_idx]).
+
+        Parameters
+        ----------
+        ptcls : Particles
+        ref_idx : int, optional
+            Reference index for the translation offset. Default 0.
+
+        Returns
+        -------
+        ndarray, float32, shape (M,)
+            Nearest-neighbour distance in Ångströms for each particle.
+        """
         t_id = _np.unique( ptcls.tomo_cix )
         dist = _np.zeros(ptcls.tomo_cix.shape,_np.float32)
         

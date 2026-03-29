@@ -21,6 +21,21 @@ __all__ = ['read']
 import numpy as _np
 
 def read(filename):
+    """Read an EM file and return its data as a float32 array.
+
+    Only float32 (EM data type 5) files with machine code 6 (PC/Linux
+    little-endian) are supported.  Raises ValueError for any other format.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the EM file.
+
+    Returns
+    -------
+    data : numpy.ndarray
+        Volume array with shape (Z, Y, X), dtype float32.
+    """
     em_hdr = _np.fromfile(filename,dtype=_np.uint8 ,count=4)
     em_siz = _np.fromfile(filename,dtype=_np.uint32,count=3,offset=4)
     if em_hdr[0] != 6 or em_hdr[3] != 5:

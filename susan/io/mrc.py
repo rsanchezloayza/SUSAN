@@ -53,6 +53,21 @@ def _type_to_mode(mrc_type):
     return out_mode
 
 def read(filename):
+    """Read an MRC/CCP4 file and return its data and pixel size.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the MRC file.
+
+    Returns
+    -------
+    data : numpy.ndarray
+        Volume or image array with shape (Z, Y, X), dtype determined by
+        the MRC mode field (float32 for mode 2, int16 for mode 1, etc.).
+    pix_size : numpy.ndarray
+        Pixel size in Ångströms, shape (3,) float32, ordered (X, Y, Z).
+    """
     mrc_shape = _np.fromfile(filename,dtype=_np.uint32 ,count=3)
     mrc_mode  = _np.fromfile(filename,dtype=_np.uint32 ,count=1,offset=12)
     mrc_sampl = _np.fromfile(filename,dtype=_np.uint32 ,count=3,offset=28)
@@ -68,6 +83,22 @@ def read(filename):
     return data,pix_size
 
 def get_info(filename):
+    """Read only the header of an MRC file without loading the data.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the MRC file.
+
+    Returns
+    -------
+    shape : numpy.ndarray
+        Volume dimensions as (NX, NY, NZ), shape (3,) uint32.
+    pix_size : numpy.ndarray
+        Pixel size in Ångströms, shape (3,) float32, ordered (X, Y, Z).
+    dtype : numpy.dtype
+        NumPy dtype corresponding to the MRC mode field.
+    """
     mrc_shape = _np.fromfile(filename,dtype=_np.uint32 ,count=3)
     mrc_mode  = _np.fromfile(filename,dtype=_np.uint32 ,count=1,offset=12)
     mrc_sampl = _np.fromfile(filename,dtype=_np.uint32 ,count=3,offset=28)
@@ -78,7 +109,26 @@ def get_info(filename):
 
     return mrc_shape,pix_size,in_type
 
-def write(data,filename,apix=1,ispg=None,fill_statistics=True):
+def write(data, filename, apix=1, ispg=None, fill_statistics=True):
+    """Write a numpy array to an MRC2014 file.
+
+    Parameters
+    ----------
+    data : numpy.ndarray
+        Array to write, shape (Z, Y, X).  float64 is automatically
+        downcast to float32.  Supported dtypes: int8, int16, uint16,
+        float16, float32, float64.
+    filename : str
+        Output file path.
+    apix : float or array-like of shape (3,), optional
+        Pixel size in Ångströms.  A scalar sets all three axes equally.
+        Default 1.
+    ispg : int, optional
+        Space-group number written to the header.  Default 1 (P1).
+    fill_statistics : bool, optional
+        If True (default), compute and write min, max, mean, and std
+        into the header statistics fields.
+    """
     apix = _np.array(apix,dtype=_np.float32)
     if apix.size == 1:
         apix = _np.array((apix,apix,apix))
@@ -87,7 +137,7 @@ def write(data,filename,apix=1,ispg=None,fill_statistics=True):
     apix_uint32 = apix.view(_np.uint32)
     
     if ispg is None:
-        ispg = (data.shape[0]==data.shape[1]) & (data.shape[2]==data.shape[1])
+        ispg = 1
     
     hdr[0]  = data.shape[2]
     hdr[1]  = data.shape[1]
@@ -120,7 +170,7 @@ def write(data,filename,apix=1,ispg=None,fill_statistics=True):
         hdr[21] = _np.float32(vavg).view(_np.uint32)
         hdr[54] = _np.float32(vstd).view(_np.uint32)
     
-    f = open(filename,'w')
+    f = open(filename,'wb')
     hdr.tofile(f)
     if data.dtype == 'float64':
         tmp = _np.float32(data)

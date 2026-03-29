@@ -28,6 +28,30 @@ from os.path import commonpath as _commonpath
 from os.path import relpath    as _relpath
 
 class SubtomogramGenerator:
+    """Generate subtomograms and export them with RELION-compatible metadata.
+
+    .. warning::
+        This is an experimental class.  The interface and output format may
+        change in future versions.
+
+    Reconstructs per-particle subtomograms via :class:`~susan.modules.SubtomoRec`
+    and writes a RELION 3.1 STAR file containing the optics group and particle
+    table.  Call one of the ``configure_*`` methods before
+    :meth:`generate_subtomos` to set the reconstruction parameters for the
+    target software.
+
+    .. rubric:: Attributes
+
+    Attributes
+    ----------
+    list_gpus_ids : list of int
+        GPU device IDs to use for reconstruction.  Default: ``[0]``.
+    subtomo_rec : :class:`~susan.modules.SubtomoRec`
+        Underlying reconstruction module.  Advanced parameters can be
+        adjusted directly on this object after calling a ``configure_*``
+        method.
+    """
+
     def __init__(self):
         self.list_gpus_ids = [0]
         self.subtomo_rec   = _ssa_modules.SubtomoRec()
@@ -38,7 +62,21 @@ class SubtomogramGenerator:
         base = _commonpath([md_f, st_f])
         return _relpath(st_f,base)
 
-    def configure_relion(self,rec_ctf=True,invert_contrast=True):
+    def configure_relion(self, rec_ctf=True, invert_contrast=True):
+        """Configure reconstruction settings for RELION.
+
+        Sets normalisation, contrast, and CTF correction parameters on
+        :attr:`subtomo_rec` to match RELION's conventions.
+
+        Parameters
+        ----------
+        rec_ctf : bool, optional
+            If ``True`` (default), use pre-Wiener CTF correction and write a
+            per-particle CTF image (``_rlnCtfImage``).  If ``False``, use
+            standard Wiener filter and write per-particle defocus columns.
+        invert_contrast : bool, optional
+            Invert the contrast of the output subtomograms.  Default: ``True``.
+        """
         self.subtomo_rec.normalize_type   = 'zero_mean_one_std'
         self.subtomo_rec.normalize_output = True
         self.subtomo_rec.invert_contrast  = invert_contrast
@@ -50,7 +88,18 @@ class SubtomogramGenerator:
             self.subtomo_rec.ctf_correction   = 'wiener'
             self.subtomo_rec.relion_ctf       = False
 
-    def configure_dynamo(self,invert_contrast=False):
+    def configure_dynamo(self, invert_contrast=False):
+        """Configure reconstruction settings for DYNAMO.
+
+        Sets normalisation, contrast, and CTF correction parameters on
+        :attr:`subtomo_rec` to match DYNAMO's conventions (Wiener filter,
+        no low-frequency boost).
+
+        Parameters
+        ----------
+        invert_contrast : bool, optional
+            Invert the contrast of the output subtomograms.  Default: ``False``.
+        """
         self.subtomo_rec.normalize_type   = 'zero_mean_one_std'
         self.subtomo_rec.normalize_output = True
         self.subtomo_rec.invert_contrast  = invert_contrast
@@ -58,11 +107,32 @@ class SubtomogramGenerator:
         self.subtomo_rec.boost_lowfreq.scale = 0
 
 
-    def generate_subtomos(self,metadata_file,subtomos_folder,tomos_file,ptcls_in,box_size):
+    def generate_subtomos(self, metadata_file, subtomos_folder, tomos_file, ptcls_in, box_size):
+        """Reconstruct subtomograms and write a RELION STAR metadata file.
+
+        The subtomogram MRC files are written to *subtomos_folder*.
+        A RELION 3.1 STAR file is then written to *metadata_file* containing
+        an ``data_optics`` block (single optics group derived from the first
+        tomogram) and a ``data_particles`` block with one row per particle.
+        Currently only ``.star`` output is supported.
+
+        Parameters
+        ----------
+        metadata_file : str
+            Output path for the STAR file (must end in ``.star``).
+        subtomos_folder : str
+            Directory where the per-particle MRC files will be written.
+        tomos_file : str
+            Path to the ``.tomostxt`` file describing the tomogram stack.
+        ptcls_in : str
+            Path to the input ``.ptclsraw`` particles file.
+        box_size : int
+            Side length of the cubic subtomogram box in pixels.
+        """
         out_type = _ssa_utils.get_extension(metadata_file).lower()
 
         if subtomos_folder[-1] != '/':
-            subtomos_folder.append('/')
+            subtomos_folder += '/'
 
         if out_type in ['star',]:
 
@@ -72,7 +142,7 @@ class SubtomogramGenerator:
             self.subtomo_rec.reconstruct(subtomos_folder,tomos_file,ptcls_in,box_size)
 
             # Step 2: generate metadata (star file)
-            subtomos_path = self._relion_relative_folder()
+            subtomos_path = self._relion_relative_folder(metadata_file, subtomos_folder)
 
             tomos = _ssa_data.Tomograms(tomos_file)
             ptcls = _ssa_data.Particles(ptcls_in)
@@ -158,12 +228,57 @@ class SubtomogramGenerator:
 ###########################################
 
 class ProjectionExtractor:
-    def __init__(self,num_threads=1):
+    """Crop 2-D projection patches and export them with RELION-compatible metadata.
+
+    .. warning::
+        This is an experimental class.  The interface and output format may
+        change in future versions.
+
+    Uses :class:`~susan.modules.CropProjection` to extract per-particle
+    2-D projection stacks and writes a RELION STAR file
+    (``particles.star``) inside the output folder.
+
+    .. rubric:: Attributes
+
+    Attributes
+    ----------
+    proj_cropper : :class:`~susan.modules.CropProjection`
+        Underlying cropping module.  Parameters (e.g. ``normalize_type``)
+        can be adjusted directly on this object before calling
+        :meth:`crop_projections`.
+    """
+
+    def __init__(self, num_threads=1):
+        """
+        Parameters
+        ----------
+        num_threads : int, optional
+            Number of CPU threads for the cropping step.  Default: 1.
+        """
         self.proj_cropper = _ssa_modules.CropProjection()
         self.proj_cropper.num_threads = num_threads
         self.proj_cropper.invert_contrast = True
 
-    def crop_projections(self,output_folder,tomos_file,ptcls_in,box_size):
+    def crop_projections(self, output_folder, tomos_file, ptcls_in, box_size):
+        """Crop projection patches and write a RELION STAR metadata file.
+
+        Projection stacks are written by :attr:`proj_cropper` as
+        ``stack_NN.txt`` files in *output_folder*.  These are then
+        assembled into a single RELION 3.1 STAR file
+        ``<output_folder>/particles.star`` with ``data_optics`` and
+        ``data_particles`` blocks.
+
+        Parameters
+        ----------
+        output_folder : str
+            Directory where the cropped stacks and STAR file are written.
+        tomos_file : str
+            Path to the ``.tomostxt`` file describing the tomogram stack.
+        ptcls_in : str
+            Path to the input ``.ptclsraw`` particles file.
+        box_size : int
+            Side length of the 2-D crop box in pixels.
+        """
 
         self.proj_cropper.reconstruct(output_folder,tomos_file,ptcls_in,box_size)
 

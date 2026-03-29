@@ -22,7 +22,49 @@ from . import utils
 from . import modules
 from . import project
 
+try:
+    from . import ml
+except ImportError:
+    import warnings as _warnings
+    _warnings.warn(
+        "susan.ml is not available: PyTorch is not installed. "
+        "Install it with:  pip install susan[ml]",
+        ImportWarning,
+        stacklevel=2,
+    )
+    del _warnings
+
 def read(filename):
+    """Read a SUSAN-supported file and return the appropriate object.
+
+    The file format is inferred from the extension.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the file to read.
+
+    Returns
+    -------
+    numpy.ndarray or susan.data.Particles or susan.data.Tomograms or susan.data.Reference
+        The type depends on the file extension:
+
+        ==================  ===================  ==========================
+        Extension(s)        Format               Returned type
+        ==================  ===================  ==========================
+        ``.mrc`` ``.map``   MRC volume           ``numpy.ndarray``
+        ``.ali`` ``.st``
+        ``.rec``
+        ``.ptclsraw``       SUSAN particles      :class:`susan.data.Particles`
+        ``.refstxt``        SUSAN references     :class:`susan.data.Reference`
+        ``.tomostxt``       SUSAN tomograms      :class:`susan.data.Tomograms`
+        ==================  ===================  ==========================
+
+    Raises
+    ------
+    ValueError
+        If the file extension is not recognised.
+    """
     if utils.get_extension(filename) in ('.mrc','.map','.ali','.st','.rec'):
         v,_ = io.mrc.read(filename)
         return v
@@ -67,4 +109,3 @@ if not _check_susan_bin_in_path():
 
 __all__ = []
 __all__.extend(['read'])
-#__all__.extend(['data','io','utils','modules','project','read'])

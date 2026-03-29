@@ -48,7 +48,176 @@ class _iteration_files:
             raise NameError('File '+ self.reference + ' does not exist')
 
 class STA:
-    def __init__(self,prj_name,box_size=None):
+    """Subtomogram averaging project manager.
+
+    Manages an STA project stored on disk.  If *box_size* is provided the
+    project directory *prj_name* is created (or reused) and a metadata file
+    is written.  If *box_size* is omitted the constructor reads the existing
+    project.
+
+    The main entry point for automated workflows is :meth:`execute_iteration`.
+    Lower-level helpers (:meth:`exec_estimation`, :meth:`exec_particle_selection`,
+    :meth:`exec_averaging`, :meth:`exec_postprocessing`) can also be called
+    individually for custom pipelines.
+
+    .. rubric:: Project files
+
+    .. attribute:: prj_name
+       :type: str
+
+       Project directory path.  Set by the constructor.
+
+    .. attribute:: box_size
+       :type: int
+
+       Subvolume box size in pixels.  Set by the constructor.
+
+    .. attribute:: tomogram_file
+       :type: str
+
+       Path to the ``.tomostxt`` file used throughout the project.
+
+    .. attribute:: initial_reference
+       :type: str
+
+       Path to the initial ``.refstxt`` file (iteration 0 reference).
+
+    .. attribute:: initial_particles
+       :type: str
+
+       Path to the initial ``.ptclsraw`` file (iteration 0 particles).
+
+    .. rubric:: GPU & processing
+
+    .. attribute:: list_gpus_ids
+       :type: list of int
+
+       GPU device IDs forwarded to :attr:`aligner`, :attr:`averager`, and
+       :attr:`ctf_refiner` at execution time.  Default: ``[0]``.
+
+    .. attribute:: threads_per_gpu
+       :type: int
+
+       .. deprecated::
+          This parameter is deprecated and must remain ``1``.  Use
+          additional entries in :attr:`list_gpus_ids` to increase
+          parallelism instead.
+
+    .. rubric:: Iteration control
+
+    .. attribute:: iteration_type
+       :type: int or str
+
+       Type of processing step executed by :meth:`execute_iteration`:
+
+       ==================  ===========================
+       Value               Step
+       ==================  ===========================
+       ``3`` / ``'3D'``    3-D angular + offset search
+       ``2`` / ``'2D'``    2-D in-plane alignment
+       ``'ctf'``           CTF refinement
+       ==================  ===========================
+
+       Default: ``3``.
+
+    .. attribute:: cc_threshold
+       :type: float
+
+       Fraction of top-scoring particles kept for reconstruction (by
+       cross-correlation score within each half-set).  Must be in
+       ``(0, 1]``.  Default: ``0.8``.
+
+    .. attribute:: fsc_threshold
+       :type: float
+
+       FSC threshold used for resolution estimation in
+       :meth:`exec_postprocessing`.  Default: ``0.143``.
+
+    .. rubric:: Modules
+
+    .. attribute:: aligner
+       :type: :class:`~susan.modules.Aligner`
+
+       Aligner instance used for 3-D/2-D alignment steps.
+
+    .. attribute:: averager
+       :type: :class:`~susan.modules.Averager`
+
+       Averager instance used for map reconstruction.
+
+    .. attribute:: ctf_refiner
+       :type: :class:`~susan.modules.CtfRefiner`
+
+       CtfRefiner instance used for CTF refinement steps.
+
+    .. rubric:: Advanced
+
+    .. attribute:: mpi
+       :type: :class:`~susan.utils.datatypes.mpi_params`
+
+       MPI launcher forwarded to child modules when ``mpi.arg > 1``.
+       Default: ``mpi_params('srun -n %d ', 1)``.
+
+    .. attribute:: verbosity
+       :type: int
+
+       Verbosity level forwarded to child modules.  Default: ``1``.
+
+    .. attribute:: max_2d_delta_angstroms
+       :type: float
+
+       Maximum 2-D shift magnitude (Å) allowed per iteration.  ``0``
+       disables the limit.  Default: ``0``.
+
+    .. attribute:: max_tilt_reconstruction
+       :type: float
+
+       Maximum tilt angle (degrees) included in reconstruction.  ``-1``
+       disables the limit.  Default: ``-1``.
+
+    .. attribute:: perturb_2d_angles
+       :type: bool
+
+       .. warning:: **Experimental.** This feature may change or be removed
+          in a future release.
+
+       If ``True``, add small random perturbations to 2-D angles after
+       alignment to break grid-search discretisation artefacts.
+       Default: ``False``.
+
+    .. attribute:: type_2d_shift_fitting
+       :type: str
+
+       .. warning:: **Experimental.** This feature may change or be removed
+          in a future release.
+
+       Post-alignment 2-D shift regularisation: ``'none'``,
+       ``'affine'``, or ``'gaussian'``.  Default: ``'none'``.
+
+    .. attribute:: reweight_classification
+       :type: bool or float
+
+       .. warning:: **Experimental.** This feature may change or be removed
+          in a future release.
+
+       Multi-reference classification weight strategy.  ``False`` keeps
+       raw CC scores; ``True`` normalises them to sum to 1; a float *p*
+       raises them to the power *p* before normalising.
+       Default: ``False``.
+    """
+
+    def __init__(self, prj_name, box_size=None):
+        """Load an existing project or create a new one.
+
+        Parameters
+        ----------
+        prj_name : str
+            Path to the project directory.  Created if it does not exist
+            (only when *box_size* is provided).
+        box_size : int, optional
+            Subvolume box size in pixels.  When given, initialises a new
+            project.  When omitted, reads ``prj_name/info.prjtxt``.
+        """
         if box_size is None:
             fp = open(prj_name+"/info.prjtxt","r")
             self.prj_name = _prsr.read(fp,'name')
@@ -96,10 +265,38 @@ class STA:
         self.averager.bandpass.highpass = 0
         self.averager.bandpass.lowpass  = -1
     
-    def get_iteration_dir(self,ite):
+    def get_iteration_dir(self, ite):
+        """Return the directory path for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number (1-based).
+
+        Returns
+        -------
+        str
+            Path of the form ``<prj_name>/ite_NNNN/``.
+        """
         return self.prj_name + '/ite_%04d/' % ite
     
-    def get_iteration_files(self,ite):
+    def get_iteration_files(self, ite):
+        """Return the standard file paths for iteration *ite*.
+
+        For ``ite < 1`` the initial files (:attr:`initial_particles` and
+        :attr:`initial_reference`) are returned.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.  Use ``0`` for the initial state.
+
+        Returns
+        -------
+        _iteration_files
+            Object with attributes ``ptcl_rslt``, ``ptcl_temp``,
+            ``reference``, and ``ite_dir``.
+        """
         rslt = _iteration_files()
         if ite < 1:
             rslt.ptcl_rslt = self.initial_particles
@@ -112,7 +309,22 @@ class STA:
             rslt.ite_dir   = base_dir
         return rslt
 
-    def get_names_map(self,ite,ref=1):
+    def get_names_map(self, ite, ref=1):
+        """Return the path to the full reference map for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.  ``0`` returns the path from the initial
+            ``.refstxt``.
+        ref : int
+            1-based reference (class) index.  Default: ``1``.
+
+        Returns
+        -------
+        str
+            Path to the MRC map file.
+        """
         if ite == 0:
             refs_info = _ssa_data.Reference(self.initial_reference)
             map_name = refs_info.ref[ref-1]
@@ -121,7 +333,21 @@ class STA:
             map_name = ite_dir + 'map_class%03d.mrc' % ref
         return map_name
 
-    def get_names_mask(self,ite,ref=1):
+    def get_names_mask(self, ite, ref=1):
+        """Return the path to the soft mask for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.  ``0`` reads from the initial ``.refstxt``.
+        ref : int
+            1-based reference index.  Default: ``1``.
+
+        Returns
+        -------
+        str
+            Path to the mask MRC file.
+        """
         if ite == 0:
             refs_info = _ssa_data.Reference(self.initial_reference)
             mask_name = refs_info.msk[ref-1]
@@ -130,7 +356,21 @@ class STA:
             mask_name = refs_info.msk[ref-1]
         return mask_name
 
-    def get_names_halfmaps(self,ite,ref=1):
+    def get_names_halfmaps(self, ite, ref=1):
+        """Return the paths to the two half-maps for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.  ``0`` reads from the initial ``.refstxt``.
+        ref : int
+            1-based reference index.  Default: ``1``.
+
+        Returns
+        -------
+        tuple of str
+            ``(half1_path, half2_path)``.
+        """
         if ite == 0:
             refs_info = _ssa_data.Reference(self.initial_reference)
             h1_name = refs_info.h1[ref-1]
@@ -141,32 +381,132 @@ class STA:
             h2_name = ite_dir + 'map_class%03d_half2.mrc' % ref
         return (h1_name,h2_name)
 
-    def get_name_refstxt(self,ite):
+    def get_name_refstxt(self, ite):
+        """Return the path to the ``.refstxt`` file for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.  ``0`` returns :attr:`initial_reference`.
+
+        Returns
+        -------
+        str
+            Path to the ``.refstxt`` file.
+        """
         files = self.get_iteration_files(ite)
         return files.reference
 
-    def get_name_ptcls(self,ite):
+    def get_name_ptcls(self, ite):
+        """Return the path to the ``.ptclsraw`` file for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.  ``0`` returns :attr:`initial_particles`.
+
+        Returns
+        -------
+        str
+            Path to the ``.ptclsraw`` file.
+        """
         files = self.get_iteration_files(ite)
         return files.ptcl_rslt
 
-    def get_map(self,ite,ref=1):
+    def get_map(self, ite, ref=1):
+        """Load and return the reference map for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.
+        ref : int
+            1-based reference index.  Default: ``1``.
+
+        Returns
+        -------
+        numpy.ndarray
+            3-D map array.
+        """
         v,_ = _mrc_read(self.get_names_map(ite,ref))
         return v
 
-    def get_ptcls(self,ite):
+    def get_ptcls(self, ite):
+        """Load and return the particles for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.
+
+        Returns
+        -------
+        :class:`~susan.data.Particles`
+            Particle container with aligned positions and scores.
+        """
         files = self.get_iteration_files(ite)
         return _ssa_data.Particles(files.ptcl_rslt)
 
-    def get_cc(self,ite,ref=1):
+    def get_cc(self, ite, ref=1):
+        """Return the per-particle cross-correlation scores for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.
+        ref : int
+            1-based reference index.  Default: ``1``.
+
+        Returns
+        -------
+        numpy.ndarray, shape (N,)
+            CC scores for all particles assigned to reference *ref*.
+        """
         ptcls = self.get_ptcls(ite)
         return ptcls.ali_cc[ref-1]
 
-    def get_fsc(self,ite,ref=1):
+    def get_fsc(self, ite, ref=1):
+        """Compute and return the FSC curve for iteration *ite*.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number.
+        ref : int
+            1-based reference index.  Default: ``1``.
+
+        Returns
+        -------
+        numpy.ndarray
+            1-D FSC array indexed by Fourier shell.
+        """
         i = ref-1
         refs = _ssa_data.Reference(self.get_name_refstxt(ite))
         return _ssa_utils.fsc_get(refs.h1[i],refs.h2[i],refs.msk[i])
 
-    def setup_iteration(self,ite):
+    def setup_iteration(self, ite):
+        """Prepare the directory and file-path objects for iteration *ite*.
+
+        Creates the iteration directory if needed and validates that the
+        previous iteration's output files exist.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number (must be ≥ 1).
+
+        Returns
+        -------
+        tuple
+            ``(cur, prv)`` — file-path objects for the current and previous
+            iterations respectively.
+
+        Raises
+        ------
+        NameError
+            If the previous iteration's particle or reference files are
+            missing.
+        """
         base_dir = self.get_iteration_dir(ite)
         if not _file_exists(base_dir):
             _mkdir(base_dir)
@@ -183,7 +523,7 @@ class STA:
         elif self.iteration_type in ('ctf','CTF','Ctf'):
             return 'ctf'
         else:
-            raise ValueError('Invalid Iteration Type (accepted valud: 3, 2, "ctf")')
+            raise ValueError('Invalid Iteration Type (accepted value: 3, 2, "ctf")')
     
     def _exec_alignment(self,cur,prv,ite_type):
         self.aligner.list_gpus_ids     = self.list_gpus_ids
@@ -222,7 +562,21 @@ class STA:
         
         print( '  [CTF Refinement] Finished. Elapsed time: %.1f seconds (%s).' % (elapsed.total_seconds(),str(elapsed)) )
 
-    def exec_estimation(self,cur,prv):
+    def exec_estimation(self, cur, prv):
+        """Run the alignment or CTF refinement step.
+
+        Dispatches to :meth:`~susan.modules.Aligner.align` (or
+        :meth:`~susan.modules.Aligner.align_mpi`) for 3-D/2-D iteration
+        types, or to :meth:`~susan.modules.CtfRefiner.refine` for CTF
+        iterations.  The type is determined by :attr:`iteration_type`.
+
+        Parameters
+        ----------
+        cur : _iteration_files
+            File paths for the current iteration (output).
+        prv : _iteration_files
+            File paths for the previous iteration (input).
+        """
         ite_type  = self._validate_ite_type()
         
         if ite_type == 'ctf':
@@ -238,7 +592,7 @@ class STA:
                     ptcls_old  = _ssa_data.Particles(prv.ptcl_rslt)
                     delta_angs = ptcls_in.prj_t - ptcls_old.prj_t
                     norm_angs  = _np.linalg.norm( delta_angs, axis=2 )
-                    scale_lim  = self.max_2d_delta_angstroms/_np.maximum(norm_angs,1)
+                    scale_lim  = self.max_2d_delta_angstroms/_np.maximum(norm_angs,self.max_2d_delta_angstroms)
                     scale_lim[ norm_angs<self.max_2d_delta_angstroms ] = 1
                     scale_lim = scale_lim[:,:,_np.newaxis]
                     delta_angs = scale_lim*delta_angs
@@ -246,14 +600,14 @@ class STA:
                 else:
                     print('    Limiting 2D shift to %.2f Å.' % self.max_2d_delta_angstroms )
                     norm_angs  = _np.linalg.norm( ptcls_in.prj_t, axis=2 )
-                    scale_lim  = self.max_2d_delta_angstroms/_np.maximum(norm_angs,1)
+                    scale_lim  = self.max_2d_delta_angstroms/_np.maximum(norm_angs,self.max_2d_delta_angstroms)
                     scale_lim[ norm_angs<self.max_2d_delta_angstroms ] = 1
                     scale_lim = scale_lim[:,:,_np.newaxis]
                     ptcls_in.prj_t[:] = scale_lim*ptcls_in.prj_t
                     
         elif self.type_2d_shift_fitting.lower() == 'affine':
             R  = _np.eye(3)
-            pt = ptcls_in.position + ptcls_in.ali_eu[0]
+            pt = ptcls_in.position + ptcls_in.ali_t[0]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_cix == tcix
@@ -261,28 +615,31 @@ class STA:
                 for i in range(tomos.num_proj[tcix]):
                     _ssa_utils.euZYZ_rotm(R,tomos.proj_eZYZ[tcix,i])
                     pt0 = pt[idx]@R.T
-                    pt0 = pt0[:,:2] 
+                    pt0 = pt0[:,:2]
                     pt1 = pt0 + ptcls_in.prj_t[idx,i]
-                    xform,_,_,_ = _np.linalg.lstsq(pt0,pt1, rcond=None)
-                    pt2 = pt0 @ xform.T
+                    pt0_aug = _np.hstack([pt0, _np.ones((pt0.shape[0],1))])
+                    xform,_,_,_ = _np.linalg.lstsq(pt0_aug,pt1, rcond=None)
+                    pt2 = pt0_aug @ xform
                     ptcls_in.prj_t[idx,i] = (pt2-pt0)
                     
         elif self.type_2d_shift_fitting.lower() == 'gaussian':
             def smooth_deltas(points, deltas, k=7):
                 tree = _KDTree(points)
                 smoothed_deltas = _np.zeros_like(deltas)
-                
+
                 for i, point in enumerate(points):
-                    distances, indices = tree.query(point, k=k)
+                    _, indices = tree.query(point, k=k)
                     neighbor_deltas = deltas[indices]
                     smoothed_deltas[i] = neighbor_deltas.mean(axis=0)
-                    
+
+                return smoothed_deltas
+
             R  = _np.eye(3)
-            pt = ptcls_in.position + ptcls_in.ali_eu[0]
+            pt = ptcls_in.position + ptcls_in.ali_t[0]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_cix == tcix
-        
+
                 for i in range(tomos.num_proj[tcix]):
                     _ssa_utils.euZYZ_rotm(R,tomos.proj_eZYZ[tcix,i])
                     pt0 = pt[idx]@R.T
@@ -336,8 +693,24 @@ class STA:
         _ssa_data.Particles.Geom.enable_by_tilt(ptcls_out,tomos,tilt_deg_max=self.max_tilt_reconstruction)
         ptcls_out.prj_w = ptcls_out.prj_w*prj_w
     
-    def exec_particle_selection(self,cur,prv):
-        print('  [Aligned partices] Processing:')
+    def exec_particle_selection(self, cur, prv):
+        """Select particles and prepare the input for reconstruction.
+
+        Performs multi-reference classification (if ``n_refs > 1``), applies
+        optional 2-D shift corrections (:attr:`max_2d_delta_angstroms`,
+        :attr:`type_2d_shift_fitting`, :attr:`perturb_2d_angles`), filters
+        particles by CC score (:attr:`cc_threshold`), and optionally limits
+        the tilt range (:attr:`max_tilt_reconstruction`).  The selected
+        particles are saved to ``cur.ptcl_temp``.
+
+        Parameters
+        ----------
+        cur : _iteration_files
+            File paths for the current iteration.
+        prv : _iteration_files
+            File paths for the previous iteration.
+        """
+        print('  [Aligned particles] Processing:')
         ptcls_in = _ssa_data.Particles(cur.ptcl_rslt)
         
         # Limit 2D shifts:
@@ -351,7 +724,9 @@ class STA:
             ptcls_in.ref_cix = _np.argmax(ptcls_in.ali_cc,axis=0)
             if type(self.reweight_classification) is bool:
                 if self.reweight_classification:
-                    ptcls_in.ali_cc = ptcls_in.ali_cc/ptcls_in.ali_cc.sum(axis=0)
+                    total = ptcls_in.ali_cc.sum(axis=0)
+                    total[total==0] = 1
+                    ptcls_in.ali_cc = ptcls_in.ali_cc/total
             elif isinstance(self.reweight_classification, (int, float)):
                 ptcls_in.ali_cc = _np.power(ptcls_in.ali_cc,self.reweight_classification)
                 total = ptcls_in.ali_cc.sum(axis=0)
@@ -369,7 +744,19 @@ class STA:
         ptcls_out.save(cur.ptcl_temp)
         print('  [Aligned particles] Done.')
         
-    def exec_averaging(self,cur,prv):
+    def exec_averaging(self, cur, prv):
+        """Reconstruct the reference maps and update the ``.refstxt`` file.
+
+        Calls :meth:`~susan.modules.Averager.reconstruct` (or MPI variant),
+        then updates ``cur.reference`` with the new map paths.
+
+        Parameters
+        ----------
+        cur : _iteration_files
+            File paths for the current iteration.
+        prv : _iteration_files
+            File paths for the previous iteration (provides the mask paths).
+        """
         self.averager.list_gpus_ids     = self.list_gpus_ids
         self.averager.threads_per_gpu   = self.threads_per_gpu
         self.averager.verbosity         = self.verbosity
@@ -395,7 +782,21 @@ class STA:
             refs.h2[i]  = '%s/map_class%03d_half2.mrc' % (cur.ite_dir,i+1)
         refs.save(cur.reference)
     
-    def exec_postprocessing(self,cur):
+    def exec_postprocessing(self, cur):
+        """Compute FSC-based resolution estimates for all references.
+
+        Parameters
+        ----------
+        cur : _iteration_files
+            File paths for the current iteration.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            Estimated resolution in Fourier pixels at the
+            :attr:`fsc_threshold` level.  A scalar for single-reference
+            projects; a 1-D array for multi-reference projects.
+        """
         refs = _ssa_data.Reference(cur.reference)
         if refs.n_refs == 1:
             print( '  [FSC Calculation] Start (1 reference):' )
@@ -415,7 +816,25 @@ class STA:
         else:
             return rslt
     
-    def execute_iteration(self,ite):
+    def execute_iteration(self, ite):
+        """Run a complete STA iteration.
+
+        Executes :meth:`setup_iteration`, :meth:`exec_estimation`,
+        :meth:`exec_particle_selection`, :meth:`exec_averaging`, and
+        :meth:`exec_postprocessing` in sequence.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration number (must be ≥ 1).  If the iteration directory
+            already exists its results are overwritten.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            Estimated resolution in Fourier pixels (see
+            :meth:`exec_postprocessing`).
+        """
         start_time = _ssa_utils.time_now()
         print('============================')
         print('Project: %s (Iteration %d)'%(self.prj_name,ite))
@@ -425,7 +844,7 @@ class STA:
         self.exec_averaging(cur,prv)
         rslt = self.exec_postprocessing(cur)
         elapsed = _ssa_utils.time_now()-start_time
-        print('Iteration %d Finished [Elapsed time: %.1f seconds (%s]'%(ite,elapsed.total_seconds(),str(elapsed)))
+        print('Iteration %d Finished [Elapsed time: %.1f seconds (%s)]'%(ite,elapsed.total_seconds(),str(elapsed)))
         return rslt
 
 
