@@ -33,7 +33,7 @@ void print_data_info(Particles&ptcls,Tomograms&tomos) {
     printf("\t\tAvailable particles:  %d.\n",ptcls.n_ptcl);
     printf("\t\tNumber of classes:    %d.\n",ptcls.n_refs);
     printf("\t\tTomograms available:  %d.\n",tomos.num_tomo);
-    printf("\t\tAvailabe projections: %d (max).\n",tomos.num_proj);
+    printf("\t\tAvailable projections: %d (max).\n",tomos.num_proj);
 }
 
 int main(int ac, char** av) {

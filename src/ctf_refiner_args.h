@@ -63,7 +63,7 @@ typedef struct {
     int verbosity;
 } Info;
 
-bool validate(const Info&info) {
+inline bool validate(const Info&info) {
     bool rslt = true;
     if( info.fpix_min >= info.fpix_max ) {
         fprintf(stderr,"Invalid bandpass range: %f - %f.\n",info.fpix_min,info.fpix_max);
@@ -80,10 +80,10 @@ bool validate(const Info&info) {
     else {
         References refs(info.refs_file);
         if( !refs.check_fields(info.use_halves) ) {
-            exit(1);
+            rslt = false;
         }
         if( !refs.check_size(info.box_size,info.use_halves) ) {
-            exit(1);
+            rslt = false;
         }
     }
     if( !IO::exists(info.tomo_file) ) {
@@ -102,7 +102,7 @@ bool validate(const Info&info) {
     return rslt;
 }
 
-bool parse_args(Info&info,int ac,char** av) {
+inline bool parse_args(Info&info,int ac,char** av) {
     /// Default values:
     info.n_gpu       = 0;
     info.n_threads   = 1;
@@ -255,7 +255,7 @@ bool parse_args(Info&info,int ac,char** av) {
     return validate(info);
 }
 
-void print_full(const Info&info,FILE*fp=stdout) {
+inline void print_full(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"\tCTF Refiner");
     if( info.use_halves )
         fprintf(fp," (independent half-sets)");
@@ -275,7 +275,7 @@ void print_full(const Info&info,FILE*fp=stdout) {
     if( info.n_gpu > 1 ) {
         fprintf(fp,"\t\tUsing %d GPUs (GPU ids: %d",info.n_gpu,info.p_gpu[0]);
         for(int i=1;i<info.n_gpu;i++)
-            fprintf(stdout,",%d",info.p_gpu[i]);
+            fprintf(fp,",%d",info.p_gpu[i]);
         fprintf(fp,"), ");
     }
     else {
@@ -322,7 +322,7 @@ void print_full(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"\t\tWithout dose weighting estimation.\n");
 }
 
-void print_minimal(const Info&info,FILE*fp=stdout) {
+inline void print_minimal(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"  CTF Refiner. Box size: %d",info.box_size);
     if( info.pad_size > 0 ) {
         fprintf(fp," + %d (pad)",info.pad_size);
@@ -377,7 +377,7 @@ void print_minimal(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"\tDefocus angle %.3f,%.3f.\n",info.ang_range,info.ang_step);
 }
 
-void print(const Info&info,FILE*fp=stdout) {
+inline void print(const Info&info,FILE*fp=stdout) {
     if( info.verbosity > 0 )
         print_full(info,fp);
     else
@@ -386,5 +386,5 @@ void print(const Info&info,FILE*fp=stdout) {
 
 }
 
-#endif /// ALIGNER_ARGS_H
+#endif /// CTF_REFINER_ARGS_H
 

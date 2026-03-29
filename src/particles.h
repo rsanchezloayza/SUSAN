@@ -54,6 +54,7 @@ public:
         ali_eu = NULL;
         ali_t  = NULL;
         ali_cc = NULL;
+        ali_w  = NULL;
         prj_eu = NULL;
         prj_t  = NULL;
         prj_cc = NULL;
@@ -140,8 +141,8 @@ public:
             printf(" %8.3f", prj_eu[proj].y*180/M_PI);
             printf(" %8.3f", prj_eu[proj].z*180/M_PI);
             printf("] [");
-            printf( "%7.2f", prj_eu[proj].x);
-            printf(" %7.2f", prj_eu[proj].y);
+            printf( "%7.2f", prj_t[proj].x);
+            printf(" %7.2f", prj_t[proj].y);
             printf("] (%f)",prj_cc[proj]);
             printf("(%f)\n",prj_w [proj]);
         }
@@ -157,16 +158,6 @@ public:
 
 public:
     void copy(Particle&ptcl_in) {
-        ptcl_id()  = ptcl_in.ptcl_id();
-        tomo_id()  = ptcl_in.tomo_id();
-        tomo_cix() = ptcl_in.tomo_cix();
-        pos().x    = ptcl_in.pos().x;
-        pos().y    = ptcl_in.pos().y;
-        pos().z    = ptcl_in.pos().z;
-        ref_cix()  = ptcl_in.ref_cix();
-        half_id()  = ptcl_in.half_id();
-        extra_1()  = ptcl_in.extra_1();
-        extra_2()  = ptcl_in.extra_2();
         memcpy(info  ,ptcl_in.info  ,sizeof(PtclInf)       );
         memcpy(ali_eu,ptcl_in.ali_eu,sizeof(Vec3   )*n_refs);
         memcpy(ali_t ,ptcl_in.ali_t ,sizeof(Vec3   )*n_refs);
@@ -198,6 +189,8 @@ public:
         n_bytes = 0;
     }
 
+    virtual ~Particles() = default;
+
     bool get(Particle&ptcl,uint32 ix=0) {
         uint64 offset = n_bytes;
         offset *= ix;
@@ -210,24 +203,29 @@ public:
 
 public:
     static bool check_signature(const char*filename) {
-        bool rslt = true;
+
         FILE*fp = fopen(filename,"rb");
-        char signature[9];
+
+        if( fp == NULL ) {
+            fprintf(stderr,"Reading %s: cannot open file.\n",filename);
+            return false;
+        }
+
+        char signature[9] = {0};
         if( !IO::check_fread(signature, sizeof(char), 8, fp) ) {
             fprintf(stderr,"Reading %s: truncated file while reading signature.\n",filename);
-            rslt = false;
+            fclose(fp);
+            return false;
         }
+
+        if( strcmp(signature,"SsaPtcl1") != 0) {
+            fprintf(stderr,"Trying to read %s: wrong file signature %s.\n",filename,signature);
+            fclose(fp);
+            return false;
+        }
+
         fclose(fp);
-
-        if( rslt ) {
-            signature[8] = 0;
-            if( strcmp(signature,"SsaPtcl1") != 0) {
-                fprintf(stderr,"Trying to read %s: wrong file signature %s.\n",filename,signature);
-                rslt = false;
-            }
-        }
-
-        return rslt;
+        return true;
     }
 
 protected:
@@ -256,19 +254,23 @@ public:
     ParticlesRW(const char*filename) {
 
         FILE*fp = fopen(filename,"rb");
-        char signature[9];
+        if( fp == NULL ) {
+            fprintf(stderr,"Reading %s: cannot open file.\n",filename);
+            exit(1);
+        }
+
+        char signature[9] = {0};
         if( !IO::check_fread(signature, sizeof(char), 8, fp) ) {
             fprintf(stderr,"Reading %s: truncated file while reading signature.\n",filename);
             exit(1);
         }
 
-        signature[8] = 0;
         if( strcmp(signature,"SsaPtcl1") != 0) {
             fprintf(stderr,"Trying to read %s: wrong file signature %s.\n",filename,signature);
             exit(1);
         }
 
-        uint32_t lengths[3];
+        uint32_t lengths[3] = {0};
         if( !IO::check_fread(lengths, sizeof(uint32_t), 3, fp) ) {
             fprintf(stderr,"Reading %s: truncated file while reading sizes.\n",filename);
             exit(1);
@@ -293,6 +295,10 @@ public:
 
     void save(const char*filename) {
         FILE*fp = fopen(filename,"wb");
+        if( fp == NULL ) {
+            fprintf(stderr,"Cannot open file %s for writing.\n",filename);
+            return;
+        }
         char signature[] = "SsaPtcl1";
         uint32_t lengths[3];
         lengths[0] = n_ptcl;
@@ -316,19 +322,23 @@ public:
     ParticlesInStream(const char*filename) {
 
         fp = fopen(filename,"rb");
-        char signature[9];
+        if( fp == NULL ) {
+            fprintf(stderr,"Reading %s: cannot open file.\n",filename);
+            exit(1);
+        }
+
+        char signature[9] = {0};
         if( !IO::check_fread(signature, sizeof(char), 8, fp) ) {
             fprintf(stderr,"Reading %s: truncated file while reading signature.\n",filename);
             exit(1);
         }
 
-        signature[8] = 0;
         if( strcmp(signature,"SsaPtcl1") != 0) {
             fprintf(stderr,"Trying to read %s: wrong file signature %s.\n",filename,signature);
             exit(1);
         }
 
-        uint32_t lengths[3];
+        uint32_t lengths[3] = {0};
         if( !IO::check_fread(lengths, sizeof(uint32_t), 3, fp) ) {
             fprintf(stderr,"Reading %s: truncated file while reading sizes.\n",filename);
             exit(1);
@@ -356,16 +366,14 @@ public:
     }
 
     bool read_buffer() {
-        if( counter < n_ptcl ) {
-            if( IO::check_fread(p_raw,n_bytes,1,fp) ) {
-                counter++;
-            }
-            else{
-                fprintf(stderr,"Reading particles: truncated file while reading particles information.\n");
-                return false;
-            }
+        if( counter >= n_ptcl )
+            return false;
+        if( IO::check_fread(p_raw,n_bytes,1,fp) ) {
+            counter++;
+            return true;
         }
-        return true;
+        fprintf(stderr,"Reading particles: truncated file while reading particles information.\n");
+        return false;
     }
 
 };
@@ -383,6 +391,11 @@ public:
         n_refs = refs;
 
         fp = fopen(filename,"wb");
+        if( fp == NULL ) {
+            fprintf(stderr,"Writing %s: cannot create file.\n",filename);
+            exit(1);
+        }
+        
         char signature[] = "SsaPtcl1";
         uint32_t lengths[3];
         lengths[0] = 0;

@@ -160,7 +160,7 @@ public:
     }
 
     ~CtfRdrWorker() {
-        if( base_defocus == NULL )
+        if( base_defocus != NULL )
             delete [] base_defocus;
     }
 
@@ -264,6 +264,7 @@ protected:
             pt_stack = p_tomo->R[k]*pt_tomo + p_tomo->t[k];
 
             /// Angstroms -> pixels
+            if( p_tomo->pix_size == 0 ) { p_factor[k].x = 0; p_factor[k].y = 0; continue; }
             pt_crop = pt_stack/p_tomo->pix_size + p_tomo->stk_center;
 
             /// Setup data for upload to GPU
@@ -426,7 +427,7 @@ protected:
             Math::mul(workers[0].c_rslt.ptr,1.0f/p_info->n_threads,l);
 
             for(int i=1;i<p_info->n_threads;i++)
-                memcpy(workers[i].c_rslt.ptr,workers[0].c_rslt.ptr,l);
+                memcpy(workers[i].c_rslt.ptr,workers[0].c_rslt.ptr,l*sizeof(float));
         }
     }
 

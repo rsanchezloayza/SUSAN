@@ -65,7 +65,7 @@ typedef struct {
     int verbosity;
 } Info;
 
-bool validate(const Info&info) {
+inline bool validate(const Info&info) {
     bool rslt = true;
     if( info.fpix_min >= info.fpix_max ) {
         fprintf(stderr,"Invalid bandpass range: %f - %f.\n",info.fpix_min,info.fpix_max);
@@ -92,9 +92,9 @@ bool validate(const Info&info) {
         rslt = false;
     }
     return rslt;
-};
+}
 
-bool parse_args(Info&info,int ac,char** av) {
+inline bool parse_args(Info&info,int ac,char** av) {
     /// Default values:
     info.n_gpu       = 0;
     info.n_threads   = 1;
@@ -261,7 +261,7 @@ bool parse_args(Info&info,int ac,char** av) {
     return validate(info);
 }
 
-void print_full(const Info&info,FILE*fp) {
+inline void print_full(const Info&info,FILE*fp) {
     fprintf(fp,"\tVolume reconstruction");
     if( info.rec_halves )
         fprintf(fp," (including half-sets)");
@@ -339,7 +339,7 @@ void print_full(const Info&info,FILE*fp) {
 
 }
 
-void print_basic(const Info&info,FILE*fp) {
+inline void print_basic(const Info&info,FILE*fp) {
     fprintf(fp,"    Volume reconstruction");
     if( info.rec_halves )
         fprintf(fp," (including half-sets)");
@@ -418,7 +418,7 @@ void print_basic(const Info&info,FILE*fp) {
     }
 }
 
-void print_minimal(const Info&info,FILE*fp) {
+inline void print_minimal(const Info&info,FILE*fp) {
     if( info.rec_halves )
         fprintf(fp,"    Reconstructing halfmaps");
     else
@@ -438,7 +438,7 @@ void print_minimal(const Info&info,FILE*fp) {
         fprintf(fp," on 1 GPU.\n");
 }
 
-void print(const Info&info,FILE*fp=stdout) {
+inline void print(const Info&info,FILE*fp=stdout) {
     if( info.verbosity == VERBOSITY_FULL )
         print_full(info,fp);
     else if( info.verbosity == VERBOSITY_BASIC )

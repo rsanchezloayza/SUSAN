@@ -33,7 +33,6 @@ class SubstackCrop {
 
 public:
     Tomogram *tomo;
-    bool fill_with_randn;
     float x_min;
     float x_max;
     float y_min;
@@ -42,13 +41,15 @@ public:
 
     SubstackCrop() {
         tomo = NULL;
-        fill_with_randn = false;
         N = 200;
     }
 
-    void setup(Tomogram*tomos_in,int box_size,bool fill_with_randn_in = false) {
+    void setup(Tomogram*tomos_in,int box_size) {
+        if( tomos_in == NULL ) {
+            fprintf(stderr,"SubstackCrop::setup: NULL tomogram pointer.\n");
+            exit(1);
+        }
         tomo = tomos_in;
-        fill_with_randn = fill_with_randn_in;
         N = box_size;
         float Nh = box_size/2;
         x_min = Nh;
@@ -63,14 +64,19 @@ public:
     bool project_point(V3f&pt_out,const V3f&p_tomo,const int k) {
         if( tomo == NULL )
             return false;
+        if( k < 0 || k >= tomo->stk_dim.z )
+            return false;
+        if( tomo->pix_size == 0 )
+            return false;
         pt_out = (tomo->R[k]*p_tomo) + tomo->t[k];
         pt_out = (pt_out/tomo->pix_size) + tomo->stk_center;
         return check_point(pt_out);
     }
 
     void get_subpix_shift(Vec3&p_subpix,const V3f&p_proj) {
-        p_subpix.x = p_proj(0) - floor(p_proj(0));
-        p_subpix.y = p_proj(1) - floor(p_proj(1));
+        p_subpix.x = p_proj(0) - floorf(p_proj(0));
+        p_subpix.y = p_proj(1) - floorf(p_proj(1));
+        p_subpix.z = 0.0f;
     }
 
     bool check_point(const V3f&p_proj) {
@@ -78,7 +84,7 @@ public:
     }
 
     void crop(float*substack,float*stack,const V3f&p_proj,const int k) {
-        internal_crop( substack+k*N*N, stack+k*tomo->stk_dim.x*tomo->stk_dim.y, floor(p_proj(0)), floor(p_proj(1)) );
+        internal_crop( substack+k*N*N, stack+k*tomo->stk_dim.x*tomo->stk_dim.y, (int)floorf(p_proj(0)), (int)floorf(p_proj(1)) );
     }
 
     float normalize_zero_mean(float*substack,const int k) {
@@ -86,7 +92,7 @@ public:
     }
 
     void normalize_zero_mean_one_std(float*substack,const int k) {
-        internal_normalize_zero_mean_new_std( substack+k*N*N, 1.0 );
+        internal_normalize_zero_mean_new_std( substack+k*N*N, 1.0f );
     }
 
     void normalize_zero_mean_w_std(float*substack,float w,const int k) {

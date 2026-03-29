@@ -44,7 +44,6 @@ public:
     int maxK;
 
     GPU::GArrSingle  rad_avg;
-    GPU::GArrSingle  rad_wgt;
 
     GPU::GArrSingle  std_acc;
 
@@ -54,14 +53,12 @@ public:
         maxK = k;
 
         rad_avg.alloc(M*maxK);
-        rad_wgt.alloc(M*maxK);
 
         std_acc.alloc(maxK);
     }
 
     void preset_FRC_vol(GPU::GArrSingle2&data) {
         rad_avg.clear();
-        rad_wgt.clear();
         GPU::sync();
         int3 ss = make_int3(M,N,N);
         dim3 blk = GPU::get_block_size_2D();
@@ -75,8 +72,6 @@ public:
 
     void preset_FRC(GPU::GArrSingle2&data,int k,GPU::Stream&stream) {
         rad_avg.clear(stream.strm);
-        rad_wgt.clear(stream.strm);
-        stream.sync();
         int3 ss = make_int3(M,N,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
@@ -89,8 +84,6 @@ public:
 
     void calculate_FRC(GPU::GArrSingle2&data,int k,GPU::Stream&stream) {
         rad_avg.clear(stream.strm);
-        rad_wgt.clear(stream.strm);
-        stream.sync();
         int3 ss = make_int3(M,N,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
@@ -104,7 +97,7 @@ public:
     }
 
     void apply_FRC(GPU::GArrSingle2&data,const CtfConst ctf_const,float2 ssnr,int k,GPU::Stream&stream) {
-        single ssnr_f = -100*ssnr.x/(N*ctf_const.apix);
+        single ssnr_f = (ctf_const.apix > 0.f) ? -100*ssnr.x/(N*ctf_const.apix) : 0.f;
         single ssnr_s = pow(10,3*ssnr.y);
         int3 ss = make_int3(M,N,k);
         dim3 blk = GPU::get_block_size_2D();
@@ -117,8 +110,6 @@ public:
 
     void normalize_ctf(GPU::GArrSingle&ctf,int k,GPU::Stream&stream) {
         rad_avg.clear(stream.strm);
-        rad_wgt.clear(stream.strm);
-        stream.sync();
         int3 ss = make_int3(M,N,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
@@ -452,7 +443,7 @@ public:
         GpuKernels::multiply<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_data.ptr,ss);
     }
 
-    void sparse_reconstruct(GPU::GArrProj2D&ali,int dilate,int k,GPU::Stream&stream) {
+    void sparse_reconstruct(GPU::GArrProj2D&ali,const Rot33 R,int dilate,int k,GPU::Stream&stream) {
         int3 ss = make_int3(N,N,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,N,N,k);
@@ -471,7 +462,7 @@ public:
         grd.x = GPU::div_round_up(n_pts,1024);
         grd.y = 1;
         grd.z = 1;
-        GpuKernelsVol::reconstruct_pts<<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,g_pts.ptr,n_pts,N,k);
+        GpuKernelsVol::reconstruct_pts<<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k);
         GPU::download_async(c_cc,g_cc.ptr,n_pts,stream.strm);
     }
 

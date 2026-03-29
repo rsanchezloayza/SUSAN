@@ -364,8 +364,7 @@ public:
     int N;
     int M;
 
-    uint32 num_angs;
-    M33f*p_angs;
+    std::vector<M33f> angs;
 
     int3 siz;
     dim3 blk;
@@ -378,32 +377,31 @@ public:
         M = x;
         N = y;
 
-        p_angs = AnglesSymmetry::get_rotation_list(num_angs,symmetry);
+        angs = AnglesSymmetry::get_rotation_list(symmetry);
 
         siz = make_int3(M,N,N);
         blk = GPU::get_block_size_2D();
         grd = GPU::calc_grid_size(blk,M,N,N);
 
-        if( num_angs > 1 ) {
+        if( angs.size() > 1 ) {
             t_val.alloc(M*N*N);
             t_wgt.alloc(M*N*N);
         }
     }
 
     ~RecSym() {
-        delete [] p_angs;
     }
 
     void apply_sym(GPU::GArrDouble2&vol_acc,GPU::GArrDouble&vol_wgt) {
-        if( num_angs > 1 ) {
+        if( angs.size() > 1 ) {
             cudaMemcpy(t_val.ptr,vol_acc.ptr,sizeof(double2)*M*N*N,cudaMemcpyDeviceToDevice);
             cudaMemcpy(t_wgt.ptr,vol_wgt.ptr,sizeof(double )*M*N*N,cudaMemcpyDeviceToDevice);
 
             GPU::sync();
 
             Rot33 Rsym;
-            for(uint32 i=1;i<num_angs;i++) {
-                Math::set(Rsym,p_angs[i]);
+            for(uint32 i=1;i<angs.size();i++) {
+                Math::set(Rsym,angs[i]);
                 //V3f tmp;
                 //Math::Rmat_eZYZ(tmp,p_angs[i]);
                 //printf("%3d: %f %f %f\n",i,tmp(0)*RAD2DEG,tmp(1)*RAD2DEG,tmp(2)*RAD2DEG);

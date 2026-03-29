@@ -33,25 +33,28 @@
 class PoolCoordinator : public PThread {
 
 public:
-    DoubleBufferHandler *double_buffer;
-    Tomograms   *tomos;
+    virtual ~PoolCoordinator() = default;
+
+public:
+    StackReader &stkrdr;
     int num_threads;
 
-    PoolCoordinator(StackReader&stkrdr,int in_num_threads) {
-        double_buffer = stkrdr.double_buffer;
-        tomos = stkrdr.tomos;
-        num_threads = in_num_threads;
+    PoolCoordinator(StackReader&in_stkrdr,int in_num_threads)
+        : stkrdr(in_stkrdr), num_threads(in_num_threads)
+    {
     }
 
 protected:
     void main() {
         coord_init();
-        while( double_buffer->RO_get_status() > DONE ) {
-            if( double_buffer->RO_get_status() == READY ) {
-                StackBuffer*ptr = (StackBuffer*)double_buffer->RO_get_buffer();
-                coord_main(ptr->stack,ptr->ptcls,tomos->at(ptr->tomo_ix));
+        Status_t s = stkrdr.double_buffer->RO_get_status();
+        while( s > DONE ) {
+            if( s == READY ) {
+                StackBuffer*ptr = (StackBuffer*)stkrdr.double_buffer->RO_get_buffer();
+                coord_main(ptr->stack,ptr->ptcls,stkrdr.tomos->at(ptr->tomo_ix));
             }
-            double_buffer->RO_sync();
+            stkrdr.double_buffer->RO_sync();
+            s = stkrdr.double_buffer->RO_get_status();
         }
         coord_end();
     }
@@ -61,11 +64,13 @@ protected:
 
     virtual void coord_main(float*stack,ParticlesSubset&ptcls,Tomogram&tomo) {
         printf(" Processing TomoID %d: %d particles\n",tomo.tomo_id,ptcls.n_ptcl);
-        Particle ptcl;
-        ptcls.get(ptcl,0);
-        printf("   First Particle ID: %d [%d]\n",ptcl.ptcl_id(),ptcl.tomo_id());
-        ptcls.get(ptcl,ptcls.n_ptcl-1);
-        printf("   Last Particle ID: %d [%d]\n",ptcl.ptcl_id(),ptcl.tomo_id());
+        if( ptcls.n_ptcl > 0 ) {
+            Particle ptcl;
+            ptcls.get(ptcl,0);
+            printf("   First Particle ID: %d [%d]\n",ptcl.ptcl_id(),ptcl.tomo_id());
+            ptcls.get(ptcl,ptcls.n_ptcl-1);
+            printf("   Last Particle ID: %d [%d]\n",ptcl.ptcl_id(),ptcl.tomo_id());
+        }
     }
 
     virtual void coord_end() {

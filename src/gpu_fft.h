@@ -50,7 +50,11 @@ public:
     }
     
     void set_stream(cudaStream_t strm) {
-        cufftSetStream(handler, strm);
+        cufftResult err = cufftSetStream(handler, strm);
+        if( err != CUFFT_SUCCESS ) {
+            fprintf(stderr,"Error setting CUFFT stream [Code error: %d].\n",err);
+            exit(1);
+        }
     }
     
 };
@@ -203,8 +207,9 @@ class FFT3D : public XFFT_base {
 public:
     void alloc(const int N) {
 
-        if ( cufftPlan3d(&handler, N, N, N, CUFFT_R2C ) != CUFFT_SUCCESS ) {
-            fprintf(stderr,"Error allocating forward FFT3D.\n");
+        cufftResult err = cufftPlan3d(&handler, N, N, N, CUFFT_R2C);
+        if( err != CUFFT_SUCCESS ) {
+            fprintf(stderr,"Error allocating forward FFT3D [Code error: %d].\n",err);
             exit(1);
         }
     }

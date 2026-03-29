@@ -92,6 +92,7 @@ public:
         for(int i=0;i<numel;i++) initial_state[i] = rand();
 
         cudaError_t err = cudaMemcpy( (void*)(current_state.ptr), (const void*)initial_state, sizeof(uint32)*numel, cudaMemcpyHostToDevice);
+        delete[] initial_state;
         if( err != cudaSuccess ) {
             fprintf(stderr,"Error uploading random seed to CUDA memory. ");
             fprintf(stderr,"GPU error: %s.\n",cudaGetErrorString(err));

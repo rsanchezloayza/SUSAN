@@ -22,6 +22,7 @@
 #define RECONSTRUCT_H
 
 #include <iostream>
+#include <vector>
 #include "datatypes.h"
 #include "thread_sharing.h"
 #include "thread_base.h"
@@ -112,7 +113,8 @@ protected:
         GPU::Stream stream;
         stream.configure();
         RecSubstack ss_data(M,N,max_K,P,stream);
-        RecAcc vols[R];
+        std::vector<RecAcc> vols_vec(R);
+        RecAcc* vols = vols_vec.data();
         for(int r=0;r<R;r++)
             vols[r].alloc(MP,NP,max_K);
 
@@ -373,14 +375,14 @@ protected:
         ptr->ctf_vals.LambdaPi = M_PI*lambda;
         ptr->ctf_vals.CsLambda3PiH = lambda*lambda*lambda*(p_tomo->CS*1e7)*M_PI/2;
 
+        memcpy( (void*)(ptr->c_def.ptr), (const void*)(ptr->ptcl.def), sizeof(Defocus)*ptr->K  );
+
         for(int k=0;k<ptr->K;k++) {
-            if( ptr->ptcl.def[k].max_res > 0 ) {
-                ptr->ptcl.def[k].max_res = ((float)NP)*p_tomo->pix_size/ptr->ptcl.def[k].max_res;
-                ptr->ptcl.def[k].max_res = min(ptr->ptcl.def[k].max_res+bp_pad,(float)NP/2);
+            if( ptr->c_def.ptr[k].max_res > 0 ) {
+                ptr->c_def.ptr[k].max_res = ((float)NP)*p_tomo->pix_size/ptr->c_def.ptr[k].max_res;
+                ptr->c_def.ptr[k].max_res = min(ptr->c_def.ptr[k].max_res+bp_pad,(float)NP/2);
             }
         }
-
-        memcpy( (void**)(ptr->c_def.ptr), (const void**)(ptr->ptcl.def), sizeof(Defocus)*ptr->K  );
     }
 
     bool check_reference(RecBuffer*ptr,int r=-1) {
@@ -418,6 +420,7 @@ protected:
                 R_base = R_2D * p_tomo->R[k];
 
                 pt_crop = project_tomo_position(pt_tomo,p_tomo->R[k],p_tomo->t[k],ptr->ptcl.prj_t[k]);
+                if( p_tomo->pix_size == 0 ) { ptr->c_ali.ptr[k].w = 0; continue; }
                 pt_crop = pt_crop/p_tomo->pix_size + p_tomo->stk_center; /// Angstroms -> pixels
 
                 /// Get subpixel shift and setup data for upload to GPU
@@ -460,11 +463,13 @@ protected:
 
                             if( p_info->norm_type == ZERO_MEAN_W_STD ) {
                                 Math::normalize(ss_ptr,N*N,avg,std/ptr->ptcl.prj_w[k]);
+                                ptr->c_pad.ptr[k].x = 0;
                                 ptr->c_pad.ptr[k].y = ptr->ptcl.prj_w[k];
                             }
 
                             if( p_info->norm_type == GAT_NORMAL ) {
                                 Math::generalized_anscombe_transform_zero_mean(ss_ptr,N*N);
+                                ptr->c_pad.ptr[k].x = 0;
                                 ptr->c_pad.ptr[k].y = 1;
                             }
                         }
@@ -701,7 +706,7 @@ protected:
             reconstruct_core(p_vol,p_acc,p_wgt);
             reconstruct_download(vol,p_vol);
             Mrc::write(vol,N,N,N,out_file);
-            Mrc::set_apix(out_file,tomos->at(0).pix_size,N,N,N);
+            Mrc::set_apix(out_file,stkrdr.tomos->at(0).pix_size,N,N,N);
             Mrc::set_as_volume(out_file);
             if( p_info->verbosity != VERBOSITY_MINIMAL ) {
                 printf(" Done.\n"); fflush(stdout);
@@ -731,7 +736,7 @@ protected:
             reconstruct_core(p_vol,p_acc,p_wgt);
             reconstruct_download(vol,p_vol);
             Mrc::write(vol,N,N,N,out_file);
-            Mrc::set_apix(out_file,tomos->at(0).pix_size,N,N,N);
+            Mrc::set_apix(out_file,stkrdr.tomos->at(0).pix_size,N,N,N);
             Mrc::set_as_volume(out_file);
             if( p_info->verbosity != VERBOSITY_MINIMAL ) {
                 printf(" Done.\n"); fflush(stdout);
@@ -750,7 +755,7 @@ protected:
             reconstruct_core(p_vol,p_acc,p_wgt);
             reconstruct_download(vol,p_vol);
             Mrc::write(vol,N,N,N,out_file);
-            Mrc::set_apix(out_file,tomos->at(0).pix_size,N,N,N);
+            Mrc::set_apix(out_file,stkrdr.tomos->at(0).pix_size,N,N,N);
             Mrc::set_as_volume(out_file);
             if( p_info->verbosity != VERBOSITY_MINIMAL ) {
                 printf(" Done.\n"); fflush(stdout);
@@ -771,7 +776,7 @@ protected:
             reconstruct_core(p_vol,p_acc,p_wgt);
             reconstruct_download(vol,p_vol);
             Mrc::write(vol,N,N,N,out_file);
-            Mrc::set_apix(out_file,tomos->at(0).pix_size,N,N,N);
+            Mrc::set_apix(out_file,stkrdr.tomos->at(0).pix_size,N,N,N);
             Mrc::set_as_volume(out_file);
             if( p_info->verbosity != VERBOSITY_MINIMAL ) {
                 printf(" Done.\n"); fflush(stdout);

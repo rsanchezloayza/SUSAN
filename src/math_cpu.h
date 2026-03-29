@@ -59,67 +59,72 @@ using namespace Eigen;
 
 namespace Math {
 
-float get_lambda(const float kv) {
+inline float get_lambda(const float kv) {
     float volt = kv*1000;
-    return sqrt( 150.4 / ( volt*(1+(volt/1022000)) ) );
+    return sqrtf( 150.4f / ( volt*(1.0f+(volt/1022000.0f)) ) );
 }
 
-bool should_use_avx2(const uint32 length) {
+inline bool should_use_avx2(const uint32 length) {
     return (__builtin_cpu_supports ("avx2") && ( (length&31) == 0));
 }
 
-void eZXZ_Rmat(M33f&R,const V3f&eu_rad) {
+inline void eZXZ_Rmat(M33f&R,const V3f&eu_rad) {
     R = AngleAxisf(eu_rad(0), Vector3f::UnitZ())
       * AngleAxisf(eu_rad(1), Vector3f::UnitX())
       * AngleAxisf(eu_rad(2), Vector3f::UnitZ());
 }
 
-void eZYZ_Rmat(M33f&R,const V3f&eu_rad) {
+inline void eZYZ_Rmat(M33f&R,const V3f&eu_rad) {
     R = AngleAxisf(eu_rad(0), Vector3f::UnitZ())
       * AngleAxisf(eu_rad(1), Vector3f::UnitY())
       * AngleAxisf(eu_rad(2), Vector3f::UnitZ());
 }
 
-void eXYZ_Rmat(M33f&R,const V3f&eu_rad) {
+inline void eXYZ_Rmat(M33f&R,const V3f&eu_rad) {
     R = AngleAxisf(eu_rad(0), Vector3f::UnitX())
       * AngleAxisf(eu_rad(1), Vector3f::UnitY())
       * AngleAxisf(eu_rad(2), Vector3f::UnitZ());
 }
 
-void eZXZ_Rmat(M33f&R,const Vec3&eu_rad) {
+inline void eZXZ_Rmat(M33f&R,const Vec3&eu_rad) {
     R = AngleAxisf(eu_rad.x, Vector3f::UnitZ())
       * AngleAxisf(eu_rad.y, Vector3f::UnitX())
       * AngleAxisf(eu_rad.z, Vector3f::UnitZ());
 }
 
-void eZYZ_Rmat(M33f&R,const Vec3&eu_rad) {
+inline void eZYZ_Rmat(M33f&R,const Vec3&eu_rad) {
     R = AngleAxisf(eu_rad.x, Vector3f::UnitZ())
       * AngleAxisf(eu_rad.y, Vector3f::UnitY())
       * AngleAxisf(eu_rad.z, Vector3f::UnitZ());
 }
 
-void eXYZ_Rmat(M33f&R,const Vec3&eu_rad) {
+inline void eXYZ_Rmat(M33f&R,const Vec3&eu_rad) {
     R = AngleAxisf(eu_rad.x, Vector3f::UnitX())
       * AngleAxisf(eu_rad.y, Vector3f::UnitY())
       * AngleAxisf(eu_rad.z, Vector3f::UnitZ());
 }
 
-void Rmat_eZXZ(V3f&eu_rad,const M33f&R) {
+inline void Rmat_eZXZ(V3f&eu_rad,const M33f&R) {
     eu_rad = R.eulerAngles(2,0,2);
 }
 
-void Rmat_eZYZ(V3f&eu_rad,const M33f&R) {
+inline void Rmat_eZYZ(V3f&eu_rad,const M33f&R) {
     if( fabs(R(2,2)-1) < 1e-5 ) {
         eu_rad(0) = 0.0f;
         eu_rad(1) = 0.0f;
         eu_rad(2) = atan2(R(1,0),R(0,0));
+    }
+    else if( fabs(R(2,2)+1) < 1e-5 ) {
+        eu_rad(0) = 0.0f;
+        eu_rad(1) = float(M_PI);
+        eu_rad(2) = atan2(R(0,1),R(0,0));
     }
     else {
         eu_rad = R.eulerAngles(2,1,2);
     }
 }
 
-void Rmat_eZXZ(Vec3&eu_rad,const M33f&R) {
+inline void Rmat_eZXZ(Vec3&eu_rad,const M33f&R) {
     V3f tmp;
     Rmat_eZXZ(tmp,R);
     eu_rad.x = tmp(0);
@@ -127,7 +132,7 @@ void Rmat_eZXZ(Vec3&eu_rad,const M33f&R) {
     eu_rad.z = tmp(2);
 }
 
-void Rmat_eZYZ(Vec3&eu_rad,const M33f&R) {
+inline void Rmat_eZYZ(Vec3&eu_rad,const M33f&R) {
     V3f tmp;
     Rmat_eZYZ(tmp,R);
     eu_rad.x = tmp(0);
@@ -135,7 +140,7 @@ void Rmat_eZYZ(Vec3&eu_rad,const M33f&R) {
     eu_rad.z = tmp(2);
 }
 
-void set(Rot33&Rout,const M33f&Rin) {
+inline void set(Rot33&Rout,const M33f&Rin) {
     Rout.xx = Rin(0,0);
     Rout.xy = Rin(0,1);
     Rout.xz = Rin(0,2);
@@ -147,7 +152,7 @@ void set(Rot33&Rout,const M33f&Rin) {
     Rout.zz = Rin(2,2);
 }
 
-void set(M33f&Rout,const Rot33&Rin) {
+inline void set(M33f&Rout,const Rot33&Rin) {
     Rout(0,0) = Rin.xx;
     Rout(0,1) = Rin.xy;
     Rout(0,2) = Rin.xz;
@@ -159,14 +164,14 @@ void set(M33f&Rout,const Rot33&Rin) {
     Rout(2,2) = Rin.zz;
 }
 
-float get_Y_angle_rad(const M33f&R) {
+inline float get_Y_angle_rad(const M33f&R) {
     V3f p_z(0.0,0.0,1.0);
     V3f p = R*p_z;
     float l = sqrtf( p(1)*p(1) + p(2)*p(2) );
     return atan2( p(0), l );
 }
 
-void post_transposed_rotation(Rot33& R_work, const Rot33& Rot) {
+inline void post_transposed_rotation(Rot33& R_work, const Rot33& Rot) {
     Rot33 result;
 
     const float*A = &(R_work.xx);
@@ -183,13 +188,13 @@ void post_transposed_rotation(Rot33& R_work, const Rot33& Rot) {
     R_work = result;
 }
 
-int make_even_up(const float val) {
+inline int make_even_up(const float val) {
     return (int)(2*ceil(val/2));
 }
 
-void sum(float*ptr_out, const float*ptr_in, const uint32 length) {
+inline void sum(float*ptr_out, const float*ptr_in, const uint32 length) {
     uint32 i;
-    float *w_in  = (float*) ptr_in;
+    const float *w_in  = ptr_in;
     float *w_out = ptr_out;
 
     if( should_use_avx2(length) ) {
@@ -214,9 +219,9 @@ void sum(float*ptr_out, const float*ptr_in, const uint32 length) {
     }
 }
 
-void sum(double*ptr_out, const double*ptr_in, const uint32 length) {
+inline void sum(double*ptr_out, const double*ptr_in, const uint32 length) {
     uint32 i;
-    double *w_in  = (double*) ptr_in;
+    const double *w_in  = ptr_in;
     double *w_out = ptr_out;
 
     if( should_use_avx2(length) ) {
@@ -242,12 +247,12 @@ void sum(double*ptr_out, const double*ptr_in, const uint32 length) {
 }
 
 #ifdef __NVCC__
-void sum(double2*ptr_out, const double2*ptr_in, const uint32 length) {
+inline void sum(double2*ptr_out, const double2*ptr_in, const uint32 length) {
 	sum((double*)ptr_out,(const double*)ptr_in,length*2);
 }
 #endif
 
-void sort(float*data,const uint32 length) {
+inline void sort(float*data,const uint32 length) {
     int i,j;
     float key;
     for(i=1;i<length;i++) {
@@ -263,13 +268,13 @@ void sort(float*data,const uint32 length) {
     }
 }
 
-void mul(float*out,const float*in,const uint32 length) {
+inline void mul(float*out,const float*in,const uint32 length) {
 
     uint32 i;
     if( should_use_avx2(length) ) {
 
-        float*ptr_i = (float*)in;
-        float*ptr_o = (float*)out;
+        const float*ptr_i = in;
+        float*ptr_o = out;
 
         for(i=0;i<length;i+=8) {
 
@@ -292,7 +297,7 @@ void mul(float*out,const float*in,const uint32 length) {
 
 }
 
-void mul(float*out,const float scale,const uint32 length) {
+inline void mul(float*out,const float scale,const uint32 length) {
 
     uint32 i;
     for(i=0;i<length;i++) {
@@ -301,20 +306,20 @@ void mul(float*out,const float scale,const uint32 length) {
 
 }
 
-float get_max(const float*ptr,const uint32 length) {
+inline float get_max(const float*ptr,const uint32 length) {
 
-    float rslt = 0;
+    float rslt = ptr[0];
 
     uint32 i;
-    for(i=0;i<length;i++) {
-        rslt = fmax(ptr[i],rslt);
+    for(i=1;i<length;i++) {
+        rslt = fmaxf(ptr[i],rslt);
     }
 
     return rslt;
 }
 
-void fit_ellipsoid(float&U,float&V,float&ang,const MatrixXf&points) {
-    float scale = sqrt(2/((float)(points.cols())));
+inline void fit_ellipsoid(float&U,float&V,float&ang,const MatrixXf&points) {
+    float scale = sqrtf(2.0f/((float)(points.cols())));
     Eigen::JacobiSVD<MatrixXf> svd(points, Eigen::ComputeThinU | Eigen::ComputeThinV);
     U = scale*svd.singularValues()(0);
     V = scale*svd.singularValues()(1);
@@ -328,7 +333,7 @@ void fit_ellipsoid(float&U,float&V,float&ang,const MatrixXf&points) {
     if(ang> M_PI/2) ang -= M_PI;
 }
 
-float sum_vec(const float*ptr,const uint32 length) {
+inline float sum_vec(const float*ptr,const uint32 length) {
 
     float sum = 0;
 
@@ -336,7 +341,7 @@ float sum_vec(const float*ptr,const uint32 length) {
 
     if( should_use_avx2(length) ) {
 
-        float*ptr_w = (float*)ptr;
+        const float*ptr_w = ptr;
         float sum_arr[8];
 
         __asm__ __volatile__(
@@ -370,7 +375,7 @@ float sum_vec(const float*ptr,const uint32 length) {
     return sum;
 }
 
-void get_avg_std(float&avg,float&std,const float*ptr,const uint32 length) {
+inline void get_avg_std(float&avg,float&std,const float*ptr,const uint32 length) {
 	/// One pass estimation of AVG and STD
 	
     uint32 i;
@@ -380,7 +385,7 @@ void get_avg_std(float&avg,float&std,const float*ptr,const uint32 length) {
     
     if( should_use_avx2(length) ) {
 
-        float*ptr_w = (float*)ptr;
+        const float*ptr_w = ptr;
         float tmp_arr[8];
         float inv_numel = 1.0/numel;
         
@@ -409,23 +414,23 @@ void get_avg_std(float&avg,float&std,const float*ptr,const uint32 length) {
 
         avg = tmp_arr[0]+tmp_arr[4];
         std = tmp_arr[1]+tmp_arr[5] - avg*avg;
-        std = sqrtf(std);
+        std = sqrtf(fmaxf(std, 0.0f));
 
     }
     else {
+        float M = 0.0f, S = 0.0f;
         for(i=0;i<length;i++) {
-            float tmp = ptr[i];
-            avg += tmp;
-            std += (tmp*tmp);
+            float x = ptr[i];
+            float old_M = M;
+            M += (x - M) / (float)(i + 1);
+            S += (x - old_M) * (x - M);
         }
-        avg = avg/numel;
-        std = std/numel;
-        std = std - (avg*avg);
-        std = sqrtf(std);
+        avg = M;
+        std = sqrtf(S / numel);
     }
 }
 
-void get_min_max_avg_std(float&min,float&max,float&avg,float&std,const float*ptr,const uint32 length) {
+inline void get_min_max_avg_std(float&min,float&max,float&avg,float&std,const float*ptr,const uint32 length) {
     /// One pass estimation of AVG and STD
 
     uint32 i;
@@ -437,7 +442,7 @@ void get_min_max_avg_std(float&min,float&max,float&avg,float&std,const float*ptr
 
     if( should_use_avx2(length) ) {
 
-        float*ptr_w = (float*)ptr;
+        const float*ptr_w = ptr;
         float tmp_min[8];
         float tmp_max[8];
         float tmp_arr[8];
@@ -475,34 +480,34 @@ void get_min_max_avg_std(float&min,float&max,float&avg,float&std,const float*ptr
 
         avg = tmp_arr[0]+tmp_arr[4];
         std = tmp_arr[1]+tmp_arr[5] - avg*avg;
-        std = sqrtf(std);
+        std = sqrtf(fmaxf(std, 0.0f));
 
         min = tmp_min[0];
         max = tmp_max[0];
         for(i=1;i<8;i++) {
-            min  = fmin(tmp_min[i],min);
-            max  = fmax(tmp_max[i],max);
+            min  = fminf(tmp_min[i],min);
+            max  = fmaxf(tmp_max[i],max);
         }
 
     }
     else {
-        min = ptr[i];
-        max = ptr[i];
-        for(i=0;i<length;i++) {
-            float tmp = ptr[i];
-            avg += tmp;
-            std += (tmp*tmp);
-            min  = fmin(tmp,min);
-            max  = fmax(tmp,max);
+        min = ptr[0];
+        max = ptr[0];
+        float M = ptr[0], S = 0.0f;
+        for(i=1;i<length;i++) {
+            float x = ptr[i];
+            float old_M = M;
+            M += (x - M) / (float)(i + 1);
+            S += (x - old_M) * (x - M);
+            min = fminf(x, min);
+            max = fmaxf(x, max);
         }
-        avg = avg/numel;
-        std = std/numel;
-        std = std - (avg*avg);
-        std = sqrtf(std);
+        avg = M;
+        std = sqrtf(S / numel);
     }
 }
 
-void zero_mean(float*ptr,const uint32 length, const float avg) {
+inline void zero_mean(float*ptr,const uint32 length, const float avg) {
     
     uint32 i;
     if( should_use_avx2(length) ) {
@@ -531,7 +536,7 @@ void zero_mean(float*ptr,const uint32 length, const float avg) {
     }
 }
 
-bool normalize(float*ptr,const uint32 length, const float avg, const float old_std, const float new_std=1) {
+inline bool normalize(float*ptr,const uint32 length, const float avg, const float old_std, const float new_std=1) {
     
     if(old_std < SUSAN_FLOAT_TOL || std::isnan(old_std) || std::isinf(old_std) )
         return false;
@@ -569,7 +574,7 @@ bool normalize(float*ptr,const uint32 length, const float avg, const float old_s
     return true;
 }
 
-bool normalize_non_zero(float*ptr,const uint32 length) {
+inline bool normalize_non_zero(float*ptr,const uint32 length) {
     
     int   num=0;
     float avg=0;
@@ -583,6 +588,9 @@ bool normalize_non_zero(float*ptr,const uint32 length) {
         }
     }
 
+    if( num == 0 )
+        return false;
+
     avg = avg/num;
 
     for(i=0;i<length;i++) {
@@ -592,7 +600,7 @@ bool normalize_non_zero(float*ptr,const uint32 length) {
         }
     }
 
-    std = sqrt( std/(num) );
+    std = sqrtf( std/(num) );
 
     if(std < SUSAN_FLOAT_TOL )
     return false;
@@ -607,7 +615,7 @@ bool normalize_non_zero(float*ptr,const uint32 length) {
     return true;
 }
 
-bool normalize_masked(float*ptr,const float*msk,const uint32 length, const float new_std=1) {
+inline bool normalize_masked(float*ptr,const float*msk,const uint32 length, const float new_std=1) {
 
     float count = 0;
     float avg = 0;
@@ -620,7 +628,7 @@ bool normalize_masked(float*ptr,const float*msk,const uint32 length, const float
         }
     }
 
-    if( count == 0 )
+    if( count < 2.0f )
         return false;
 
     avg = avg/count;
@@ -633,20 +641,20 @@ bool normalize_masked(float*ptr,const float*msk,const uint32 length, const float
         }
     }
 
-    std = sqrt( std/(count-1) );
+    std = sqrtf( std/(count-1) );
 
     return normalize(ptr,length,avg,std,new_std);
 }
 
-void anscombe_transform(float*ptr,const uint32 length) {
+inline void anscombe_transform(float*ptr,const uint32 length) {
     /// Applies the Anscombe transform (Poisson -> Normal)
-    /// https://doi.org/10.1093/biomet/35.3-4.246
+    /// https:/doi.org/10.1093/biomet/35.3-4.246
     /// TODO: Speed this up!
     uint32 i;
     float avg = 0;
     for(i=0;i<length;i++) {
-        float x = ptr[i] + (3.0/8.0);
-        ptr[i]  = 2*sqrtf( fmax(x,0.0) );
+        float x = ptr[i] + (3.0f/8.0f);
+        ptr[i]  = 2*sqrtf( fmaxf(x,0.0f) );
         avg    += ptr[i];
     }
 
@@ -657,8 +665,8 @@ void anscombe_transform(float*ptr,const uint32 length) {
     }
 }
 
-void generalized_anscombe_transform_zero_mean(float*ptr,const uint32 length) {
-    /// Modified from: https://doi.org/10.1109/TIP.2012.2202675
+inline void generalized_anscombe_transform_zero_mean(float*ptr,const uint32 length) {
+    /// Modified from: https:/doi.org/10.1109/TIP.2012.2202675
     /// TODO: Speed this up!
     //vv = vv + (3.0/8.0) + 1
     //vv = 2*np.sqrt( np.maximum(vv,0.0) )
@@ -666,8 +674,8 @@ void generalized_anscombe_transform_zero_mean(float*ptr,const uint32 length) {
     uint32 i;
     float avg = 0;
     for(i=0;i<length;i++) {
-        float x = ptr[i] + (3.0/8.0) + 1;
-        ptr[i]  = 2*sqrtf( fmax(x+1,0.0) );
+        float x = ptr[i] + (3.0f/8.0f) + 1.0f;
+        ptr[i]  = 2*sqrtf( fmaxf(x,0.0f) );
         avg    += ptr[i];
     }
 
@@ -678,16 +686,15 @@ void generalized_anscombe_transform_zero_mean(float*ptr,const uint32 length) {
     }
 }
 
-void vst(float*ptr,const uint32 length,const float std=1.0) {
+inline void vst(float*ptr,const uint32 length,const float std=1.0) {
     /// TODO: Speed this up!
     float min_val = ptr[0];
     for(int i=0;i<length;i++)
-        min_val = fmin(min_val,ptr[i]);
+        min_val = fminf(min_val,ptr[i]);
 
     float mean=0;
-    float var = sqrt(std);
     for(int i=0;i<length;i++) {
-        ptr[i] = 2*sqrt( (ptr[i]-min_val)/var + 3/8 );
+        ptr[i] = 2*sqrtf( (ptr[i]-min_val)/std + (3.0f/8.0f) );
         mean += ptr[i];
     }
 
@@ -696,7 +703,7 @@ void vst(float*ptr,const uint32 length,const float std=1.0) {
         ptr[i] = ptr[i] - mean;
 }
 
-void enforce_hermitian(double*p_vol, double*p_wgt, const uint32 M, const uint32 N) {
+inline void enforce_hermitian(double*p_vol, double*p_wgt, const uint32 M, const uint32 N) {
     uint32 N_h = N/2;
     for(int z=1; z<N; z++) {
         int y_start = ( z < N_h ) ? N_h : N_h + 1;
@@ -718,10 +725,10 @@ void enforce_hermitian(double*p_vol, double*p_wgt, const uint32 M, const uint32 
     }
 }
 
-void invert(double*ptr, const uint32 length) {
+inline void invert(double*ptr, const uint32 length) {
     uint32 i;
     for(i=0;i<length;i++) {
-        if( abs(ptr[i]) < SUSAN_FLOAT_TOL )
+        if( fabs(ptr[i]) < SUSAN_FLOAT_TOL )
             ptr[i] = 1;
         else {
             ptr[i] = 1/ptr[i];
@@ -729,7 +736,7 @@ void invert(double*ptr, const uint32 length) {
     }
 }
 
-void radial_avg(float*r_avg, float*r_wgt, const int L, const float*p_in, const int N, const single r_min, const single r_max) {
+inline void radial_avg(float*r_avg, float*r_wgt, const int L, const float*p_in, const int N, const single r_min, const single r_max) {
     int center = N/2;
     int range = (int)ceil(r_max)+1;
     range = fminf(range,N/2);
@@ -742,7 +749,7 @@ void radial_avg(float*r_avg, float*r_wgt, const int L, const float*p_in, const i
         float y = j - center;
         for(int i=center-range; i<=center+range; i++) {
             float x = i - center;
-            float r = sqrt(x*x+y*y);
+            float r = sqrtf(x*x+y*y);
             if( r >= r_min && r <= r_max ) {
                 float val = p_in[ i + j_off ];
                 int idx = (int)roundf(r);
@@ -763,11 +770,11 @@ void radial_avg(float*r_avg, float*r_wgt, const int L, const float*p_in, const i
     }
 }
 
-void radial_avg(float*r_avg, float*r_wgt, const int L, const float*p_in, const int N) {
+inline void radial_avg(float*r_avg, float*r_wgt, const int L, const float*p_in, const int N) {
     radial_avg(r_avg,r_wgt,L,p_in,N,0,N/2);
 }
 
-void fftshift_1D_batch(float*p_data,const int N,const int K) {
+inline void fftshift_1D_batch(float*p_data,const int N,const int K) {
     float a,b;
     int Nh = N/2;
     for(int k=0;k<K;k++) {
@@ -781,7 +788,7 @@ void fftshift_1D_batch(float*p_data,const int N,const int K) {
     }
 }
 
-void expand_ps_hermitian(float*p_herm, const double*p_ps, const float scale, const uint32 M, const uint32 N, const uint32 K) {
+inline void expand_ps_hermitian(float*p_herm, const double*p_ps, const float scale, const uint32 M, const uint32 N, const uint32 K) {
     for(int k=0;k<K;k++) {
         const double* p_in  = p_ps+k*M*N;
         float* p_out = p_herm+k*N*N;
@@ -800,7 +807,7 @@ void expand_ps_hermitian(float*p_herm, const double*p_ps, const float scale, con
     }
 }
 
-void randn(float*ptr,const uint32 length,const float u=0, const float s=1) {
+inline void randn(float*ptr,const uint32 length,const float u=0, const float s=1) {
     std::random_device rd{};
     std::mt19937 gen{rd()};
     std::normal_distribution<float> d{u,s};
@@ -810,7 +817,7 @@ void randn(float*ptr,const uint32 length,const float u=0, const float s=1) {
     }
 }
 
-void rand(float*ptr,const uint32 length,const float scale=1, const float offset=0) {
+inline void rand(float*ptr,const uint32 length,const float scale=1, const float offset=0) {
     std::random_device rd{};
     std::mt19937 gen{rd()};
     std::uniform_real_distribution<float> d(0.0,1.0);
@@ -820,16 +827,11 @@ void rand(float*ptr,const uint32 length,const float scale=1, const float offset=
     }
 }
 
-void denoise_l0(float*p_out,const float*p_in,const uint32 length,const float lambda,const float rho) {
-    /*if( should_use_avx2(length) ) {
-        // TODO
+inline void denoise_l0(float*p_out,const float*p_in,const uint32 length,const float lambda,const float rho=1.0f) {
+    for(int i=0;i<length;i++) {
+        float thresh = (fabsf(p_in[i]) > lambda) ? p_in[i] : 0.0f;
+        p_out[i] = rho*thresh + (1.0f-rho)*p_in[i];
     }
-    else {*/
-        int i=0;
-        for(i=0;i<length;i++) {
-            p_out[i] = rho*fmin(p_in[i]-lambda,0.0f)+(1-rho)*p_in[i];
-        }
-    //}
 }
 
 class Timing {
@@ -867,7 +869,7 @@ public:
                 hours = (int)floor(total_secs/(3600.0));
                 total_secs = total_secs - 3600.0*hours;
                 mins = (int)floor(total_secs/(60.0));
-                secs = ceil(total_secs) - 60.0*mins;
+                secs = (int)ceilf(total_secs) - 60*mins;
                 if(secs > 59)
                     secs = 59;
             }

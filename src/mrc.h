@@ -32,36 +32,12 @@ using namespace std;
 
 namespace Mrc {
 
-    typedef struct {
-        uint32 datax;
-        uint32 datay;
-        uint32 dataz;
-        uint32 mode;
-        int32  xstart;
-        int32  ystart;
-        int32  zstart;
-        uint32 gridx;
-        uint32 gridy;
-        uint32 gridz;
-        single xlen; // Cell size; pixel spacing = nlen/gridN
-        single ylen;
-        single zlen;
-        single alpha;
-        single beta;
-        single gamma;
-        uint32 mapc; // 1,2,3
-        uint32 mapr;
-        uint32 maps;
-        single min;
-        single max;
-        single avg;
-        int32  ispg;
-        uint32 nsymbt;
-        uint32 pad[(1024-96)/4];
-    } Header_t;
-
     float get_apix (const char*mapname) {
-        FILE*fp=fopen(mapname,"r");
+        FILE*fp=fopen(mapname,"rb");
+        if( fp == NULL ) {
+            fprintf(stderr,"Error opening file %s.\n",mapname);
+            exit(1);
+        }
         fseek(fp,28,SEEK_SET);
         uint32 mx;
         fread((void*)(&mx),sizeof(uint32_t),1,fp);
@@ -77,6 +53,10 @@ namespace Mrc {
 
     void set_apix (const char*mapname, const float apix, const uint32 X, const uint32 Y, const uint32 Z) {
         FILE*fp=fopen(mapname,"r+");
+        if( fp == NULL ) {
+            fprintf(stderr,"Error opening file %s.\n",mapname);
+            exit(1);
+        }
         uint32_t grid[3];
         grid[0] = X;
         grid[1] = Y;
@@ -94,6 +74,10 @@ namespace Mrc {
 
     void set_ispg (const char*mapname, const uint32 value) {
         FILE*fp=fopen(mapname,"r+");
+        if( fp == NULL ) {
+            fprintf(stderr,"Error opening file %s.\n",mapname);
+            exit(1);
+        }
         fseek(fp,88,SEEK_SET);
         fwrite(&value,sizeof(uint32_t),1,fp);
         fclose(fp);
@@ -108,7 +92,11 @@ namespace Mrc {
     }
 
     bool is_mode_float(const char*mapname) {
-        FILE*fp=fopen(mapname,"r");
+        FILE*fp=fopen(mapname,"rb");
+        if( fp == NULL ) {
+            fprintf(stderr,"Error opening file %s.\n",mapname);
+            exit(1);
+        }
         fseek(fp,12,SEEK_SET);
         uint32 mode;
         fread((void*)(&mode),sizeof(uint32_t),1,fp);
@@ -120,7 +108,11 @@ namespace Mrc {
     }
 
     void read_size(uint32&X, uint32&Y, uint32&Z, const char*mapname) {
-        FILE*fp=fopen(mapname,"r");
+        FILE*fp=fopen(mapname,"rb");
+        if( fp == NULL ) {
+            fprintf(stderr,"Error opening file %s.\n",mapname);
+            exit(1);
+        }
         fseek(fp,0,SEEK_SET);
         uint32 buf[3];
         fread((void*)buf,sizeof(uint32_t),3,fp);
@@ -136,6 +128,10 @@ namespace Mrc {
             exit(1);
         }
         FILE*fp=fopen(mapname,"rb");
+        if( fp == NULL ) {
+            fprintf(stderr,"Error opening file %s.\n",mapname);
+            exit(1);
+        }
         uint32 offset = 0;
         fseek(fp,92,SEEK_SET);
         fread((void*)(&offset),sizeof(uint32),1,fp);
@@ -158,6 +154,10 @@ namespace Mrc {
     
     void write(const single *data, const uint32 X, const uint32 Y, const uint32 Z, const char*mapname,bool fill_statistics=true) {
         FILE*fp=fopen(mapname,"wb");
+        if( fp == NULL ) {
+            fprintf(stderr,"Error creating file %s.\n",mapname);
+            exit(1);
+        }
         uint32 header[256];
         for(int i=0;i<256;i++) header[i] = 0;
         header[0]  = X;
@@ -205,6 +205,10 @@ namespace Mrc {
 
         SequentialWriter(const char*filename,int in_N,float in_apix) {
             fp = fopen(filename,"wb");
+            if( fp == NULL ) {
+                fprintf(stderr,"Error creating file %s.\n",filename);
+                exit(1);
+            }
             N  = in_N;
             K  = 0;
             vmax = -9999.9;
@@ -236,9 +240,11 @@ namespace Mrc {
             header[7]  = N;
             header[8]  = N;
             header[9]  = K;
-            header[10] = apix*N;
-            header[11] = apix*N;
-            header[12] = 1.0;
+            float cell[3] = { apix*(float)N, apix*(float)N, 1.0f };
+            uint32*cell_bits = (uint32*)cell;
+            header[10] = cell_bits[0];
+            header[11] = cell_bits[1];
+            header[12] = cell_bits[2];
             header[13] = 0x42b40000; // 90.0 in hexadecimal notation.
             header[14] = 0x42b40000; // 90.0 in hexadecimal notation.
             header[15] = 0x42b40000; // 90.0 in hexadecimal notation.
@@ -277,7 +283,7 @@ namespace Mrc {
             float M_ab  = M_a + M_b + (delta*delta)*n_a*n_b/n_ab;
 
             vavg = (n_a*x_a + n_b*x_b)/n_ab;
-            vstd = sqrtf( M_ab/(n_ab-1) );
+            vstd = (n_ab > 1) ? sqrtf( M_ab/(n_ab-1) ) : 0.0f;
 
             vmax = fmax(cmax,vmax);
             vmin = fmin(cmin,vmin);

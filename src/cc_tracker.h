@@ -31,52 +31,125 @@
 #include "datatypes.h"
 #include "math_cpu.h"
 
-#include <Eigen/Core>
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
-#include <Eigen/Eigenvalues>
+// ---------------------------------------------------------------------------
+// Helper: estimate the RMS half-width σ of the CC peak via local curvature.
+//
+// For a Gaussian f(x)=A·exp(−x²/2σ²)+c, the second finite difference of
+// log(f−c) along any axis satisfies:
+//
+//   log(v₊) + log(v₋) − 2·log(v_c) = −step²/σ²
+//
+// where v_c = CC(peak)−c, v₊ = CC(peak+step·ê)−c, etc.  The subpixel
+// offset x₀ cancels exactly, so the estimate is independent of the peak
+// position within the grid cell, the amplitude A, and the window radius.
+//
+// Only the immediate cardinal neighbours (±step along each axis) are used,
+// so the result is completely independent of the integration window.
+// ---------------------------------------------------------------------------
+namespace cc_tracker_detail {
 
-
-#include <iostream>
-#include <iomanip>
-
-void printEigenMatrixAsPython(const Eigen::MatrixXf& M, const std::string& name)
+inline float compute_step(const Vec3* pts, int n)
 {
-    std::cout << name << " = np.array([\n";
-    for (int i = 0; i < M.rows(); ++i)
-    {
-        std::cout << "    [";
-        for (int j = 0; j < M.cols(); ++j)
-        {
-            std::cout << std::setprecision(8) << M(i,j);
-            if (j < M.cols()-1) std::cout << ", ";
+    float min_d2 = std::numeric_limits<float>::max();
+    for (int i = 1; i < n; ++i) {
+        float dx = pts[i].x - pts[0].x;
+        float dy = pts[i].y - pts[0].y;
+        float dz = pts[i].z - pts[0].z;
+        float d2 = dx*dx + dy*dy + dz*dz;
+        if (d2 > 0.f && d2 < min_d2) min_d2 = d2;
+    }
+    return (min_d2 < std::numeric_limits<float>::max()) ? std::sqrt(min_d2) : 1.f;
+}
+
+// peak_pos: the known discrete-maximum location (passed in by the caller,
+// which already found max_idx, so no need to search again).
+inline float peak_sigma(const Vec3* pts, int n, const float* p_cc,
+                        float step, bool is_2d, const Vec3& peak_pos)
+{
+    const float tol   = 0.1f * step;    // grid-point matching tolerance
+    const float step2 = step * step;
+
+    // ---- 1. Peak CC value ----
+    float v_c = 0.f;
+    for (int i = 0; i < n; ++i) {
+        float dx = pts[i].x - peak_pos.x;
+        float dy = pts[i].y - peak_pos.y;
+        float dz = pts[i].z - peak_pos.z;
+        if (std::abs(dx) < tol && std::abs(dy) < tol && std::abs(dz) < tol)
+            { v_c = p_cc[i]; break; }
+    }
+
+    // ---- 2. Cardinal neighbours: ±step along x, y, (z) ----
+    // Store the found CC values for each of the 6 (or 4) directions.
+    float vp[3] = {0.f, 0.f, 0.f};   // +x, +y, +z
+    float vm[3] = {0.f, 0.f, 0.f};   // −x, −y, −z
+    bool  fp[3] = {false,false,false};
+    bool  fm[3] = {false,false,false};
+    const int n_ax = is_2d ? 2 : 3;
+
+    for (int i = 0; i < n; ++i) {
+        float dx = pts[i].x - peak_pos.x;
+        float dy = pts[i].y - peak_pos.y;
+        float dz = pts[i].z - peak_pos.z;
+
+        // x-axis neighbour: dy≈0, dz≈0, |dx|≈step
+        if (std::abs(dy) < tol && std::abs(dz) < tol) {
+            if (std::abs(dx - step) < tol) { vp[0] = p_cc[i]; fp[0] = true; }
+            if (std::abs(dx + step) < tol) { vm[0] = p_cc[i]; fm[0] = true; }
         }
-        std::cout << "]";
-        if (i < M.rows()-1) std::cout << ",";
-        std::cout << "\n";
+        // y-axis neighbour: dx≈0, dz≈0, |dy|≈step
+        if (std::abs(dx) < tol && std::abs(dz) < tol) {
+            if (std::abs(dy - step) < tol) { vp[1] = p_cc[i]; fp[1] = true; }
+            if (std::abs(dy + step) < tol) { vm[1] = p_cc[i]; fm[1] = true; }
+        }
+        // z-axis neighbour (3D only): dx≈0, dy≈0, |dz|≈step
+        if (!is_2d && std::abs(dx) < tol && std::abs(dy) < tol) {
+            if (std::abs(dz - step) < tol) { vp[2] = p_cc[i]; fp[2] = true; }
+            if (std::abs(dz + step) < tol) { vm[2] = p_cc[i]; fm[2] = true; }
+        }
     }
-    std::cout << "], dtype=np.float32)\n\n";
+
+    // ---- 3. Background: min over {peak, all found cardinal neighbours} ----
+    float c = v_c;
+    for (int a = 0; a < n_ax; ++a) {
+        if (fp[a] && vp[a] < c) c = vp[a];
+        if (fm[a] && vm[a] < c) c = vm[a];
+    }
+    c -= 1e-7f;   // ensure v_c − c > 0 strictly
+
+    // ---- 4. Per-axis curvature → σ² = −step² / (log v₊ + log v₋ − 2 log v_c) ----
+    const float log_vc = std::log(v_c - c);
+    float sigma_sq_sum = 0.f;
+    int   n_valid      = 0;
+
+    for (int a = 0; a < n_ax; ++a) {
+        if (!fp[a] || !fm[a]) continue;
+        float lp = vp[a] - c, lm = vm[a] - c;
+        if (lp <= 0.f || lm <= 0.f) continue;
+        float curv = std::log(lp) + std::log(lm) - 2.f * log_vc;
+        if (curv >= 0.f) continue;       // not concave → skip this axis
+        sigma_sq_sum += -step2 / curv;
+        ++n_valid;
+    }
+
+    if (n_valid == 0) return 0.f;
+    float sigma_sq = sigma_sq_sum / float(n_valid);
+    return (sigma_sq > 0.f) ? std::sqrt(sigma_sq) : 0.f;
 }
 
-void printEigenVectorAsPython(const Eigen::VectorXf& v, const std::string& name)
-{
-    std::cout << name << " = np.array([";
-    for (int i = 0; i < v.size(); ++i)
-    {
-        std::cout << std::setprecision(8) << v(i);
-        if (i < v.size()-1) std::cout << ", ";
-    }
-    std::cout << "], dtype=np.float32)\n\n";
-}
+} // namespace cc_tracker_detail
 
 class CcTrackAlignmentMax {
 private:
-    const Vec3* pts_;      // external points (not owned)
-    int n_pts_;            // number of points
-    int n_ang_max_;        // not used here but stored if needed
+    const Vec3* pts_;
+    int   n_pts_;
+    int   n_ang_max_;
     float pix_size_;
+    float step_;
+    bool  is_2d_;
 
     float current_cc_;
+    float current_sigma_;
     Vec3  current_vec_;
     M33f  current_rot_;
 
@@ -88,70 +161,73 @@ public:
         : pts_(p_pts),
         n_pts_(n_pts),
         n_ang_max_(n_ang_max),
-        pix_size_(pix_size)
+        pix_size_(pix_size),
+        step_(cc_tracker_detail::compute_step(p_pts, n_pts)),
+        is_2d_(true)
     {
+        for (int i = 0; i < n_pts_; ++i)
+            if (pts_[i].z != 0.f) { is_2d_ = false; break; }
         clear();
     }
 
     void clear()
     {
-        current_cc_  = -std::numeric_limits<float>::infinity();
-        current_vec_ = {0.f, 0.f, 0.f};
-        current_rot_ = M33f::Identity();
+        current_cc_    = -std::numeric_limits<float>::infinity();
+        current_sigma_ = 0.f;
+        current_vec_   = {0.f, 0.f, 0.f};
+        current_rot_   = M33f::Identity();
     }
 
     void push(const float* p_cc,
               int n_pts,
               const M33f& Rot)
     {
-        // Safety: ensure consistent point count
         const int n = std::min(n_pts, n_pts_);
 
-        for (int i = 0; i < n; ++i) {
+        float vmax    = p_cc[0];
+        int   max_idx = 0;
+        for (int i = 1; i < n; ++i)
+            if (p_cc[i] > vmax) { vmax = p_cc[i]; max_idx = i; }
 
-            float v = p_cc[i];
-
-            if (v > current_cc_) {
-                current_cc_  = v;
-                current_vec_ = pts_[i];
-                current_rot_ = Rot;
-            }
+        if (vmax > current_cc_) {
+            current_cc_    = vmax;
+            current_vec_   = pts_[max_idx];
+            current_rot_   = Rot;
+            current_sigma_ = cc_tracker_detail::peak_sigma(pts_, n, p_cc, step_, is_2d_, pts_[max_idx]);
         }
     }
 
     float get_cc() const
     {
-        if (std::isinf(current_cc_))
+        if (current_cc_ == -std::numeric_limits<float>::infinity())
             return 0.f;
-
         return current_cc_;
     }
 
-    Vec3 get_vec() const
-    {
-        return current_vec_;
-    }
-
-    M33f get_rot() const
-    {
-        return current_rot_;
-    }
+    Vec3 get_vec() const { return current_vec_; }
+    M33f get_rot() const { return current_rot_; }
 
     float get_dose() const
     {
-        return 0.f;
+        if (current_sigma_ <= 0.f) return 9999.f;
+        const float s    = current_sigma_ * pix_size_;
+        const float dose = float(M_PI*M_PI) * s * s;
+        return dose < 9999.f ? dose : 9999.f;
     }
 };
 
 class CcTrackAlignmentSigma {
 private:
     const Vec3* pts_;
-    int n_pts_;
-    int n_ang_max_;
+    int   n_pts_;
+    int   n_ang_max_;
     float pix_size_;
+    float step_;
+    bool  is_2d_;
 
     // Best pose based on PSR
     float best_psr_;
+    float best_sigma_;
     Vec3  best_vec_;
     M33f  best_rot_;
 
@@ -168,16 +244,21 @@ public:
         : pts_(p_pts),
         n_pts_(n_pts),
         n_ang_max_(n_ang_max),
-        pix_size_(pix_size)
+        pix_size_(pix_size),
+        step_(cc_tracker_detail::compute_step(p_pts, n_pts)),
+        is_2d_(true)
     {
+        for (int i = 0; i < n_pts_; ++i)
+            if (pts_[i].z != 0.f) { is_2d_ = false; break; }
         clear();
     }
 
     void clear()
     {
-        best_psr_  = -std::numeric_limits<float>::infinity();
-        best_vec_  = {0.f,0.f,0.f};
-        best_rot_  = M33f::Identity();
+        best_psr_   = -std::numeric_limits<float>::infinity();
+        best_sigma_ = 0.f;
+        best_vec_   = {0.f,0.f,0.f};
+        best_rot_   = M33f::Identity();
 
         psr_count_ = 0;
         psr_mean_  = 0.f;
@@ -190,39 +271,51 @@ public:
     {
         const int n = std::min(n_pts, n_pts_);
 
-        if (n <= 1)
+        // Need at least 3 points: with n=2, PSR is provably always 1.0
+        // regardless of the CC values (max - mean = stddev algebraically),
+        // which gives no useful information about peak quality.
+        if (n <= 2)
             return;
 
         // ---- First level (per push) ----
-        float sum = 0.f;
-        float sqsum = 0.f;
+        // Find the true max without clamping so max_idx is always the actual
+        // best CC point (not an arbitrary clamped-to-zero neighbour).
         float max_val = p_cc[0];
         int   max_idx = 0;
+        for (int i = 1; i < n; ++i)
+            if (p_cc[i] > max_val) { max_val = p_cc[i]; max_idx = i; }
+
+        // Welford online mean/variance over raw CC values: numerically stable,
+        // avoids catastrophic cancellation in (sqsum/n − mean²).
+        // Uses biased (n) denominator so that PSR_raw = sqrt(n-1) exactly for
+        // an ideal single peak above uniform background, making the sqrt(n-1)
+        // normalisation below yield 1.0 on that ideal case.
+        float wf_mean = 0.f;
+        float wf_M2   = 0.f;
+        int   count   = 0;
 
         for (int i = 0; i < n; ++i) {
-
-            float v = std::max(p_cc[i], 0.f);
-
-            sum += v;
-            sqsum += v * v;
-
-            if (v > max_val) {
-                max_val = v;
-                max_idx = i;
-            }
+            float v = p_cc[i];
+            count++;
+            float d = v - wf_mean;
+            wf_mean += d / count;
+            wf_M2   += d * (v - wf_mean);
         }
 
-        float mean = sum / n;
-        float var  = (sqsum / n) - mean * mean;
-
+        // count == n >= 3 here; use biased variance (consistent with PSR derivation)
+        float var = wf_M2 / count;
         if (var <= 0.f)
             return;
 
         float stddev = std::sqrt(var);
-        if (stddev <= 0.f)
-            return;
 
-        float psr = (max_val - mean) / stddev;
+        // Normalise PSR by sqrt(n-1) to remove grid-size dependence.
+        // For an ideal single peak above uniform background, raw PSR equals
+        // sqrt(n-1) (with biased variance), so after normalisation the value
+        // is 1.0 regardless of n.  This makes stored PSR values comparable
+        // across grids of different sizes and keeps the count==1 return and
+        // the z-score return of get_cc() on a consistent scale.
+        float psr = (max_val - wf_mean) / (stddev * std::sqrt(float(n - 1)));
 
         // ---- Second level (Welford across angles) ----
         psr_count_++;
@@ -234,9 +327,10 @@ public:
 
         // Track best pose
         if (psr > best_psr_) {
-            best_psr_ = psr;
-            best_vec_ = pts_[max_idx];
-            best_rot_ = Rot;
+            best_psr_   = psr;
+            best_vec_   = pts_[max_idx];
+            best_rot_   = Rot;
+            best_sigma_ = cc_tracker_detail::peak_sigma(pts_, n, p_cc, step_, is_2d_, pts_[max_idx]);
         }
     }
 
@@ -248,473 +342,34 @@ public:
         if (psr_count_ == 1)
             return best_psr_;   // no variance yet
 
-        float variance = psr_M2_ / psr_count_;
+        float variance = psr_M2_ / (psr_count_ - 1);
 
         if (variance <= 0.f)
-            return best_psr_;
+            // All rotations produced identical PSR → no angular
+            // discriminability → we cannot identify a preferred pose.
+            return 0.f;
 
         float stddev = std::sqrt(variance);
 
         return std::max((best_psr_ - psr_mean_) / stddev, 0.f);
     }
 
-    Vec3 get_vec() const
-    {
-        return best_vec_;
-    }
-
-    M33f get_rot() const
-    {
-        return best_rot_;
-    }
+    Vec3 get_vec() const { return best_vec_; }
+    M33f get_rot() const { return best_rot_; }
 
     float get_dose() const
     {
-        return 0.f;
+        if (best_sigma_ <= 0.f) return 9999.f;
+        const float s    = best_sigma_ * pix_size_;
+        const float dose = float(M_PI*M_PI) * s * s;
+        return dose < 9999.f ? dose : 9999.f;
     }
 };
 
-class CcTrackAlignmentWgtAvg {
-private:
-    const Vec3* pts_;
-    int n_pts_;
-    float pix_size_;
-
-    // global accumulators (across angles)
-    float total_angle_weight_;
-    Vec3  weighted_translation_sum_;
-    Eigen::Matrix4f weighted_rotation_sum_;
-
-    // PSR threshold (optional but recommended)
-    float psr_threshold_;
-
-public:
-    CcTrackAlignmentWgtAvg(const Vec3* p_pts,
-                                int n_pts,
-                                int /*n_ang_max*/,
-                                float pix_size,
-                                float psr_threshold = 1e-5)
-        : pts_(p_pts),
-        n_pts_(n_pts),
-        pix_size_(pix_size),
-        psr_threshold_(psr_threshold)
-    {
-        clear();
-    }
-
-    void clear()
-    {
-        total_angle_weight_ = 0.f;
-        weighted_translation_sum_ = {0.f,0.f,0.f};
-        weighted_rotation_sum_    = Eigen::Matrix4f::Zero();
-    }
-
-    void push(const float* p_cc,
-              int n_pts,
-              const M33f& Rot)
-    {
-        const int n = std::min(n_pts, n_pts_);
-        if (n <= 2)   // need at least 3 samples to exclude one
-            return;
-
-        // -----------------------------
-        // 1. Find max
-        // -----------------------------
-        float max_val = p_cc[0];
-        int   max_idx = 0;
-
-        for (int i = 1; i < n; ++i) {
-            if (p_cc[i] > max_val) {
-                max_val = p_cc[i];
-                max_idx = i;
-            }
-        }
-
-        // -----------------------------
-        // 2. Compute mean/std excluding max
-        // -----------------------------
-        float sum = 0.f;
-        float sqsum = 0.f;
-        int   count = 0;
-
-        for (int i = 0; i < n; ++i) {
-            if (i == max_idx)
-                continue;
-
-            float v = p_cc[i];
-            sum   += v;
-            sqsum += v * v;
-            count++;
-        }
-
-        if (count <= 1)
-            return;
-
-        float mean = sum / count;
-        float var  = (sqsum / count) - mean * mean;
-
-        if (var <= 0.f)
-            return;
-
-        float stddev = std::sqrt(var);
-        if (stddev <= 0.f)
-            return;
-
-        float psr = (max_val - mean) / stddev;
-
-        // -----------------------------
-        // 3. Angle weight
-        // -----------------------------
-        float angle_weight = std::max(psr - psr_threshold_, 0.f);
-        if (angle_weight <= 0.f)
-            return;
-
-        // -----------------------------
-        // 4. Translation (weighted average per push)
-        // -----------------------------
-        float weight_sum = 0.f;
-        Vec3  weighted_t = {0.f,0.f,0.f};
-
-        for (int i = 0; i < n; ++i) {
-            float w = std::max(p_cc[i], 0.f);
-            weight_sum += w;
-
-            weighted_t.x += w * pts_[i].x;
-            weighted_t.y += w * pts_[i].y;
-            weighted_t.z += w * pts_[i].z;
-        }
-
-        if (weight_sum <= 0.f)
-            return;
-
-        weighted_t.x /= weight_sum;
-        weighted_t.y /= weight_sum;
-        weighted_t.z /= weight_sum;
-
-        // -----------------------------
-        // 5. Accumulate across angles
-        // -----------------------------
-        total_angle_weight_ += angle_weight;
-
-        weighted_translation_sum_.x += angle_weight * weighted_t.x;
-        weighted_translation_sum_.y += angle_weight * weighted_t.y;
-        weighted_translation_sum_.z += angle_weight * weighted_t.z;
-
-        // quaternion averaging
-        Eigen::Quaternionf q(Rot);
-        if (q.w() < 0.f)
-            q.coeffs() *= -1.f;
-
-        Eigen::Vector4f v = q.coeffs();
-        weighted_rotation_sum_ += angle_weight * (v * v.transpose());
-    }
-
-    float get_cc() const
-    {
-        return total_angle_weight_;
-    }
-
-    Vec3 get_vec() const
-    {
-        if (total_angle_weight_ <= 0.f)
-            return {0.f,0.f,0.f};
-
-        return {
-            weighted_translation_sum_.x / total_angle_weight_,
-            weighted_translation_sum_.y / total_angle_weight_,
-            weighted_translation_sum_.z / total_angle_weight_
-        };
-    }
-
-    M33f get_rot() const
-    {
-        if (total_angle_weight_ <= 0.f)
-            return M33f::Identity();
-
-        Eigen::Matrix4f M =
-            weighted_rotation_sum_ / total_angle_weight_;
-
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix4f> eig(M);
-
-        Eigen::Quaternionf q(
-            eig.eigenvectors().col(3)
-            );
-
-        return q.normalized().toRotationMatrix();
-    }
-
-    float get_dose() const
-    {
-        return 0.f;
-    }
-};
-
-class CcTrackAlignmentGaussianFit {
-private:
-    const Vec3* pts_;
-    int   n_pts_;
-    int   n_ang_max_;
-    float pix_size_;
-
-    float max_radius_;   // grid extent
-
-    float current_score_;
-    float current_sigma_;
-    Vec3  current_peak_;
-    M33f  current_rot_;
-
-public:
-
-    CcTrackAlignmentGaussianFit(const Vec3* p_pts,int n_pts,int n_ang_max,float pix_size)
-        : pts_(p_pts),
-        n_pts_(n_pts),
-        n_ang_max_(n_ang_max),
-        pix_size_(pix_size)
-    {
-        compute_sigma_threshold();
-        clear();
-    }
-
-    void compute_sigma_threshold()
-    {
-        max_radius_ = 0.f;
-
-        for (int i = 0; i < n_pts_; ++i)
-        {
-            float r = sqrtf(pts_[i].x*pts_[i].x + pts_[i].y*pts_[i].y + pts_[i].z*pts_[i].z);
-            if (r > max_radius_)
-                max_radius_ = r;
-        }
-    }
-
-    void clear()
-    {
-        current_score_ = 0.f;
-        current_sigma_ = 0.f;
-        current_peak_.x = 0;
-        current_peak_.y = 0;
-        current_peak_.z = 0;
-        current_rot_.setIdentity();
-    }
-
-    void push(const float* p_cc,
-              int n_pts,
-              const M33f& Rot)
-    {
-        const int n = std::min(n_pts, n_pts_);
-        if (n < 1) return;
-
-        // If too few points, fallback to discrete max
-        if (n < 6)
-        {
-            int imax = 0;
-            float vmax = p_cc[0];
-
-            for (int i = 1; i < n; ++i)
-            {
-                if (p_cc[i] > vmax)
-                {
-                    vmax = p_cc[i];
-                    imax = i;
-                }
-            }
-
-            if (vmax <= 0.f) return;
-
-            float score = std::sqrt(vmax);
-
-            if (score > current_score_)
-            {
-                current_score_ = score;
-                current_peak_  = pts_[imax];
-                current_rot_   = Rot;
-                current_sigma_ = 0.f; // unknown
-            }
-            return;
-        }
-
-        // ---- Nonlinear Gaussian fit for n >= 6 ----
-
-        // ---- Initial guesses ----
-        float vmax = p_cc[0];
-        float vmin = p_cc[0];
-        int imax = 0;
-
-        for (int i = 1; i < n; ++i)
-        {
-            if (p_cc[i] > vmax) { vmax = p_cc[i]; imax = i; }
-            if (p_cc[i] < vmin) vmin = p_cc[i];
-        }
-
-        if (vmax <= 0.f) return;
-
-        float A     = vmax - vmin;
-        float c     = vmin;
-        float sigma = max_radius_ / 3.f;
-
-        V3f mu(pts_[imax].x,
-               pts_[imax].y,
-               pts_[imax].z);
-
-
-        // ---- Levenberg–Marquardt iterations ----
-        const int max_iter = 30;
-        float lambda = 1e-2f;              // LM damping
-        const float lambda_up = 10.f;
-        const float lambda_down = 0.3f;
-
-        // --------------------------------------------------
-        // Levenberg–Marquardt iterations
-        // --------------------------------------------------
-        for (int iter = 0; iter < max_iter; ++iter)
-        {
-            Eigen::MatrixXf J(n,6);
-            Eigen::VectorXf r(n);
-
-            float cost = 0.f;
-
-            for (int i = 0; i < n; ++i)
-            {
-                V3f x(pts_[i].x, pts_[i].y, pts_[i].z);
-                V3f diff = x - mu;
-
-                float r2 = diff.squaredNorm();
-                float inv_sigma2 = 1.f / (sigma * sigma);
-
-                float exp_term = std::exp(-0.5f * r2 * inv_sigma2);
-
-                float model = A * exp_term + c;
-                float ri = model - p_cc[i];
-
-                r(i) = ri;
-                cost += ri * ri;
-
-                // ---- Jacobian ----
-
-                J(i,0) = exp_term;
-
-                // correct sign!
-                J(i,1) = -A * exp_term * diff.x() * inv_sigma2;
-                J(i,2) = -A * exp_term * diff.y() * inv_sigma2;
-                J(i,3) = -A * exp_term * diff.z() * inv_sigma2;
-
-                J(i,4) = A * exp_term * r2 / (sigma * sigma * sigma);
-
-                J(i,5) = 1.f;
-            }
-
-            // Build LM system
-            Eigen::MatrixXf H = J.transpose() * J;
-            Eigen::VectorXf g = J.transpose() * r;
-
-            H += lambda * H.diagonal().asDiagonal();
-
-            Eigen::VectorXf delta = -H.ldlt().solve(g);
-            // Eigen::VectorXf delta = -(H.colPivHouseholderQr().solve(g));
-            // Eigen::VectorXf delta = -(H.completeOrthogonalDecomposition().solve(g));
-
-            // Trial parameters
-            float A_new     = A      + delta(0);
-            float mux_new   = mu.x() + delta(1);
-            float muy_new   = mu.y() + delta(2);
-            float muz_new   = mu.z() + delta(3);
-            float sigma_new = sigma  + delta(4);
-            float c_new     = c      + delta(5);
-
-            if (sigma_new <= 0.f || sigma_new > max_radius_ || A_new <= 0.f)
-            {
-                lambda *= lambda_up;
-                continue;
-            }
-
-            // Compute new cost
-            float new_cost = 0.f;
-            for (int i = 0; i < n; ++i)
-            {
-                V3f x(pts_[i].x, pts_[i].y, pts_[i].z);
-                V3f diff(x.x()-mux_new,
-                         x.y()-muy_new,
-                         x.z()-muz_new);
-
-                float r2 = diff.squaredNorm();
-                float exp_term = std::exp(-r2 / (2.f * sigma_new * sigma_new));
-                float model = A_new * exp_term + c_new;
-
-                float ri = model - p_cc[i];
-                new_cost += ri * ri;
-            }
-
-            // Accept or reject
-            if (new_cost < cost)
-            {
-                A     = A_new;
-                mu.x() = mux_new;
-                mu.y() = muy_new;
-                mu.z() = muz_new;
-                sigma = sigma_new;
-                c     = c_new;
-
-                lambda *= lambda_down;
-
-                if (delta.norm() < 1e-6f)
-                    break;
-            }
-            else
-            {
-                lambda *= lambda_up;
-            }
-        }
-
-        // ---- Validity checks ----
-        if (sigma <= 0.f || sigma > max_radius_) return;
-
-        // ---- Radial projection if outside ----
-        float mu_norm = mu.norm();
-        if (mu_norm > max_radius_) mu *= (max_radius_ / mu_norm);
-
-        float score = std::sqrt(A + c);
-
-        if (score > current_score_)
-        {
-            current_score_  = score;
-            current_peak_.x = mu(0);
-            current_peak_.y = mu(1);
-            current_peak_.z = mu(2);
-            current_rot_    = Rot;
-            current_sigma_  = sigma;
-        }
-    }
-
-    float get_cc() const
-    {
-        return current_score_;
-    }
-
-    Vec3 get_vec() const
-    {
-        return current_peak_;
-    }
-
-    M33f get_rot() const
-    {
-        return current_rot_;
-    }
-
-    // ---- CryoEM B-factor / Dose ----
-    float get_dose() const
-    {
-        if (current_sigma_ <= 0.f)
-            return 0.f;
-
-        float sigma_phys = current_sigma_ * pix_size_;
-
-        return float(M_PI*M_PI) * sigma_phys * sigma_phys;
-    }
-};
 
 class CcTrackerAlignment {
 protected:
-    using tracker_t = std::variant<CcTrackAlignmentMax,CcTrackAlignmentSigma,CcTrackAlignmentWgtAvg,CcTrackAlignmentGaussianFit>;
+    using tracker_t = std::variant<CcTrackAlignmentMax,CcTrackAlignmentSigma>;
     tracker_t tracker;
 protected:
     static tracker_t make_tracker(CcStatsType_t type,const Vec3* p_pts,int n_pts,const int n_ang_max,const float pix_size) {
@@ -723,10 +378,6 @@ protected:
                 return CcTrackAlignmentMax(p_pts,n_pts,n_ang_max,pix_size);
             case CC_STATS_SIGMA:
                 return CcTrackAlignmentSigma(p_pts,n_pts,n_ang_max,pix_size);
-            case CC_STATS_WGT_AVG:
-                return CcTrackAlignmentWgtAvg(p_pts,n_pts,n_ang_max,pix_size);
-            case CC_STATS_GAUSSIAN_FIT:
-                return CcTrackAlignmentGaussianFit(p_pts,n_pts,n_ang_max,pix_size);
             default:
                 return CcTrackAlignmentMax(p_pts,n_pts,n_ang_max,pix_size);
         }

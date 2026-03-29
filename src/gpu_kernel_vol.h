@@ -245,7 +245,7 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
                 iy_h += Nh;
                 iz_h += Nh;
 
-                if (ix_h < 0 || ix_h >= M) continue;
+                if (ix_h >= M) continue;
                 if (iy_h < 0 || iy_h >= N) continue;
                 if (iz_h < 0 || iz_h >= N) continue;
 
@@ -412,7 +412,7 @@ __global__ void get_std_from_fourier(double*p_acc,cudaTextureObject_t vol,const 
         float bp = get_bp_wgt(bandpass.x,bandpass.y,bandpass.z,R);
 
         if( (bp > 0.05) && (R > 0.5) ) {
-            float2 val = tex3D<float2>(vol, pt_in.x+0.5, pt_in.y+ss_idx.y/2+0.5, pt_in.z+ss_idx.z/2+0.5);
+            float2 val = tex3D<float2>(vol, pt_in.x+0.5, pt_in.y+ss_siz.y/2+0.5, pt_in.z+ss_siz.z/2+0.5);
             val.x *= bp;
             val.y *= bp;
             double acc = cuCabsf(val);
@@ -530,7 +530,7 @@ __global__ void inv_wgt_ite_divide(double*p_vol_wgt, const double*p_conv,const i
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
         long idx = get_3d_idx(ss_idx,ss_siz);
         double den = p_conv[idx];
-        den = copysignf(fmax(abs(den),1e-2),den);
+        den = copysign(fmax(fabs(den),1e-2),den);
         p_vol_wgt[ idx ] = p_vol_wgt[ idx ] / den;
     }
 }
@@ -739,7 +739,8 @@ __global__ void add_symmetry(double2*p_val,double*p_wgt,
 }
 
 __global__ void reconstruct_pts(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t ss_cc,
-                                const Vec3*p_pts,const int n_pts,const int N,const int K) {
+                                const Rot33 R,const Vec3*p_pts,const int n_pts,
+                                const int N,const int K) {
 
     int3 ss_idx = get_th_idx();
 
@@ -747,12 +748,15 @@ __global__ void reconstruct_pts(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t
 
         float cc = 0;
         Vec3  pt = p_pts[ss_idx.x];
+        float rx,ry,rz;
+        rot_inv_pt(rx,ry,rz,R,pt);
+        Vec3  pt_r = {rx,ry,rz};
         single x,y;
         single off = (single)(N/2) + 0.5;
-        
+
         for(int z=0;z<K;z++) {
             if( pTlt[z].w > SUSAN_FLOAT_TOL  ) {
-                rot_inv_pt_XY(x,y,pTlt[z].R,pt);
+                rot_inv_pt_XY(x,y,pTlt[z].R,pt_r);
                 cc += pTlt[z].w*tex2DLayered<float>(ss_cc,x+off,y+off,z);
             }
         }

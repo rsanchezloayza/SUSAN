@@ -41,7 +41,7 @@ typedef struct {
     char   tomos_in[SUSAN_FILENAME_LENGTH];
 } Info;
 
-bool validate(const Info&info) {
+inline bool validate(const Info&info) {
     bool rslt = true;
     if( !IO::exists(info.ptcls_in) ) {
         fprintf(stderr,"Particles file %s does not exist.\n",info.ptcls_in);
@@ -58,7 +58,7 @@ bool validate(const Info&info) {
     return rslt;
 };
 
-bool parse_args(Info&info,int ac,char** av) {
+inline bool parse_args(Info&info,int ac,char** av) {
     /// Default values:
     info.n_threads   = 1;
     info.box_size    = 200;
@@ -130,7 +130,7 @@ bool parse_args(Info&info,int ac,char** av) {
     return validate(info);
 }
 
-void print(const Info&info,FILE*fp=stdout) {
+inline void print(const Info&info,FILE*fp=stdout) {
     fprintf(stdout,"\tCropping projections:\n");
 
     fprintf(stdout,"\t\tParticles file: %s.\n",info.ptcls_in);

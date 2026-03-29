@@ -57,7 +57,7 @@ typedef struct {
     char   ptcls_in [SUSAN_FILENAME_LENGTH];
 } Info;
 
-bool validate(const Info&info) {
+inline bool validate(const Info&info) {
     bool rslt = true;
     if( info.fpix_min >= info.fpix_max ) {
         fprintf(stderr,"Invalid bandpass range: %f - %f.\n",info.fpix_min,info.fpix_max);
@@ -97,7 +97,7 @@ bool validate(const Info&info) {
     return rslt;
 }
 
-bool parse_args(Info&info,int ac,char** av) {
+inline bool parse_args(Info&info,int ac,char** av) {
     /// Default values:
     info.gpu_ix        = 0;
     info.box_size      = 200;
@@ -206,7 +206,7 @@ bool parse_args(Info&info,int ac,char** av) {
     return validate(info);
 }
 
-void print_angles(const Info&info) {
+inline void print_angles(const Info&info) {
 
     AnglesProvider angles;
     angles.cone_range    = info.cone_range;
@@ -235,7 +235,7 @@ void print_angles(const Info&info) {
     fprintf(stdout,"\t\tTotal angles: %d.\n",count_total);
 }
 
-void print(const Info&info,FILE*fp=stdout) {
+inline void print(const Info&info,FILE*fp=stdout) {
     fprintf(stdout,"\tHalf-set volumes alignment\n");
 
     fprintf(stdout,"\t\tParticles in:   %s.\n",info.ptcls_in);

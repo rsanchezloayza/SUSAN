@@ -206,16 +206,28 @@ public:
         memset(p_cnt,0,n_cc*sizeof(float));
     }
 
-   void push_cc(const float*p_cc) {
+    void reset_stats() {
+        memset(p_avg,0,n_cc*sizeof(float));
+        memset(p_std,0,n_cc*sizeof(float));
+        memset(p_cnt,0,n_cc*sizeof(float));
+    }
+
+    void push_cc(const float*p_cc) {
         if( tm_type == TM_NONE )
             return;
 
+        // TODO: Welford online algorithm uses float for p_cnt; exact up to 2^24 iterations.
+        //       For very large angle sets consider switching p_cnt to int.
+        //       This could be vectorized with SIMD intrinsics for better performance, but currently not a bottleneck.
         for(int cc_index=0;cc_index<n_cc;cc_index++) {
             float cc = p_cc[cc_index];
-            c_cc [cc_index] = cc;
-            p_avg[cc_index] += cc;
-            p_std[cc_index] += (cc*cc);
+            if( cc > c_cc[cc_index] )
+                c_cc[cc_index] = cc;
             p_cnt[cc_index] += 1;
+            float delta  = cc - p_avg[cc_index];
+            p_avg[cc_index] += delta / p_cnt[cc_index];
+            float delta2 = cc - p_avg[cc_index];
+            p_std[cc_index] += delta * delta2;
         }
     }
 
@@ -247,10 +259,8 @@ public:
             z = p_z[point_id];
 
             if(save_sigma) {
-                float cc_avg = p_avg[cc_index]/p_cnt[cc_index];
-                float cc_std = p_std[cc_index]/p_cnt[cc_index];
-                cc_std = cc_std - (cc_avg*cc_avg);
-                cc_std = sqrtf(fmax(cc_std,0.0));
+                float cc_avg = p_avg[cc_index];
+                float cc_std = sqrtf(p_std[cc_index] / p_cnt[cc_index]);
                 if( cc_std > SUSAN_FLOAT_TOL )
                     c_cc[cc_index] = (c_cc[cc_index]-cc_avg)/cc_std;
                 else
@@ -265,13 +275,13 @@ public:
 	        else if( tm_type == TM_CSV )
 		        fprintf(fp,"%d,%d,%d,%d,%f,%d,%d,%.15lf\n", tid, pid, rid, proj_id, proj_w, x, y, c_cc[cc_index]);
 	    }
-	    else if ((tm_dim == 3) && (c_cc[cc_index] > 0)){
+	    else if (tm_dim == 3){
 	        if( tm_type == TM_PYTHON )
-		        fprintf(fp,"cc_tomo%03d_ptcl%d_ref%02d[%d,%d,%d] = %.15lf\n", tid, pid, rid, (z+tz),  (y+ty),  (x+tx),  c_cc[cc_index]);
+		        fprintf(fp,"cc_tomo%03d_ptcl%d_ref%02d[%d,%d,%d] = %.6f\n", tid, pid, rid, (z+tz),  (y+ty),  (x+tx),  c_cc[cc_index]);
 	        else if( tm_type == TM_MATLAB )
-		        fprintf(fp,"cc_tomo%03d_ptcl%d_ref%02d(%4d,%4d,%4d) = %.15lf;\n",tid, pid, rid, (x+tx+1), (y+ty+1), (z+tz+1), c_cc[cc_index]);
+		        fprintf(fp,"cc_tomo%03d_ptcl%d_ref%02d(%4d,%4d,%4d) = %.6f;\n",tid, pid, rid, (x+tx+1), (y+ty+1), (z+tz+1), c_cc[cc_index]);
 	        else if( tm_type == TM_CSV ) {
-		        fprintf(fp,"%d,%d,%d,%d,%d,%d,%.15lf,%d\n",tid, pid, rid, (x+tx), (y+ty), (z+tz), c_cc[cc_index],block_id);
+		        fprintf(fp,"%d,%d,%d,%d,%d,%d,%.6f,%d\n",tid, pid, rid, (x+tx), (y+ty), (z+tz), c_cc[cc_index],block_id);
 	        }
 	    }
 	}
@@ -295,7 +305,7 @@ public:
     int max_K;
     int dilate;
     bool ali_halves;
-    float bfactor_gain;
+    float expfilt_gain;
     float3 bandpass;
     float2 ssnr; /// x=F; y=S;
     DoubleBufferHandler *p_buffer;
@@ -552,7 +562,12 @@ protected:
 
         if( cc_type == CC_TYPE_CFSC ) {
             rad_avgr.calculate_FRC(ss_data.ss_fourier,ptr->K,stream);
-            rad_avgr.apply_FRC(ss_data.ss_fourier,ptr->ctf_vals,ssnr,ptr->K,stream);
+            // When Wiener-SSNR CTF correction was already applied, avoid applying
+            // the same SSNR model a second time inside the CFSC weight denominator.
+            if( ctf_type == ALI_CTF_ON_SUBSTACK_SSNR )
+                rad_avgr.apply_FRC(ss_data.ss_fourier,ptr->K,stream);
+            else
+                rad_avgr.apply_FRC(ss_data.ss_fourier,ptr->ctf_vals,ssnr,ptr->K,stream);
         }
     }
 
@@ -603,8 +618,12 @@ protected:
             //print_R(ptr->g_ali,ptr->K,stream);
         }*/
 
+        // Note: for template matching, use levels=0. With multiple refinement levels,
+        // sigma statistics are reset per level to avoid mixing coarse and fine angle
+        // distributions, but c_cc (max) accumulates across all levels.
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next() ) {
             cc_tracker.clear();
+            tm_rep.reset_stats();
             //if( ptr->ptcl.ptcl_id() == 2 ) printf("Level ======\n");
             for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
                 for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
@@ -647,13 +666,17 @@ protected:
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
 
                         // DEBUG
-                        // debug_fourier_stack("cc.mrc",ali_data.prj_c,stream);
                         // if( ptr->ptcl.ptcl_id() == 0 )
                         //     debug_fourier_stack("cc.mrc",ali_data.prj_c,stream);
 
                         ali_data.invert_fourier(ptr->K,stream);
 
-                        ali_data.sparse_reconstruct(ptr->g_ali,dilate,ptr->K,stream);
+                        Rot33 R_spc;
+                        if( off_space == REFERENCE_SPACE )
+                            Math::set(R_spc,R_tmp);
+                        else
+                            Math::set(R_spc,M33f::Identity());
+                        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,dilate,ptr->K,stream);
                         stream.sync();
 
                         cc_tracker.push(ali_data.c_cc,ali_data.n_pts,R_ite*R_lvl);
@@ -668,9 +691,19 @@ protected:
             R_lvl = cc_tracker.get_rot();
         } // REFINE
 
+        // Save the averaged rotation before the optional extra pass clears the tracker.
+        M33f R_final = cc_tracker.get_rot();
+
         update_particle_3D( ptr->ptcl,
-                           cc_tracker.get_rot(),cc_tracker.get_vec(),cc_tracker.get_cc(),
+                           R_final,cc_tracker.get_vec(),cc_tracker.get_cc(),
                            ptr->class_ix,ptr->ctf_vals.apix);
+
+        {
+            float dose = expfilt_gain * cc_tracker.get_dose();
+            for(int i = 0; i < ptr->K; i++)
+                ptr->ptcl.def[i].ExpFilt = dose;
+        }
+
         tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w,cc_stats==CC_STATS_SIGMA);
     }
 
@@ -693,7 +726,7 @@ protected:
         Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
 
         for(int i=0;i<ptr->K;i++) max_cc[i] = -INFINITY;
-        memset(max_idx,        0, sizeof(single)*ptr->K);
+        memset(max_idx,        0, sizeof(int)*ptr->K);
         memset(cc_placeholder, 0, sizeof(single)*(ptr->K)*(ali_data.n_pts));
 
         tm_rep.clear_cc();
@@ -769,7 +802,6 @@ protected:
                         // char name[2048];
                         // sprintf(name,"cc_%04d.mrc",cur_it++);
                         // debug_fourier_stack(name,ali_data.prj_c,stream);
-                        // debug_fourier_stack("cc.mrc",ali_data.prj_c,stream);
                         // if( ptr->ptcl.ptcl_id() == 0 )
                             // debug_fourier_stack("cc.mrc",ali_data.prj_c,stream);
 
@@ -820,34 +852,6 @@ protected:
         for(int i=0;i<ptr->K;i++)
             Math::set(R_rslt[i],cc_tracker_arr.get_rot(i));
 
-        if( ang_prov.max_num_angles_any_level() > 1 && cc_stats == CC_STATS_WGT_AVG ) {
-            for(int i=0;i<ptr->K;i++)
-                Math::post_transposed_rotation(ptr->c_ali.ptr[i].R,R_rslt[i]);
-
-            GPU::upload_async(ptr->g_ali.ptr,ptr->c_ali.ptr,ptr->K,stream.strm);
-            cc_tracker_arr.clear();
-            Math::set(Rot,R_ali.transpose());
-            ali_data.rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
-            ali_data.project(vol.ref,bandpass,ptr->K,stream);
-
-            if( cc_type == CC_TYPE_CFSC ) {
-                rad_avgr.calculate_FRC(ali_data.prj_c,ptr->K,stream);
-                rad_avgr.apply_FRC(ali_data.prj_c,ptr->K,stream);
-            }
-
-            if( ctf_type == ALI_CTF_ON_REFERENCE )
-                ali_data.multiply(ctf_wgt,ptr->K,stream);
-
-            ali_data.apply_bandpass(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
-            ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-
-            ali_data.invert_fourier(ptr->K,stream);
-            stream.sync();
-
-            ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
-            cc_tracker_arr.push(ali_data.c_cc,ali_data.n_pts,M33f::Identity());
-        }
-
         tm_rep.push_cc(cc_placeholder);
 
         single cc_acc=0,wgt_acc=0,cc_cur=0;
@@ -860,8 +864,7 @@ protected:
                 update_particle_2D(ptr->ptcl,
                                    max_R[i],cc_tracker_arr.get_vec(i),cc_cur,
                                    i,ptr->ctf_vals.apix);
-                if( cc_stats == CC_STATS_GAUSSIAN_FIT )
-                    ptr->ptcl.def[i].ExpFilt = bfactor_gain*cc_tracker_arr.get_dose(i);
+                ptr->ptcl.def[i].ExpFilt = expfilt_gain * cc_tracker_arr.get_dose(i);
             }
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
@@ -899,15 +902,22 @@ protected:
             printf("euler = %f, %f, %f\n",ptcl.ali_eu[ref_ix].x,ptcl.ali_eu[ref_ix].y,ptcl.ali_eu[ref_ix].z);
         }*/
 
+        Vec3 t_store = t;
+        if( off_space == REFERENCE_SPACE ) {
+            t_store.x = Rnew(0,0)*t.x + Rnew(0,1)*t.y + Rnew(0,2)*t.z;
+            t_store.y = Rnew(1,0)*t.x + Rnew(1,1)*t.y + Rnew(1,2)*t.z;
+            t_store.z = Rnew(2,0)*t.x + Rnew(2,1)*t.y + Rnew(2,2)*t.z;
+        }
+
         if( drift3D ) {
-            ptcl.ali_t[ref_ix].x += t.x*apix;
-            ptcl.ali_t[ref_ix].y += t.y*apix;
-            ptcl.ali_t[ref_ix].z += t.z*apix;
+            ptcl.ali_t[ref_ix].x += t_store.x*apix;
+            ptcl.ali_t[ref_ix].y += t_store.y*apix;
+            ptcl.ali_t[ref_ix].z += t_store.z*apix;
         }
         else {
-            ptcl.ali_t[ref_ix].x = t.x*apix;
-            ptcl.ali_t[ref_ix].y = t.y*apix;
-            ptcl.ali_t[ref_ix].z = t.z*apix;
+            ptcl.ali_t[ref_ix].x = t_store.x*apix;
+            ptcl.ali_t[ref_ix].y = t_store.y*apix;
+            ptcl.ali_t[ref_ix].z = t_store.z*apix;
         }
     }
 
@@ -1107,7 +1117,7 @@ protected:
         gpu_worker.tm_dim       = p_info->type;
         gpu_worker.tm_sigma     = p_info->tm_sigma;
         gpu_worker.dilate       = p_info->dilate;
-        gpu_worker.bfactor_gain = p_info->bfactor_gain;
+        gpu_worker.expfilt_gain = p_info->expfilt_gain;
         gpu_worker.start();
     }
 
@@ -1160,7 +1170,7 @@ protected:
         ptr->ctf_vals.LambdaPi = M_PI*lambda;
         ptr->ctf_vals.CsLambda3PiH = lambda*lambda*lambda*(p_tomo->CS*1e7)*M_PI/2;
 
-        memcpy( (void**)(ptr->c_def.ptr), (const void**)(ptr->ptcl.def), sizeof(Defocus)*ptr->K  );
+        memcpy( (void*)(ptr->c_def.ptr), (const void*)(ptr->ptcl.def), sizeof(Defocus)*ptr->K  );
 
         for(int k=0;k<ptr->K;k++) {
             if( ptr->c_def.ptr[k].max_res > 0 ) {
@@ -1208,6 +1218,7 @@ protected:
                 }*/
 
                 pt_crop = project_tomo_position(pt_tomo,p_tomo->R[k],p_tomo->t[k],ptr->ptcl.prj_t[k],drift2D);
+                if( p_tomo->pix_size == 0 ) { ptr->c_ali.ptr[k].w = 0; continue; }
                 pt_crop = pt_crop/p_tomo->pix_size + p_tomo->stk_center; /// Angstroms -> pixels
 
                 /// Get subpixel shift and setup data for upload to GPU
@@ -1255,11 +1266,13 @@ protected:
 
                             if( p_info->norm_type == ZERO_MEAN_W_STD ) {
                                 Math::normalize(ss_ptr,N*N,avg,std/ptr->ptcl.prj_w[k]);
+                                ptr->c_pad.ptr[k].x = 0;
                                 ptr->c_pad.ptr[k].y = ptr->ptcl.prj_w[k];
                             }
 
                             if( p_info->norm_type == GAT_NORMAL ) {
                                 Math::generalized_anscombe_transform_zero_mean(ss_ptr,N*N);
+                                ptr->c_pad.ptr[k].x = 0;
                                 ptr->c_pad.ptr[k].y = 1;
                             }
                         }

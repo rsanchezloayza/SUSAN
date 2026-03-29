@@ -189,7 +189,7 @@ __global__ void ctf_normalize_ps(double*p_acc, double*p_wgt, const float2*p_in, 
 
         if( p_factor[ss_idx.z].y > 0 ) {
             float2 val = p_in[get_3d_idx(ss_idx,ss_siz)]; // p_in is a stack of hermitian rfft
-            double ps  = cuCabsf(val);
+            double ps  = cuCabs(make_cuDoubleComplex(val.x, val.y));
             ps *= ps;
 
             float x = ss_idx.x;
@@ -326,7 +326,7 @@ __global__ void accumulate_ps( double*p_acc, double*p_wgt, const float2*p_in, co
         if( p_factor[ss_idx.z].y > 0 ) {
             long idx = get_3d_idx(ss_idx,ss_siz);
             float2 val = p_in[idx];
-            double ps  = cuCabsf(val);
+            double ps  = cuCabs(make_cuDoubleComplex(val.x, val.y));
             ps *= ps;
             if( ps > SUSAN_FLOAT_TOL ) {
                 p_acc[idx] += ps;
@@ -738,7 +738,6 @@ __global__ void vis_copy_data(float*p_out,const float*p_in,const float*p_env,con
             if( r > p_env_min[ss_idx.z].y ) {
                 env = p_env_min[ss_idx.z].x;
             }
-            if( x < 0 ) { x = -x; y = -y; }
             y = y+Nh;
             val = p_in[ x + y*M + ss_idx.z*N*M ];
             val = val/(2*env) + 0.5;
@@ -1155,8 +1154,6 @@ __global__ void correct_stk_wiener( float2*g_data,const float*g_ctf,const Defocu
 
             float ctf = g_ctf [ ix ];
 
-            float s = calc_s(R,ss_siz.y,ctf_const.apix);
-
             val.x = w*ctf*val.x;
             val.y = w*ctf*val.y;
             ctf  *= ctf;
@@ -1192,7 +1189,7 @@ __global__ void correct_stk_wiener_ssnr( float2*g_data,const float*g_ctf,const D
 
             float ctf = g_ctf [ ix ];
 
-            float s = calc_s(R,ss_siz.y,ctf_const.apix);;
+            float s = calc_s(R,ss_siz.y,ctf_const.apix);
             if( def[ss_idx.z].ExpFilt > 0 )
                 w *= calc_bfactor(s,def[ss_idx.z].ExpFilt);
 

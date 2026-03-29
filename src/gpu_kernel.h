@@ -287,8 +287,8 @@ __global__ void rotate_180_stk(float*p_out,const float*p_in,const int3 ss_siz) {
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
 
         long ix_in  = get_3d_idx(ss_idx,ss_siz);
-        ss_idx.x    = ss_siz.x - ss_idx.x;
-        ss_idx.y    = ss_siz.y - ss_idx.y;
+        ss_idx.x    = ss_siz.x - 1 - ss_idx.x;
+        ss_idx.y    = ss_siz.y - 1 - ss_idx.y;
         long ix_out = get_3d_idx(ss_idx,ss_siz);
 
         float val = p_in[ix_in];
@@ -926,12 +926,12 @@ __global__ void get_std_from_fourier_stk(float*p_std,const float2*p_data,const f
                 acc *= 2;
             atomicAdd( local_std , acc );
         }
-        __syncthreads();
+    }
+    __syncthreads();
 
-        if(first_thread_in_block()) {
-            float acc = local_std[0];
-            atomicAdd( p_std+ss_idx.z , acc );
-        }
+    if( first_thread_in_block() && ss_idx.z < ss_siz.z ) {
+        float acc = local_std[0];
+        atomicAdd( p_std+ss_idx.z , acc );
     }
 }
 
@@ -1837,8 +1837,8 @@ __global__ void norm_complex(float2*p_data,const int3 ss_siz) {
         if( wgt < 0.000001 )
             wgt = 1;
 
-        val.x = val.x*wgt;
-        val.y = val.y*wgt;
+        val.x = val.x/wgt;
+        val.y = val.y/wgt;
 
         p_data[ idx ] = val;
     }

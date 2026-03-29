@@ -26,11 +26,12 @@
 #include <cstring>
 #include <cstdint>
 #include <cmath>
+#include <vector>
 
 #include "datatypes.h"
 #include "math_cpu.h"
 #include "angles_symmetry.h"
-#include "memory.h"
+
 
 using namespace Eigen;
 using namespace Math;
@@ -46,8 +47,7 @@ public:
     uint32 refine_factor;
 
 protected:
-    M33f   *pseudo_sym_list;
-    uint32 pseudo_sym_length;
+    std::vector<M33f> pseudo_sym_list;
 
     uint32 curr_lvl;
     uint32 curr_sym;
@@ -77,14 +77,19 @@ public:
         curr_lvl = 0;
         curr_sym = 0;
 
-        pseudo_sym_list = AnglesSymmetry::get_rotation_list(pseudo_sym_length,"c1");
+        pseudo_sym_list = AnglesSymmetry::get_rotation_list("c1");
     }
 
     ~AnglesProvider() {
-        free_array(pseudo_sym_list);
     }
 
     int max_num_angles_any_level() {
+        const uint32 sv_lvl=curr_lvl, sv_sym=curr_sym;
+        const uint32 sv_cite=c_ite,   sv_clim=c_lim;
+        const double sv_cstp=c_stp,   sv_cend=c_end;
+        const double sv_ipini=ip_ini, sv_ipstp=ip_stp, sv_ipend=ip_end;
+        const double sv_eu1=eu1,      sv_eu2=eu2,      sv_eu3=eu3;
+
         int count_max  =0;
         int count_level=0;
         for( levels_init(); levels_available(); levels_next() ) {
@@ -99,13 +104,19 @@ public:
             if( count_level > count_max )
                 count_max = count_level;
         }
+
+        curr_lvl=sv_lvl; curr_sym=sv_sym;
+        c_ite=sv_cite;   c_lim=sv_clim;
+        c_stp=sv_cstp;   c_end=sv_cend;
+        ip_ini=sv_ipini; ip_stp=sv_ipstp; ip_end=sv_ipend;
+        eu1=sv_eu1;      eu2=sv_eu2;      eu3=sv_eu3;
+
         return count_max;
     }
 
     void set_symmetry(const char*sym_type) {
-        free_array(pseudo_sym_list);
-        pseudo_sym_list = AnglesSymmetry::get_rotation_list(pseudo_sym_length,sym_type);
-        if( pseudo_sym_list == NULL ) {
+        pseudo_sym_list = AnglesSymmetry::get_rotation_list(sym_type);
+        if( pseudo_sym_list.empty() ) {
             fprintf(stderr,"[ERROR] AnglesSymmetry: Unknown/invalid symmetry: %s.\n",sym_type);
             exit(1);
         }
@@ -143,6 +154,8 @@ public:
             double rf = (double)refine_factor;
             ip_ini = -rf*ip_stp/2;
             ip_end =  rf*ip_stp/2;
+            if( !(ip_end < 180.0) )
+                ip_end = ip_end - ip_stp;
             ip_stp = inplane_step;
             for(uint32 i=0;i<curr_lvl;i++) ip_stp = ip_stp/2;
         }
@@ -156,7 +169,7 @@ public:
         if( curr_lvl > 0 )
             return ( curr_sym < 1 );
         else
-            return ( curr_sym < pseudo_sym_length );
+            return ( curr_sym < pseudo_sym_list.size() );
     }
 
     void sym_next() {
@@ -254,7 +267,7 @@ public:
 
 protected:
     double get_angle_step(const double range, const double step) {
-        double rslt = 1.0f;
+        double rslt = 1.0;
         if( range > SUSAN_FLOAT_TOL ) {
             rslt = range / round(range/step);
         }

@@ -35,12 +35,12 @@ class PointsProvider {
 
 public:
     static Vec3 *cuboid(uint32&counter, const float x_range, const float y_range, const float z_range, const float step) {
-        float h     = (step > 0.0f) ? step : 1.0f;
-        float x_lim = h*floorf(fabsf(x_range)/h);
-        float y_lim = h*floorf(fabsf(y_range)/h);
-        float z_lim = h*floorf(fabsf(z_range)/h);
-        
-        if ((x_lim == 0) && (y_lim == 0) && (z_lim == 0)) {
+        float h  = (step > 0.0f) ? step : 1.0f;
+        int   nx = (int)floorf(fabsf(x_range)/h);
+        int   ny = (int)floorf(fabsf(y_range)/h);
+        int   nz = (int)floorf(fabsf(z_range)/h);
+
+        if ((nx == 0) && (ny == 0) && (nz == 0)) {
             counter = 1;
             Vec3 *points = new Vec3[counter];
             points[0].x = 0;
@@ -49,22 +49,15 @@ public:
             return points;
         }
 
-        float x,y,z;
-        
-        counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+h) {
-            for(y=-y_lim; y<=y_lim; y=y+h) {
-                for(x=-x_lim; x<=x_lim; x=x+h) {
-                    counter++;
-                }
-            }
-        }
-
+        counter = (uint32)(2*nz+1) * (uint32)(2*ny+1) * (uint32)(2*nx+1);
         Vec3 *points = new Vec3[counter];
         counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+h) {
-            for(y=-y_lim; y<=y_lim; y=y+h) {
-                for(x=-x_lim; x<=x_lim; x=x+h) {
+        for(int iz=-nz; iz<=nz; iz++) {
+            float z = iz * h;
+            for(int iy=-ny; iy<=ny; iy++) {
+                float y = iy * h;
+                for(int ix=-nx; ix<=nx; ix++) {
+                    float x = ix * h;
                     points[counter].x = x;
                     points[counter].y = y;
                     points[counter].z = z;
@@ -77,12 +70,12 @@ public:
     }
     
     static Vec3 *ellipsoid(uint32&counter, const float x_range, const float y_range, const float z_range, const float step) {
-        float h     = (step > 0.0f) ? step : 1.0f;
-        float x_lim = h*floorf(fabsf(x_range)/h);
-        float y_lim = h*floorf(fabsf(y_range)/h);
-        float z_lim = h*floorf(fabsf(z_range)/h);
-        
-        if ((x_lim == 0) && (y_lim == 0) && (z_lim == 0)) {
+        float h  = (step > 0.0f) ? step : 1.0f;
+        int   nx = (int)floorf(fabsf(x_range)/h);
+        int   ny = (int)floorf(fabsf(y_range)/h);
+        int   nz = (int)floorf(fabsf(z_range)/h);
+
+        if ((nx == 0) && (ny == 0) && (nz == 0)) {
             counter = 1;
             Vec3 *points = new Vec3[counter];
             points[0].x = 0;
@@ -90,45 +83,44 @@ public:
             points[0].z = 0;
             return points;
         }
-        
+
+        float x_lim = nx * h;
+        float y_lim = ny * h;
+        float z_lim = nz * h;
+
         float A2 = x_lim * x_lim;
         float B2 = y_lim * y_lim;
         float C2 = z_lim * z_lim;
-        
-        float x,y,z,kx,ky,kz,X2,Y2,Z2,R2;
-        
+
+        float kx,ky,kz,X2,Y2,Z2,R2;
+
+        // Multiply x^2/a^2 + y^2/b^2 + z^2/c^2 <= 1 through by a^2*b^2*c^2 to avoid
+        // division: x^2*b^2*c^2 + y^2*a^2*c^2 + z^2*a^2*b^2 <= a^2*b^2*c^2.
+        // For a degenerate axis (lim == 0) its term is dropped and R2 only accumulates
+        // the non-zero axes, reducing the shape to a lower-dimensional ellipsoid.
         kx = (A2 > 0.0f) ? 1.0f : 0.0f;
         ky = (B2 > 0.0f) ? 1.0f : 0.0f;
         kz = (C2 > 0.0f) ? 1.0f : 0.0f;
-        
-        if (A2 > 0.0f) {
-            ky *= A2;
-            kz *= A2;
-        }
-        if (B2 > 0.0f) {
-            kx *= B2;
-            kz *= B2;
-        }
-        if (C2 > 0.0f) {
-            kx *= C2;
-            ky *= C2;
-        }
-        
+
+        if (A2 > 0.0f) { ky *= A2; kz *= A2; }
+        if (B2 > 0.0f) { kx *= B2; kz *= B2; }
+        if (C2 > 0.0f) { kx *= C2; ky *= C2; }
+
         R2 = 1.0f;
         if (A2 > 0.0f) R2 *= A2;
         if (B2 > 0.0f) R2 *= B2;
         if (C2 > 0.0f) R2 *= C2;
-        
-        // (x^2/a^2 + y^2/b^2 + z^2/c^2 <= 1)  --> (x^2*b^2*c^2 + y^2*a^2*c^2 + z^2*a^2*b^2 <= a^2*b^2*c^2)
-        //but if any or a, b,or c, they simply get excluded from equation of the N-k dimentional ellipsoid
-        
+
         counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+h) {
-            Z2 = z * z * kz;           
-            for(y=-y_lim; y<=y_lim; y=y+h) {
-                Y2 = y * y * ky;           
-                for(x=-x_lim; x<=x_lim; x=x+h) {
-                    X2 = x * x * kx;               
+        for(int iz=-nz; iz<=nz; iz++) {
+            float z = iz * h;
+            Z2 = z * z * kz;
+            for(int iy=-ny; iy<=ny; iy++) {
+                float y = iy * h;
+                Y2 = y * y * ky;
+                for(int ix=-nx; ix<=nx; ix++) {
+                    float x = ix * h;
+                    X2 = x * x * kx;
                     if( (X2 + Y2 + Z2) <= R2 ) {
                         counter++;
                     }
@@ -138,11 +130,14 @@ public:
 
         Vec3 *points = new Vec3[counter];
         counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+h) {
+        for(int iz=-nz; iz<=nz; iz++) {
+            float z = iz * h;
             Z2 = z * z * kz;
-            for(y=-y_lim; y<=y_lim; y=y+h) {
-                Y2 = y * y * ky; 
-                for(x=-x_lim; x<=x_lim; x=x+h) {
+            for(int iy=-ny; iy<=ny; iy++) {
+                float y = iy * h;
+                Y2 = y * y * ky;
+                for(int ix=-nx; ix<=nx; ix++) {
+                    float x = ix * h;
                     X2 = x * x * kx;
                     if( (X2 + Y2 + Z2) <= R2 ) {
                         points[counter].x = x;
@@ -157,12 +152,12 @@ public:
     }
     
     static Vec3 *cylinder(uint32&counter, const float x_range, const float y_range, const float z_range, const float step) {
-        float h     = (step > 0.0f) ? step : 1.0f;
-        float x_lim = h*floorf(fabsf(x_range)/h);
-        float y_lim = h*floorf(fabsf(y_range)/h);
-        float z_lim = h*floorf(fabsf(z_range)/h);
-        
-        if ((x_lim == 0) && (y_lim == 0) && (z_lim == 0)) {
+        float h  = (step > 0.0f) ? step : 1.0f;
+        int   nx = (int)floorf(fabsf(x_range)/h);
+        int   ny = (int)floorf(fabsf(y_range)/h);
+        int   nz = (int)floorf(fabsf(z_range)/h);
+
+        if ((nx == 0) && (ny == 0) && (nz == 0)) {
             counter = 1;
             Vec3 *points = new Vec3[counter];
             points[0].x = 0;
@@ -171,27 +166,32 @@ public:
             return points;
         }
 
+        float x_lim = nx * h;
+        float y_lim = ny * h;
+
         float A2 = x_lim * x_lim;
         float B2 = y_lim * y_lim;
-        
-        float x,y,z,kx,ky,X2,Y2,R2;
-        
+
+        float kx,ky,X2,Y2,R2;
+
         kx = (A2 > 0.0f) ? 1.0f : 0.0f;
         ky = (B2 > 0.0f) ? 1.0f : 0.0f;
-        
+
         if (A2 > 0.0f) ky *= A2;
         if (B2 > 0.0f) kx *= B2;
-        
+
         R2 = 1.0f;
         if (A2 > 0.0f) R2 *= A2;
         if (B2 > 0.0f) R2 *= B2;
-        
-        // (x^2/a^2 + y^2/b^2 <= 1) --> (x^2*b^2 + y^2*a^2 = a^2*b^2), but without devision and sqrt
+
+        // (x^2/a^2 + y^2/b^2 <= 1) --> (x^2*b^2 + y^2*a^2 <= a^2*b^2), without division
         counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+h) {
-            for(y=-y_lim; y<=y_lim; y=y+h) {
+        for(int iz=-nz; iz<=nz; iz++) {
+            for(int iy=-ny; iy<=ny; iy++) {
+                float y = iy * h;
                 Y2 = y * y * ky;
-                for(x=-x_lim; x<=x_lim; x=x+h) {
+                for(int ix=-nx; ix<=nx; ix++) {
+                    float x = ix * h;
                     X2 = x * x * kx;
                     if( (X2 + Y2) <= R2 ) {
                         counter++;
@@ -202,10 +202,13 @@ public:
 
         Vec3 *points = new Vec3[counter];
         counter=0;
-        for(z=-z_lim; z<=z_lim; z=z+h) {
-            for(y=-y_lim; y<=y_lim; y=y+h) {
+        for(int iz=-nz; iz<=nz; iz++) {
+            float z = iz * h;
+            for(int iy=-ny; iy<=ny; iy++) {
+                float y = iy * h;
                 Y2 = y * y * ky;
-                for(x=-x_lim; x<=x_lim; x=x+h) {
+                for(int ix=-nx; ix<=nx; ix++) {
+                    float x = ix * h;
                     X2 = x * x * kx;
                     if( (X2 + Y2) <= R2 ) {
                         points[counter].x = x;

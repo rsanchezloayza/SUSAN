@@ -50,7 +50,7 @@ typedef struct {
     char   tomos_in[SUSAN_FILENAME_LENGTH];
 } Info;
 
-bool validate(const Info&info) {
+inline bool validate(const Info&info) {
     bool rslt = true;
     if( info.res_min <= info.res_max ) {
         fprintf(stderr,"Invalid resolution range: %f - %f.\n",info.res_min,info.res_max);
@@ -79,9 +79,9 @@ bool validate(const Info&info) {
     }
 
     return rslt;
-};
+}
 
-bool parse_args(Info&info,int ac,char** av) {
+inline bool parse_args(Info&info,int ac,char** av) {
     /// Default values:
     info.n_threads = 1;
     info.box_size  = 512;
@@ -195,44 +195,44 @@ bool parse_args(Info&info,int ac,char** av) {
     return validate(info);
 }
 
-void print(const Info&info,FILE*fp=stdout) {
-    fprintf(stdout,"\tCtf Estimation:\n");
+inline void print(const Info&info,FILE*fp=stdout) {
+    fprintf(fp,"\tCtf Estimation:\n");
 
-    fprintf(stdout,"\t\tParticles file: %s.\n",info.ptcls_in);
-    fprintf(stdout,"\t\tTomograms file: %s.\n",info.tomos_in);
-    fprintf(stdout,"\t\tOutput folder: %s.\n",info.out_dir);
+    fprintf(fp,"\t\tParticles file: %s.\n",info.ptcls_in);
+    fprintf(fp,"\t\tTomograms file: %s.\n",info.tomos_in);
+    fprintf(fp,"\t\tOutput folder: %s.\n",info.out_dir);
 
-    fprintf(stdout,"\t\tPatch size: %dx%d, ",info.box_size,info.box_size);
+    fprintf(fp,"\t\tPatch size: %dx%d, ",info.box_size,info.box_size);
     if( info.binning > 0 ) {
-    fprintf(stdout,"bin level %d.\n",info.binning);
-        }
+        fprintf(fp,"bin level %d.\n",info.binning);
+    }
     else {
-        fprintf(stdout,"no binning.\n");
+        fprintf(fp,"no binning.\n");
     }
 
     if( info.n_gpu > 1 ) {
-        fprintf(stdout,"\t\tUsing %d GPUs (GPU ids: %d",info.n_gpu,info.p_gpu[0]);
+        fprintf(fp,"\t\tUsing %d GPUs (GPU ids: %d",info.n_gpu,info.p_gpu[0]);
         for(int i=1;i<info.n_gpu;i++)
-            fprintf(stdout,",%d",info.p_gpu[i]);
-        fprintf(stdout,"), ");
+            fprintf(fp,",%d",info.p_gpu[i]);
+        fprintf(fp,"), ");
     }
     else {
-        fprintf(stdout,"\t\tUsing 1 GPU (GPU id: %d), ",info.p_gpu[0]);
+        fprintf(fp,"\t\tUsing 1 GPU (GPU id: %d), ",info.p_gpu[0]);
     }
 
     if( info.n_threads > 1 ) {
-        fprintf(stdout,"and %d threads.\n",info.n_threads);
+        fprintf(fp,"and %d threads.\n",info.n_threads);
     }
     else{
-        fprintf(stdout,"and 1 thread.\n");
+        fprintf(fp,"and 1 thread.\n");
     }
 
-    fprintf(stdout,"\t\tResolution range: %.1f - %.1f Å.\n",info.res_min,info.res_max);
-    fprintf(stdout,"\t\tDefocus range: %.2f - %.2f Å.\n",info.def_min,info.def_max);
-    fprintf(stdout,"\t\tTilt search range: %.1f Å.\n",info.tlt_range);
-    fprintf(stdout,"\t\tDefocus refinement range: %.2f Å.\n",info.ref_range);
-    fprintf(stdout,"\t\tDefocus refinement step: %.2f Å.\n",info.ref_step);
-    
+    fprintf(fp,"\t\tResolution range: %.1f - %.1f Å.\n",info.res_min,info.res_max);
+    fprintf(fp,"\t\tDefocus range: %.2f - %.2f Å.\n",info.def_min,info.def_max);
+    fprintf(fp,"\t\tTilt search range: %.1f Å.\n",info.tlt_range);
+    fprintf(fp,"\t\tDefocus refinement range: %.2f Å.\n",info.ref_range);
+    fprintf(fp,"\t\tDefocus refinement step: %.2f Å.\n",info.ref_step);
+
 }
 
 }

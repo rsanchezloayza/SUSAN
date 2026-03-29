@@ -173,9 +173,7 @@ typedef enum {
 typedef enum {
     CC_STATS_NONE=0,
     CC_STATS_PROB,
-    CC_STATS_SIGMA,
-    CC_STATS_WGT_AVG,
-    CC_STATS_GAUSSIAN_FIT
+    CC_STATS_SIGMA
 } CcStatsType_t;
 
 typedef enum {

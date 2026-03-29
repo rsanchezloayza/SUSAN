@@ -39,33 +39,33 @@ inline int div_round_up(int num, int den) {
     return  (num + den - 1) / den;
 }
 
-dim3 get_block_size_2D() {
+inline dim3 get_block_size_2D() {
     dim3 rslt( SUSAN_CUDA_WARP, div_round_up(SUSAN_CUDA_THREADS,SUSAN_CUDA_WARP), 1 );
     return rslt;
 }
 
-dim3 get_block_size_3D(int z) {
+inline dim3 get_block_size_3D(int z) {
     int den = SUSAN_CUDA_THREADS / z;
     dim3 rslt( SUSAN_CUDA_WARP, div_round_up(den,SUSAN_CUDA_WARP), z );
     return rslt;
 }
 
-dim3 calc_block_size(int th, int ws, int z) {
+inline dim3 calc_block_size(int th, int ws, int z) {
     int den = th / z;
     dim3 rslt( ws, div_round_up(den,ws), z );
     return rslt;
 }
 
-dim3 calc_grid_size(dim3&block_size, int X, int Y, int Z) {
+inline dim3 calc_grid_size(dim3&block_size, int X, int Y, int Z) {
     dim3 rslt( div_round_up(X,block_size.x), div_round_up(Y,block_size.y), div_round_up(Z,block_size.z) );
     return rslt;
 }
 
-dim3 calc_grid_size(dim3&block_size,int3&data_size) {
+inline dim3 calc_grid_size(dim3&block_size,int3&data_size) {
     return calc_grid_size(block_size,data_size.x,data_size.y,data_size.z);
 }
 
-int count_devices() {
+inline int count_devices() {
 	int devices=0;
     cudaError_t err = cudaGetDeviceCount(&devices);
     if( err != cudaSuccess ) {
@@ -76,7 +76,7 @@ int count_devices() {
     return devices;
 }
 
-void set_device(uint32 device) {
+inline void set_device(uint32 device) {
     cudaError_t err = cudaSetDevice(device);
     if( err != cudaSuccess ) {
         fprintf(stderr,"Error accesing CUDA device %d. ",device);
@@ -85,7 +85,7 @@ void set_device(uint32 device) {
     }
 }
 
-void sync() {
+inline void sync() {
     cudaError_t err = cudaDeviceSynchronize();
     if( err != cudaSuccess ) {
         fprintf(stderr,"Error synchronizing CUDA device. ");
@@ -94,7 +94,7 @@ void sync() {
     }
 }
 
-void reset() {
+inline void reset() {
     cudaError_t err = cudaDeviceReset();
     if( err != cudaSuccess ) {
         fprintf(stderr,"Error resetting CUDA device. ");
@@ -103,7 +103,7 @@ void reset() {
     }
 }
 
-bool check_gpu_id_list(const int n_gpu,const uint32 p_gpu[]) {
+inline bool check_gpu_id_list(const int n_gpu,const uint32 p_gpu[]) {
     bool rslt = true;
     if( n_gpu > 0 ) {
         int available_gpus = count_devices();
@@ -173,6 +173,7 @@ protected:
 public:
     GArr() {
         ptr = NULL;
+        internal_numel = 0;
     }
 
     ~GArr() {
@@ -183,7 +184,7 @@ public:
         free();
         cudaError_t err = cudaMalloc( (void**)(&ptr), sizeof(T)*numel );
         if( err != cudaSuccess ) {
-            fprintf(stderr,"Error allocating CUDA memory [%dx%d bytes]. ",sizeof(T),numel);
+            fprintf(stderr,"Error allocating CUDA memory [%zu bytes]. ",sizeof(T)*numel);
             fprintf(stderr,"GPU error: %s.\n",cudaGetErrorString(err));
             exit(1);
         }
@@ -210,8 +211,10 @@ public:
 
 protected:
     void free() {
-        if( ptr != NULL )
+        if( ptr != NULL ) {
             cudaFree(ptr);
+            ptr = NULL;
+        }
     }
 };
 
@@ -395,7 +398,7 @@ public:
         free();
         cudaError_t err = cudaMallocHost( (void**)(&ptr), sizeof(T)*numel );
         if( err != cudaSuccess ) {
-            fprintf(stderr,"Error allocating CUDA-host memory [%dx%d bytes]. ",sizeof(T),numel);
+            fprintf(stderr,"Error allocating CUDA-host memory [%zux%zu bytes]. ",sizeof(T),numel);
             fprintf(stderr,"GPU error: %s.\n",cudaGetErrorString(err));
             exit(1);
         }
@@ -403,8 +406,10 @@ public:
 
 protected:
     void free() {
-        if( ptr != NULL )
+        if( ptr != NULL ) {
             cudaFreeHost(ptr);
+            ptr = NULL;
+        }
     }
 };
 

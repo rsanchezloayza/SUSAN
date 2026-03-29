@@ -91,7 +91,7 @@ __global__ void gen_normal_box_muller(float*p_out,uint32*state,const uint32 new_
 
         float X,Y,out;
         X = (float)(state[idx  ]&mask);
-        if( parity_flag && ( ss_idx.y < ss_siz.y-1 ) ) {
+        if( parity_flag && ( ss_idx.x < ss_siz.x-1 ) ) {
             Y = (float)(state[idx+1]&mask);
         }
         else {
@@ -113,7 +113,7 @@ __global__ void gen_normal_box_muller(float*p_out,uint32*state,const uint32 new_
 
         p_out[idx] = avg_std.y*out + avg_std.x;
 
-        state[idx] = (state[idx]&0x07FFF) + (new_offset&0x07FFF);
+        state[idx] = (state[idx]&mask) + (new_offset&mask);
     }
 }
 

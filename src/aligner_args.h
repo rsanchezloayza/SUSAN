@@ -66,7 +66,7 @@ typedef struct {
     float  off_y;
     float  off_z;
     float  off_s;
-    float  bfactor_gain;
+    float  expfilt_gain;
 
     char   pseudo_sym[64];
 
@@ -82,7 +82,7 @@ typedef struct {
     int verbosity;
 } Info;
 
-bool validate(const Info&info) {
+inline bool validate(const Info&info) {
     bool rslt = true;
     if( (info.type < 2) || (info.type > 3) ) {
         fprintf(stderr,"Invalid type %d. Use 3 for 3D alignment or 2 for 2D.\n",info.type);
@@ -103,10 +103,10 @@ bool validate(const Info&info) {
     else {
         References refs(info.refs_file);
         if( !refs.check_fields(info.ali_halves) ) {
-            exit(1);
+            rslt = false;
         }
         if( !refs.check_size(info.box_size,info.ali_halves) ) {
-            exit(1);
+            rslt = false;
         }
     }
     if( !IO::exists(info.tomo_file) ) {
@@ -125,14 +125,14 @@ bool validate(const Info&info) {
         fprintf(stderr,"Error with CUDA devices.\n");
         rslt = false;
     }
-    if( !(strcmp(info.tm_type,"none") || strcmp(info.tm_type,"matlab") || strcmp(info.tm_type,"python") || strcmp(info.tm_type,"csv")) ) {
+    if( strcmp(info.tm_type,"none") && strcmp(info.tm_type,"matlab") && strcmp(info.tm_type,"python") && strcmp(info.tm_type,"csv") ) {
         fprintf(stderr,"Invalid template matching type [tm_type] value: %s. [none,matlab,python,csv].\n",info.tm_type);
         rslt = false;
     }
     return rslt;
 }
 
-bool parse_args(Info&info,int ac,char** av) {
+inline bool parse_args(Info&info,int ac,char** av) {
     /// Default values:
     info.n_gpu         = 0;
     info.n_threads     = 1;
@@ -165,7 +165,7 @@ bool parse_args(Info&info,int ac,char** av) {
     info.off_y         = 0;
     info.off_z         = 0;
     info.off_s         = 1;
-    info.bfactor_gain  = 1.0;
+    info.expfilt_gain  = 1.0;
     info.verbosity     = VERBOSITY_BASIC;
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
@@ -210,7 +210,7 @@ bool parse_args(Info&info,int ac,char** av) {
         TM_TYPE,
         TM_PREFIX,
         TM_SIGMA,
-        BFACTOR,
+        EXP_FILTER,
         TYPE
     };
 
@@ -247,7 +247,7 @@ bool parse_args(Info&info,int ac,char** av) {
         {"tm_prefix",   1, 0, TM_PREFIX },
         {"tm_sigma",    1, 0, TM_SIGMA  },
         {"dilate",      1, 0, DILATE    },
-        {"bfactor_gain",1, 0, BFACTOR   },
+        {"expfilt_gain",1, 0, EXP_FILTER},
         {"type",        1, 0, TYPE      },
         {0, 0, 0, 0}
     };
@@ -353,8 +353,8 @@ bool parse_args(Info&info,int ac,char** av) {
             case TM_SIGMA:
                 info.tm_sigma = atof(optarg);
                 break;
-            case BFACTOR:
-                info.bfactor_gain = atof(optarg);
+            case EXP_FILTER:
+                info.expfilt_gain = atof(optarg);
                 break;
             default:
                 printf("Unknown parameter %d\n",c);
@@ -375,7 +375,7 @@ bool parse_args(Info&info,int ac,char** av) {
     return validate(info);
 }
 
-void print_angles(const Info&info,FILE*fp,bool show_full=false) {
+inline void print_angles(const Info&info,FILE*fp,bool show_full=false) {
 
     AnglesProvider angles;
     angles.cone_range    = info.cone_range;
@@ -415,7 +415,7 @@ void print_angles(const Info&info,FILE*fp,bool show_full=false) {
         fprintf(fp," [Total: %d].\n",count_total);
 }
 
-void print_full(const Info&info,FILE*fp) {
+inline void print_full(const Info&info,FILE*fp) {
     fprintf(fp,"\tVolume %dD alignment",info.type);
     if( info.ali_halves )
         fprintf(fp," (independent half-sets)");
@@ -548,7 +548,7 @@ void print_full(const Info&info,FILE*fp) {
         fprintf(fp,"\t\tAligning each particle to its class/reference only.\n");
 }
 
-void print_basic(const Info&info,FILE*fp) {
+inline void print_basic(const Info&info,FILE*fp) {
     fprintf(fp,"  Volume %dD alignment",info.type);
     if( info.ali_halves )
         fprintf(fp," (independent half-sets)");
@@ -680,7 +680,7 @@ void print_basic(const Info&info,FILE*fp) {
         fprintf(fp,"    - Aligning each particle to its class/reference only.\n");
 }
 
-void print_minimal(const Info&info,FILE*fp) {
+inline void print_minimal(const Info&info,FILE*fp) {
     fprintf(fp,"  %dD Alignment",info.type);
     if( info.ali_halves )
         fprintf(fp," (halfmaps)");
@@ -699,7 +699,7 @@ void print_minimal(const Info&info,FILE*fp) {
         fprintf(fp," on 1 GPU.\n");
 }
 
-void print(const Info&info,FILE*fp=stdout) {
+inline void print(const Info&info,FILE*fp=stdout) {
     if( info.verbosity == VERBOSITY_FULL )
         print_full(info,fp);
     else if( info.verbosity == VERBOSITY_BASIC )

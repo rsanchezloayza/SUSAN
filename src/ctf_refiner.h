@@ -328,7 +328,7 @@ protected:
 
         for(int i=0;i<ptr->K;i++) max_cc[i] = -INFINITY;
         memset(def_rslt,0,sizeof(Defocus)*ptr->K);
-        memset(max_idx ,0,sizeof(single )*ptr->K);
+        memset(max_idx ,0,sizeof(int    )*ptr->K);
         memset(sum_cc  ,0,sizeof(single )*ptr->K);
 
         // Apply 3D alignment
@@ -585,7 +585,7 @@ protected:
         ptr->ctf_vals.LambdaPi = M_PI*lambda;
         ptr->ctf_vals.CsLambda3PiH = lambda*lambda*lambda*(p_tomo->CS*1e7)*M_PI/2;
 
-        memcpy( (void**)(ptr->c_def.ptr), (const void**)(ptr->ptcl.def), sizeof(Defocus)*ptr->K  );
+        memcpy( (void*)(ptr->c_def.ptr), (const void*)(ptr->ptcl.def), sizeof(Defocus)*ptr->K  );
 
         for(int k=0;k<ptr->K;k++) {
             if( ptr->c_def.ptr[k].max_res > 0 ) {
@@ -614,6 +614,7 @@ protected:
                 R_base = R_2D * p_tomo->R[k];
 
                 pt_crop = project_tomo_position(pt_tomo,p_tomo->R[k],p_tomo->t[k],ptr->ptcl.prj_t[k]);
+                if( p_tomo->pix_size == 0 ) { ptr->c_ali.ptr[k].w = 0; continue; }
                 pt_crop = pt_crop/p_tomo->pix_size + p_tomo->stk_center; /// Angstroms -> pixels
 
                 /// Get subpixel shift and setup data for upload to GPU

@@ -26,6 +26,7 @@
 #include <cstring>
 #include <cstdint>
 #include <cmath>
+#include <vector>
 #include <mpi.h>
 
 #include "datatypes.h"
@@ -63,16 +64,19 @@ protected:
 public:
     MpiProgress(int num_nodes) {
         MPI_Win_allocate(num_nodes*sizeof(unsigned int), sizeof(unsigned int), MPI_INFO_NULL, MPI_COMM_WORLD, &shared_buffer, &win);
-        MPI_Win_fence(0, win);
     }
 
     void put(int ix, unsigned int value) {
+        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, ix, 0, win);
         MPI_Put(&value,1,MPI_UNSIGNED,ix,ix,1,MPI_UNSIGNED,win);
+        MPI_Win_unlock(ix, win);
     }
 
     unsigned int get(int ix) {
         unsigned int value;
+        MPI_Win_lock(MPI_LOCK_SHARED, ix, 0, win);
         MPI_Get(&value,1,MPI_UNSIGNED,ix,ix,1,MPI_UNSIGNED,win);
+        MPI_Win_unlock(ix, win);
         return value;
     }
 
@@ -89,7 +93,11 @@ public:
 
     MpiInterface() : num_nodes(0), node_id(0)
     {
-        MPI_Init(NULL,NULL);
+        int err = MPI_Init(NULL,NULL);
+        if( err != MPI_SUCCESS ) {
+            fprintf(stderr,"Error initializing MPI.\n");
+            exit(1);
+        }
         MPI_Comm_size(MPI_COMM_WORLD,&num_nodes);
         MPI_Comm_rank(MPI_COMM_WORLD,&node_id);
     }
@@ -129,11 +137,13 @@ public:
 
             int offset = scatter_info.count_per_node[0];
             ParticlesSubset ptcls_scatter;
+            std::vector<MPI_Request> reqs(num_nodes-1);
             for(int i=1;i<num_nodes;i++) {
                 ptcls_scatter.set((*ptcls_in),offset,scatter_info.count_per_node[i]);
-                MPI_Send((void*)ptcls_scatter.p_raw,ptcls_scatter.n_bytes*ptcls_scatter.n_ptcl,MPI_BYTE,i,1,MPI_COMM_WORLD);
+                MPI_Isend((void*)ptcls_scatter.p_raw,ptcls_scatter.n_bytes*ptcls_scatter.n_ptcl,MPI_BYTE,i,1,MPI_COMM_WORLD,&reqs[i-1]);
                 offset += scatter_info.count_per_node[i];
             }
+            MPI_Waitall(num_nodes-1,reqs.data(),MPI_STATUSES_IGNORE);
 
             ParticlesSubset*ptcls_rslt = new ParticlesSubset;
             ptcls_rslt->set((*ptcls_in),0,scatter_info.count_per_node[0]);
@@ -153,11 +163,13 @@ public:
 
             int offset = scatter_info.count_per_node[0];
             ParticlesSubset ptcls_gather;
+            std::vector<MPI_Request> reqs(num_nodes-1);
             for(int i=1;i<num_nodes;i++) {
                 ptcls_gather.set((*ptcls_in),offset,scatter_info.count_per_node[i]);
-                MPI_Recv((void*)ptcls_gather.p_raw,ptcls_gather.n_bytes*ptcls_gather.n_ptcl,MPI_BYTE,i,2,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                MPI_Irecv((void*)ptcls_gather.p_raw,ptcls_gather.n_bytes*ptcls_gather.n_ptcl,MPI_BYTE,i,2,MPI_COMM_WORLD,&reqs[i-1]);
                 offset += scatter_info.count_per_node[i];
             }
+            MPI_Waitall(num_nodes-1,reqs.data(),MPI_STATUSES_IGNORE);
         }
         else {
             MPI_Send((void*)ptcls_scattered->p_raw,ptcls_scattered->n_bytes*ptcls_scattered->n_ptcl,MPI_BYTE,0,2,MPI_COMM_WORLD);
@@ -167,14 +179,7 @@ public:
 
 
     void delete_scattered_ptcls(Particles*ptcls_in) {
-        if( is_main_node() ) {
-            ParticlesSubset*ptcls = (ParticlesSubset*)ptcls_in;
-            delete ptcls;
-        }
-        else {
-            ParticlesMem*ptcls = (ParticlesMem*)ptcls_in;
-            delete ptcls;
-        }
+        delete ptcls_in;
     }
 };
 
