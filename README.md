@@ -39,7 +39,7 @@ We assume that `SUSAN` will be installed in the `LOCAL_SUSAN_PATH` folder (`LOCA
 2. Clone `SUSAN` to `LOCAL_SUSAN_PATH`:
    ```
    cd LOCAL_SUSAN_PATH
-   git clone https://github.com/rkms86/SUSAN
+   git clone https://github.com/rsanchezloayza/SUSAN
    ```
 3. Compile `SUSAN`:
    ```
@@ -111,7 +111,7 @@ addpath LOCAL_SUSAN_PATH
    ```
 3. Clone `SUSAN`, compile it and install it:
    ```
-   git clone https://github.com/rkms86/SUSAN
+   git clone https://github.com/rsanchezloayza/SUSAN
    mkdir SUSAN/bin
    cd SUSAN/bin
    cmake ../

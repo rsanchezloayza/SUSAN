@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=62.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "susan"
+version = "0.5"
+description = "SUSAN framework for CryoET subtomogram averaging"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.20.0",
+    "scipy>=1.6.0",
+    "numba",
+]
+
+[project.optional-dependencies]
+ml = ["torch"]
+
+[[project.authors]]
+name = "Ricardo Miguel Sánchez Loayza"
+email = "ricardo.sanchez@embl.de"
+
+[project.urls]
+Homepage = "https://github.com/rsanchezloayza/SUSAN"
+
+[tool.setuptools.package-data]
+susan = ["bin/susan*"]
