@@ -380,7 +380,7 @@ class Noise2MomentsTrainer:
         return (dz.pow(2).mean() + dy.pow(2).mean() + dx.pow(2).mean()) / 3
 
     def sparsity_loss(self, mean: _torch.Tensor) -> _torch.Tensor:
-        """L1 sparsity: penalises all amplitudes proportionally to |mean|."""
+        """L1 sparsity: penalises all amplitudes proportionally to ``|mean|``."""
         return mean.abs().mean()
 
     def variance_prior_loss(self, logvar: _torch.Tensor,
@@ -392,7 +392,7 @@ class Noise2MomentsTrainer:
     def outlier_penalty(self, mean: _torch.Tensor) -> _torch.Tensor:
         """Hinge squared penalty on predicted mean values beyond threshold.
 
-        Zero for |mean| <= outlier_threshold; grows quadratically for larger
+        Zero for ``|mean| <= outlier_threshold``; grows quadratically for larger
         values.  Since the input is zero-mean unit-std, outlier_threshold=3.0
         covers the expected signal range and only penalises genuine outliers
         in the network output.  Unlike sparsity (L1), this does not penalise

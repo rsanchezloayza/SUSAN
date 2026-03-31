@@ -63,6 +63,7 @@ class VolumePairs():
 
         self.buffer   = None
         self.tmp_base = tmp_base
+        self._head    = 0
 
     # ------------------------------------------------------------------ setup
 
@@ -74,6 +75,7 @@ class VolumePairs():
         self.buffer  = _torch.zeros(shape, dtype=_torch.float32)
         self.max_vol = num_vol
         self.num_vol = 0
+        self._head   = 0
 
     def set_size(self, vol_size: int, num_vol: int, padding: int):
         """Initialise the buffer with a symmetric fixed-padding crop region.
@@ -189,12 +191,43 @@ class VolumePairs():
     def reset(self):
         """Clear the buffer without reallocating memory.
 
-        Sets :attr:`num_vol` to ``0`` and zeroes the internal tensor.
-        Subsequent calls to :meth:`populate` will refill from index 0.
+        Sets :attr:`num_vol` to ``0``, resets the write head to slot 0,
+        and zeroes the internal tensor.  Subsequent calls to :meth:`push`
+        or :meth:`populate` will refill from the beginning.
         """
         self.num_vol = 0
+        self._head   = 0
         if self.buffer is not None:
             self.buffer.zero_()
+
+    def push(self, vol1: _np.ndarray, vol2: _np.ndarray):
+        """Write one half-map pair into the next circular buffer slot.
+
+        Overwrites the oldest entry once the buffer is full, so
+        :attr:`num_vol` never exceeds :attr:`max_vol`.  Use this to
+        refresh the training set incrementally across MACE iterations
+        without reallocating memory.
+
+        Parameters
+        ----------
+        vol1 : numpy.ndarray
+            First half-map (zero-mean, unit-std), shape
+            ``(box_size, box_size, box_size)``.
+        vol2 : numpy.ndarray
+            Second half-map, same shape.
+
+        Raises
+        ------
+        RuntimeError
+            If the buffer has not been initialised; call :meth:`set_size`
+            or :meth:`set_size_mask` first.
+        """
+        if self.buffer is None:
+            raise RuntimeError("Buffer not initialized; call set_size first")
+        self.buffer[self._head, 0] = _torch.from_numpy(self.crop_vol(vol1))
+        self.buffer[self._head, 1] = _torch.from_numpy(self.crop_vol(vol2))
+        self._head   = (self._head + 1) % self.max_vol
+        self.num_vol = min(self.num_vol + 1, self.max_vol)
 
     # ------------------------------------------------------------ population
 
@@ -218,12 +251,8 @@ class VolumePairs():
             If the buffer has not been initialised; call :meth:`set_size`
             or :meth:`set_size_mask` first.
         """
-        if self.buffer is None:
-            raise RuntimeError("Buffer not initialized; call set_size first")
         self.reset()
-        self.buffer[0, 0] = _torch.from_numpy(self.crop_vol(vol1))
-        self.buffer[0, 1] = _torch.from_numpy(self.crop_vol(vol2))
-        self.num_vol = 1
+        self.push(vol1, vol2)
 
     def populate(self, avgr, ptcls, tomo_filename: str,
                  num_entries: int = None):
@@ -272,19 +301,16 @@ class VolumePairs():
 
         try:
             count = 0
-            for ix in range(self.num_vol, self.max_vol):
+            limit = self.max_vol if num_entries is None else num_entries
+            while count < limit:
                 ptcls.halfsets_randomize()
                 ptcls.save(f'{self.tmp_base}.ptclsraw')
                 avgr.reconstruct(self.tmp_base, tomo_filename,
                                  f'{self.tmp_base}.ptclsraw', self.box_size)
                 vol1 = -_susan.read(f'{self.tmp_base}_class001_half1.mrc')
                 vol2 = -_susan.read(f'{self.tmp_base}_class001_half2.mrc')
-                self.buffer[ix, 0] = _torch.from_numpy(self.crop_vol(vol1))
-                self.buffer[ix, 1] = _torch.from_numpy(self.crop_vol(vol2))
-                self.num_vol += 1
+                self.push(vol1, vol2)
                 count += 1
-                if num_entries is not None and count >= num_entries:
-                    break
         finally:
             ptcls.half_id[:]  = half_id
             avgr.verbosity    = verbosity

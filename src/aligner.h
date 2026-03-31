@@ -1075,8 +1075,8 @@ protected:
     }
 
     void init_processing_worker(AliGpuWorker&gpu_worker,DoubleBufferHandler*stack_buffer) {
-        bp_pad = p_info->fpix_roll/2;
         float bp_scale = ((float)NP)/((float)N);
+        bp_pad = bp_scale*p_info->fpix_roll/2;
         gpu_worker.worker_id    = worker_id;
         gpu_worker.worker_cmd   = worker_cmd;
         gpu_worker.gpu_ix       = gpu_ix;
@@ -1094,8 +1094,8 @@ protected:
         gpu_worker.max_K        = max_K;
         gpu_worker.bandpass.x   = fmax(bp_scale*p_info->fpix_min-bp_pad,0.0);
         gpu_worker.bandpass.y   = fmin(bp_scale*p_info->fpix_max+bp_pad,((float)NP)/2);
-        gpu_worker.bandpass.z   = sqrt(p_info->fpix_roll);
-        gpu_worker.ssnr.x       = p_info->ssnr_F*bp_scale;
+        gpu_worker.bandpass.z   = bp_scale*sqrt(p_info->fpix_roll);
+        gpu_worker.ssnr.x       = p_info->ssnr_F;
         gpu_worker.ssnr.y       = p_info->ssnr_S;
         gpu_worker.drift2D      = drift2D;
         gpu_worker.drift3D      = drift3D;

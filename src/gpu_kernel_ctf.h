@@ -978,7 +978,7 @@ __global__ void ctf_stk_wiener_ssnr( cudaSurfaceObject_t s_stk,cudaSurfaceObject
             val.x = w*ctf*val.x;
             val.y = w*ctf*val.y;
             ctf  *= ctf;
-            ctf += calc_ssnr(R,ssnr_F,ssnr_S);
+            ctf += calc_ssnr(s,ssnr_F,ssnr_S);
         }
 
         store_surface(s_stk,val,ss_idx);
@@ -1196,7 +1196,7 @@ __global__ void correct_stk_wiener_ssnr( float2*g_data,const float*g_ctf,const D
             val.x = w*ctf*val.x;
             val.y = w*ctf*val.y;
             ctf  *= ctf;
-            ctf  += calc_ssnr(R,ssnr_F,ssnr_S);
+            ctf  += calc_ssnr(s,ssnr_F,ssnr_S);
             val.x = val.x/(ctf+0.001);
             val.y = val.y/(ctf+0.001);
         }

@@ -130,12 +130,12 @@ public:
 
         ctf_type = info->ctf_type;
 
-        bp_pad = info->fpix_roll/2;
         float bp_scale = ((float)NP)/((float)N);
+        bp_pad = bp_scale*info->fpix_roll/2;
         bandpass.x = max(bp_scale*info->fpix_min-bp_pad,0.0);
         bandpass.y = min(bp_scale*info->fpix_max+bp_pad,(float)NP/2);
-        bandpass.z = sqrt(info->fpix_roll);
-        ssnr.x     = info->ssnr_F*bp_scale;
+        bandpass.z = bp_scale*sqrt(info->fpix_roll);
+        ssnr.x     = info->ssnr_F;
         ssnr.y     = info->ssnr_S;
         w_inv_ite  = info->w_inv_ite;
         w_inv_std  = info->w_inv_std;
@@ -387,7 +387,7 @@ protected:
 
     void reconstruct_core(GPU::GArrSingle&p_vol,RecInvWgt&inv_wgt,RecInvVol&inv_vol,GPU::GArrDouble2&p_acc,GPU::GArrDouble&p_wgt) {
         float frq_scale = (float)NP/(float)N;
-        inv_wgt.invert(p_wgt,ctf_type,ssnr.y*frq_scale,ssnr.x);
+        inv_wgt.invert(p_wgt,ctf_type,ssnr.y*frq_scale,ssnr.x*frq_scale);
         inv_vol.apply_inv_wgt(p_acc,p_wgt);
         if( p_info->boost_low_fq_scale > 0 ) {
             float factor = NP;

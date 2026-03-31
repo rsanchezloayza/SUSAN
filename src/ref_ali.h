@@ -225,7 +225,7 @@ public:
 
     void correct_wiener_ssnr(const CtfConst ctf_const,GPU::GArrSingle&ctf_wgt,GPU::GArrDefocus&g_def,float3 bandpass,float2 ssnr,int k,GPU::Stream&stream) {
         // float2  ssnr; /// x=F; y=S;
-        single ssnr_f = -100*ssnr.x/(NP*ctf_const.apix);
+        single ssnr_f = -100*ssnr.x;
         single ssnr_s = pow(10,3*ssnr.y);
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
