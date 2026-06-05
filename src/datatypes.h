@@ -129,6 +129,13 @@ typedef enum {
     READY = 1
 } Status_t;
 
+typedef struct {
+    float U;
+    float V;
+    float angle_deg;
+    float phase_shift_rad;
+} DefocusDelta;
+
 typedef enum {
     VERBOSITY_MINIMAL = 0,
     VERBOSITY_BASIC,

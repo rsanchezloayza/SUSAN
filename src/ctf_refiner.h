@@ -40,6 +40,7 @@
 #include "io.h"
 #include "ref_ali.h"
 #include "ctf_refiner_args.h"
+#include "cc_tracker.h"
 #include "progress.h"
 
 typedef enum {
@@ -73,6 +74,8 @@ public:
         c_def.alloc(max_k);
         g_def.alloc(max_k);
         K = 0;
+        r_ix     = 0;
+        class_ix = 0;
     }
 
     ~CtfRefBuffer() {
@@ -107,12 +110,12 @@ protected:
             GPU::copy_async(prj_buf.ptr,data_in.ptr,M*N*k,stream.strm);
         }
 
-        void apply_ctf(GPU::GArrSingle2&data_out,float3 delta,RadialAverager&rad_avgr,CtfRefBuffer*ptr,GPU::Stream&stream) {
+        void apply_ctf(GPU::GArrSingle2&data_out,DefocusDelta delta,CtfRefBuffer*ptr,bool use_phase_flip,GPU::Stream&stream) {
+            bool use_bfactor = false;
             int3 ss = make_int3(M,N,ptr->K);
             dim3 blk = GPU::get_block_size_2D();
             dim3 grd = GPU::calc_grid_size(blk,M,N,ptr->K);
-            GpuKernelsCtf::create_ctf<<<grd,blk,0,stream.strm>>>(ctf_ite.ptr,delta,ptr->ctf_vals,ptr->g_def.ptr,false,ss);
-            rad_avgr.normalize_ctf(ctf_ite,ptr->K,stream);
+            GpuKernelsCtf::create_ctf<<<grd,blk,0,stream.strm>>>(ctf_ite.ptr,delta,ptr->ctf_vals,ptr->g_def.ptr,use_bfactor,use_phase_flip,ss);
             GpuKernels::multiply<<<grd,blk,0,stream.strm>>>(data_out.ptr,prj_buf.ptr,ctf_ite.ptr,ss);
         }
     };
@@ -129,9 +132,14 @@ public:
     float def_step;
     float ang_range;
     float ang_step;
-    bool  est_dose;
+    float ph_shft_range;
+    float ph_shft_step;
+    float offset_sigma;   // pixels; Gaussian σ on translation magnitude. 0 ⇒ disabled.
+    float defocus_sigma;  // Å;      Gaussian σ on |(dU,dV)|.            0 ⇒ disabled.
+    float phase_sigma;    // rad;    Gaussian σ on phase-shift magnitude. 0 ⇒ disabled.
     bool  use_halves;
     bool  astigmatism;
+    bool  phase_flip;
     float3 bandpass;
     float2 ssnr; /// x=F; y=S;
     float4 off_par;
@@ -268,21 +276,25 @@ protected:
 
     void add_data(AliSubstack&ss_data,CtfRefBuffer*ptr,RadialAverager&rad_avgr,GPU::Stream&stream) {
 
-        switch( pad_type ) {
-            case PAD_ZERO:
-                ss_data.pad_zero(stream);
-                break;
-            case PAD_GAUSSIAN:
-                ss_data.pad_normal(ptr->g_pad,ptr->K,stream);
-                break;
-            default:
-                break;
-        }
+        /// Steps:
+        /// - [optional] Pad the substack [gaussian or zero padding].
+        /// - Add the data to the substack.
+        /// - Apply spectral weighting CFSC+SSNR.
+        /// - Apply dose weighting/exposure filtering.
+        /// - Normalize substacks energy (per projection).
+        /// - Apply bandpass.
+
+        if( pad_type == PAD_ZERO     ) ss_data.pad_zero  (stream);
+        if( pad_type == PAD_GAUSSIAN ) ss_data.pad_normal(ptr->g_pad,ptr->K,stream);
 
         ss_data.add_data(ptr->g_stk,ptr->g_ali,ptr->K,stream);
 
         rad_avgr.calculate_FRC(ss_data.ss_fourier,ptr->K,stream);
         rad_avgr.apply_FRC(ss_data.ss_fourier,ptr->ctf_vals,ssnr,ptr->K,stream);
+
+        ss_data .apply_exposure_filt(ptr->ctf_vals,ptr->g_def,ptr->K,stream);
+        rad_avgr.normalize_stacks(ss_data.ss_fourier,ptr->K,stream);
+        ss_data .apply_bandpass(ptr->g_def,bandpass,ptr->K,stream);
     }
 
     void debug_fourier_stack(const char*filename,GPU::GArrSingle2&g_fou,GPU::Stream&stream) {
@@ -319,17 +331,13 @@ protected:
     void search_ctf(AliRef&vol,AliSubstack&ss_data,Refine&ctf_ref,CtfRefBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
 
         Rot33 Rot;
-        single max_cc[ptr->K];
-        single sum_cc[ptr->K];
-        single ite_cc[ptr->K];
-        int    max_idx[ptr->K];
-        int    ite_idx[ptr->K];
-        Defocus def_rslt[ptr->K];
-
-        for(int i=0;i<ptr->K;i++) max_cc[i] = -INFINITY;
-        memset(def_rslt,0,sizeof(Defocus)*ptr->K);
-        memset(max_idx ,0,sizeof(int    )*ptr->K);
-        memset(sum_cc  ,0,sizeof(single )*ptr->K);
+        
+        // Per-tilt joint-MAP tracker over (translation, dU, dV, dA, dP).  Three
+        // independent Gaussian priors (offset / defocus / phase) are baked into
+        // the tracker; disabled (weight = 1) when σ ≤ 0.
+        CcTrackerDefocusArrMax cc_tracker_arr(ptr->K,
+                                              ali_data.c_pts, ali_data.n_pts,
+                                              offset_sigma, defocus_sigma, phase_sigma);
 
         // Apply 3D alignment
         M33f  R_ali;
@@ -340,40 +348,42 @@ protected:
         // No additional 3D rotation per projection
         M33f  R_eye = Eigen::MatrixXf::Identity(3,3);
         Math::set(Rot,R_eye);
-        ali_data.rotate_projections(Rot,ptr->g_ali,ptr->K,stream);
-        ali_data.project(vol.ref,bandpass,ptr->K,stream);
-        rad_avgr.calculate_FRC(ali_data.prj_c,ptr->K,stream);
-        rad_avgr.apply_FRC(ali_data.prj_c,ptr->K,stream);
-        ctf_ref.load_buf(ali_data.prj_c,ptr->K,stream);
 
-        float dU,dV,dA;
-        float3 delta_w;
+        /// Steps:
+        /// - Calculate new rotation matrices.
+        /// - Project the reference.
+        /// - Apply FRC-based spectral weighting and bandpass.
+        ali_data.rotate_projections(Rot,ptr->g_ali,ptr->K,stream);
+        ali_data.project(vol.ref,ptr->g_def,bandpass,ptr->K,stream);
+
+        ctf_ref.load_buf(ali_data.prj_c,ptr->K,stream); /// Fixed copy of projections
+
+        float dU,dV,dA,dP;
+        DefocusDelta delta_w;
 
         if( astigmatism ) {
             for( dU=-def_range; dU<(def_range+0.5*def_step); dU+=def_step ) {
-                delta_w.x  = dU;
+                delta_w.U  = dU;
                 for( dV=-def_range; dV<(def_range+0.5*def_step); dV+=def_step ) {
-                    delta_w.y  = dV;
+                    delta_w.V  = dV;
                     for( dA=-ang_range; dA<(ang_range+0.5*ang_step); dA+=ang_step ) {
-                        delta_w.z  = dA;
-                        ctf_ref.apply_ctf(ali_data.prj_c,delta_w,rad_avgr,ptr,stream);
-                        ali_data.apply_bandpass(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
-                        ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-                        ali_data.invert_fourier(ptr->K,stream);
-                        stream.sync();
-                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
+                        delta_w.angle_deg  = dA;
+                        for( dP=-ph_shft_range; dP<(ph_shft_range+0.5*ph_shft_step); dP+=ph_shft_step ) {
+                            delta_w.phase_shift_rad = dP;
+                            /// - Apply CTF.
+                            /// - Normalize reference projections.
+                            ctf_ref.apply_ctf(ali_data.prj_c,delta_w,ptr,phase_flip,stream);
+                            rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
 
-                        for(int i=0;i<ptr->K;i++) {
-                            if( ptr->c_ali.ptr[i].w > 0 ) {
-                                sum_cc[i] += ite_cc[i];
-                                if( ite_cc[i] > max_cc[i] ) {
-                                    def_rslt[i].angle = dA;
-                                    def_rslt[i].U = dU;
-                                    def_rslt[i].V = dV;
-                                    max_cc[i]  = ite_cc[i];
-                                    max_idx[i] = ite_idx[i];
-                                }
-                            }
+                            /// - Multiply in fourier space.
+                            /// - Invert to real space.
+                            ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+                            ali_data.invert_fourier(ptr->K,stream);
+                            
+                            ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+                            stream.sync();
+
+                            cc_tracker_arr.push(ali_data.c_cc, ali_data.n_pts, delta_w);
                         }
                     }
                 }
@@ -381,27 +391,27 @@ protected:
         }
         else {
             for( dU=-def_range; dU<(def_range+0.5*def_step); dU+=def_step ) {
-                delta_w.x  = dU;
-                delta_w.y  = dU;
-                delta_w.z  = 0.0f;
-                ctf_ref.apply_ctf(ali_data.prj_c,delta_w,rad_avgr,ptr,stream);
-                ali_data.apply_bandpass(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
-                ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-                ali_data.invert_fourier(ptr->K,stream);
-                stream.sync();
-                ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
+                delta_w.U = dU;
+                delta_w.V = dU;
+                delta_w.angle_deg  = 0.0f;
 
-                for(int i=0;i<ptr->K;i++) {
-                    if( ptr->c_ali.ptr[i].w > 0 ) {
-                        sum_cc[i] += ite_cc[i];
-                        if( ite_cc[i] > max_cc[i] ) {
-                            def_rslt[i].angle = 0.0f;
-                            def_rslt[i].U = dU;
-                            def_rslt[i].V = dU;
-                            max_cc[i]  = ite_cc[i];
-                            max_idx[i] = ite_idx[i];
-                        }
-                    }
+                for( dP=-ph_shft_range; dP<(ph_shft_range+0.5*ph_shft_step); dP+=ph_shft_step ) {
+                    delta_w.phase_shift_rad = dP;
+                    /// - Apply CTF.
+                    /// - Normalize reference projections.
+
+                    ctf_ref.apply_ctf(ali_data.prj_c,delta_w,ptr,phase_flip,stream);
+                    rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
+
+                    /// - Multiply in fourier space.
+                    /// - Invert to real space.
+                    ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+                    ali_data.invert_fourier(ptr->K,stream);
+
+                    ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+                    stream.sync();
+
+                    cc_tracker_arr.push(ali_data.c_cc, ali_data.n_pts, delta_w);
                 }
             }
         }
@@ -409,29 +419,36 @@ protected:
         single cc_acc=0,wgt_acc=0,cc_cur=0;
         for(int i=0;i<ptr->K;i++) {
             if( ptr->c_ali.ptr[i].w > 0 ) {
-                cc_cur  = max_cc[i];
+                cc_cur   = cc_tracker_arr.get_cc(i);
                 cc_acc  += cc_cur;
                 wgt_acc += ptr->ptcl.prj_w[i];
+
+                DefocusDelta best_def = cc_tracker_arr.get_def(i);
+                Defocus      def_rslt = {};
+                def_rslt.U       = best_def.U;
+                def_rslt.V       = best_def.V;
+                def_rslt.angle   = best_def.angle_deg;
+                def_rslt.ph_shft = best_def.phase_shift_rad;
+                
                 update_particle_projection(ptr->ptcl,
-                                   def_rslt[i],ali_data.c_pts[max_idx[i]],cc_cur,
-                                   i,ptr->ctf_vals.apix);
+                                   def_rslt, cc_tracker_arr.get_vec(i), cc_cur,
+                                   i, ptr->ctf_vals.apix);
             }
         }
+        
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
     }
 
     void update_particle_projection(Particle&ptcl,const Defocus&delta_def,const Vec3&t,const single cc, const int prj_ix,const float apix) {
         if( ptcl.prj_w[prj_ix] > 0 ) {
-            ptcl.prj_cc[prj_ix] = cc;
-            ptcl.prj_t[prj_ix].x += t.x*apix;
-            ptcl.prj_t[prj_ix].y += t.y*apix;
-            ptcl.def[prj_ix].U += delta_def.U;
-            ptcl.def[prj_ix].V += delta_def.V;
-            ptcl.def[prj_ix].angle += delta_def.angle;
-            ptcl.def[prj_ix].score  = cc;
-
-            if( est_dose )
-                ptcl.def[prj_ix].ExpFilt = delta_def.ExpFilt;
+            ptcl.prj_cc[prj_ix]       = cc;
+            ptcl.prj_t[prj_ix].x     += t.x*apix;
+            ptcl.prj_t[prj_ix].y     += t.y*apix;
+            ptcl.def[prj_ix].score    = cc;
+            ptcl.def[prj_ix].U       += delta_def.U;
+            ptcl.def[prj_ix].V       += delta_def.V;
+            ptcl.def[prj_ix].angle   += delta_def.angle;
+            ptcl.def[prj_ix].ph_shft += delta_def.ph_shft;
         }
     }
 
@@ -537,6 +554,7 @@ protected:
         gpu_worker.p_refs      = p_refs;
         gpu_worker.use_halves  = p_info->use_halves;
         gpu_worker.pad_type    = pad_type;
+        gpu_worker.phase_flip  = p_info->phase_flip;
         gpu_worker.max_K       = max_K;
         gpu_worker.ssnr.x      = p_info->ssnr_F;
         gpu_worker.ssnr.y      = p_info->ssnr_S;
@@ -551,7 +569,11 @@ protected:
         gpu_worker.def_step    = p_info->def_step;
         gpu_worker.ang_range   = p_info->ang_range;
         gpu_worker.ang_step    = p_info->ang_step;
-        gpu_worker.est_dose    = p_info->est_dose;
+        gpu_worker.ph_shft_range = p_info->phase_shift_rad_span;
+        gpu_worker.ph_shft_step  = p_info->phase_shift_rad_step;
+        gpu_worker.offset_sigma  = p_info->offset_sigma;
+        gpu_worker.defocus_sigma = p_info->defocus_sigma;
+        gpu_worker.phase_sigma   = p_info->phase_sigma;
         gpu_worker.astigmatism = p_info->astigmatism;
         gpu_worker.start();
     }
@@ -603,11 +625,13 @@ protected:
         ptr->r_ix = (p_info->use_halves)?
                         2*r + (ptr->ptcl.half_id()-1): // True
                         r;                             // False
+        ptr->class_ix = r;   // index into ali_eu/ali_cc; was previously left uninitialized
 
         pt_tomo = get_tomo_position(ptr->ptcl.pos(),ptr->ptcl.ali_t[r]);
         pt_tomo = pt_tomo - p_tomo->tomo_position;
 
         for(int k=0;k<ptr->K;k++) {
+            
             if( ptr->ptcl.prj_w[k] > 0 ) {
 
                 Math::eZYZ_Rmat(R_2D,ptr->ptcl.prj_eu[k]);
@@ -649,19 +673,27 @@ protected:
                             ptr->c_pad.ptr[k].y = 1;
                         }
                         else {
-                            Math::normalize(ss_ptr,N*N,avg,std);
-
-                            ptr->c_pad.ptr[k].x = 0;
-                            ptr->c_pad.ptr[k].y = 1;
-
                             if( p_info->norm_type == ::ZERO_MEAN ) {
+                                Math::normalize(ss_ptr,N*N,avg,1.0);
+                                ptr->c_pad.ptr[k].x = 0;
                                 ptr->c_pad.ptr[k].y = std;
                             }
+
+                            if( p_info->norm_type == ::ZERO_MEAN_1_STD ) {
+                                Math::normalize(ss_ptr,N*N,avg,std);
+                                ptr->c_pad.ptr[k].x = 0;
+                                ptr->c_pad.ptr[k].y = 1.0;
+                            }
+
                             if( p_info->norm_type == ZERO_MEAN_W_STD ) {
+                                Math::normalize(ss_ptr,N*N,avg,std/ptr->ptcl.prj_w[k]);
+                                ptr->c_pad.ptr[k].x = 0;
                                 ptr->c_pad.ptr[k].y = ptr->ptcl.prj_w[k];
                             }
+
                             if( p_info->norm_type == GAT_NORMAL ) {
                                 Math::generalized_anscombe_transform_zero_mean(ss_ptr,N*N);
+                                ptr->c_pad.ptr[k].x = 0;
                                 ptr->c_pad.ptr[k].y = 1;
                             }
                         }
@@ -757,7 +789,7 @@ public:
         NP = N+P;
         MP = (NP/2)+1;
 
-        load_references(in_p_refs);
+        load_reference_spectral_weighted(in_p_refs,info->p_gpu[0]);
     }
 
     ~CtfRefinerPool() {
@@ -771,6 +803,75 @@ protected:
         p_refs = new RefMap[R];
         for(int r=0;r<R;r++) {
             p_refs[r].load(in_p_refs->at(r));
+        }
+    }
+
+    /// Loads the references applying the CFSC spectral weighting to each
+    /// reference map.  Equivalent to load_references() followed, per
+    /// reference, by a 3D spectral whitening of the masked map:
+    ///     mask * IFFT3( CFSC( FFT3( mask*vol ) ) )
+    /// so that the per-orientation projections are already spectrally
+    /// weighted and the soft mask edge is preserved (the mask is the last
+    /// real-space operation before the linear projection).
+    void load_reference_spectral_weighted(References*in_p_refs,int gpu_id) {
+        R = in_p_refs->num_refs;
+        p_refs = new RefMap[R];
+
+        GPU::set_device(gpu_id);
+
+        GPU::GArrSingle  g_real;
+        GPU::GArrSingle2 g_fourier;
+        g_real.alloc( N*N*N );
+        g_fourier.alloc( M*N*N );
+
+        GpuFFT::FFT3D  fft3;
+        GpuFFT::IFFT3D ifft3;
+        fft3.alloc(N);
+        ifft3.alloc(N);
+
+        RadialAverager radial(M,N,1);
+        GPU::Stream    stream;
+
+        dim3 blk   = GPU::get_block_size_2D();
+        dim3 grd_r = GPU::calc_grid_size(blk,N/2,N,N);
+        dim3 grd_c = GPU::calc_grid_size(blk,M,N,N/2);
+
+        for(int r=0;r<R;r++) {
+
+            /// Standard load: reads map/mask and applies the first
+            /// normalize_masked (the result is mask*vol).
+            p_refs[r].load(in_p_refs->at(r),false);
+
+            if( p_refs[r].has_ref_map() && p_refs[r].has_ref_mask() ) {
+
+                /// Upload mask*vol and switch to the FFT (corner) layout.
+                GPU::upload_async(g_real.ptr,p_refs[r].map,N*N*N,stream.strm);
+                stream.sync();
+                GpuKernels::fftshift3D<<<grd_r,blk>>>(g_real.ptr,N);
+
+                /// FFT3 -> centered layout -> CFSC spectral weighting.
+                fft3.exec(g_fourier.ptr,g_real.ptr);
+                GpuKernels::fftshift3D<<<grd_c,blk>>>(g_fourier.ptr,M,N);
+                GPU::sync();
+                radial.preset_FRC_vol(g_fourier);
+                GPU::sync();
+
+                /// Back to corner layout -> IFFT3 -> centered map.
+                GpuKernels::fftshift3D<<<grd_c,blk>>>(g_fourier.ptr,M,N);
+                ifft3.exec(g_real.ptr,g_fourier.ptr);
+                GpuKernels::fftshift3D<<<grd_r,blk>>>(g_real.ptr,N);
+                GPU::sync();
+
+                /// Download and re-apply normalize_masked: this re-masks the
+                /// soft edge and rescales (the IFFT3 N^3 factor is absorbed).
+                GPU::download_async(p_refs[r].map,g_real.ptr,N*N*N,stream.strm);
+                stream.sync();
+
+                if( !Math::normalize_masked(p_refs[r].map,p_refs[r].mask,p_refs[r].numel) ) {
+                    fprintf(stderr,"Error normalizing spectrally-weighted reference %d.\n",r);
+                    exit(1);
+                }
+            }
         }
     }
 

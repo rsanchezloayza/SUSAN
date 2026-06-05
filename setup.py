@@ -4,6 +4,7 @@
 
 import os
 import subprocess
+import sys
 from setuptools import setup, find_packages
 from setuptools.command.build_py import build_py
 from setuptools.command.editable_wheel import editable_wheel
@@ -12,7 +13,10 @@ from setuptools.command.editable_wheel import editable_wheel
 def _cmake_build(root_dir):
     build_dir = os.path.join(root_dir, "bin")
     os.makedirs(build_dir, exist_ok=True)
-    subprocess.check_call(["cmake", root_dir], cwd=build_dir)
+    subprocess.check_call(
+        ["cmake", f"-DPython_EXECUTABLE={sys.executable}", root_dir],
+        cwd=build_dir,
+    )
     subprocess.check_call(["cmake", "--build", ".", "--parallel"], cwd=build_dir)
 
 

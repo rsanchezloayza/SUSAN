@@ -17,6 +17,7 @@
 ###########################################################################
 
 import os as _os
+import math as _math
 import susan.utils.datatypes as _dt
 
 def _get_gpu_str(list_gpus_ids):
@@ -37,9 +38,6 @@ class Aligner:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    threads_per_gpu : int
-        *Deprecated.*  Must remain ``1``; use additional entries in
-        ``list_gpus_ids`` to increase parallelism instead.
     bandpass : :class:`~susan.utils.datatypes.bandpass`
         Frequency bandpass applied to both particle and reference.
         Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).
@@ -67,6 +65,55 @@ class Aligner:
     refine : :class:`~susan.utils.datatypes.refine_params`
         Multi-level angular refinement policy.
         Default: ``refine_params(0, 1)`` (no refinement).
+    angle_sigma : float
+        Width (degrees) of a Gaussian prior on the candidate orientation's
+        deviation from the previous pose.  Acts as a soft regulariser that
+        down-weights candidates with large angular offsets.  The
+        out-of-plane (cone) and in-plane (twist) deviations are penalised
+        independently with the same width and multiplied, so the
+        per-orientation score becomes
+        ``CC · exp(−θ_cone² / (2·angle_sigma²)) · exp(−θ_inplane² / (2·angle_sigma²))``
+        for the argmax tiebreak only.  Raw CC values are preserved in stats
+        and downstream outputs.
+
+        ``0`` (default) disables the prior and reproduces the unregularised
+        behaviour.  ``θ`` is the deviation from the current pose, so for a
+        search of full width ``span`` the most-deviated candidate sits at
+        ``span / 2``.  Useful settings (per axis): ``angle_sigma = span``
+        barely touches the search (edge candidate ≈ 0.88); ``span / 2`` is
+        mild (edge ≈ 0.61); ``span / 4`` is aggressive (edge ≈ 0.14).
+        Because the two axes multiply, a candidate at the edge of *both*
+        cone and in-plane gets the square of the per-axis weight
+        (e.g. ``0.88² ≈ 0.77``).
+
+        Recommended in 2-D mode (``dimensionality=2``) with a cone search,
+        where each tilt picks its own orientation and the
+        per-particle degrees of freedom can otherwise drive overfitting.
+        Set to ``0`` for coarse / template-matching searches that depend
+        on broad angular exploration.  Default: ``0`` (disabled).
+    offset_sigma : float
+        Width (pixels/voxels) of a Gaussian prior on the candidate
+        translation's magnitude.  Acts as a soft regulariser that
+        down-weights large shifts — the per-point score becomes
+        ``CC(t) · exp(−|t|² / (2·offset_sigma²))`` for the
+        translation argmax, and the combined joint score
+        ``CC · w_shift · w_angle`` drives the cross-orientation tiebreak.
+        Raw CC values are preserved in stats and downstream outputs; the
+        Sigma cc-stats tracker's PSR / z-score uses raw CC so its
+        discriminability metric is not polluted by the prior.
+
+        Units are pixels in 2-D mode and voxels in 3-D mode, matching
+        :attr:`offset` (``offset.span`` / ``offset.step``).  ``0``
+        (default) disables the prior and reproduces the unregularised
+        behaviour.  Typical useful values lie between ``offset.span / 4``
+        (aggressive: edge of the offset grid gets weight ≈ 0.14) and
+        ``offset.span / 2`` (mild: edge gets weight ≈ 0.61).
+
+        Useful when the translational search has converged near the
+        previous estimate and you want to prevent late iterations from
+        wandering due to noise.  Set to ``0`` for initial / coarse
+        alignment when the true shift may be far from the current
+        estimate.  Default: ``0`` (disabled).
     offset : :class:`~susan.utils.datatypes.offset_params`
         Translational search range, step, and shape.
         Default: ``offset_params([4, 4, 4], 1, 'ellipsoid')``.
@@ -128,11 +175,32 @@ class Aligner:
         Default: ``mpi_params('srun -n %d ', 1)``.
     verbosity : int
         Verbosity level passed to the binary (0 = silent).  Default: ``0``.
+    tm_type : str
+        Template-matching output mode.  When not ``'none'``, per-particle
+        cross-correlation statistics are written to disk for use by
+        downstream template-matching workflows.  One of ``'none'``,
+        ``'matlab'``, ``'python'``, ``'csv'``.  Default: ``'none'``.
+    tm_prefix : str
+        Filename prefix for the template-matching output files (only used
+        when :attr:`tm_type` ≠ ``'none'``).  Default: ``'template_matching'``.
+    tm_sigma : float
+        Threshold (in units of σ above the mean) below which CC values are
+        discarded when saving template-matching output.  ``0`` keeps all
+        values.  Only used when :attr:`tm_type` ≠ ``'none'``.  Default: ``0``.
+    dilate : int
+        Dilation parameter for the sparse reconstruction step used during
+        alignment scoring.  Controls how many neighbouring grid points each
+        particle's contribution spreads into.  ``0`` disables dilation.
+        Default: ``0``.
+    expfilt_gain : float
+        Multiplicative gain applied to the dose estimated by the CC tracker
+        before it is stored as the per-projection exposure-filter B-factor
+        (``def.ExpFilt``).  Useful for calibrating the auto-estimated
+        dose-weighting against an external reference.  Default: ``1``.
     """
 
     def __init__(self):
         self.list_gpus_ids     = [0]
-        self.threads_per_gpu   = 1
         self.bandpass          = _dt.bandpass(0,-1,2)
         self.dimensionality    = 3
         self.extra_padding     = 0
@@ -142,6 +210,8 @@ class Aligner:
         self.cone              = _dt.search_params(0,1)
         self.inplane           = _dt.search_params(0,1)
         self.refine            = _dt.refine_params(0,1)
+        self.angle_sigma       = 0.0
+        self.offset_sigma      = 0.0
         self.offset            = _dt.offset_params([4,4,4],1,'ellipsoid')
         self.offset_space      = 'reference'
         self.padding_type      = 'zero'
@@ -243,8 +313,8 @@ class Aligner:
         if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_proj_weight','poisson_raw','poisson_normal']:
             raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_proj_weight", "poisson_raw" or "poisson_normal" are valid')
         
-        if not self.ctf_correction in ['none','on_reference','on_substack','wiener_ssnr','cfsc']:
-            raise ValueError('Invalid ctf correction type. Only "none", "on_reference", "on_substack", "wiener_ssnr" or "cfsc" are valid')
+        if not self.ctf_correction in ['none','phase_flip','on_reference','on_substack','wiener_ssnr','cfsc']:
+            raise ValueError('Invalid ctf correction type. Only "none", "phase_flip", "on_reference", "on_substack", "wiener_ssnr" or "cfsc" are valid')
         
         if not self.cc_stats_type in ['none','probability','sigma']:
             raise ValueError('Invalid cc statistic method. Only "none", "probability" or "sigma" are valid')
@@ -266,6 +336,12 @@ class Aligner:
         else:
             if self.inplane.span < self.inplane.step:
                 raise ValueError('Inplane: Step cannot be larger than Range/Span')
+
+        if self.angle_sigma < 0:
+            raise ValueError('angle_sigma must be >= 0 (0 disables the angular prior).')
+
+        if self.offset_sigma < 0:
+            raise ValueError('offset_sigma must be >= 0 (0 disables the translational prior).')
 
     def get_args(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):
         """Build the command-line argument string for ``susan_aligner``.
@@ -292,7 +368,7 @@ class Aligner:
         self._validate()
         if self.bandpass.lowpass <= 0:
             self.bandpass.lowpass = (box_size/2) - 1
-        n_threads = len(self.list_gpus_ids)*self.threads_per_gpu
+        n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
         args = args + ' -ptcls_in '        + ptcls_in
@@ -316,6 +392,8 @@ class Aligner:
         args = args + ' -allow_drift %d'   % self.allow_drift
         args = args + ' -cone %f,%f'       % (self.cone.span,self.cone.step)
         args = args + ' -inplane %f,%f'    % (self.inplane.span,self.inplane.step)
+        args = args + ' -angle_sigma %f'   % self.angle_sigma
+        args = args + ' -offset_sigma %f'  % self.offset_sigma
         args = args + ' -refine %d,%d'     % (self.refine.factor,self.refine.levels)
         args = args + ' -off_type '        + self.offset.kind
         args = args + ' -off_params %f,%f,%f,%f' % (self.offset.span[0],self.offset.span[1],self.offset.span[2],self.offset.step)
@@ -398,9 +476,6 @@ class Averager:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    threads_per_gpu : int
-        *Deprecated.*  Must remain ``1``; use additional entries in
-        ``list_gpus_ids`` to increase parallelism instead.
     bandpass : :class:`~susan.utils.datatypes.bandpass`
         Frequency bandpass applied during back-projection.
         Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).
@@ -479,7 +554,6 @@ class Averager:
 
     def __init__(self):
         self.list_gpus_ids     = [0]
-        self.threads_per_gpu   = 1
         self.bandpass          = _dt.bandpass(0,-1,2)
         self.extra_padding     = 0
         self.rec_halfsets      = False
@@ -537,7 +611,7 @@ class Averager:
         self._validate()
         if self.bandpass.lowpass <= 0:
             self.bandpass.lowpass = (box_size/2) - 1
-        n_threads = len(self.list_gpus_ids)*self.threads_per_gpu
+        n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
         args = args + ' -out_prefix '      + out_pfx
@@ -629,9 +703,6 @@ class SubtomoRec:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    threads_per_gpu : int
-        *Deprecated.*  Must remain ``1``; use additional entries in
-        ``list_gpus_ids`` to increase parallelism instead.
     bandpass : :class:`~susan.utils.datatypes.bandpass`
         Frequency bandpass applied during back-projection.
         Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).
@@ -676,7 +747,6 @@ class SubtomoRec:
 
     def __init__(self):
         self.list_gpus_ids     = [0]
-        self.threads_per_gpu   = 1
         self.bandpass          = _dt.bandpass(0,-1,2)
         self.extra_padding     = 0
         self.padding_type      = 'zero'
@@ -728,7 +798,7 @@ class SubtomoRec:
         self._validate()
         if self.bandpass.lowpass <= 0:
             self.bandpass.lowpass = box_size/2-1
-        n_threads = len(self.list_gpus_ids)*self.threads_per_gpu
+        n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
         args = args + ' -out_dir '         + out_dir
@@ -879,9 +949,6 @@ class CtfEstimator:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    threads_per_gpu : int
-        *Deprecated.*  Must remain ``1``; use additional entries in
-        ``list_gpus_ids`` to increase parallelism instead.
     binning : int
         Binning factor applied to the patches before estimation.  ``0`` means
         no binning.  Default: ``0``.
@@ -902,13 +969,23 @@ class CtfEstimator:
     resolution_thres : float
         CTF quality threshold; fits below this score are discarded.
         Default: ``0.75``.
+    overfocus : bool
+        If ``True``, the signal is assumed to be overfocus and the estimated
+        defocus is returned as a negative value; if ``False``, it is assumed
+        to be underfocus and the defocus is returned as a positive value.
+        Default: ``False``.
+    est_phase_shift : bool
+        If ``True``, the hybrid refinement searches for an additional
+        per-projection phase shift (Volta phase plate use case) and writes it
+        to ``Defocus.ph_shft``.  If ``False``, the phase-shift search is
+        skipped and ``ph_shft`` is forced to ``0`` for every projection;
+        defocus refinement still runs normally.  Default: ``True``.
     verbose : int
         Verbosity level passed to the binary.  Default: ``0``.
     """
 
     def __init__(self):
         self.list_gpus_ids     = [0]
-        self.threads_per_gpu   = 1
         self.binning           = 0
         self.resolution_angs   = _dt.range_params(40,7)
         self.defocus_angstroms = _dt.range_params(10000,90000)
@@ -916,6 +993,8 @@ class CtfEstimator:
         self.refine_defocus    = _dt.search_params(2000,100)
         self.max_bfactor       = 600
         self.resolution_thres  = 0.75
+        self.overfocus         = False
+        self.est_phase_shift   = False
         #self.mpi               = _dt.mpi_params('srun -n %d ',1)
         self.verbose           = 0
         #self.verbosity         = 0
@@ -957,7 +1036,7 @@ class CtfEstimator:
         self._validate()
         if out_dir[-1] == '/':
             out_dir = out_dir[:-1]
-        n_threads = len(self.list_gpus_ids)*self.threads_per_gpu
+        n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_in '        + tomos_file
         args = args + ' -data_out '        + out_dir
@@ -972,23 +1051,39 @@ class CtfEstimator:
         args = args + ' -refine_def %f,%f' % (self.refine_defocus.span,self.refine_defocus.step)
         args = args + ' -binning %d'       % self.binning
         args = args + ' -bfactor_max %f'   % self.max_bfactor
+        args = args + ' -overfocus %d'     % (1 if self.overfocus else 0)
+        args = args + ' -est_phase_shift %d' % (1 if self.est_phase_shift else 0)
         args = args + ' -verbose %d'       % self.verbose
         #args = args + ' -verbosity %d'     % self.verbosity
         return args
     
-    def estimate(self, out_dir, tomos_file, ptcls_in, box_size):
-        """Execute the CTF estimation.
+    def estimate(self, out_dir, tomos_file, ptcls_in, box_size, tomos_out=None):
+        """Execute the CTF estimation and return a tomograms object with the
+        newly estimated defocus values applied.
+
+        After the ``susan_estimate_ctf`` binary completes, ``tomos_file`` is
+        re-loaded and each tomogram's defocus parameters are refreshed from
+        ``<out_dir>/Tomo<tomo_id:05d>/defocus.txt``.
 
         Parameters
         ----------
         out_dir : str
             Output directory for CTF results.
         tomos_file : str
-            Path to the ``.tomostxt`` tomograms file.
+            Path to the input ``.tomostxt`` tomograms file.
         ptcls_in : str
             Path to the input ``.ptclsraw`` particles file.
         box_size : int
             Patch size in pixels.
+        tomos_out : str, optional
+            If given, the updated tomograms object is saved to this path
+            (``.tomostxt``).
+
+        Returns
+        -------
+        :class:`susan.data.Tomograms`
+            Tomograms loaded from ``tomos_file`` with the newly estimated
+            defocus values applied for every tomogram.
 
         Raises
         ------
@@ -999,6 +1094,17 @@ class CtfEstimator:
         rslt = _os.system(cmd)
         if not rslt == 0:
             raise RuntimeError('Error executing the CTF estimation: ' + cmd)
+
+        from susan.data.Tomograms import Tomograms as _Tomograms
+        if out_dir.endswith('/'):
+            out_dir = out_dir[:-1]
+        tomos = _Tomograms(tomos_file)
+        for i in range(tomos.n_tomos):
+            def_file = '%s/Tomo%05d/defocus.txt' % (out_dir, int(tomos.tomo_id[i]))
+            tomos.set_defocus(i, def_file)
+        if tomos_out is not None:
+            tomos.save(tomos_out)
+        return tomos
 
 ###############################################################################
 
@@ -1016,9 +1122,6 @@ class CtfRefiner:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    threads_per_gpu : int
-        *Deprecated.*  Must remain ``1``; use additional entries in
-        ``list_gpus_ids`` to increase parallelism instead.
     bandpass : :class:`~susan.utils.datatypes.bandpass`
         Frequency bandpass applied during refinement.
         Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).
@@ -1036,23 +1139,59 @@ class CtfRefiner:
     halfsets_independ : bool
         Process the two half-sets with independent references.
         Default: ``False``.
-    estimate_dose_wgt : bool
-        Estimate per-projection dose-weighting factors.  Default: ``False``.
     refine_astigmatism : bool
         Refine per-particle astigmatism (``def_U``, ``def_V``, ``def_ang``).
         Default: ``False``.
+    phase_flip : bool
+        Apply CTF phase-flipping to the projections instead of full CTF
+        multiplication during refinement.  Useful when the data is noisy
+        or to prevent overfitting. Default: ``False``.
     defocus_angstroms : :class:`~susan.utils.datatypes.search_params`
         Defocus search range and step in Ångströms.
         Default: ``search_params(1000, 100)``.
     angles : :class:`~susan.utils.datatypes.search_params`
         Tilt-angle search range and step in degrees.
         Default: ``search_params(2, 1)``.
+    phase_shift_deg : :class:`~susan.utils.datatypes.search_params`
+        Phase-shift search range and step in sexagesimal degrees (converted
+        to radians before being passed to the binary).  ``span = 0`` disables
+        the search (single iteration at the stored per-projection value).
+        Useful for Volta phase-plate data where the plate setting drifts.
+        Default: ``search_params(0, 1)``.
     offset : :class:`~susan.utils.datatypes.offset_params`
         In-plane translational search range and step.
         Default: ``offset_params([4, 4, 4], 1, 'circle')``.
     ssnr : :class:`~susan.utils.datatypes.ssnr`
         Ad-hoc SSNR model for CTF weighting.
         Default: ``ssnr(0, 0.001)``.
+    offset_sigma : float
+        Width (pixels) of a Gaussian prior on the translation magnitude.
+        Down-weights large in-plane shifts during the joint
+        (defocus, phase-shift, translation) argmax — the per-point score
+        becomes ``CC(t) · exp(−|t|² / (2·offset_sigma²))``.  Raw CC values
+        are preserved in stats and downstream outputs.
+
+        ``0`` (default) disables the prior.  Typical useful values lie
+        between ``offset.span / 4`` (aggressive) and ``offset.span / 2``
+        (mild).  Default: ``0`` (disabled).
+    defocus_sigma : float
+        Width (Ångströms) of a Gaussian prior on the **isotropic** defocus
+        deviation ``|(dU, dV)|``.  Pulls the per-tilt argmax toward the
+        starting defocus, the main lever to stop noise-driven defocus
+        drift in low-signal tilts.  Form: ``exp(−(dU² + dV²) /
+        (2·defocus_sigma²))``.  In non-astigmatism mode ``dV = dU`` so the
+        formula reduces to ``exp(−dU² / defocus_sigma²)`` — the same σ
+        value is then the "1/e along dU" radius.
+
+        ``0`` (default) disables.  Typical starting values:
+        ``defocus_angstroms.span / 4`` (aggressive) to
+        ``defocus_angstroms.span / 2`` (mild).  Default: ``0`` (disabled).
+    phase_sigma_deg : float
+        Width (sexagesimal degrees) of a Gaussian prior on the phase-shift
+        deviation.  Converted to radians before being passed to the binary.
+        Form: ``exp(−dP² / (2·phase_sigma_rad²))``.
+
+        ``0`` (default) disables.  Default: ``0`` (disabled).
     mpi : :class:`~susan.utils.datatypes.mpi_params`
         MPI launcher configuration used by :meth:`refine_mpi`.
         Default: ``mpi_params('srun -n %d ', 1)``.
@@ -1062,18 +1201,21 @@ class CtfRefiner:
 
     def __init__(self):
         self.list_gpus_ids      = [0]
-        self.threads_per_gpu    = 1
         self.bandpass           = _dt.bandpass(0,-1,2)
         self.extra_padding      = 0
         self.padding_type       = 'zero'
         self.normalize_type     = 'zero_mean_one_std'
         self.halfsets_independ  = False
-        self.estimate_dose_wgt  = False
         self.refine_astigmatism = False
+        self.phase_flip         = False
         self.defocus_angstroms  = _dt.search_params(1000,100)
         self.angles             = _dt.search_params(2,1)
+        self.phase_shift_deg    = _dt.search_params(0,1)
         self.offset             = _dt.offset_params([4,4,4],1,'circle')
         self.ssnr               = _dt.ssnr(0,0.001)
+        self.offset_sigma       = 0.0
+        self.defocus_sigma      = 0.0
+        self.phase_sigma_deg    = 0.0
         self.mpi                = _dt.mpi_params('srun -n %d ',1)
         self.verbosity          = 0
 
@@ -1110,14 +1252,26 @@ class CtfRefiner:
         if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_proj_weight','poisson_raw','poisson_normal']:
             raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_proj_weight", "poisson_raw" or "poisson_normal" are valid')
         
-        if not self.defocus_angstroms.step > 0 or not self.angles.step > 0:
+        if not self.defocus_angstroms.step > 0 or not self.angles.step > 0 or not self.phase_shift_deg.step > 0:
             raise ValueError('The steps values must be larger than 0')
-        
+
         if self.defocus_angstroms.span > 0 and self.defocus_angstroms.span < self.defocus_angstroms.step:
             raise ValueError('Defocus (Angstroms): Step cannot be larger than Range/Span')
 
         if self.angles.span > 0 and self.angles.span < self.angles.step:
             raise ValueError('Angles (degrees): Step cannot be larger than Range/Span')
+
+        if self.phase_shift_deg.span > 0 and self.phase_shift_deg.span < self.phase_shift_deg.step:
+            raise ValueError('Phase shift (degrees): Step cannot be larger than Range/Span')
+
+        if self.offset_sigma < 0:
+            raise ValueError('offset_sigma must be >= 0 (0 disables the translational prior).')
+
+        if self.defocus_sigma < 0:
+            raise ValueError('defocus_sigma must be >= 0 (0 disables the defocus prior).')
+
+        if self.phase_sigma_deg < 0:
+            raise ValueError('phase_sigma_deg must be >= 0 (0 disables the phase-shift prior).')
 
     def get_args(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):
         """Build the command-line argument string for ``susan_ctf_refiner``.
@@ -1144,7 +1298,7 @@ class CtfRefiner:
         self._validate()
         if self.bandpass.lowpass <= 0:
             self.bandpass.lowpass = (box_size/2) - 1
-        n_threads = len(self.list_gpus_ids)*self.threads_per_gpu
+        n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
         args = args + ' -ptcls_in '        + ptcls_in
@@ -1161,13 +1315,17 @@ class CtfRefiner:
         args = args + ' -rolloff_f %f'     % self.bandpass.rolloff
         args = args + ' -def_search %f,%f' % (self.defocus_angstroms.span,self.defocus_angstroms.step)
         args = args + ' -ang_search %f,%f' % (self.angles.span,self.angles.step)
+        args = args + ' -phase_shift_search %f,%f' % (_math.radians(self.phase_shift_deg.span),_math.radians(self.phase_shift_deg.step))
         args = args + ' -use_halves %d'    % self.halfsets_independ
-        args = args + ' -est_dose %d'      % self.estimate_dose_wgt
         args = args + ' -verbosity %d'     % self.verbosity
         args = args + ' -astigmatism %d'   % self.refine_astigmatism
-        args = args + ' -off_params %f,%f,%f,%f' % (self.offset.span[0],self.offset.span[1],self.offset.span[2],self.offset.step)
+        args = args + ' -phase_flip %d'    % self.phase_flip
+        args = args + ' -off_params %f,%f,%f,%f'  % (self.offset.span[0],self.offset.span[1],self.offset.span[2],self.offset.step)
+        args = args + ' -offset_sigma %f'  % self.offset_sigma
+        args = args + ' -defocus_sigma %f' % self.defocus_sigma
+        args = args + ' -phase_sigma %f'   % _math.radians(self.phase_sigma_deg)
         return args
-    
+
     def refine(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):
         """Execute the CTF refinement on a single node.
 

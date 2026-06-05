@@ -58,6 +58,8 @@ typedef struct {
     float  cone_step;
     float  inplane_range;
     float  inplane_step;
+    float  angle_sigma;     // degrees; Gaussian prior σ on cone polar + in-plane deviation. 0 ⇒ disabled.
+    float  offset_sigma;    // pixels;  Gaussian prior σ on translation magnitude. 0 ⇒ disabled.
     uint32 refine_level;
     uint32 refine_factor;
     uint32 off_type;
@@ -157,6 +159,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.cone_step     = 1;
     info.inplane_range = 0;
     info.inplane_step  = 1;
+    info.angle_sigma   = 0;
+    info.offset_sigma  = 0;
     info.refine_level  = 0;
     info.refine_factor = 1;
     info.off_type      = ELLIPSOID;
@@ -202,6 +206,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
         DRIFT,
         CONE,
         INPLANE,
+        ANGLE_SIGMA,
+        OFFSET_SIGMA,
         REFINE,
         OFF_TYPE,
         OFF_SPACE,
@@ -238,6 +244,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"allow_drift", 1, 0, DRIFT     },
         {"cone",        1, 0, CONE      },
         {"inplane",     1, 0, INPLANE   },
+        {"angle_sigma", 1, 0, ANGLE_SIGMA},
+        {"offset_sigma",1, 0, OFFSET_SIGMA},
         {"refine",      1, 0, REFINE    },
         {"off_type",    1, 0, OFF_TYPE  },
         {"off_space",   1, 0, OFF_SPACE },
@@ -322,6 +330,12 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case INPLANE:
                 ArgParser::get_single_pair(info.inplane_range,info.inplane_step,optarg);
+                break;
+            case ANGLE_SIGMA:
+                info.angle_sigma = atof(optarg);
+                break;
+            case OFFSET_SIGMA:
+                info.offset_sigma = atof(optarg);
                 break;
             case REFINE:
                 ArgParser::get_uint32_pair(info.refine_factor,info.refine_level,optarg);
@@ -501,6 +515,14 @@ inline void print_full(const Info&info,FILE*fp) {
     fprintf(fp,"\t\tPseudo-symmetry search: %s.\n",info.pseudo_sym);
     fprintf(fp,"\t\tCone search:    Range=%.3f, Step=%.3f.\n",info.cone_range,info.cone_step);
     fprintf(fp,"\t\tInplane search: Range=%.3f, Step=%.3f.\n",info.inplane_range,info.inplane_step);
+    if( info.angle_sigma > 0 )
+        fprintf(fp,"\t\tAngular prior:  Gaussian σ=%.3f° on cone polar + in-plane deviation.\n",info.angle_sigma);
+    else
+        fprintf(fp,"\t\tAngular prior:  disabled.\n");
+    if( info.offset_sigma > 0 )
+        fprintf(fp,"\t\tOffset prior:   Gaussian σ=%.3f px on translation magnitude.\n",info.offset_sigma);
+    else
+        fprintf(fp,"\t\tOffset prior:   disabled.\n");
     fprintf(fp,"\t\tAngle refinement: Levels=%d, Factor=%d.\n",info.refine_level,info.refine_factor);
     print_angles(info,fp,info.verbosity>0);
     
@@ -633,6 +655,10 @@ inline void print_basic(const Info&info,FILE*fp) {
     
     fprintf(fp,"%.3f,%.3f | ",info.cone_range,info.cone_step);
     fprintf(fp,"%.3f,%.3f | ",info.inplane_range,info.inplane_step);
+    if( info.angle_sigma > 0 )
+        fprintf(fp,"σ_a=%.2f° | ",info.angle_sigma);
+    if( info.offset_sigma > 0 )
+        fprintf(fp,"σ_t=%.2fpx | ",info.offset_sigma);
     fprintf(fp,"%d|%d ]: ",info.refine_level,info.refine_factor);
     print_angles(info,fp,info.verbosity==VERBOSITY_FULL);
 

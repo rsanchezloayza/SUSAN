@@ -17,9 +17,17 @@
 ###########################################################################
 
 import numpy as _np
-from numba import jit as _jit
 from susan.utils import euZYZ_rotm as _euZYZ_rotm
-from susan.utils import rotm_euZYZ as _rotm_euZYZ
+from susan.data._ptclsgeom_core import (
+    _inplace_shift,
+    _inplace_rot_shift,
+    _outplace_shift,
+    _outplace_rot_shift,
+    _enable_by_tilt,
+    _enable_by_tilt_range,
+    _disable_closer,
+    _get_min_dist,
+)
 
 class PtclsGeom:
     """Geometry operations on Particles alignment data.
@@ -48,8 +56,8 @@ class PtclsGeom:
         else:
             if R.ndim != 2 or R.shape[0] != 3 or R.shape[1] != 3:
                 raise ValueError('R must be a 3x3 matrix.')
-        
-        return _np.float32(R)
+
+        return _np.ascontiguousarray(R, dtype=_np.float32)
     
     @staticmethod
     def _validate_single_translation(t):
@@ -61,26 +69,8 @@ class PtclsGeom:
                 raise ValueError('t must be a 3-element array/vector.')
         return t
     
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _inplace_shift(ali_eZYZ,ali_t,t):
-        R = _np.zeros((3,3),_np.float32)
-        for i in range(ali_eZYZ.shape[0]):
-            _euZYZ_rotm(R,ali_eZYZ[i])
-            tout = R@t
-            ali_t[i,:] = ali_t[i,:] + tout
-            
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _inplace_rot_shift(ali_eZYZ,ali_t,R,t):
-        R_in = _np.zeros((3,3),_np.float32)
-        Rout = _np.zeros((3,3),_np.float32)
-        for i in range(ali_eZYZ.shape[0]):
-            _euZYZ_rotm(R_in,ali_eZYZ[i])
-            Rout = (R@R_in.transpose()).transpose()
-            _rotm_euZYZ(ali_eZYZ[i],Rout)
-            tout = Rout@t
-            ali_t[i,:] = ali_t[i,:] + tout
+    _inplace_shift     = staticmethod(_inplace_shift)
+    _inplace_rot_shift = staticmethod(_inplace_rot_shift)
     
     @staticmethod
     def rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0):
@@ -137,8 +127,8 @@ class PtclsGeom:
                 raise ValueError('R must be a 3-by-3 matrix or a stack of them.')
             elif R.ndim == 2:
                 R = R[_np.newaxis,:,:]
-        
-        return R
+
+        return _np.ascontiguousarray(R, dtype=_np.float32)
 
     @staticmethod
     def _validate_multiple_translations(t):
@@ -170,32 +160,8 @@ class PtclsGeom:
         
         return R,t
     
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _outplace_shift(out_ali_t,in_ali_eZYZ,in_ali_t,t):
-        R = _np.zeros((3,3),_np.float32)
-        out_ix = 0
-        for i in range(in_ali_eZYZ.shape[0]):
-            _euZYZ_rotm(R,in_ali_eZYZ[i])
-            for j in range(t.shape[0]):
-                tout = R@t[j]
-                out_ali_t[out_ix,:] = in_ali_t[i,:] + tout
-                out_ix = out_ix + 1
-
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _outplace_rot_shift(out_ali_eZYZ,out_ali_t,in_ali_eZYZ,in_ali_t,R,t):
-        R_in = _np.zeros((3,3),_np.float32)
-        Rout = _np.zeros((3,3),_np.float32)
-        out_ix = 0
-        for i in range(in_ali_eZYZ.shape[0]):
-            _euZYZ_rotm(R_in,in_ali_eZYZ[i])
-            for j in range(t.shape[0]):
-                Rout = (R[j]@R_in.transpose()).transpose()
-                tout = Rout@t[j]
-                out_ali_t[out_ix,:] = in_ali_t[i,:] + tout
-                _rotm_euZYZ(out_ali_eZYZ[out_ix],Rout)
-                out_ix = out_ix + 1
+    _outplace_shift     = staticmethod(_outplace_shift)
+    _outplace_rot_shift = staticmethod(_outplace_rot_shift)
 
     @staticmethod
     def expand_by_rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0):
@@ -238,20 +204,23 @@ class PtclsGeom:
         return ptcls_out
         
 ###############################################################################
+    _enable_by_tilt = staticmethod(_enable_by_tilt)
+
     @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _enable_by_tilt(prj_w,tomo_cix,prj_eu,prj_wgt,tilt_min,tilt_max):
-        for p in range(prj_w.shape[0]):
-            t_id = tomo_cix[p]
-            for k in range(prj_w.shape[1]):
-                if prj_wgt[t_id,k] > 0:
-                    tilt = _np.abs(prj_eu[t_id,k,1])
-                    prj_w[p,k] = (tilt<tilt_max)&(tilt>=tilt_min)
-                else:
-                    prj_w[p,k] = 0
-    
+    def _enable_by_tilt_nominal(ptcls, tomos, tilt_deg_min, tilt_deg_max, signed):
+        cix    = ptcls.tomo_cix
+        n_proj = ptcls.prj_w.shape[1]
+        tilts  = tomos.nominal_tilt_angles[cix, :n_proj]
+        wgts   = tomos.proj_wgt[cix, :n_proj]
+        if not signed:
+            tilts = _np.abs(tilts)
+        cond = (tilts >= tilt_deg_min) & (tilts < tilt_deg_max) & (wgts > 0)
+        ptcls.prj_w[:, :n_proj] = cond.astype(_np.float32)
+        if ptcls.prj_w.shape[1] > n_proj:
+            ptcls.prj_w[:, n_proj:] = 0.0
+
     @staticmethod
-    def enable_by_tilt(ptcls, tomos, tilt_deg_max, tilt_deg_min=0):
+    def enable_by_tilt(ptcls, tomos, tilt_deg_max, tilt_deg_min=0, use_nominal=False):
         """Set per-projection weights based on tilt angle range.
 
         Projections whose absolute tilt angle falls within
@@ -268,39 +237,21 @@ class PtclsGeom:
             Maximum absolute tilt angle to include (degrees).
         tilt_deg_min : float, optional
             Minimum absolute tilt angle to include (degrees). Default 0.
+        use_nominal : bool, optional
+            If True, use ``tomos.nominal_tilt_angles`` instead of the Y
+            component of ``proj_eZYZ``.  Default False.
         """
         tilt_max = _np.abs(tilt_deg_max)
         tilt_min = _np.abs(tilt_deg_min)
-        PtclsGeom._enable_by_tilt(ptcls.prj_w,ptcls.tomo_cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
+        if use_nominal:
+            PtclsGeom._enable_by_tilt_nominal(ptcls, tomos, tilt_min, tilt_max, signed=False)
+        else:
+            PtclsGeom._enable_by_tilt(ptcls.prj_w,ptcls.tomo_cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
+
+    _enable_by_tilt_range = staticmethod(_enable_by_tilt_range)
 
     @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _enable_by_tilt_range(prj_w,tomo_cix,prj_eu,prj_wgt,tilt_min,tilt_max):
-        R  = _np.zeros((3,3),_np.float32)
-        eu = _np.zeros(3,    _np.float32)
-        for p in range(prj_w.shape[0]):
-            t_id = tomo_cix[p]
-            for k in range(prj_w.shape[1]):
-                if prj_wgt[t_id,k] > 0:
-                    eu[0] = prj_eu[t_id,k,0] * _np.pi / 180.0
-                    eu[1] = prj_eu[t_id,k,1] * _np.pi / 180.0
-                    eu[2] = prj_eu[t_id,k,2] * _np.pi / 180.0
-                    _euZYZ_rotm(R, eu)
-                    # Beam direction is the third column of R.
-                    # Project it onto the tilt direction [cos(eu0), sin(eu0), 0]
-                    # (perpendicular to the tilt axis) to get the signed
-                    # horizontal component; atan2 with R[2,2] gives the signed
-                    # tilt angle robustly in [-pi, pi].
-                    c0    = _np.cos(eu[0])
-                    s0    = _np.sin(eu[0])
-                    horiz = c0*R[0,2] + s0*R[1,2]
-                    tilt  = _np.arctan2(horiz, R[2,2])
-                    prj_w[p,k] = (tilt >= tilt_min) & (tilt < tilt_max)
-                else:
-                    prj_w[p,k] = 0
-
-    @staticmethod
-    def enable_by_tilt_range(ptcls, tomos, tilt_deg_min, tilt_deg_max):
+    def enable_by_tilt_range(ptcls, tomos, tilt_deg_min, tilt_deg_max, use_nominal=False):
         """Set per-projection weights based on a signed tilt-angle range.
 
         The tilt angle is derived from the full ZYZ rotation matrix of each
@@ -326,6 +277,10 @@ class PtclsGeom:
             Lower bound of the signed tilt range in degrees (inclusive).
         tilt_deg_max : float
             Upper bound of the signed tilt range in degrees (exclusive).
+        use_nominal : bool, optional
+            If True, use ``tomos.nominal_tilt_angles`` directly as the
+            signed stage tilt instead of deriving it from ``proj_eZYZ``.
+            Default False.
         """
         if tilt_deg_min >= tilt_deg_max:
             raise ValueError(
@@ -333,25 +288,15 @@ class PtclsGeom:
         if tilt_deg_min < -180.0 or tilt_deg_max > 180.0:
             raise ValueError(
                 f'Tilt range [{tilt_deg_min}, {tilt_deg_max}) exceeds [-180, 180] degrees.')
-        tilt_min = _np.float32(_np.deg2rad(tilt_deg_min))
-        tilt_max = _np.float32(_np.deg2rad(tilt_deg_max))
-        PtclsGeom._enable_by_tilt_range(ptcls.prj_w,ptcls.tomo_cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
+        if use_nominal:
+            PtclsGeom._enable_by_tilt_nominal(ptcls, tomos, tilt_deg_min, tilt_deg_max, signed=True)
+        else:
+            tilt_min = _np.float32(_np.deg2rad(tilt_deg_min))
+            tilt_max = _np.float32(_np.deg2rad(tilt_deg_max))
+            PtclsGeom._enable_by_tilt_range(ptcls.prj_w,ptcls.tomo_cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
 
 ###############################################################################
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _disable_closer(w_mask,pos,sort_ix,dist2):
-        N = sort_ix.size
-        for i_cur in range(N):
-            idx_cur = sort_ix[i_cur]
-            if w_mask[idx_cur]:
-                for i_nxt in range(i_cur+1,N):
-                    idx_nxt = sort_ix[i_nxt]
-                    if w_mask[idx_nxt]:
-                        vec = pos[idx_cur] - pos[idx_nxt]
-                        d   = (vec*vec).sum()
-                        if  d < dist2:
-                            w_mask[idx_nxt] = False
+    _disable_closer = staticmethod(_disable_closer)
         
     @staticmethod
     def discard_closer(ptcls, min_dist_angs, ref_idx=0, verbose=False):
@@ -386,33 +331,108 @@ class PtclsGeom:
         for tid in t_id:
             t_mask  = ptcls.tomo_cix == tid
             cur_cc  = ptcls.ali_cc[ref_idx,t_mask]
-            sort_ix = _np.argsort(cur_cc)[::-1]
+            sort_ix = _np.ascontiguousarray(_np.argsort(cur_cc)[::-1])
             pos     = ptcls.position[t_mask] + ptcls.ali_t[ref_idx,t_mask]
-            w_mask  = mask[t_mask]
+            w_mask  = _np.array(mask[t_mask], dtype=_np.uint8)
             PtclsGeom._disable_closer(w_mask,pos,sort_ix,dist)
-            mask[t_mask] = w_mask
+            mask[t_mask] = w_mask.astype(bool)
             if verbose:
                 print('\tTomogram index %3d: from %7d to %7d particles.'%(tid,sort_ix.size,w_mask.sum()))
         
         if verbose:
             print('Remaining particles: %d'%(mask.sum()))
-        
+
         return ptcls.select( mask )
-    
+
 ###############################################################################
     @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _get_min_dist(dist,pos):
-        N = pos.shape[0]
-        for idx_cur in range(N):
-            min_d   = _np.inf
-            for idx_wrk in range(N):
-                if idx_cur != idx_wrk:
-                    vec = pos[idx_cur] - pos[idx_wrk]
-                    d   = _np.sqrt( (vec*vec).sum() )
-                    if d < min_d:
-                        min_d = d
-            dist[idx_cur] = min_d
+    def discard_oversampled_views(ptcls, bin_size_deg=5.0, k_per_bin=1,
+                                  ref_idx=0, weight_mask=True, verbose=False):
+        """Flatten preferential orientation by keeping the best particles per view bin.
+
+        Particles are binned by view direction on an equal-area "ring" grid:
+        180°/bin_size_deg latitude rings, each split into a longitude count
+        proportional to sin(latitude) so cells stay compact and equal-area
+        from pole to equator.  Within each bin, up to ``k_per_bin`` particles
+        with the highest ``ali_cc`` are kept; the rest are discarded.  Returns
+        a new Particles object.
+
+        Parameters
+        ----------
+        ptcls : Particles
+        bin_size_deg : float, optional
+            Angular resolution of the equal-area grid in degrees. Default 5.0.
+        k_per_bin : int, optional
+            Maximum number of particles kept per bin. Default 1.
+        ref_idx : int, optional
+            Reference index used to read angles and cc. Default 0.
+        weight_mask : bool, optional
+            If True, particles with ``ali_w[ref_idx] <= 0`` are never kept.
+            Default True.
+        verbose : bool, optional
+            Print how many particles were kept. Default False.
+
+        Returns
+        -------
+        Particles
+        """
+        if bin_size_deg <= 0:
+            raise ValueError('bin_size_deg must be positive.')
+        if k_per_bin < 1:
+            raise ValueError('k_per_bin must be >= 1.')
+
+        n_rings = int(round(180.0/bin_size_deg))
+
+        e0 = ptcls.ali_eu[ref_idx,:,0]
+        e1 = ptcls.ali_eu[ref_idx,:,1]
+        cc = ptcls.ali_cc[ref_idx,:].astype(_np.float64,copy=True)
+
+        # View-direction unit vector (works for either ZYZ-range convention).
+        vx  = _np.cos(e0)*_np.sin(e1)
+        vy  = _np.sin(e0)*_np.sin(e1)
+        vz  = _np.cos(e1)
+        theta = _np.arccos(_np.clip(vz,-1.0,1.0))   # colatitude, [0,pi]
+        lon   = _np.arctan2(vy,vx)                  # azimuth,    [-pi,pi]
+
+        if weight_mask:
+            cc[ptcls.ali_w[ref_idx,:] <= 0] = -_np.inf
+
+        # Equal-area "ring" grid: equal-width latitude rings, each split into
+        # a longitude count proportional to sin(theta). Cell area stays ~dtheta^2
+        # and cells stay compact from pole to equator (no polar slivers).
+        ring_edges  = _np.linspace(0.0,_np.pi,n_rings+1)
+        ring_center = 0.5*(ring_edges[:-1]+ring_edges[1:])
+        n_lon_ring  = _np.maximum(1,
+            _np.round(2*n_rings*_np.sin(ring_center)).astype(_np.int64))
+        ring_offset = _np.concatenate(([0],_np.cumsum(n_lon_ring)))
+
+        r    = _np.clip(_np.digitize(theta,ring_edges)-1,0,n_rings-1)
+        frac = (lon+_np.pi)/(2*_np.pi)
+        c    = _np.clip((frac*n_lon_ring[r]).astype(_np.int64),0,n_lon_ring[r]-1)
+        cell = ring_offset[r] + c
+
+        # Sort by (cell asc, cc desc); take the first k_per_bin per cell.
+        order       = _np.lexsort((-cc,cell))
+        cell_sorted = cell[order]
+        new_cell    = _np.empty_like(cell_sorted,dtype=bool)
+        new_cell[0] = True
+        new_cell[1:] = cell_sorted[1:] != cell_sorted[:-1]
+        rank = _np.arange(cell_sorted.size) - _np.maximum.accumulate(
+            _np.where(new_cell,_np.arange(cell_sorted.size),0))
+
+        mask = _np.zeros(ptcls.n_ptcl,dtype=bool)
+        keep = order[(rank < k_per_bin) & (cc[order] > -_np.inf)]
+        mask[keep] = True
+
+        if verbose:
+            print('Kept %d / %d particles (%d filled bins of %d).'%(
+                mask.sum(),ptcls.n_ptcl,
+                _np.unique(cell[mask]).size,int(ring_offset[-1])))
+
+        return ptcls.select(mask)
+
+###############################################################################
+    _get_min_dist = staticmethod(_get_min_dist)
     
     @staticmethod
     def get_min_distance(ptcls, ref_idx=0):

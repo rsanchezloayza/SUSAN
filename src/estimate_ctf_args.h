@@ -42,6 +42,8 @@ typedef struct {
     single ref_step;
     single res_thres;
     single bfac_max;
+    bool   is_overfocus;
+    bool   est_phase_shift;
     int    verbose;
     int    n_gpu;
     uint32 p_gpu[SUSAN_MAX_N_GPU];
@@ -101,6 +103,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
     memset(info.out_dir ,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     memset(info.ptcls_in,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     memset(info.tomos_in,0,SUSAN_FILENAME_LENGTH*sizeof(char));
+    info.is_overfocus    = true;
+    info.est_phase_shift = true;
 
     /// Parse inputs:
     enum {
@@ -117,6 +121,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
         N_THREADS,
         GPU_LIST,
         BFAC_MAX,
+        OVERFOCUS,
+        EST_PHASE_SHIFT,
         VERBOSE
     };
 
@@ -135,7 +141,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"binning",    1, 0, BINNING   },
         {"gpu_list",   1, 0, GPU_LIST  },
         {"verbose",    1, 0, VERBOSE   },
-        {"bfactor_max",1, 0, BFAC_MAX  },
+        {"bfactor_max",    1, 0, BFAC_MAX        },
+        {"overfocus",      1, 0, OVERFOCUS       },
+        {"est_phase_shift",1, 0, EST_PHASE_SHIFT },
         {0, 0, 0, 0}
     };
     
@@ -163,6 +171,12 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case BINNING:
                 info.binning = atoi(optarg);
+                break;
+            case OVERFOCUS:
+                info.is_overfocus = atoi(optarg)>0;
+                break;
+            case EST_PHASE_SHIFT:
+                info.est_phase_shift = atoi(optarg)>0;
                 break;
             case GPU_LIST:
                 info.n_gpu = ArgParser::get_list_integers(info.p_gpu,optarg);
@@ -232,6 +246,7 @@ inline void print(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"\t\tTilt search range: %.1f Å.\n",info.tlt_range);
     fprintf(fp,"\t\tDefocus refinement range: %.2f Å.\n",info.ref_range);
     fprintf(fp,"\t\tDefocus refinement step: %.2f Å.\n",info.ref_step);
+    fprintf(fp,"\t\tPhase shift estimation: %s.\n",info.est_phase_shift?"enabled":"disabled");
 
 }
 

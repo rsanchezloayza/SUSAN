@@ -901,6 +901,38 @@ __global__ void get_avg_std(float*p_std, float*p_avg, const float*p_in, const in
     }
 }
 
+__global__ void get_std_from_fourier_stk(float*p_std,const float2*p_data,const int3 ss_siz) {
+
+    __shared__ float local_std[1];
+    if( first_thread_in_block() )
+        local_std[0] = 0;
+    __syncthreads();
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        float Nh = ss_siz.y/2;
+        float R  = l2_distance(ss_idx.x,ss_idx.y - ss_siz.y/2);
+        
+        if( (R < Nh) && (R > 0.5) ) {
+            long idx = get_3d_idx(ss_idx,ss_siz);
+            float2 val = p_data[idx];
+            float acc  = cuCabsf(val);
+            acc = acc*acc;
+            if( ss_idx.x > 0 && ss_idx.x < (ss_siz.x-1) )
+                acc *= 2;
+            atomicAdd( local_std , acc );
+        }
+    }
+    __syncthreads();
+
+    if( first_thread_in_block() && ss_idx.z < ss_siz.z ) {
+        float acc = local_std[0];
+        atomicAdd( p_std+ss_idx.z , acc );
+    }
+}
+
 __global__ void get_std_from_fourier_stk(float*p_std,const float2*p_data,const float3 bandpass,const int3 ss_siz) {
 
     __shared__ float local_std[1];
@@ -922,7 +954,7 @@ __global__ void get_std_from_fourier_stk(float*p_std,const float2*p_data,const f
             val.y *= bp;
             float acc = cuCabsf(val);
             acc = acc*acc;
-            if( ss_idx.x > 0 )
+            if( ss_idx.x > 0 && ss_idx.x < (ss_siz.x-1) )
                 acc *= 2;
             atomicAdd( local_std , acc );
         }
@@ -1225,7 +1257,11 @@ __global__ void radial_frc_avg_vol(float*p_avg,const float2*p_in,const int3 ss_s
         int    idx = r;
         float  out = (val.x*val.x) + (val.y*val.y);
         if( r < ss_siz.x ) {
-            atomicAdd(p_avg + idx,out);
+            /// Divide by the radius so the 3D shell accumulation scales like a
+            /// 2D ring sum (~r voxels instead of ~r^2): this keeps the volume
+            /// CFSC whitening consistent with the per-projection (ring-based)
+            /// radial_frc_avg_stk used on the substack data.
+            atomicAdd(p_avg + idx,out/fmaxf((float)r,1.0f));
         }
     }
 }
@@ -1239,15 +1275,17 @@ __global__ void radial_frc_acc(float*p_avg,const float ssnr_F,const float ssnr_S
         float N = 2*(M-1);
         float*w_avg = p_avg + ss_idx.x*M;
         double avg;
-        double ssnr  = 0.0;
         double scale = sqrt(N/2);
 
         w_avg[0] = 1.0*scale;
         for(int i=1;i<M;i++) {
             avg = sqrt(w_avg[i]);
-            if(ssnr_S>1)
-                ssnr = (1/(ssnr_S*exp(i*ssnr_F)));
-            w_avg[i] = (avg + ssnr)*scale;
+            double gain = 1.0;
+            if(ssnr_S>1) {
+                double ssnr = ssnr_S*exp(i*ssnr_F);
+                gain = (ssnr+1)/fmax(ssnr,1e-6);
+            }
+            w_avg[i] = avg*gain*scale;
         }
     }
 }
@@ -1602,7 +1640,7 @@ __global__ void multiply(float2*p_out,const double2*p_acc,const double*p_wgt,con
     int3 ss_idx = get_th_idx();
 
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
-        int idx = get_3d_idx(ss_idx,ss_siz);
+        long idx = get_3d_idx(ss_idx,ss_siz);
         double2 val = p_acc[ idx ];
         double  wgt = p_wgt[ idx ];
         float2 rslt;
@@ -1795,7 +1833,7 @@ __global__ void apply_bandpass_fourier(float2*p_w,const float3 bandpass,const in
     }
 }
 
-__global__ void apply_bandpass_fourier(float2*p_w,const Defocus*p_def,const float3 bandpass,const int M, const int N, const int K)
+__global__ void apply_bandpass_fourier(float2*p_w,const Defocus*p_def,const float3 bandpass,const int M, const int N, const int K,bool bandpass_squared=false)
 {
     int3 ss_idx = get_th_idx();
 
@@ -1811,8 +1849,10 @@ __global__ void apply_bandpass_fourier(float2*p_w,const Defocus*p_def,const floa
         float R = l2_distance(ss_idx.x,ss_idx.y - N/2);
         float bp = get_bp_wgt(bandpass.x,max_R,bandpass.z,R);
 
-        if( bp > 0.025 ) {
-            val = p_w[ idx ];
+        if( bp > 0.05 ) {
+            if( bandpass_squared )
+                bp = bp*bp;
+            val = p_w[ idx ];   
             val.x *= bp;
             val.y *= bp;
         }
@@ -1820,9 +1860,6 @@ __global__ void apply_bandpass_fourier(float2*p_w,const Defocus*p_def,const floa
         p_w[ idx ] = val;
     }
 }
-
-
-
 
 __global__ void norm_complex(float2*p_data,const int3 ss_siz) {
 

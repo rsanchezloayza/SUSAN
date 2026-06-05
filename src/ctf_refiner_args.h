@@ -45,15 +45,21 @@ typedef struct {
     float  def_step;
     float  ang_range;
     float  ang_step;
+    float  phase_shift_rad_step;
+    float  phase_shift_rad_span;
     float  ssnr_F;
     float  ssnr_S;
-    bool   est_dose;
     bool   use_halves;
+    bool   phase_flip;
     bool   astigmatism;
     float  off_x;
     float  off_y;
     float  off_z;
     float  off_s;
+
+    float  offset_sigma;   // pixels; Gaussian prior σ on translation magnitude. 0 ⇒ disabled.
+    float  defocus_sigma;  // Å;      Gaussian prior σ on |(dU, dV)|. 0 ⇒ disabled.
+    float  phase_sigma;    // rad;    Gaussian prior σ on phase-shift magnitude. 0 ⇒ disabled.
 
     char   refs_file[SUSAN_FILENAME_LENGTH];
     char   ptcls_out[SUSAN_FILENAME_LENGTH];
@@ -120,13 +126,20 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.verbosity   = 0;
     info.ssnr_F      = 0;
     info.ssnr_S      = 0;
-    info.est_dose    = false;
+    info.phase_flip  = false;
     info.use_halves  = false;
     info.astigmatism = false;
     info.off_x       = 0;
     info.off_y       = 0;
     info.off_z       = 0;
     info.off_s       = 1;
+
+    info.phase_shift_rad_span = 0;
+    info.phase_shift_rad_step = 1;
+
+    info.offset_sigma  = 0;
+    info.defocus_sigma = 0;
+    info.phase_sigma   = 0;
 
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
@@ -151,11 +164,15 @@ inline bool parse_args(Info&info,int ac,char** av) {
         BANDPASS,
         ROLLOFF_F,
         USE_HALVES,
+        PHASE_FLIP,
         DEF_SEARCH,
         ANG_SEARCH,
         VERBOSITY,
         OFF_PARAM,
-        EST_DOSE
+        PHASE_SHIFT_SEARCH,
+        OFFSET_SIGMA,
+        DEFOCUS_SIGMA,
+        PHASE_SIGMA
     };
 
     int c;
@@ -175,11 +192,15 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"rolloff_f",  1, 0, ROLLOFF_F  },
         {"def_search", 1, 0, DEF_SEARCH },
         {"ang_search", 1, 0, ANG_SEARCH },
-        {"est_dose",   1, 0, EST_DOSE   },
         {"use_halves", 1, 0, USE_HALVES },
         {"astigmatism",1, 0, ASTIGMATISM},
+        {"phase_flip", 1, 0, PHASE_FLIP },
         {"verbosity",  1, 0, VERBOSITY  },
         {"off_params", 1, 0, OFF_PARAM  },
+        {"phase_shift_search", 1, 0, PHASE_SHIFT_SEARCH},
+        {"offset_sigma", 1, 0, OFFSET_SIGMA },
+        {"defocus_sigma",1, 0, DEFOCUS_SIGMA},
+        {"phase_sigma",  1, 0, PHASE_SIGMA  },
         {0, 0, 0, 0}
     };
     
@@ -230,8 +251,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case ANG_SEARCH:
                 ArgParser::get_single_pair(info.ang_range,info.ang_step,optarg);
                 break;
-            case EST_DOSE:
-                info.est_dose = ArgParser::get_bool(optarg);
+            case PHASE_SHIFT_SEARCH:
+                ArgParser::get_single_pair(info.phase_shift_rad_span,info.phase_shift_rad_step,optarg);
                 break;
             case USE_HALVES:
                 info.use_halves = ArgParser::get_bool(optarg);
@@ -239,11 +260,23 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case ASTIGMATISM:
                 info.astigmatism = ArgParser::get_bool(optarg);
                 break;
+            case PHASE_FLIP:
+                info.phase_flip = ArgParser::get_bool(optarg);
+                break;
             case VERBOSITY:
                 info.verbosity = atoi(optarg);
                 break;
             case OFF_PARAM:
                 ArgParser::get_single_quad(info.off_x,info.off_y,info.off_z,info.off_s,optarg);
+                break;
+            case OFFSET_SIGMA:
+                info.offset_sigma = atof(optarg);
+                break;
+            case DEFOCUS_SIGMA:
+                info.defocus_sigma = atof(optarg);
+                break;
+            case PHASE_SIGMA:
+                info.phase_sigma = atof(optarg);
                 break;
             default:
                 printf("Unknown parameter %d\n",c);
@@ -315,18 +348,28 @@ inline void print_full(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"\t\tDefocus search step: %.2f.\n",info.def_step);
     fprintf(fp,"\t\tDefocus angle range: %.2f.\n",info.ang_range);
     fprintf(fp,"\t\tDefocus angle step: %.2f.\n",info.ang_step);
-
-    if( info.est_dose )
-        fprintf(fp,"\t\tWith dose weighting estimation.\n");
+    if( info.offset_sigma > 0 )
+        fprintf(fp,"\t\tOffset prior:   Gaussian σ=%.3f px on translation magnitude.\n",info.offset_sigma);
     else
-        fprintf(fp,"\t\tWithout dose weighting estimation.\n");
+        fprintf(fp,"\t\tOffset prior:   disabled.\n");
+    if( info.defocus_sigma > 0 )
+        fprintf(fp,"\t\tDefocus prior:  Gaussian σ=%.3f Å on |(dU,dV)|.\n",info.defocus_sigma);
+    else
+        fprintf(fp,"\t\tDefocus prior:  disabled.\n");
+    if( info.phase_sigma > 0 )
+        fprintf(fp,"\t\tPhase prior:    Gaussian σ=%.3f rad on phase shift.\n",info.phase_sigma);
+    else
+        fprintf(fp,"\t\tPhase prior:    disabled.\n");
 }
 
-inline void print_minimal(const Info&info,FILE*fp=stdout) {
-    fprintf(fp,"  CTF Refiner. Box size: %d",info.box_size);
-    if( info.pad_size > 0 ) {
+inline void print_basic(const Info&info,FILE*fp=stdout) {
+    fprintf(fp,"  CTF Refiner");
+    if( info.use_halves )
+        fprintf(fp," (independent half-sets)");
+
+    fprintf(fp,". Box size: %d",info.box_size);
+    if( info.pad_size > 0 )
         fprintf(fp," + %d (pad)",info.pad_size);
-    }
     fprintf(fp,"\n");
 
     fprintf(fp,"    - Input files: %s | %s\n",info.tomo_file,info.refs_file);
@@ -342,44 +385,70 @@ inline void print_minimal(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"    - 1 GPU (GPU id: %d), ",info.p_gpu[0]);
     }
 
-    if( info.n_threads > 1 ) {
+    if( info.n_threads > 1 )
         fprintf(fp,"and %d threads.\n",info.n_threads);
-    }
-    else{
-        fprintf(fp,"and 1 thread.\n");
-    }
-
-    fprintf(fp,"    - Bandpass: [%.1f - %.1f] ",info.fpix_min,info.fpix_max);
-    if( info.fpix_roll > 0 )
-        fprintf(fp," (Smooth decay: %.2f).",info.fpix_roll);
     else
-        fprintf(fp,".");
-    
-    if( info.norm_type == NO_NORM )
-        fprintf(fp,"No Normalization.");
-    if( info.norm_type == ZERO_MEAN )
-        fprintf(fp,"Normalized to Mean=0.");
-    if( info.norm_type == ZERO_MEAN_1_STD )
-        fprintf(fp,"Normalized to Mean=0, Std=1.");
-    if( info.norm_type == ZERO_MEAN_W_STD )
-        fprintf(fp,"Normalized to Mean=0, Std=PRJ_W.");
+        fprintf(fp,"and 1 thread.\n");
 
+    fprintf(fp,"    - Bandpass: [%.1f - %.1f]",info.fpix_min,info.fpix_max);
+    if( info.fpix_roll > 0 )
+        fprintf(fp," (Smooth decay: %.2f)",info.fpix_roll);
+    fprintf(fp,".\n");
+
+    fprintf(fp,"    - ");
     if( info.pad_size > 0 ) {
         if( info.pad_type == PAD_ZERO )
-            fprintf(fp," Zero padding.\n");
+            fprintf(fp,"Zero padding. ");
         if( info.pad_type == PAD_GAUSSIAN )
-            fprintf(fp," Random padding.\n");
+            fprintf(fp,"Random padding. ");
     }
-    else
-        fprintf(fp,"\n");
+    if( info.norm_type == NO_NORM )
+        fprintf(fp,"No Normalization.\n");
+    if( info.norm_type == ZERO_MEAN )
+        fprintf(fp,"Normalized to Mean=0.\n");
+    if( info.norm_type == ZERO_MEAN_1_STD )
+        fprintf(fp,"Normalized to Mean=0, Std=1.\n");
+    if( info.norm_type == ZERO_MEAN_W_STD )
+        fprintf(fp,"Normalized to Mean=0, Std=PRJ_W.\n");
 
-    fprintf(fp,"    - Defocus search: %.3f,%.3f.",info.def_range,info.def_step);
-    fprintf(fp,"\tDefocus angle %.3f,%.3f.\n",info.ang_range,info.ang_step);
+    fprintf(fp,"    - Defocus search: Range=%.2f, Step=%.2f.",info.def_range,info.def_step);
+    fprintf(fp," Angle: Range=%.2f, Step=%.2f.",info.ang_range,info.ang_step);
+    if( info.astigmatism )
+        fprintf(fp," Astigmatism.");
+    if( info.offset_sigma > 0 || info.defocus_sigma > 0 || info.phase_sigma > 0 ) {
+        fprintf(fp," Priors:");
+        if( info.offset_sigma  > 0 ) fprintf(fp," σ_t=%.2fpx",info.offset_sigma);
+        if( info.defocus_sigma > 0 ) fprintf(fp," σ_d=%.2fÅ",info.defocus_sigma);
+        if( info.phase_sigma   > 0 ) fprintf(fp," σ_p=%.3frad",info.phase_sigma);
+        fprintf(fp,".");
+    }
+    fprintf(fp,"\n");
+}
+
+inline void print_minimal(const Info&info,FILE*fp=stdout) {
+    fprintf(fp,"  CTF Refiner");
+    if( info.use_halves )
+        fprintf(fp," (halfmaps)");
+
+    fprintf(fp," [%d",info.box_size);
+    if( info.pad_size > 0 )
+        fprintf(fp,"+%d",info.pad_size);
+    fprintf(fp,"]:");
+
+    fprintf(fp," %s | %s | %s ",info.ptcls_in,info.tomo_file,info.refs_file);
+    fprintf(fp,"-> %s",info.ptcls_out);
+
+    if( info.n_gpu > 1 )
+        fprintf(fp," on %d GPUs.\n",info.n_gpu);
+    else
+        fprintf(fp," on 1 GPU.\n");
 }
 
 inline void print(const Info&info,FILE*fp=stdout) {
-    if( info.verbosity > 0 )
+    if( info.verbosity == VERBOSITY_FULL )
         print_full(info,fp);
+    else if( info.verbosity == VERBOSITY_BASIC )
+        print_basic(info,fp);
     else
         print_minimal(info,fp);
 }

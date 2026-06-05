@@ -90,7 +90,7 @@ protected:
     }
 
     void reconstruct_results() {
-        double *tmp = new double[2*MP*NP*NP];
+        double *tmp = new double[(size_t)2*MP*NP*NP];
 
         for(int r=0;r<R;r++) {
             MPI_Reduce(workers[0].c_acc[r],tmp,2*MP*NP*NP,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);

@@ -64,7 +64,7 @@ public:
         free_array(mask  );
     }
 
-    void load(const Reference&ref_info) {
+    void load(const Reference&ref_info,bool apply_mask=true) {
 
         box_size = get_box_size(ref_info.map);
 
@@ -81,36 +81,26 @@ public:
 
             if( get_box_size(ref_info.mask) == box_size ) {
                 mask = load_mrc(ref_info.mask);
-                //Math::mul(map,mask,numel);
-                //if(half_A!=NULL) Math::mul(half_A,mask,numel);
-                //if(half_B!=NULL) Math::mul(half_B,mask,numel);
             }
 
-            float avg,std;
-            if( mask != NULL ) {
+            if( mask != NULL && apply_mask ) {
                 if( map != NULL ) {
-                    Math::mul(map,mask,numel);
-                    Math::get_avg_std(avg,std,map,numel);
-                    if( !Math::normalize(map,numel,avg,std) ) {
-                        fprintf(stderr,"Error normalizing map %s [m=%f | s=%f]\n",ref_info.map,avg,std);
+                    if( !Math::normalize_masked(map,mask,numel) ) {
+                        fprintf(stderr,"Error normalizing map %s\n",ref_info.map);
                         exit(1);
                     }
                 }
 
                 if( half_A != NULL ) {
-                    Math::mul(half_A,mask,numel);
-                    Math::get_avg_std(avg,std,half_A,numel);
-                    if( !Math::normalize(half_A,numel,avg,std) ) {
-                        fprintf(stderr,"Error normalizing map %s [m=%f | s=%f]\n",ref_info.h1,avg,std);
+                    if( !Math::normalize_masked(half_A,mask,numel) ) {
+                        fprintf(stderr,"Error normalizing map %s\n",ref_info.h1);
                         exit(1);
                     }
                 }
 
                 if( half_B != NULL ) {
-                    Math::mul(half_B,mask,numel);
-                    Math::get_avg_std(avg,std,half_B,numel);
-                    if( !Math::normalize(half_B,numel,avg,std) ) {
-                        fprintf(stderr,"Error normalizing map %s [m=%f | s=%f]\n",ref_info.h2,avg,std);
+                    if( !Math::normalize_masked(half_B,mask,numel) ) {
+                        fprintf(stderr,"Error normalizing map %s\n",ref_info.h2);
                         exit(1);
                     }
                 }

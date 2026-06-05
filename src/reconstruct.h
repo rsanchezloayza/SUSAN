@@ -395,9 +395,9 @@ protected:
             ptr->r_ix = r;
 
         if( p_info->rec_halves )
-            return ( ptr->ptcl.ali_w[r] >0 ) && ( ptr->ptcl.half_id() > 0 );
+            return ( ptr->ptcl.ali_w[r] != 0 ) && ( ptr->ptcl.half_id() > 0 );
         else
-            return ( ptr->ptcl.ali_w[r] )>0;
+            return ( ptr->ptcl.ali_w[r] ) != 0;
     }
 
     void crop_substack(RecBuffer*ptr,int r=-1) {
@@ -675,10 +675,10 @@ protected:
         GPU::GArrSingle  p_vol;
         float*vol;
 
-        p_wgt.alloc(MP*NP*NP);
-        p_acc.alloc(MP*NP*NP);
-        p_vol.alloc(N*N*N);
-        vol = new float[N*N*N];
+        p_wgt.alloc((size_t)MP*NP*NP);
+        p_acc.alloc((size_t)MP*NP*NP);
+        p_vol.alloc((size_t)N*N*N);
+        vol = new float[(size_t)N*N*N];
 
         if( p_info->rec_halves )
             reconstruct_halves(vol,p_vol,p_acc,p_wgt);

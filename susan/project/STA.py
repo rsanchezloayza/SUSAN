@@ -17,6 +17,7 @@
 ###########################################################################
 
 import numpy as _np
+import warnings as _warnings
 
 from scipy.spatial import KDTree as _KDTree
 
@@ -95,14 +96,6 @@ class STA:
        GPU device IDs forwarded to :attr:`aligner`, :attr:`averager`, and
        :attr:`ctf_refiner` at execution time.  Default: ``[0]``.
 
-    .. attribute:: threads_per_gpu
-       :type: int
-
-       .. deprecated::
-          This parameter is deprecated and must remain ``1``.  Use
-          additional entries in :attr:`list_gpus_ids` to increase
-          parallelism instead.
-
     .. rubric:: Iteration control
 
     .. attribute:: iteration_type
@@ -170,20 +163,17 @@ class STA:
        disables the limit.  Default: ``0``.
 
     .. attribute:: max_tilt_reconstruction
-       :type: float
+       :type: None, float, or array-like of length 2
 
-       Maximum tilt angle (degrees) included in reconstruction.  ``-1``
-       disables the limit.  Default: ``-1``.
+       Tilt-angle limit applied during reconstruction.  Three forms:
 
-    .. attribute:: perturb_2d_angles
-       :type: bool
-
-       .. warning:: **Experimental.** This feature may change or be removed
-          in a future release.
-
-       If ``True``, add small random perturbations to 2-D angles after
-       alignment to break grid-search discretisation artefacts.
-       Default: ``False``.
+       * ``None`` or a negative scalar — disabled (default: ``-1``).
+       * Scalar (``int`` or ``float``) — passes ``tilt_deg_max`` to
+         :meth:`~susan.data.Particles.Geom.enable_by_tilt`; projections
+         whose absolute tilt exceeds this value are zeroed.
+       * Two-element sequence ``[min, max]`` — passes both signed bounds
+         to :meth:`~susan.data.Particles.Geom.enable_by_tilt_range`,
+         allowing asymmetric tilt ranges.
 
     .. attribute:: type_2d_shift_fitting
        :type: str
@@ -193,6 +183,17 @@ class STA:
 
        Post-alignment 2-D shift regularisation: ``'none'``,
        ``'affine'``, or ``'gaussian'``.  Default: ``'none'``.
+
+    .. attribute:: smooth_ctf
+       :type: bool
+
+       .. warning:: **Experimental.** This feature may change or be removed
+          in a future release.
+
+       If ``True``, apply Gaussian spatial smoothing to the per-particle
+       CTF defocus deltas (difference from previous iteration) after CTF
+       refinement.  Uses the same neighbourhood kernel as
+       ``type_2d_shift_fitting = 'gaussian'``.  Default: ``False``.
 
     .. attribute:: reweight_classification
        :type: bool or float
@@ -238,7 +239,6 @@ class STA:
         self.initial_particles = ''
         
         self.list_gpus_ids     = [0]
-        self.threads_per_gpu   = 1
         self.iteration_type    = 3
         
         self.cc_threshold      = 0.8
@@ -246,8 +246,8 @@ class STA:
         
         self.max_2d_delta_angstroms  = 0
         self.max_tilt_reconstruction = -1
-        self.perturb_2d_angles       = False
         self.type_2d_shift_fitting   = 'none' # affine / gaussian
+        self.smooth_ctf              = False
         self.reweight_classification = False
         
         self.mpi               = _dt.mpi_params('srun -n %d ',1)
@@ -257,7 +257,8 @@ class STA:
         self.averager          = _ssa_modules.Averager()
         self.ctf_refiner       = _ssa_modules.CtfRefiner()
         
-        self.aligner.ctf_correction    = 'cfsc'
+        self.aligner.ctf_correction    = 'on_reference'
+        self.aligner.cc_type           = 'cfsc'
         self.aligner.halfsets_independ = False
         
         self.averager.ctf_correction    = 'wiener'
@@ -527,7 +528,6 @@ class STA:
     
     def _exec_alignment(self,cur,prv,ite_type):
         self.aligner.list_gpus_ids     = self.list_gpus_ids
-        self.aligner.threads_per_gpu   = self.threads_per_gpu
         self.aligner.dimensionality    = ite_type
         self.aligner.verbosity         = self.verbosity
         
@@ -546,7 +546,6 @@ class STA:
 
     def _exec_ctf_refinement(self,cur,prv):
         self.ctf_refiner.list_gpus_ids     = self.list_gpus_ids
-        self.ctf_refiner.threads_per_gpu   = self.threads_per_gpu
         self.ctf_refiner.verbosity         = self.verbosity
         
         print( '  [CTF Refinement] Start:' )
@@ -585,6 +584,17 @@ class STA:
             self._exec_alignment(cur,prv,ite_type)
     
     def _apply_2D_fixes(self,ptcls_in,cur,prv):
+
+        def smooth_deltas(points, deltas, sigma, k):
+            tree = _KDTree(points)
+            smoothed_deltas = _np.zeros_like(deltas)
+            for i, point in enumerate(points):
+                distances, indices = tree.query(point, k=k)
+                weights = _np.exp(-distances**2 / (2 * sigma**2))
+                weights /= weights.sum()
+                smoothed_deltas[i] = (deltas[indices] * weights[:,_np.newaxis]).sum(axis=0)
+            return smoothed_deltas
+
         if self.type_2d_shift_fitting == 'none':
             if self.max_2d_delta_angstroms > 0:
                 if self.aligner.allow_drift:
@@ -604,16 +614,19 @@ class STA:
                     scale_lim[ norm_angs<self.max_2d_delta_angstroms ] = 1
                     scale_lim = scale_lim[:,:,_np.newaxis]
                     ptcls_in.prj_t[:] = scale_lim*ptcls_in.prj_t
-                    
+
         elif self.type_2d_shift_fitting.lower() == 'affine':
-            R  = _np.eye(3)
-            pt = ptcls_in.position + ptcls_in.ali_t[0]
+            R    = _np.eye(3, dtype=_np.float32)
+            n    = ptcls_in.n_ptcl
+            pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_cix == tcix
-        
+                if idx.sum() < 4:
+                    continue
+
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R,tomos.proj_eZYZ[tcix,i])
+                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix,i]).astype(_np.float32))
                     pt0 = pt[idx]@R.T
                     pt0 = pt0[:,:2]
                     pt1 = pt0 + ptcls_in.prj_t[idx,i]
@@ -621,38 +634,51 @@ class STA:
                     xform,_,_,_ = _np.linalg.lstsq(pt0_aug,pt1, rcond=None)
                     pt2 = pt0_aug @ xform
                     ptcls_in.prj_t[idx,i] = (pt2-pt0)
-                    
+
         elif self.type_2d_shift_fitting.lower() == 'gaussian':
-            def smooth_deltas(points, deltas, k=7):
-                tree = _KDTree(points)
-                smoothed_deltas = _np.zeros_like(deltas)
-
-                for i, point in enumerate(points):
-                    _, indices = tree.query(point, k=k)
-                    neighbor_deltas = deltas[indices]
-                    smoothed_deltas[i] = neighbor_deltas.mean(axis=0)
-
-                return smoothed_deltas
-
-            R  = _np.eye(3)
-            pt = ptcls_in.position + ptcls_in.ali_t[0]
+            R    = _np.eye(3, dtype=_np.float32)
+            n    = ptcls_in.n_ptcl
+            pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_cix == tcix
+                n_ptcl_tomo = idx.sum()
+                if n_ptcl_tomo < 2:
+                    continue
+                k_eff   = min(7, n_ptcl_tomo)
 
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R,tomos.proj_eZYZ[tcix,i])
+                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix,i]).astype(_np.float32))
                     pt0 = pt[idx]@R.T
                     pt0 = pt0[:,:2]
-                    ptcls_in.prj_t[idx,i] = smooth_deltas(pt0, ptcls_in.prj_t[idx,i], k=7)
-            
+                    sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
+                    ptcls_in.prj_t[idx,i] = smooth_deltas(pt0, ptcls_in.prj_t[idx,i], sigma=sigma, k=k_eff)
 
-        if self.perturb_2d_angles:
-            if self.aligner.cone.span > 0:
-                ptcls_in.prj_eu[:,:,:2] += _np.deg2rad(_np.random.uniform(-self.aligner.cone.step,self.aligner.cone.step,size=ptcls_in.prj_eu[:,:,:2].shape))
-            if self.aligner.inplane.span > 0:
-                ptcls_in.prj_eu[:,:,2]  += _np.deg2rad(_np.random.uniform(-self.aligner.inplane.step,self.aligner.inplane.step,size=ptcls_in.prj_eu[:,:,2].shape))
-        
+        if self.smooth_ctf and self._validate_ite_type() == 'ctf':
+            print('    Smoothing CTF defocus deltas (Gaussian).')
+            ptcls_old = _ssa_data.Particles(prv.ptcl_rslt)
+            delta_U   = ptcls_in.def_U - ptcls_old.def_U
+            delta_V   = ptcls_in.def_V - ptcls_old.def_V
+            R    = _np.eye(3, dtype=_np.float32)
+            n    = ptcls_in.n_ptcl
+            pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            tomos = _ssa_data.Tomograms(self.tomogram_file)
+            for tcix in range(tomos.n_tomos):
+                idx = ptcls_in.tomo_cix == tcix
+                n_ptcl_tomo = idx.sum()
+                if n_ptcl_tomo < 2:
+                    continue
+                k_eff = min(7, n_ptcl_tomo)
+
+                for i in range(tomos.num_proj[tcix]):
+                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix,i]).astype(_np.float32))
+                    pt0 = (pt[idx]@R.T)[:,:2]
+                    sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
+                    s_dU = smooth_deltas(pt0, delta_U[idx,i,_np.newaxis], sigma=sigma, k=k_eff).squeeze()
+                    s_dV = smooth_deltas(pt0, delta_V[idx,i,_np.newaxis], sigma=sigma, k=k_eff).squeeze()
+                    ptcls_in.def_U[idx,i] = ptcls_old.def_U[idx,i] + s_dU
+                    ptcls_in.def_V[idx,i] = ptcls_old.def_V[idx,i] + s_dV
+
         ptcls_in.save(cur.ptcl_rslt)
     
     def _select_particles_reconstruction(self,ptcls_in):
@@ -687,10 +713,16 @@ class STA:
         return ptcls_in[ (ptcls_in.half_id>0).flatten() ]
         
     def _limit_tilt_range_reconstruction(self,ptcls_out):
-        print('    Restricting reconstruction to %.2f maximum tilt.' % self.max_tilt_reconstruction )
         tomos = _ssa_data.Tomograms(filename=self.tomogram_file)
         prj_w = _np.copy(ptcls_out.prj_w)
-        _ssa_data.Particles.Geom.enable_by_tilt(ptcls_out,tomos,tilt_deg_max=self.max_tilt_reconstruction)
+        v = self.max_tilt_reconstruction
+        if isinstance(v, (list, tuple, _np.ndarray)):
+            v = _np.asarray(v, dtype=_np.float32)
+            print('    Restricting reconstruction to tilt range [%.2f, %.2f] degrees.' % (v.min(), v.max()) )
+            _ssa_data.Particles.Geom.enable_by_tilt_range(ptcls_out,tomos,tilt_deg_min=v.min(),tilt_deg_max=v.max())
+        else:
+            print('    Restricting reconstruction to %.2f maximum tilt.' % v )
+            _ssa_data.Particles.Geom.enable_by_tilt(ptcls_out,tomos,tilt_deg_max=v)
         ptcls_out.prj_w = ptcls_out.prj_w*prj_w
     
     def exec_particle_selection(self, cur, prv):
@@ -698,7 +730,7 @@ class STA:
 
         Performs multi-reference classification (if ``n_refs > 1``), applies
         optional 2-D shift corrections (:attr:`max_2d_delta_angstroms`,
-        :attr:`type_2d_shift_fitting`, :attr:`perturb_2d_angles`), filters
+        :attr:`type_2d_shift_fitting`) for 2-D alignment and CTF iterations, filters
         particles by CC score (:attr:`cc_threshold`), and optionally limits
         the tilt range (:attr:`max_tilt_reconstruction`).  The selected
         particles are saved to ``cur.ptcl_temp``.
@@ -714,14 +746,13 @@ class STA:
         ptcls_in = _ssa_data.Particles(cur.ptcl_rslt)
         
         # Limit 2D shifts:
-        should_fix_2D = (self.max_2d_delta_angstroms > 0) or self.perturb_2d_angles
-        should_fix_2D = should_fix_2D or self.type_2d_shift_fitting != 'none'
-        if (self._validate_ite_type() == 2) and should_fix_2D:
+        should_fix_2D = (self.max_2d_delta_angstroms > 0) or self.type_2d_shift_fitting != 'none' or self.smooth_ctf
+        if (self._validate_ite_type() in (2,'ctf')) and should_fix_2D:
             self._apply_2D_fixes(ptcls_in,cur,prv)
         
         # Classify
         if ptcls_in.n_refs > 1 :
-            ptcls_in.ref_cix = _np.argmax(ptcls_in.ali_cc,axis=0)
+            ptcls_in.ref_cix = _np.argmax(ptcls_in.ali_cc,axis=0).astype(_np.uint32)
             if type(self.reweight_classification) is bool:
                 if self.reweight_classification:
                     total = ptcls_in.ali_cc.sum(axis=0)
@@ -738,7 +769,9 @@ class STA:
         ptcls_out = self._select_particles_reconstruction(ptcls_in)
         
         # Limit tilt range
-        if self.max_tilt_reconstruction > 0:
+        v = self.max_tilt_reconstruction
+        _tilt_active = (v is not None) and (isinstance(v, (list, tuple, _np.ndarray)) or v >= 0)
+        if _tilt_active:
             self._limit_tilt_range_reconstruction(ptcls_out)
         
         ptcls_out.save(cur.ptcl_temp)
@@ -758,7 +791,6 @@ class STA:
             File paths for the previous iteration (provides the mask paths).
         """
         self.averager.list_gpus_ids     = self.list_gpus_ids
-        self.averager.threads_per_gpu   = self.threads_per_gpu
         self.averager.verbosity         = self.verbosity
         
         print( '  [Reconstruct Maps] Start:' )
@@ -834,7 +866,33 @@ class STA:
         float or numpy.ndarray
             Estimated resolution in Fourier pixels (see
             :meth:`exec_postprocessing`).
+
+        Notes
+        -----
+        Iteration ``0`` is the project seed and cannot be processed.  In
+        that case a warning is issued, the iteration is skipped, and the
+        configured starting lowpass is returned instead — the lowpass of
+        :attr:`aligner` for a 3-D/2-D iteration or :attr:`ctf_refiner` for a
+        CTF iteration.  For a multi-reference project a
+        :class:`numpy.ndarray` of length ``n_refs`` filled with that value
+        is returned; otherwise a scalar.
         """
+        if ite < 1:
+            _warnings.warn(
+                'execute_iteration(%d): iteration 0 is the project seed and '
+                'cannot be run; returning the configured starting lowpass '
+                'instead.' % ite, stacklevel=2)
+            print('============================')
+            print('Project: %s (Iteration %d) Skipped.'%(self.prj_name,ite))
+            if self._validate_ite_type() == 'ctf':
+                lowpass = self.ctf_refiner.bandpass.lowpass
+            else:
+                lowpass = self.aligner.bandpass.lowpass
+            n_refs = _ssa_data.Reference(self.get_name_refstxt(0)).n_refs
+            if n_refs > 1:
+                return _np.full(n_refs, lowpass, dtype=_np.float32)
+            return lowpass
+
         start_time = _ssa_utils.time_now()
         print('============================')
         print('Project: %s (Iteration %d)'%(self.prj_name,ite))

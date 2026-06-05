@@ -249,7 +249,6 @@ protected:
 
 };
 
-
 class CtfLinearizer{
 
 protected:
@@ -297,7 +296,7 @@ protected:
             delete [] buf_cum_s2;
         }
 
-        void refine_ctf_hybrid(float&best_score,float&delta_def,float&phase_shift,int&max_fpix,const float*p_data,float init_defocus) {
+        void refine_ctf_hybrid(float&best_score,float&delta_def,float&phase_shift,int&max_fpix,const float*p_data,float init_defocus,bool est_phase=true) {
 
             const float def_steps[3]   = {200.0f, 50.0f, 10.0f};
             const float phase_steps[3] = {2.0f, 0.5f, 0.5f}; // degrees
@@ -319,26 +318,28 @@ protected:
                 best_score = compute_score(delta_def,phase_shift,p_data,init_defocus);
                 max_fpix   = last_th;
 
-                float local_best_score = best_score;
-                float best_phase_local = phase_shift;
+                if( est_phase ) {
+                    float local_best_score = best_score;
+                    float best_phase_local = phase_shift;
 
-                int n_phase = (int)ceilf(phase_span/p_step);
+                    int n_phase = (int)ceilf(phase_span/p_step);
 
-                for (int i=-n_phase;i<=n_phase;i++) {
+                    for (int i=-n_phase;i<=n_phase;i++) {
 
-                    float phase_i = phase_shift + p_step*i;
-                    float score_i = compute_score(delta_def, phase_i,p_data,init_defocus);
+                        float phase_i = phase_shift + p_step*i;
+                        float score_i = compute_score(delta_def, phase_i,p_data,init_defocus);
 
-                    if( score_i>local_best_score) {
-                        local_best_score = score_i;
-                        best_phase_local = phase_i;
+                        if( score_i>local_best_score) {
+                            local_best_score = score_i;
+                            best_phase_local = phase_i;
+                        }
                     }
+
+                    phase_shift = best_phase_local;
+                    best_score  = local_best_score;
+
+                    phase_span = p_step * 4.0f;
                 }
-
-                phase_shift = best_phase_local;
-                best_score  = local_best_score;
-
-                phase_span = p_step * 4.0f;
             }
 
             best_score = compute_score(delta_def,phase_shift,p_data,init_defocus);
@@ -357,7 +358,7 @@ protected:
                 float s4 = s2*s2;
 
                 float gamma = lambda_pi_def*s2 - lambda3_Cs_pi_2*s4 + phase_shift_rad;
-                buf_ctf[i] = CA*sinf(gamma)+AC*cosf(gamma);
+                buf_ctf[i] = -(CA*sinf(gamma)+AC*cosf(gamma));
             }
         }
 
@@ -552,7 +553,8 @@ public:
     int def_ix_min;
     int def_ix_max;
 
-    int verbose;
+    int  verbose;
+    bool est_phase_shift;
 
     float   *c_ini_idx;
     Defocus *c_estimate;
@@ -597,6 +599,7 @@ public:
 
         apix = p_tomo->pix_size;
         verbose = info->verbose;
+        est_phase_shift = info->est_phase_shift;
         max_nyquist = apix/new_apix;
         lin_fpix_to_defocus = 2.0f*new_apix*new_apix/lambda;
 
@@ -644,7 +647,7 @@ public:
         delete [] c_linear;
     }
 
-    void process(const char*out_dir,float*input,Tomogram*p_tomo,int k0) {
+    void process(const char*out_dir,float*input,Tomogram*p_tomo,int k0,bool is_overfocus) {
 
         GPU::GArrSingle  g_input;
         GPU::GArrSingle  g_linear;
@@ -682,7 +685,7 @@ public:
 
         /// DOWNLOAD FOR ELLIPSOIDAL FITTING
         cudaMemcpy( (void*)c_buffer, (const void*)g_ps.ptr, sizeof(float)*N*N*K, cudaMemcpyDeviceToHost);
-        fit_ellipsoid(c_buffer,out_dir);
+        fit_ellipsoid(c_buffer,out_dir,is_overfocus);
 
         /// REFINE AND ESTIMATE PHASE SHIFT
         estimate_phase_shift(c_buffer,g_input,out_dir);
@@ -1091,7 +1094,7 @@ protected:
         c_estimate[k].angle = atan2f(eigvect(1,1),eigvect(0,1));
     }
 
-    void fit_ellipsoid(float*p_data,const char*out_dir,int scale=2) {
+    void fit_ellipsoid(float*p_data,const char*out_dir,bool is_overfocus,int scale=2) {
 
         init_estimate(scale); /// set angles to 0 and U=V=intial_estimate.
 
@@ -1126,9 +1129,10 @@ protected:
         }
 
         /// To Angstroms
+        float def_sign = is_overfocus ? -1.0f : 1.0f;
         for(int k=0;k<K;k++) {
-            c_estimate[k].U *= lin_fpix_to_defocus/scale;
-            c_estimate[k].V *= lin_fpix_to_defocus/scale;
+            c_estimate[k].U *= def_sign*lin_fpix_to_defocus/scale;
+            c_estimate[k].V *= def_sign*lin_fpix_to_defocus/scale;
             c_estimate[k].angle *= RAD2DEG;
         }
 
@@ -1200,10 +1204,10 @@ protected:
         for(int k=0;k<int(K);k++) {
             float*p_data  = c_ps_norm + k*int(N);
             float ini_def = (c_estimate[k].U+c_estimate[k].V)/2;
-            ctf_refiner.refine_ctf_hybrid(max_score,delta_def,phase_shift,max_fpix,p_data,ini_def);
+            ctf_refiner.refine_ctf_hybrid(max_score,delta_def,phase_shift,max_fpix,p_data,ini_def,est_phase_shift);
             c_estimate[k].U += delta_def;
             c_estimate[k].V += delta_def;
-            c_estimate[k].ph_shft = phase_shift;
+            c_estimate[k].ph_shft = est_phase_shift ? phase_shift : 0.0f;
             c_estimate[k].score   = max_score;
             c_estimate[k].max_res = N*apix/max_fpix;
             c_estimate[k].Bfactor = 0.0f;

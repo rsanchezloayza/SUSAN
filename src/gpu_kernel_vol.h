@@ -134,7 +134,7 @@ __global__ void insert_stk(double2*p_acc,double*p_wgt,
             float x,y,z;
 
             for(int k=0; k<K; k++ ) {
-                if( pTlt[k].w > 0 ){
+                if( pTlt[k].w != 0 ){
                     z = rot_inv_pt_Z(pTlt[k].R,pt);
                     if( z >= 0 && z<= 1 ) {
                         should_add = true;
@@ -152,7 +152,7 @@ __global__ void insert_stk(double2*p_acc,double*p_wgt,
                         val.x += pTlt[k].w*(1-z)*read_stk.x;
                         val.y += pTlt[k].w*(1-z)*read_stk.y;
                         float  read_wgt = tex2DLayered<float >(ss_wgt, x+0.5, y+N/2+0.5, k);
-                        wgt   += pTlt[k].w*(1-z)*read_wgt;
+                        wgt   += fabsf(pTlt[k].w)*(1-z)*read_wgt;
 
                     }
                 }
@@ -181,7 +181,7 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
     if( ss_idx.x >= M || ss_idx.y >= N || ss_idx.z >= K )
         return;
 
-    if( pTlt[ss_idx.z].w <= 0 )
+    if( pTlt[ss_idx.z].w == 0 )
         return;
 
     float Nh = float(N)/2;
@@ -196,9 +196,9 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
     if( bp <= 1e-3f )
         return;
 
-    float2 val = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
-    float  wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
-    wgt *= pTlt[ss_idx.z].w;
+    float2 val     = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    float  ctf_wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    float  prj_w   = pTlt[ss_idx.z].w * bp;
 
     float x,y,z;
     rot_pt(x,y,z,pTlt[ss_idx.z].R,pt);
@@ -227,7 +227,7 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
                 float wx = 1.0f - fabsf(x - ix);
                 if( wx <= 0.0f ) continue;
 
-                float lin_wgt = wx*wy*wz;
+                float lin_wgt = wx*wy*wz * prj_w;
 
                 /// Insert into hermitian volume
                 bool should_conj = false;
@@ -249,14 +249,13 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
                 if (iy_h < 0 || iy_h >= N) continue;
                 if (iz_h < 0 || iz_h >= N) continue;
 
-                float  w   = lin_wgt * wgt * bp;
                 long   idx = get_3d_idx(ix_h,iy_h,iz_h,M,N);
                 float2 out = val;
                 if( should_conj ) out.y = -out.y;
 
-                atomic_Add( &(p_acc[idx].x) , w*out.x );
-                atomic_Add( &(p_acc[idx].y) , w*out.y );
-                atomic_Add( &(p_wgt[idx]  ) , w*w     );
+                atomic_Add( &(p_acc[idx].x) , lin_wgt*out.x   );
+                atomic_Add( &(p_acc[idx].y) , lin_wgt*out.y   );
+                atomic_Add( &(p_wgt[idx]  ) , fabsf(lin_wgt)*ctf_wgt );
             }
         }
     }
@@ -271,7 +270,7 @@ __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
     if( ss_idx.x >= M || ss_idx.y >= N || ss_idx.z >= K )
         return;
 
-    if( pTlt[ss_idx.z].w <= 0 )
+    if( pTlt[ss_idx.z].w == 0 )
         return;
 
     int Nh = N/2;
@@ -286,9 +285,9 @@ __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
     if( bp <= 1e-3f )
         return;
 
-    float2 val = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
-    float  wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
-    wgt *= pTlt[ss_idx.z].w;
+    float2 val     = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    float  ctf_wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    float  prj_w   = pTlt[ss_idx.z].w * bp;
 
     float x,y,z;
     rot_pt(x,y,z,pTlt[ss_idx.z].R,pt);
@@ -339,23 +338,23 @@ __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
                 if( (iy_h < 0) || (iy_h >= N) ) continue;
                 if( (iz_h < 0) || (iz_h >= N) ) continue;
 
-                float kb_wgt = kbx*kby*kbz;
-                float w = kb_wgt*wgt*bp;
+                float kb_wgt = kbx*kby*kbz * prj_w;
 
                 long   idx = get_3d_idx(ix_h,iy_h,iz_h,M,N);
                 float2 out = val;
                 if( should_conj ) out.y = -out.y;
 
-                atomic_Add( &(p_acc[idx].x) , w*out.x );
-                atomic_Add( &(p_acc[idx].y) , w*out.y );
-                atomic_Add( &(p_wgt[idx]  ) , w*w     );
+                atomic_Add( &(p_acc[idx].x) , kb_wgt*out.x   );
+                atomic_Add( &(p_acc[idx].y) , kb_wgt*out.y   );
+                atomic_Add( &(p_wgt[idx]  ) , fabsf(kb_wgt)*ctf_wgt );
             }
         }
     }
 }
 
 __global__ void extract_stk(float2*p_out,cudaTextureObject_t vol,const Proj2D*pTlt,
-                            const float3 bandpass,const int M, const int N, const int K)
+                            const float3 bandpass,const int M, const int N, const int K,
+                            bool bandpass_squared=false)
 {
     int3 ss_idx = get_th_idx();
 
@@ -373,6 +372,8 @@ __global__ void extract_stk(float2*p_out,cudaTextureObject_t vol,const Proj2D*pT
             float bp = get_bp_wgt(bandpass.x,bandpass.y,bandpass.z,R);
 
             if( bp > 0.05 ) {
+                if( bandpass_squared )
+                    bp = bp*bp;
                 Vec3 pt_out;
                 rot_pt_XY(pt_out,pTlt[ss_idx.z].R,pt_in);
 
@@ -385,6 +386,60 @@ __global__ void extract_stk(float2*p_out,cudaTextureObject_t vol,const Proj2D*pT
                 }
 
                 val = tex3D<float2>(vol, pt_out.x+0.5, pt_out.y+N/2+0.5, pt_out.z+N/2+0.5);
+                val.x *= bp;
+                val.y *= bp;
+
+                if( should_conjugate )
+                    val.y = -val.y;
+
+            }
+        }
+
+        p_out[ ss_idx.x + M*ss_idx.y + M*N*ss_idx.z ] = val;
+    }
+}
+
+__global__ void extract_stk(float2*p_out,cudaTextureObject_t vol,const Proj2D*pTlt,
+                            const Defocus*pDef,const float3 bandpass,
+                            const int M, const int N, const int K,
+                            bool bandpass_squared=false)
+{
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < M && ss_idx.y < N && ss_idx.z < K ) {
+
+        float2 val = {0,0};
+
+        if( pTlt[ss_idx.z].w > 0 ) {
+            Vec3 pt_in;
+            pt_in.x = ss_idx.x;
+            pt_in.y = ss_idx.y - N/2;
+            pt_in.z = 0;
+
+            float max_R = bandpass.y;
+            if( pDef[ss_idx.z].max_res > 0 )
+                max_R = min(max_R,pDef[ss_idx.z].max_res);
+
+            float R = l2_distance(pt_in.x,pt_in.y);
+            float bp = get_bp_wgt(bandpass.x,max_R,bandpass.z,R);
+
+            if( bp > 0.05 ) {
+                if( bandpass_squared )
+                    bp = bp*bp;
+                Vec3 pt_out;
+                rot_pt_XY(pt_out,pTlt[ss_idx.z].R,pt_in);
+
+                bool should_conjugate = false;
+                if( pt_out.x < 0 ) {
+                    pt_out.x = -pt_out.x;
+                    pt_out.y = -pt_out.y;
+                    pt_out.z = -pt_out.z;
+                    should_conjugate = true;
+                }
+
+                val = tex3D<float2>(vol, pt_out.x+0.5, pt_out.y+N/2+0.5, pt_out.z+N/2+0.5);
+                val.x *= bp;
+                val.y *= bp;
 
                 if( should_conjugate )
                     val.y = -val.y;

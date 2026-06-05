@@ -252,7 +252,7 @@ public:
         Rcone.col(2) = forward;
 
         // Add in plane rotations
-        Eigen::AngleAxisf rz(psi, forward);
+        Eigen::AngleAxisf rz(psi, Eigen::Vector3f::UnitZ());
         M33f Rinplane = rz.toRotationMatrix();
 
         // Final rotation

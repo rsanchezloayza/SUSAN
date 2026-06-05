@@ -16,7 +16,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
-from ._volume_pairs import VolumePairs
-from ._denoiser     import Noise2Moments, Noise2MomentsTrainer
+from ._volume_pairs  import VolumePairs
+from ._noise2noise   import Noise2Noise, Noise2NoiseTrainer
 
-__all__ = ['VolumePairs', 'Noise2Moments', 'Noise2MomentsTrainer']
+__all__ = ['VolumePairs',
+           'Noise2Noise', 'Noise2NoiseTrainer']

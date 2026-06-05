@@ -17,7 +17,7 @@
 ###########################################################################
 
 import numpy as _np
-from numba import jit as _jit
+from susan.data._particles_core import _load_all, _save_all, _update_new_defocus
 from susan.data  import Tomograms       as _tomodef
 from susan.utils import is_extension    as _is_ext
 from susan.utils import force_extension as _force_ext
@@ -238,102 +238,6 @@ class Particles:
             raise ValueError("Invalid File signature")
         return _np.frombuffer(buffer[8:],_np.uint32)
     
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _parse_buffer_stg1(ix,buffer,pid,tid,tcix,pos,rcix,hid,e1,e2):
-        pid[ix],tid[ix],tcix[ix] = buffer[:3].view(_np.uint32)
-        pos[ix] = buffer[3:6]
-        rcix[ix],hid[ix] = buffer[6:8].view(_np.uint32)
-        e1[ix],e2[ix] = buffer[8:10]
-    
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _parse_buffer_stg2(ix,R,buffer,eu,t,cc,w):
-        i = 0
-        for j in range(R):
-            eu[j,ix,0] = buffer[i  ]
-            eu[j,ix,1] = buffer[i+1]
-            eu[j,ix,2] = buffer[i+2]
-            i = i+3
-        
-        for j in range(R):
-            t[j,ix,0] = buffer[i  ]
-            t[j,ix,1] = buffer[i+1]
-            t[j,ix,2] = buffer[i+2]
-            i = i+3
-        
-        for j in range(R):
-            cc[j,ix] = buffer[i]
-            i = i+1
-        
-        for j in range(R):
-            w[j,ix] = buffer[i]
-            i = i+1
-    
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _parse_buffer_stg3(ix,P,buffer,eu,t,cc,w):
-        i = 0
-        for j in range(P):
-            eu[ix,j,0] = buffer[i  ]
-            eu[ix,j,1] = buffer[i+1]
-            eu[ix,j,2] = buffer[i+2]
-            i = i+3
-        
-        for j in range(P):
-            t[ix,j,0] = buffer[i  ]
-            t[ix,j,1] = buffer[i+1]
-            i = i+2
-        
-        for j in range(P):
-            cc[ix,j] = buffer[i]
-            i = i+1
-        
-        for j in range(P):
-            w[ix,j] = buffer[i]
-            i = i+1
-    
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _parse_buffer_stg4(ix,P,buffer,dU,dV,dA,ph,Bf,EF,res,scr):
-        i = 0
-        for j in range(P):
-            dU [ix,j] = buffer[i  ]
-            dV [ix,j] = buffer[i+1]
-            dA [ix,j] = buffer[i+2]
-            ph [ix,j] = buffer[i+3]
-            Bf [ix,j] = buffer[i+4]
-            EF [ix,j] = buffer[i+5]
-            res[ix,j] = buffer[i+6]
-            scr[ix,j] = buffer[i+7]
-            i = i+8
-    
-    def _parse_buffer(self,ix,buffer):
-        
-        # Parse with NUMBA: 1.7x faster 
-        Particles._parse_buffer_stg1(ix,buffer,
-                                     self.ptcl_id,self.tomo_id,self.tomo_cix,
-                                     self.position,self.ref_cix,self.half_id,
-                                     self.extra_1,self.extra_2)
-        
-        # 3D alignment
-        R = self.ali_eu.shape[0]
-        Particles._parse_buffer_stg2(ix,R,buffer[10:],
-                                     self.ali_eu,self.ali_t,
-                                     self.ali_cc,self.ali_w)
-        
-        # 2D alignment
-        P = self.prj_eu.shape[1]
-        Particles._parse_buffer_stg3(ix,P,buffer[(10+8*R):],
-                                     self.prj_eu,self.prj_t,
-                                     self.prj_cc,self.prj_w)
-        
-        # Defocus
-        Particles._parse_buffer_stg4(ix,P,buffer[(10+8*R+7*P):],
-                                     self.def_U   ,self.def_V   ,self.def_ang,
-                                     self.def_phas,self.def_Bfct,self.def_ExFl,
-                                     self.def_mres,self.def_scor)
-        
     def sort(self):
         """Sort particles in-place by (tomo_id, ptcl_id)."""
         idx = _np.lexsort((self.ptcl_id,self.tomo_id))
@@ -367,95 +271,18 @@ class Particles:
 
     def _load(self,filename):
         Particles._check_filename(filename)
-        
-        fp = open(filename,"rb")
-        n_ptcl, n_proj, n_refs = self._load_header(fp)
+        with open(filename,"rb") as fp:
+            n_ptcl, n_proj, n_refs = self._load_header(fp)
         self._alloc(n_ptcl,n_proj,n_refs)
-        bytes_per_ptcl = 4*( 10 + 8*n_refs + 7*n_proj + 8*n_proj )
-        for i in range(n_ptcl):
-            buffer = _np.frombuffer(fp.read(bytes_per_ptcl),_np.float32)
-            self._parse_buffer(i,buffer)
-        fp.close()
-    
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _set_buffer_stg1(ix,buffer,pid,tid,tcix,pos,rcix,hid,e1,e2):
-        tmp = _np.uint32(pid[ix])
-        buffer[0] = tmp.view(_np.float32)
-        tmp = _np.uint32(tid[ix])
-        buffer[1] = tmp.view(_np.float32)
-        tmp = _np.uint32(tcix[ix])
-        buffer[2] = tmp.view(_np.float32)
-        buffer[3:6] = pos[ix]
-        tmp = _np.uint32(rcix[ix])
-        buffer[6] = tmp.view(_np.float32)
-        tmp = _np.uint32(hid[ix])
-        buffer[7] = tmp.view(_np.float32)
-        buffer[8] = e1[ix]
-        buffer[9] = e2[ix]
-    
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _set_buffer_stg2(ix,R,buffer,eu,t,cc,w):
-        i = 0
-        for j in range(R):
-            buffer[i  ] = eu[j,ix,0]
-            buffer[i+1] = eu[j,ix,1]
-            buffer[i+2] = eu[j,ix,2]
-            i = i+3
-        
-        for j in range(R):
-            buffer[i  ] = t[j,ix,0]
-            buffer[i+1] = t[j,ix,1]
-            buffer[i+2] = t[j,ix,2]
-            i = i+3
-        
-        for j in range(R):
-            buffer[i] = cc[j,ix]
-            i = i+1
-        
-        for j in range(R):
-            buffer[i] = w[j,ix]
-            i = i+1
-    
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _set_buffer_stg3(ix,P,buffer,eu,t,cc,w):
-        i = 0
-        for j in range(P):
-            buffer[i  ] = eu[ix,j,0]
-            buffer[i+1] = eu[ix,j,1]
-            buffer[i+2] = eu[ix,j,2]
-            i = i+3
-        
-        for j in range(P):
-            buffer[i  ] = t[ix,j,0]
-            buffer[i+1] = t[ix,j,1]
-            i = i+2
-        
-        for j in range(P):
-            buffer[i] = cc[ix,j]
-            i = i+1
-        
-        for j in range(P):
-            buffer[i] = w[ix,j]
-            i = i+1
-    
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _set_buffer_stg4(ix,P,buffer,dU,dV,dA,ph,Bf,EF,res,scr):
-        i = 0
-        for j in range(P):
-            buffer[i  ] = dU [ix,j]
-            buffer[i+1] = dV [ix,j]
-            buffer[i+2] = dA [ix,j]
-            buffer[i+3] = ph [ix,j]
-            buffer[i+4] = Bf [ix,j]
-            buffer[i+5] = EF [ix,j]
-            buffer[i+6] = res[ix,j]
-            buffer[i+7] = scr[ix,j]
-            i = i+8
-    
+        _load_all(filename.encode(),
+                  n_ptcl, n_refs, n_proj,
+                  self.ptcl_id, self.tomo_id, self.tomo_cix, self.position,
+                  self.ref_cix, self.half_id, self.extra_1,  self.extra_2,
+                  self.ali_eu,  self.ali_t,   self.ali_cc,   self.ali_w,
+                  self.prj_eu,  self.prj_t,   self.prj_cc,   self.prj_w,
+                  self.def_U,   self.def_V,   self.def_ang,  self.def_phas,
+                  self.def_Bfct,self.def_ExFl,self.def_mres, self.def_scor)
+
     def save(self, filename):
         """Save to a ``.ptclsraw`` binary file.
 
@@ -465,39 +292,17 @@ class Particles:
             Output path; must have a ``.ptclsraw`` extension.
         """
         Particles._check_filename(filename)
-        
-        fp = open(filename,"wb")
-        fp.write( b'SsaPtcl1' )
-        _np.array( (self.n_ptcl,self.n_proj,self.n_refs), dtype=_np.uint32 ).tofile(fp)
-        
-        R = self.ali_eu.shape[0]
-        P = self.prj_eu.shape[1]        
-        buffer = _np.zeros(10+8*R+7*P+8*P,dtype=_np.float32)
-        
-        for ix in range(self.n_ptcl):
-            
-            Particles._set_buffer_stg1(ix,buffer,
-                                         self.ptcl_id,self.tomo_id,self.tomo_cix,
-                                         self.position,self.ref_cix,self.half_id,
-                                         self.extra_1,self.extra_2)
-            
-            # 3D alignment
-            Particles._set_buffer_stg2(ix,R,buffer[10:],
-                                         self.ali_eu,self.ali_t,
-                                         self.ali_cc,self.ali_w)
-            
-            # 2D alignment
-            Particles._set_buffer_stg3(ix,P,buffer[(10+8*R):],
-                                         self.prj_eu,self.prj_t,
-                                         self.prj_cc,self.prj_w)
-            
-            # Defocus
-            Particles._set_buffer_stg4(ix,P,buffer[(10+8*R+7*P):],
-                                         self.def_U   ,self.def_V   ,self.def_ang,
-                                         self.def_phas,self.def_Bfct,self.def_ExFl,
-                                         self.def_mres,self.def_scor)
-            buffer.tofile(fp)
-        fp.close()
+        def _c32(a, dtype=_np.float32): return _np.ascontiguousarray(a, dtype=dtype)
+        _save_all(filename.encode(),
+                  self.n_ptcl, self.n_refs, self.n_proj,
+                  _c32(self.ptcl_id,  _np.uint32), _c32(self.tomo_id,  _np.uint32),
+                  _c32(self.tomo_cix, _np.uint32), _c32(self.position),
+                  _c32(self.ref_cix,  _np.uint32), _c32(self.half_id,  _np.uint32),
+                  _c32(self.extra_1), _c32(self.extra_2),
+                  _c32(self.ali_eu),  _c32(self.ali_t),   _c32(self.ali_cc),  _c32(self.ali_w),
+                  _c32(self.prj_eu),  _c32(self.prj_t),   _c32(self.prj_cc),  _c32(self.prj_w),
+                  _c32(self.def_U),   _c32(self.def_V),   _c32(self.def_ang),  _c32(self.def_phas),
+                  _c32(self.def_Bfct),_c32(self.def_ExFl),_c32(self.def_mres), _c32(self.def_scor))
     
     def __getitem__(self, idx):
         """Select particles by index, boolean mask, or slice.
@@ -565,7 +370,47 @@ class Particles:
         if number_of_particles > 1:
             ptcls_out.sort()
         return ptcls_out
-    
+
+    def copy(self):
+        """Return a deep copy of this Particles object.
+
+        All numpy arrays are copied (no shared memory with the original).
+        Particle order is preserved.
+
+        Returns
+        -------
+        Particles
+        """
+        ptcls_out = Particles(n_ptcl=self.n_ptcl, n_proj=self.n_proj, n_refs=self.n_refs)
+        ptcls_out.ptcl_id  = self.ptcl_id .copy()
+        ptcls_out.tomo_id  = self.tomo_id .copy()
+        ptcls_out.tomo_cix = self.tomo_cix.copy()
+        ptcls_out.position = self.position.copy()
+        ptcls_out.ref_cix  = self.ref_cix .copy()
+        ptcls_out.half_id  = self.half_id .copy()
+        ptcls_out.extra_1  = self.extra_1 .copy()
+        ptcls_out.extra_2  = self.extra_2 .copy()
+        # 3D alignment
+        ptcls_out.ali_eu   = self.ali_eu.copy()
+        ptcls_out.ali_t    = self.ali_t .copy()
+        ptcls_out.ali_cc   = self.ali_cc.copy()
+        ptcls_out.ali_w    = self.ali_w .copy()
+        # 2D alignment
+        ptcls_out.prj_eu   = self.prj_eu.copy()
+        ptcls_out.prj_t    = self.prj_t .copy()
+        ptcls_out.prj_cc   = self.prj_cc.copy()
+        ptcls_out.prj_w    = self.prj_w .copy()
+        # Defocus
+        ptcls_out.def_U    = self.def_U   .copy()
+        ptcls_out.def_V    = self.def_V   .copy()
+        ptcls_out.def_ang  = self.def_ang .copy()
+        ptcls_out.def_phas = self.def_phas.copy()
+        ptcls_out.def_Bfct = self.def_Bfct.copy()
+        ptcls_out.def_ExFl = self.def_ExFl.copy()
+        ptcls_out.def_mres = self.def_mres.copy()
+        ptcls_out.def_scor = self.def_scor.copy()
+        return ptcls_out
+
     def append_ptcls(self, ptcls):
         """Append another Particles object to this one in-place.
 
@@ -655,13 +500,7 @@ class Particles:
         self.position = self.position + self.ali_t[ref_id]
         self.ali_t[ref_id,:,:] = 0
 
-    @staticmethod
-    @_jit(nopython=True,cache=True)
-    def _update_new_defocus(dU,dV,R,p,num_proj,z_coef,dU_in,dV_in):
-        for i in range(num_proj):
-            dZ = R[i,2,0]*p[0] + R[i,2,1]*p[1] + R[i,2,2]*p[2]
-            dU[i] = dU_in[i] + z_coef*dZ
-            dV[i] = dV_in[i] + z_coef*dZ
+    _update_new_defocus = staticmethod(_update_new_defocus)
 
     def update_defocus(self, tomos_info, ref_id=0, z_sign=None):
         """Recompute per-projection defocus values from the current 3-D positions.
@@ -671,6 +510,13 @@ class Particles:
         defocus by the resulting depth offset.  Also copies projection weights,
         astigmatism, B-factor, and CTF scores from the Tomograms metadata.
 
+        The depth-to-defocus-offset mapping depends on the defocus sign
+        convention: with the underfocus (positive) convention, ``δ_z`` and
+        ``dZ`` have opposite signs; with the overfocus (negative) convention,
+        they have the same sign.  The effective Z coefficient is therefore
+        multiplied by ``sign(base_defocus)`` so the addition stays consistent
+        with whatever convention the tomogram's defocus values were stored in.
+
         Parameters
         ----------
         tomos_info : Tomograms
@@ -679,7 +525,8 @@ class Particles:
             Reference index whose translation is included in the position. Default 0.
         z_sign : float, optional
             Override the Z-axis handedness (+1 or −1).  If None (default),
-            ``tomos_info.handedness`` is used per tomogram.
+            ``tomos_info.handedness`` is used per tomogram.  This value is
+            still combined with the base-defocus sign internally.
         """
         
         # Calculate tilt rotation matrix
@@ -703,13 +550,17 @@ class Particles:
             # Note: Numba makes it ~23.3 times faster
             pos = self.position[k] + self.ali_t[ref_id,k]
             z_sign_k = z_sign if z_sign is not None else tomos_info.handedness[tid]
+            np = int(tomos_info.num_proj[tid])
+            base_def = tomos_info.def_U[tid,:np]
+            nz = base_def[base_def != 0]
+            def_sign = _np.sign(nz[0]) if nz.size > 0 else 1.0
             Particles._update_new_defocus(
                 self.def_U[k],
                 self.def_V[k],
                 R_arr[tid],
                 pos,
-                tomos_info.num_proj[tid],
-                z_sign_k,
+                np,
+                z_sign_k * def_sign,
                 tomos_info.def_U[tid],
                 tomos_info.def_V[tid]
             )
@@ -793,8 +644,8 @@ class Particles:
         step = Particles._get_grid_step(step_angstroms,step_pixels,apix)
         brdr = Particles._get_border_pixels(skip_border_pixels)
 
-        R = _np.eye(3)
-        _euZYZ_rotm(R,_np.deg2rad(_np.array((0,angle_deg_Y,0))))
+        R = _np.eye(3, dtype=_np.float32)
+        _euZYZ_rotm(R,_np.deg2rad(_np.array((0,angle_deg_Y,0), dtype=_np.float32)))
         
         pts = _np.zeros((0,3),dtype=_np.float32)
         tcx = _np.zeros((0),dtype=_np.uint32)

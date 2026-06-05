@@ -117,6 +117,15 @@ public:
         GpuKernels::divide_energy_stk<<<grd,blk,0,stream.strm>>>(ctf.ptr,rad_avg.ptr,ss);
     }
 
+    void normalize_stacks(GPU::GArrSingle2&data,int k,GPU::Stream&stream) {
+        std_acc.clear(stream.strm);
+        int3 ss  = make_int3(M,N,k);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,M,N,k);
+        GpuKernels::get_std_from_fourier_stk<<<grd,blk,0,stream.strm>>>(std_acc.ptr,data.ptr,ss);
+        GpuKernels::apply_std_to_fourier_stk<<<grd,blk,0,stream.strm>>>(data.ptr,std_acc.ptr,ss);
+    }
+
     void normalize_stacks(GPU::GArrSingle2&data,float3 bandpass,int k,GPU::Stream&stream) {
         std_acc.clear(stream.strm);
         int3 ss  = make_int3(M,N,k);
@@ -202,35 +211,28 @@ public:
         GpuKernels::divide<<<grd_fou,blk,0,stream.strm>>>(ss_fourier.ptr,NP*NP,ss_fou);
     }
 
-    void mask_small_ctf(GPU::GArrSingle&ctf_wgt,int k,GPU::Stream&stream) {
+    void correct_phase_flip(const CtfConst ctf_const,GPU::GArrSingle&ctf_wgt,GPU::GArrDefocus&g_def,int k,GPU::Stream&stream) {
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::mask_small_ctf<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ctf_wgt.ptr,ss);
+        GpuKernelsCtf::correct_stk_phase_flip<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ctf_wgt.ptr,g_def.ptr,ctf_const,ss);
     }
 
-    void correct_phase_flip(const CtfConst ctf_const,GPU::GArrSingle&ctf_wgt,GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream) {
+    void correct_wiener(const CtfConst ctf_const,GPU::GArrSingle&ctf_wgt,GPU::GArrDefocus&g_def,int k,GPU::Stream&stream) {
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::correct_stk_phase_flip<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ctf_wgt.ptr,g_def.ptr,bandpass,ctf_const,ss);
+        GpuKernelsCtf::correct_stk_wiener<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ctf_wgt.ptr,g_def.ptr,ctf_const,ss);
     }
 
-    void correct_wiener(const CtfConst ctf_const,GPU::GArrSingle&ctf_wgt,GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream) {
-        int3 ss = make_int3(MP,NP,k);
-        dim3 blk = GPU::get_block_size_2D();
-        dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::correct_stk_wiener<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ctf_wgt.ptr,g_def.ptr,bandpass,ctf_const,ss);
-    }
-
-    void correct_wiener_ssnr(const CtfConst ctf_const,GPU::GArrSingle&ctf_wgt,GPU::GArrDefocus&g_def,float3 bandpass,float2 ssnr,int k,GPU::Stream&stream) {
+    void correct_wiener_ssnr(const CtfConst ctf_const,GPU::GArrSingle&ctf_wgt,GPU::GArrDefocus&g_def,float2 ssnr,int k,GPU::Stream&stream) {
         // float2  ssnr; /// x=F; y=S;
         single ssnr_f = -100*ssnr.x;
         single ssnr_s = pow(10,3*ssnr.y);
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::correct_stk_wiener_ssnr<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ctf_wgt.ptr,g_def.ptr,ssnr_f,ssnr_s,bandpass,ctf_const,ss);
+        GpuKernelsCtf::correct_stk_wiener_ssnr<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ctf_wgt.ptr,g_def.ptr,ssnr_f,ssnr_s,ctf_const,ss);
     }
 
     void whitening_filter(int k,GPU::Stream&stream) {
@@ -282,6 +284,19 @@ public:
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
         float limit = fminf(crowther_limit,MP);
         GpuKernels::apply_radial_wgt<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,w_total,limit,ss);
+    }
+
+    void apply_bandpass(GPU::GArrDefocus&p_def,float3 bandpass,int k,GPU::Stream&stream) {
+        bool bandpass_squared=true;
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
+        GpuKernels::apply_bandpass_fourier<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,p_def.ptr,bandpass,MP,NP,k,bandpass_squared);
+    }
+
+    void apply_exposure_filt(const CtfConst ctf_const,GPU::GArrDefocus&p_def,int k,GPU::Stream&stream) {
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
+        GpuKernelsCtf::apply_exposure_filt_fourier<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ctf_const,p_def.ptr,MP,NP,k);
     }
 
 };
@@ -387,9 +402,17 @@ public:
     }
 
     void project(GPU::GTex3DSingle2&ref,float3 bandpass,int k,GPU::Stream&stream) {
+        bool bandpass_squared=true;
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
-        GpuKernelsVol::extract_stk<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ref.texture,g_ali.ptr,bandpass,M,N,k);
+        GpuKernelsVol::extract_stk<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ref.texture,g_ali.ptr,bandpass,M,N,k,bandpass_squared);
+    }
+
+    void project(GPU::GTex3DSingle2&ref,GPU::GArrDefocus&p_def,float3 bandpass,int k,GPU::Stream&stream) {
+        bool bandpass_squared=true;
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,M,N,k);
+        GpuKernelsVol::extract_stk<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ref.texture,g_ali.ptr,p_def.ptr,bandpass,M,N,k,bandpass_squared);
     }
 
     void invert_fourier(int k,GPU::Stream&stream) {
@@ -402,6 +425,7 @@ public:
         GpuKernels::sampling_correction_2D<<<grd_f,blk,0,stream.strm>>>(prj_c.ptr,0.5,ss_fou);
         ifft2.exec(prj_r.ptr,prj_c.ptr);
         GpuKernels::fftshift2D<<<grd_r,blk,0,stream.strm>>>(prj_r.ptr,ss_pad);
+        stream.sync();
     }
 
     void scale(float scale,int k,GPU::Stream&stream) {
@@ -418,9 +442,10 @@ public:
     }
 
     void apply_bandpass(GPU::GArrDefocus&p_def,float3 bandpass,int k,GPU::Stream&stream) {
+        bool bandpass_squared=true;
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
-        GpuKernels::apply_bandpass_fourier<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_def.ptr,bandpass,M,N,k);
+        GpuKernels::apply_bandpass_fourier<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_def.ptr,bandpass,M,N,k,bandpass_squared);
     }
 
     void apply_bandpass(const CtfConst ctf_const,GPU::GArrDefocus&p_def,float3 bandpass,int k,GPU::Stream&stream) {
@@ -466,7 +491,7 @@ public:
         GPU::download_async(c_cc,g_cc.ptr,n_pts,stream.strm);
     }
 
-    void extract_cc(float*p_cc,int*p_ix,GPU::GArrProj2D&ali,int k,GPU::Stream&stream) {
+    void download_cc(GPU::GArrProj2D&ali,int k,GPU::Stream&stream) {
         dim3 blk;
         dim3 grd;
         blk.x = 1024;
@@ -477,7 +502,10 @@ public:
         grd.z = k;
         GpuKernelsVol::extract_pts<<<grd,blk,0,stream.strm>>>(g_cc.ptr,prj_r.ptr,ali.ptr,g_pts.ptr,n_pts,N,k);
         GPU::download_async(c_cc,g_cc.ptr,n_pts*k,stream.strm);
-        stream.sync();
+    }
+
+    void extract_cc(float*p_cc,int*p_ix,GPU::GArrProj2D&ali,int k,GPU::Stream&stream) {
+        download_cc(ali,k,stream);
         for(int i=0;i<k;i++) {
             get_max_cc(p_cc[i],p_ix[i],c_cc+i*n_pts);
         }

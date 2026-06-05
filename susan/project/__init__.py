@@ -18,9 +18,23 @@
 
 from . import STA
 from . import Extractor
+from . import SubtomoAvg
+from . import SubtomoAvgSched
+from . import SubtomoAvgN2N
+from . import Schedulers
+from . import diagnostics
 from .STA import *
 from .Extractor import *
+from .SubtomoAvg import SubtomoAvgBase, SubtomoAvgCore, SubtomoAvg, SubtomoAvgMonitor
+from .SubtomoAvgSched import SubtomoAvgSched
+from .SubtomoAvgN2N import SubtomoAvgN2N
 
-__all__ = ['STA','Manager','SubtomogramGenerator','ProjectionExtractor']
+__all__ = [
+    'STA', 'Manager',
+    'SubtomoAvg', 'SubtomoAvgBase', 'SubtomoAvgCore', 'SubtomoAvgMonitor',
+    'SubtomoAvgSched', 'SubtomoAvgN2N',
+    'SubtomogramGenerator', 'ProjectionExtractor',
+    'diagnostics', 'Schedulers',
+]
 
 

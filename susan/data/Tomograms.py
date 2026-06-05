@@ -16,17 +16,21 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+import os as _os
 import susan.utils.txt_parser as _prsr
 import numpy as _np
 
+import susan.io.mrc as _mrc
 from susan.io.mrc import get_info as _mrc_info
 from susan.io import tlt as _tlt
 from susan.io import xf  as _xf
 
 from susan.utils import is_extension as _is_ext
-from susan.utils import force_extension as _force_ext 
+from susan.utils import force_extension as _force_ext
 from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.utils import rotm_euZYZ as _rotm_euZYZ
+from susan.utils import bin_frame as _bin_frame
+from susan.utils import bin_frame_shape as _bin_frame_shape
 
 class Tomograms:
     """Per-tomogram metadata container for SUSAN workflows.
@@ -381,17 +385,17 @@ class Tomograms:
             else:
                 apix = self.pix_size[idx]
             for i in range(self.num_proj[idx]):
-                rot_tlt = _np.zeros([3,3])
-                _euZYZ_rotm(rot_tlt, _np.array([0.0, tlt[i], 0.0]) * _np.pi / 180.0)
+                rot_tlt = _np.zeros([3,3], _np.float32)
+                _euZYZ_rotm(rot_tlt, _np.array([0.0, tlt[i], 0.0], _np.float32) * _np.float32(_np.pi / 180.0))
                 rot_xf  = _np.array([[xf[i,0,0], xf[i,0,1], 0],
                                      [xf[i,1,0], xf[i,1,1], 0],
                                      [0        , 0        , 1],
-                                    ]).T
-                
-                vec_xf  = _np.array([xf[i,0,2], xf[i,1,2], 0]) * apix
+                                    ], _np.float32).T
+
+                vec_xf  = _np.array([xf[i,0,2], xf[i,1,2], 0], _np.float32) * _np.float32(apix)
                 vec     = -rot_xf @ vec_xf
                 rot     =  rot_xf @ rot_tlt
-                euler   = _np.zeros(3)
+                euler   = _np.zeros(3, _np.float32)
                 _rotm_euZYZ(euler, rot)
                 self.proj_eZYZ [idx, i, :] = euler * 180.0 / _np.pi
                 self.proj_shift[idx, i, :] = vec[:2]
@@ -455,3 +459,115 @@ class Tomograms:
                 self.def_mres[idx,:P] = 0
         else:
             raise NameError('Invalid filename')
+
+    def bin(self, scale, in_subfolder=True, filename=None):
+        """Downsample every tilt-series stack and return a binned ``Tomograms``.
+
+        Each MRC stack referenced in ``stack_file`` is read, every projection
+        is downsampled in real space by ``scale`` using a centred area-weighted
+        kernel (see :func:`susan.utils.bin_frame`), and the result is written
+        to a new MRC alongside the original.  Per-tomogram metadata is updated
+        consistently:
+
+        * ``pix_size`` ← ``pix_size * scale``
+        * ``stack_size[:, 0:2]`` ← ``ceil(stack_size[:, 0:2] / scale)``
+        * ``tomo_size`` ← ``ceil(tomo_size / scale)`` (all three axes)
+        * ``stack_file`` ← new path with the ``bSCALE`` tag inserted
+
+        All other fields (tilt angles, shifts in Å, defocus, doses, etc.) are
+        binning-invariant and copied verbatim.
+
+        .. note::
+           Always bin from the unbinned (b1) stack.  Chaining
+           ``b1.bin(2).bin(2)`` is geometrically centre-consistent but applies
+           the box kernel twice, which is *not* equivalent to ``b1.bin(4)``
+           in the frequency domain.
+
+        Parameters
+        ----------
+        scale : float, > 1.0
+            Downsampling factor.  Integer values are formatted without a
+            decimal in the filename tag (``2 → 'b2'``); fractional values use
+            ``'p'`` instead of ``'.'`` (``1.5 → 'b1p5'``).
+        in_subfolder : bool, optional
+            If True (default), each binned stack is written under a
+            ``bSCALE/`` sibling directory next to the original stack.
+            If False, the binned stack is written in the same directory as
+            the original with the tag appended to the stem.
+        filename : str, optional
+            If given, also save the returned ``Tomograms`` to this
+            ``.tomostxt`` file.
+
+        Returns
+        -------
+        Tomograms
+            New ``Tomograms`` instance referencing the binned stacks.
+        """
+        if scale <= 1.0:
+            raise ValueError("scale must be > 1.0")
+
+        s = float(scale)
+        tag = ('b%d' % int(s)) if s == int(s) else (('b%g' % s).replace('.', 'p'))
+        new = Tomograms(n_tomo=self.n_tomos, n_proj=self.n_projs)
+
+        new.tomo_id[:]              = self.tomo_id
+        new.num_proj[:]             = self.num_proj
+        new.pix_size[:]             = self.pix_size * float(scale)
+        new.voltage[:]              = self.voltage
+        new.sph_aber[:]             = self.sph_aber
+        new.amp_cont[:]             = self.amp_cont
+        new.handedness[:]           = self.handedness
+        new.proj_eZYZ[:]            = self.proj_eZYZ
+        new.proj_shift[:]           = self.proj_shift
+        new.proj_wgt[:]             = self.proj_wgt
+        new.def_U[:]                = self.def_U
+        new.def_V[:]                = self.def_V
+        new.def_ang[:]              = self.def_ang
+        new.def_phas[:]             = self.def_phas
+        new.def_Bfct[:]             = self.def_Bfct
+        new.def_ExFl[:]             = self.def_ExFl
+        new.def_mres[:]             = self.def_mres
+        new.def_scor[:]             = self.def_scor
+        new.doses[:]                = self.doses
+        new.nominal_tilt_angles[:]  = self.nominal_tilt_angles
+        new.ctf_scale_factor[:]     = self.ctf_scale_factor
+
+        for i in range(self.n_tomos):
+            new.tomo_size[i, 0] = int(_np.ceil(float(self.tomo_size[i, 0]) / float(scale)))
+            new.tomo_size[i, 1] = int(_np.ceil(float(self.tomo_size[i, 1]) / float(scale)))
+            new.tomo_size[i, 2] = int(_np.ceil(float(self.tomo_size[i, 2]) / float(scale)))
+
+            in_path  = self.stack_file[i]
+            in_dir   = _os.path.dirname(in_path)
+            in_base  = _os.path.basename(in_path)
+            stem, ext = _os.path.splitext(in_base)
+            out_base = '%s_%s%s' % (stem, tag, ext if ext else '.mrc')
+            if in_subfolder:
+                out_dir = _os.path.join(in_dir, tag) if in_dir else tag
+                _os.makedirs(out_dir, exist_ok=True)
+            else:
+                out_dir = in_dir
+            out_path = _os.path.join(out_dir, out_base) if out_dir else out_base
+
+            stk_in, _ = _mrc.read(in_path)
+            P  = int(stk_in.shape[0])
+            H  = int(stk_in.shape[1])
+            W  = int(stk_in.shape[2])
+            H_b, W_b = _bin_frame_shape(H, W, float(scale))
+
+            stk_out = _np.empty((P, H_b, W_b), dtype=_np.float32)
+            stk_in_f32 = _np.ascontiguousarray(stk_in, dtype=_np.float32)
+            for p in range(P):
+                _bin_frame(stk_in_f32[p], float(scale), out_frame=stk_out[p])
+
+            _mrc.write(stk_out, out_path, apix=float(new.pix_size[i]))
+
+            new.stack_file[i]    = out_path
+            new.stack_size[i, 0] = W_b
+            new.stack_size[i, 1] = H_b
+            new.stack_size[i, 2] = P
+
+        if filename is not None:
+            new.save(filename)
+
+        return new

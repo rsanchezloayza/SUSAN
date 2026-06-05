@@ -105,22 +105,50 @@ inline void eXYZ_Rmat(M33f&R,const Vec3&eu_rad) {
 }
 
 inline void Rmat_eZXZ(V3f&eu_rad,const M33f&R) {
-    eu_rad = R.eulerAngles(2,0,2);
+    // Eigen gives the correct angles, but we want to make sure they are in the expected ranges.
+    // R = Rz(eu0)Rx(eu1)Rz(eu2),  eu0,eu2 in [-pi,pi], eu1 in [0,pi].
+    // At gimbal lock (|sin(eu1)| ~ 0), eu0 and eu2 are not separately
+    // determined; we set eu0 = 0 and put the residual into eu2.
+    const float sb = sqrt(R(0,2)*R(0,2) + R(1,2)*R(1,2));   // |sin(eu1)|
+
+    if( sb > 1e-6f ) {
+        eu_rad(0) = atan2( R(0,2), -R(1,2));
+        eu_rad(1) = atan2( sb,      R(2,2));
+        eu_rad(2) = atan2( R(2,0),  R(2,1));
+    }
+    else if( R(2,2) > 0.0f ) {     // eu1 = 0:  R = Rz(eu0+eu2)
+        eu_rad(0) = 0.0f;
+        eu_rad(1) = 0.0f;
+        eu_rad(2) = atan2(R(1,0), R(0,0));
+    }
+    else {                          // eu1 = pi: R = Rx(pi)Rz(eu2-eu0)
+        eu_rad(0) = 0.0f;
+        eu_rad(1) = float(M_PI);
+        eu_rad(2) = atan2(-R(0,1), R(0,0));
+    }
 }
 
 inline void Rmat_eZYZ(V3f&eu_rad,const M33f&R) {
-    if( fabs(R(2,2)-1) < 1e-5 ) {
+    // Eigen gives the correct angles, but we want to make sure they are in the expected ranges.
+    // R = Rz(eu0)Ry(eu1)Rz(eu2),  eu0,eu2 in [-pi,pi], eu1 in [0,pi].
+    // At gimbal lock (|sin(eu1)| ~ 0), eu0 and eu2 are not separately
+    // determined; we set eu0 = 0 and put the residual into eu2.
+    const float sb = sqrt(R(0,2)*R(0,2) + R(1,2)*R(1,2));   // |sin(eu1)|
+
+    if( sb > 1e-6f ) {
+        eu_rad(0) = atan2( R(1,2),  R(0,2));
+        eu_rad(1) = atan2( sb,      R(2,2));
+        eu_rad(2) = atan2( R(2,1), -R(2,0));
+    }
+    else if( R(2,2) > 0.0f ) {     // eu1 = 0:  R = Rz(eu0+eu2)
         eu_rad(0) = 0.0f;
         eu_rad(1) = 0.0f;
-        eu_rad(2) = atan2(R(1,0),R(0,0));
+        eu_rad(2) = atan2(R(1,0), R(0,0));
     }
-    else if( fabs(R(2,2)+1) < 1e-5 ) {
+    else {                          // eu1 = pi: R = Ry(pi)Rz(eu2-eu0)
         eu_rad(0) = 0.0f;
         eu_rad(1) = float(M_PI);
-        eu_rad(2) = atan2(R(0,1),R(0,0));
-    }
-    else {
-        eu_rad = R.eulerAngles(2,1,2);
+        eu_rad(2) = atan2(R(0,1), R(1,1));
     }
 }
 
@@ -635,15 +663,19 @@ inline bool normalize_masked(float*ptr,const float*msk,const uint32 length, cons
 
     for(uint32 i=0; i<length; i++) {
         if( msk[i] > 0 ) {
-            float tmp = ptr[i]*msk[i];
-            tmp  = tmp - avg;
+            float tmp = (ptr[i]-avg)*msk[i];
             std += tmp*tmp;
         }
     }
 
     std = sqrtf( std/(count-1) );
 
-    return normalize(ptr,length,avg,std,new_std);
+    for(uint32 i=0; i<length; i++) {
+        float tmp = (ptr[i]-avg)*msk[i];
+        ptr[i] = tmp*new_std/std;
+    }
+
+    return true;
 }
 
 inline void anscombe_transform(float*ptr,const uint32 length) {

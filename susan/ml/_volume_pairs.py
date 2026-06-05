@@ -50,6 +50,18 @@ class VolumePairs():
     tmp_base : str
         Path prefix used for temporary files written by :meth:`populate`.
         Default: ``'vol_pair_tmp'``.
+    mask : numpy.ndarray or None
+        Cropped mask retained by :meth:`set_size_mask`, floored at
+        :attr:`min_mask_value`.  ``None`` until :meth:`set_size_mask` is
+        called.
+    apply_mask : bool
+        When ``True``, :meth:`crop_vol` multiplies every cropped volume by
+        :attr:`mask` before it is stored in the buffer.  Default: ``False``.
+    min_mask_value : float
+        Lower bound applied to the mask when it is stored
+        (``mask = maximum(min_mask_value, input_mask)``).  A non-zero value
+        attenuates — rather than zeroes — voxels outside the mask.
+        Default: ``0.0``.
     """
 
     def __init__(self, tmp_base: str = 'vol_pair_tmp'):
@@ -64,6 +76,10 @@ class VolumePairs():
         self.buffer   = None
         self.tmp_base = tmp_base
         self._head    = 0
+
+        self.mask           = None
+        self.apply_mask     = False
+        self.min_mask_value = 0.0
 
     # ------------------------------------------------------------------ setup
 
@@ -95,10 +111,13 @@ class VolumePairs():
         self.box_size = vol_size
         self.px0 = self.py0 = self.pz0 = padding
         self.px1 = self.py1 = self.pz1 = vol_size - padding
+        self.mask       = None
+        self.apply_mask = False
         self._allocate_buffer(num_vol)
 
     def set_size_mask(self, vol_size: int, num_vol: int,
-                      mask: _np.ndarray, extra_pad: int = 10):
+                      mask: _np.ndarray, extra_pad: int = 10,
+                      apply_mask: bool = False, min_mask_value: float = 0.0):
         """Initialise the buffer using the tight bounding box of a mask.
 
         Computes the axis-aligned bounding box of the non-zero voxels in
@@ -119,6 +138,16 @@ class VolumePairs():
         extra_pad : int, optional
             Extra voxels added around the bounding box on each side.
             Default: ``10``.
+        apply_mask : bool, optional
+            If ``True``, :meth:`crop_vol` multiplies every volume by the
+            (cropped, floored) mask before it is stored in the buffer.
+            Sets :attr:`apply_mask`.  Default: ``False``.
+        min_mask_value : float, optional
+            Lower bound for the retained mask:
+            ``mask = maximum(min_mask_value, mask)``.  With ``0.0`` voxels
+            outside the mask are zeroed; a small positive value (e.g. ``0.1``)
+            attenuates them instead.  Sets :attr:`min_mask_value`.
+            Default: ``0.0``.
 
         Raises
         ------
@@ -137,10 +166,26 @@ class VolumePairs():
         self.px1 = min(vol_size,  int(pts[2].max()) + extra_pad + 1)
         self._allocate_buffer(num_vol)
 
+        # Retain the mask so it can be multiplied into each volume on crop.
+        self.apply_mask     = bool(apply_mask)
+        self.min_mask_value = float(min_mask_value)
+        floored             = _np.maximum(self.min_mask_value,
+                                          mask).astype(_np.float32)
+        self.mask           = _np.ascontiguousarray(self._crop_region(floored))
+
     # ---------------------------------------------------------------- helpers
+
+    def _crop_region(self, vol: _np.ndarray) -> _np.ndarray:
+        """Slice a volume to the active crop region (no masking)."""
+        return vol[self.pz0:self.pz1, self.py0:self.py1, self.px0:self.px1]
 
     def crop_vol(self, vol: _np.ndarray) -> _np.ndarray:
         """Crop a volume to the active region set by :meth:`set_size` or :meth:`set_size_mask`.
+
+        When :attr:`apply_mask` is ``True`` and a mask has been stored, the
+        cropped volume is additionally multiplied by :attr:`mask` (floored at
+        :attr:`min_mask_value`) before being returned — so volumes are masked
+        as :meth:`push` writes them into the buffer.
 
         Parameters
         ----------
@@ -150,9 +195,12 @@ class VolumePairs():
         Returns
         -------
         numpy.ndarray
-            Cropped sub-volume.
+            Cropped sub-volume, mask-multiplied when :attr:`apply_mask` is set.
         """
-        return vol[self.pz0:self.pz1, self.py0:self.py1, self.px0:self.px1]
+        out = self._crop_region(vol)
+        if self.apply_mask and self.mask is not None:
+            out = out * self.mask
+        return out
 
     def pad_vol(self, vol: _np.ndarray) -> _np.ndarray:
         """Zero-pad a cropped volume back to the full box size.
@@ -253,6 +301,61 @@ class VolumePairs():
         """
         self.reset()
         self.push(vol1, vol2)
+
+    def save(self, path: str):
+        """Save the buffer and all crop/padding metadata to a single file.
+
+        Parameters
+        ----------
+        path : str
+            Destination file path (e.g. ``'data.vpairs'``).
+        """
+        _torch.save({
+            'buffer':   self.buffer,
+            'num_vol':  self.num_vol,
+            'max_vol':  self.max_vol,
+            'box_size': self.box_size,
+            'head':     self._head,
+            'pz0': self.pz0, 'pz1': self.pz1,
+            'py0': self.py0, 'py1': self.py1,
+            'px0': self.px0, 'px1': self.px1,
+            'mask':           (None if self.mask is None
+                               else _torch.from_numpy(self.mask)),
+            'apply_mask':     self.apply_mask,
+            'min_mask_value': self.min_mask_value,
+        }, path)
+
+    @classmethod
+    def load(cls, path: str, tmp_base: str = 'vol_pair_tmp') -> 'VolumePairs':
+        """Reconstruct a VolumePairs from a file saved with :meth:`save`.
+
+        Parameters
+        ----------
+        path : str
+            Path to a file previously written by :meth:`save`.
+        tmp_base : str, optional
+            ``tmp_base`` for the reconstructed object.  Default:
+            ``'vol_pair_tmp'``.
+
+        Returns
+        -------
+        VolumePairs
+        """
+        ck  = _torch.load(path, map_location='cpu', weights_only=True)
+        obj = cls(tmp_base=tmp_base)
+        obj.buffer   = ck['buffer']
+        obj.num_vol  = int(ck['num_vol'])
+        obj.max_vol  = int(ck['max_vol'])
+        obj.box_size = int(ck['box_size'])
+        obj._head    = int(ck['head'])
+        obj.pz0 = int(ck['pz0']); obj.pz1 = int(ck['pz1'])
+        obj.py0 = int(ck['py0']); obj.py1 = int(ck['py1'])
+        obj.px0 = int(ck['px0']); obj.px1 = int(ck['px1'])
+        m = ck.get('mask', None)
+        obj.mask           = None if m is None else m.numpy()
+        obj.apply_mask     = bool(ck.get('apply_mask', False))
+        obj.min_mask_value = float(ck.get('min_mask_value', 0.0))
+        return obj
 
     def populate(self, avgr, ptcls, tomo_filename: str,
                  num_entries: int = None):

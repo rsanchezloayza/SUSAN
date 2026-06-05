@@ -268,7 +268,8 @@ protected:
             pt_crop = pt_stack/p_tomo->pix_size + p_tomo->stk_center;
 
             /// Setup data for upload to GPU
-            p_factor[k].x = sqrt(base_defocus[k]/(base_defocus[k]-pt_stack(2)));
+            float def_sign = (p_info->is_overfocus) ? -1.0f : 1.0f;
+            p_factor[k].x = sqrt(base_defocus[k]/(base_defocus[k]-def_sign*pt_stack(2)));
             p_factor[k].y = 1;
 
             /// Crop
@@ -339,7 +340,7 @@ protected:
 
         int count;
         char filename[SUSAN_FILENAME_LENGTH];
-        sprintf(filename,"%s/Tomo%03d",p_info->out_dir,tomo.tomo_id);
+        sprintf(filename,"%s/Tomo%05d",p_info->out_dir,tomo.tomo_id);
         IO::create_dir(filename);
 
         printf("        Tomo %3d [%5d particles]: %6.2f%%",tomo.tomo_id,ptcls.n_ptcl,0.0);
@@ -363,10 +364,10 @@ protected:
         clear_workers();
         reduce_and_bcast(tomo.stk_dim.z);
         if( p_info->verbose > 1 ) {
-            sprintf(filename,"%s/Tomo%03d/ctf_average_raw.mrc",p_info->out_dir,tomo.tomo_id);
+            sprintf(filename,"%s/Tomo%05d/ctf_average_raw.mrc",p_info->out_dir,tomo.tomo_id);
             Mrc::write(workers[0].c_rslt.ptr,(p_info->box_size/2)+1,p_info->box_size,tomo.num_proj,filename);
         }
-        sprintf(filename,"%s/Tomo%03d",p_info->out_dir,tomo.tomo_id);
+        sprintf(filename,"%s/Tomo%05d",p_info->out_dir,tomo.tomo_id);
         int k0;
         float tomo_def = initial_estimation(workers[0].base_defocus,k0,filename,workers[0].c_rslt.ptr,tomo);
         printf(" Initial tomogram Defocus: %8.1f Å\n",tomo_def);
@@ -394,10 +395,10 @@ protected:
         clear_workers();
         reduce_and_bcast(tomo.stk_dim.z);
         if( p_info->verbose > 1 ) {
-            sprintf(filename,"%s/Tomo%03d/ctf_normalized_raw.mrc",p_info->out_dir,tomo.tomo_id);
+            sprintf(filename,"%s/Tomo%05d/ctf_normalized_raw.mrc",p_info->out_dir,tomo.tomo_id);
             Mrc::write(workers[0].c_rslt.ptr,(p_info->box_size/2)+1,p_info->box_size,tomo.num_proj,filename);
         }
-        sprintf(filename,"%s/Tomo%03d",p_info->out_dir,tomo.tomo_id);
+        sprintf(filename,"%s/Tomo%05d",p_info->out_dir,tomo.tomo_id);
         post_process(filename,workers[0].c_rslt.ptr,tomo,k0);
         w_cmd.send_command(WorkerCommand::BasicCommands::CMD_IDLE);
 
@@ -437,11 +438,13 @@ protected:
     }
 
     float initial_estimation(single*p_def_rslt,int&k0,const char*out_dir,single*p_data,Tomogram&tomo) {
+        float def_sign = (p_info->is_overfocus) ? -1.0f : 1.0f;
+
         CtfLinearizer1D ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj);
         ctf_lin.load_info(p_info,&tomo);
-        float defocus = ctf_lin.get_rough_estimate(out_dir,p_data);
+        float defocus = def_sign*ctf_lin.get_rough_estimate(out_dir,p_data);
         for(int k=0;k<tomo.num_proj;k++)
-            p_def_rslt[k] = ctf_lin.c_defocus[k];
+            p_def_rslt[k] = def_sign*ctf_lin.c_defocus[k];
         k0 = ctf_lin.k0;
         return defocus;
     }
@@ -450,7 +453,7 @@ protected:
         CtfLinearizer ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj);
         ctf_lin.load_info(p_info,&tomo);
         ctf_lin.initial_estimation(out_dir,p_data);
-        ctf_lin.process(out_dir,p_data,&tomo,k0);
+        ctf_lin.process(out_dir,p_data,&tomo,k0,p_info->is_overfocus);
     }
 
 };

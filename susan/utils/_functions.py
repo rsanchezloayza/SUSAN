@@ -32,6 +32,8 @@ __all__ = ['dose_from_fsc',
            'time_now',
            'create_sphere',
            'bin_vol',
+           'bin_frame',
+           'bin_frame_shape',
            'mask_diameter',
            'angular_step_from_fsc',
           ]
@@ -39,13 +41,22 @@ __all__ = ['dose_from_fsc',
 import datetime
 import susan.io.mrc as mrc
 import numpy as np
-from numba import jit
 from os.path import splitext as split_ext
+from susan.utils._functions_core import (
+    radial_average as _radial_average_cy,
+    radial_expansion,
+    _core_apply_fourier_rad_wgt,
+    _fsc_get_core,
+    euDYN_rotm,
+    euZYZ_rotm,
+    rotm_euZYZ,
+    bin_frame as _bin_frame_cy,
+    bin_frame_shape as _bin_frame_shape_cy,
+)
 import susan.utils.datatypes as datatypes
 
 ###########################################
 
-@jit(nopython=True,cache=True)
 def radial_average(v):
     """Compute the radial (shell) average of a 3-D volume.
 
@@ -64,81 +75,14 @@ def radial_average(v):
         Radially averaged values.  N = max(Z, Y, X) // 2 + 1.
     """
     assert v.ndim == 3, "Volume must be three-dimensional"
-
-    N = (max( max(v.shape[0],v.shape[1]), v.shape[2] )//2)+1
-    val = np.zeros(N)
-    wgt = np.zeros(N)
-
-    cnt_z = v.shape[0]//2
-    cnt_y = v.shape[1]//2
-    cnt_x = v.shape[2]//2
-
-    for k in range(v.shape[0]):
-        z = k - cnt_z
-        for j in range(v.shape[1]):
-            y = j - cnt_y
-            for i in range(v.shape[2]):
-                x = i - cnt_x
-                r = np.sqrt( x**2 + y**2 + z**2 )
-                r = np.int32(np.round(r))
-                if r < N:
-                    val[r] += v[k,j,i]
-                    wgt[r] += 1.0
-    val = val/np.maximum(wgt,1)
-    return val
-
-@jit(nopython=True,cache=True)
-def radial_expansion(arr):
-    """Expand a 1-D radial profile into a 3-D spherically symmetric volume.
-
-    The inverse of ``radial_average``: each voxel at radius r is assigned the
-    value ``arr[round(r)]``.  The output cube has side 2*(len(arr)-1).
-
-    Parameters
-    ----------
-    arr : ndarray, shape (N,)
-        1-D radial profile.
-
-    Returns
-    -------
-    ndarray, shape (2*(N-1), 2*(N-1), 2*(N-1)), float32
-        3-D volume with spherical symmetry.
-    """
-    cnt = arr.shape[0]-1
-    N = 2*cnt
-    rslt = np.zeros((N,N,N),np.float32)
-
-    for k in range(N):
-        z = k - cnt
-        for j in range(N):
-            y = j - cnt
-            for i in range(N):
-                x = i - cnt
-                r = np.sqrt( x**2 + y**2 + z**2 )
-                r = np.int32(np.round(r))
-                if r < cnt:
-                    rslt[k,j,i] = arr[r]
-    return rslt
+    return _radial_average_cy(np.ascontiguousarray(v, dtype=np.float64))
 
 ###########################################
 
-@jit(nopython=True,cache=True)
-def _core_apply_fourier_rad_wgt(v_fou,wgt):
-    c_z = v_fou.shape[0]/2
-    c_y = v_fou.shape[1]/2
-    for z in range(v_fou.shape[0]):
-        Z = (z-c_z)**2
-        for y in range(v_fou.shape[1]):
-            Y = (y-c_y)**2
-            for x in range(v_fou.shape[2]):
-                X = x**2
-                r = int(np.sqrt(X+Y+Z))
-                r = min(r,wgt.shape[0]-1)
-                v_fou[z,y,x] = wgt[r]*v_fou[z,y,x]
 
 def _apply_fourier_rad_wgt(v,wgt):
-    v_f = np.fft.fftshift(np.fft.rfftn(v,norm='ortho'),axes=(0,1))
-    _core_apply_fourier_rad_wgt(v_f,wgt)
+    v_f = np.ascontiguousarray(np.fft.fftshift(np.fft.rfftn(v.astype(float),norm='ortho'),axes=(0,1)))
+    _core_apply_fourier_rad_wgt(v_f, np.ascontiguousarray(wgt, dtype=np.float32))
     rslt = np.fft.irfftn(np.fft.ifftshift(v_f,axes=(0,1)),norm='ortho')
     rslt = np.float32(rslt)
     return rslt
@@ -218,31 +162,6 @@ def apply_FOM(v,fsc_array):
 
 ###########################################
 
-@jit(nopython=True,cache=True)
-def _fsc_get_core(n,d1,d2):
-    rslt = np.zeros(n.shape[2],dtype=n.dtype)
-    tmp1 = np.zeros(n.shape[2],dtype=n.dtype)
-    tmp2 = np.zeros(n.shape[2],dtype=n.dtype)
-
-    for k in range(n.shape[0]):
-        z = k - n.shape[0]//2
-        for j in range(n.shape[1]):
-            y = j - n.shape[1]//2
-            for i in range(n.shape[2]):
-                r = np.sqrt( i**2 + y**2 + z**2 )
-                r = np.int32(np.round(r))
-                if r < rslt.size:
-                    rslt[r] = rslt[r] +  n[k,j,i]
-                    tmp1[r] = tmp1[r] + d1[k,j,i]
-                    tmp2[r] = tmp2[r] + d2[k,j,i]
-    rslt[0] = 1.0
-    for r in range(1,rslt.size):
-        denom = np.sqrt(tmp1[r]*tmp2[r])
-        if denom > 0:
-            rslt[r] = rslt[r] / denom
-        else:
-            rslt[r] = 0.0
-    return rslt
 
 def fsc_get(v1,v2,msk=None):
     """Compute the Fourier Shell Correlation (FSC) between two half-maps.
@@ -292,9 +211,9 @@ def fsc_get(v1,v2,msk=None):
     V1 = np.fft.fftshift( np.fft.rfftn(v1,norm='ortho'), axes=(0,1))
     V2 = np.fft.fftshift( np.fft.rfftn(v2,norm='ortho'), axes=(0,1))
     
-    num = np.real(V1*np.conjugate(V2)).astype(np.float32)
-    d_1 = np.real(V1*np.conjugate(V1)).astype(np.float32)
-    d_2 = np.real(V2*np.conjugate(V2)).astype(np.float32)
+    num = np.ascontiguousarray(np.real(V1*np.conjugate(V2)), dtype=np.float32)
+    d_1 = np.ascontiguousarray(np.real(V1*np.conjugate(V1)), dtype=np.float32)
+    d_2 = np.ascontiguousarray(np.real(V2*np.conjugate(V2)), dtype=np.float32)
     
     fsc = _fsc_get_core(num,d_1,d_2)
     
@@ -338,97 +257,6 @@ def fsc_analyse(fsc,apix=1.0,thres=0.143):
 
 ###########################################
 
-@jit(nopython=True,cache=True)
-def euDYN_rotm(R,eu):
-    """Fill rotation matrix R from dynamic (intrinsic ZXZ-like) Euler angles.
-
-    Uses SUSAN's internal DYN convention:
-    eu = [psi, phi, theta] in radians, where phi is the tilt (polar) angle
-    measured from the Z-axis.  The rotation is applied in the order
-    theta → phi → psi (intrinsic, right-handed).
-
-    Parameters
-    ----------
-    R  : ndarray, shape (3, 3)
-        Output array filled in-place.
-    eu : ndarray, shape (3,)
-        Euler angles [psi, phi, theta] in radians.
-    """
-    cos_theta = np.cos(eu[2])
-    cos_phi   = np.cos(eu[1])
-    cos_psi   = np.cos(eu[0])
-    sin_theta = np.sin(eu[2])
-    sin_phi   = np.sin(eu[1])
-    sin_psi   = np.sin(eu[0])
-    R[0,0] = cos_theta*cos_psi - cos_phi*sin_theta*sin_psi
-    R[0,1] = -cos_theta*sin_psi - cos_phi*cos_psi*sin_theta
-    R[0,2] = sin_theta*sin_phi
-    R[1,0] = cos_psi*sin_theta + cos_theta*cos_phi*sin_psi
-    R[1,1] = cos_theta*cos_phi*cos_psi - sin_theta*sin_psi
-    R[1,2] = -cos_theta*sin_phi
-    R[2,0] = sin_phi*sin_psi
-    R[2,1] = cos_psi*sin_phi
-    R[2,2] = cos_phi
-
-@jit(nopython=True,cache=True)
-def euZYZ_rotm(R,eu):
-    """Fill rotation matrix R from ZYZ Euler angles.
-
-    Standard extrinsic ZYZ convention:
-    R = R_z(theta) · R_y(phi) · R_z(psi).
-
-    Parameters
-    ----------
-    R  : ndarray, shape (3, 3)
-        Output array filled in-place.
-    eu : ndarray, shape (3,)
-        Euler angles [theta, phi, psi] in radians.
-    """
-    cos_theta = np.cos(eu[0])
-    cos_phi = np.cos(eu[1])
-    cos_psi = np.cos(eu[2])
-    sin_theta = np.sin(eu[0])
-    sin_phi = np.sin(eu[1])
-    sin_psi = np.sin(eu[2])
-    R[0,0] = cos_theta*cos_phi*cos_psi - sin_theta*sin_psi
-    R[0,1] = -cos_psi*sin_theta - cos_theta*cos_phi*sin_psi
-    R[0,2] = cos_theta*sin_phi
-    R[1,0] = cos_theta*sin_psi + cos_phi*cos_psi*sin_theta
-    R[1,1] = cos_theta*cos_psi - cos_phi*sin_theta*sin_psi
-    R[1,2] = sin_theta*sin_phi
-    R[2,0] = -cos_psi*sin_phi
-    R[2,1] = sin_phi*sin_psi
-    R[2,2] = cos_phi
-
-@jit(nopython=True,cache=True)
-def rotm_euZYZ(euler, R):
-    """Extract ZYZ Euler angles from a rotation matrix.
-
-    Inverse of ``euZYZ_rotm``.  Handles the two degenerate cases
-    (phi=0 and phi=π) by setting theta=0 and expressing the remaining
-    degree of freedom in psi.
-
-    Parameters
-    ----------
-    euler : ndarray, shape (3,)
-        Output array filled in-place with [theta, phi, psi] in radians.
-    R     : ndarray, shape (3, 3)
-        Input rotation matrix.
-    """
-    if np.abs(R[2,2]-1)<1e-6:
-        # phi=0: only (theta+psi) is determined; set theta=0
-        euler[0] = 0
-        euler[1] = 0
-        euler[2] = np.arctan2(R[1,0], R[1,1])
-    elif np.abs(R[2,2]+1)<1e-6:
-        # phi=pi: only (psi-theta) is determined; set theta=0
-        euler[0] = 0
-        euler[1] = np.pi
-        euler[2] = np.arctan2(R[1,0], R[1,1])
-    else:
-        euler[0] = np.arctan2(R[1,2],R[0,2])
-        euler[1] = np.arctan2(np.sqrt(np.abs(1-(R[2,2]*R[2,2]))),R[2,2])
-        euler[2] = np.arctan2(R[2,1],-R[2,0])
 
 ###########################################
 
@@ -548,6 +376,57 @@ def bin_vol(vol,bin_level):
     v = bandpass(vol,vol.shape[0]//(2*s)-1)
     v = v[::s,::s,::s]
     return np.float32(v)
+
+###########################################
+
+def bin_frame_shape(H, W, scale):
+    """Return the (H_b, W_b) shape that :func:`bin_frame` would produce."""
+    return _bin_frame_shape_cy(int(H), int(W), float(scale))
+
+def bin_frame(in_frame, scale, out_frame=None):
+    """Area-weighted downsample of a single 2-D frame by a float ``scale``.
+
+    Output dimensions are ``ceil(H/scale)`` and ``ceil(W/scale)``.  The
+    centred offset ``(N - N_b*scale)/2`` keeps the geometric centre at pixel
+    ``N_b/2`` exactly, matching SUSAN's ``stk_center = stk_dim/2`` projection
+    convention, so the same particle position projects to the same physical
+    point across binning levels.
+
+    Edge bins extend past the input boundary; out-of-bounds contributions are
+    skipped and each output pixel is normalised by the actual in-bounds
+    weight, so no artificial padding is introduced.
+
+    Parameters
+    ----------
+    in_frame  : ndarray, shape (H, W)
+        Input frame; converted to contiguous float32 if needed.
+    scale     : float, > 1.0
+        Downsampling factor (input pixels per output pixel).
+    out_frame : ndarray, optional
+        Pre-allocated output buffer of shape ``(ceil(H/scale), ceil(W/scale))``,
+        dtype float32, contiguous.  Allocated internally if not given.
+
+    Returns
+    -------
+    ndarray, float32, shape (ceil(H/scale), ceil(W/scale))
+        The downsampled frame.
+    """
+    if scale <= 1.0:
+        raise ValueError("scale must be > 1.0")
+    in_frame = np.ascontiguousarray(in_frame, dtype=np.float32)
+    if in_frame.ndim != 2:
+        raise ValueError("in_frame must be 2-D")
+    H_b, W_b = _bin_frame_shape_cy(in_frame.shape[0], in_frame.shape[1], float(scale))
+    if out_frame is None:
+        out_frame = np.empty((H_b, W_b), dtype=np.float32)
+    elif out_frame.shape != (H_b, W_b) or out_frame.dtype != np.float32 \
+         or not out_frame.flags['C_CONTIGUOUS']:
+        raise ValueError(
+            "out_frame must be C-contiguous float32 of shape (%d, %d)"
+            % (H_b, W_b)
+        )
+    _bin_frame_cy(out_frame, in_frame, float(scale))
+    return out_frame
 
 ###########################################
 

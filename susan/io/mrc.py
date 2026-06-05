@@ -120,7 +120,7 @@ def write(data, filename, apix=1, ispg=None, fill_statistics=True):
         float16, float32, float64.
     filename : str
         Output file path.
-    apix : float or array-like of shape (3,), optional
+    apix : float or array-like of shape (3,), optional, ordered (X, Y, Z).
         Pixel size in Ångströms.  A scalar sets all three axes equally.
         Default 1.
     ispg : int, optional
@@ -132,7 +132,7 @@ def write(data, filename, apix=1, ispg=None, fill_statistics=True):
     apix = _np.array(apix,dtype=_np.float32)
     if apix.size == 1:
         apix = _np.array((apix,apix,apix))
-    apix = apix*_np.array(data.shape,dtype=_np.float32)
+    apix = apix[::-1]*_np.array(data.shape,dtype=_np.float32)
     hdr  = _np.zeros(256,dtype=_np.uint32)
     apix_uint32 = apix.view(_np.uint32)
     

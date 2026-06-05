@@ -1,7 +1,7 @@
 # Define Project
 
 cmake_minimum_required(VERSION 3.14)
-project(SUSAN LANGUAGES CXX CUDA)
+project(SUSAN LANGUAGES C CXX CUDA)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -130,5 +130,79 @@ add_custom_target(prepare_python
 	COMMAND mkdir -p ${CMAKE_SOURCE_DIR}/susan/bin
 	COMMAND cp -v ${CMAKE_CURRENT_BINARY_DIR}/susan_* ${CMAKE_SOURCE_DIR}/susan/bin/
 )
+
+########################################################################
+########################################################################
+
+# Cython extensions
+
+# If running inside an activated virtualenv and the caller did not pass an
+# explicit -DPython_EXECUTABLE, pin to the venv's interpreter so a higher
+# system Python (e.g. /usr/bin/python3.14) does not override it.
+# This is skipped during pip's PEP 517 isolated build (where VIRTUAL_ENV
+# points to a stripped temp env without NumPy) because setup.py already
+# passes -DPython_EXECUTABLE=${sys.executable} in that path.
+if(DEFINED ENV{VIRTUAL_ENV} AND NOT DEFINED Python_EXECUTABLE)
+    set(Python_EXECUTABLE "$ENV{VIRTUAL_ENV}/bin/python")
+endif()
+
+find_package(Python REQUIRED COMPONENTS Interpreter Development)
+find_program(CYTHON_EXECUTABLE NAMES cython cython3 REQUIRED)
+
+# Resolve NumPy from the *active* interpreter on every configure, instead of
+# find_package(... NumPy). This is what lets `pip install ..` and a manual
+# `cmake ../` coexist in this shared bin/ directory. find_package keys its
+# NumPy cache on the interpreter path, which is identical for both: pip builds
+# PEP 517-isolated (NumPy in a throwaway /tmp/pip-build-env-* overlay) while a
+# manual cmake uses the venv NumPy -- same python3 either way. CMake would
+# reuse whichever include dir was cached first; once the /tmp overlay is gone
+# the manual build fails with "numpy/arrayobject.h: No such file". Querying the
+# interpreter directly each configure always yields the path valid right now.
+execute_process(
+    COMMAND ${Python_EXECUTABLE} -c
+        "import numpy,sys; sys.stdout.write(numpy.get_include()+';'+numpy.__version__)"
+    OUTPUT_VARIABLE Python_NumPy_INFO
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE Python_NumPy_RC)
+if(NOT Python_NumPy_RC EQUAL 0)
+    message(FATAL_ERROR "NumPy not importable with ${Python_EXECUTABLE}; "
+        "install it in the active environment.")
+endif()
+list(GET Python_NumPy_INFO 0 Python_NumPy_INCLUDE_DIRS)
+list(GET Python_NumPy_INFO 1 Python_NumPy_VERSION)
+message(STATUS "NumPy: v${Python_NumPy_VERSION} (${Python_NumPy_INCLUDE_DIRS})")
+
+macro(add_cython_module MODULE PYX_FILE INSTALL_DIR)
+    set(_c "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.c")
+    add_custom_command(
+        OUTPUT  ${_c}
+        COMMAND ${CYTHON_EXECUTABLE} --output-file ${_c} ${PYX_FILE}
+        DEPENDS ${PYX_FILE}
+        COMMENT "Cythonizing ${PYX_FILE}"
+    )
+    Python_add_library(${MODULE} MODULE WITH_SOABI ${_c})
+    target_include_directories(${MODULE} PRIVATE ${Python_NumPy_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/susan)
+    if(Python_NumPy_VERSION VERSION_LESS "2.0")
+        target_compile_options(${MODULE} PRIVATE -include ${CMAKE_SOURCE_DIR}/susan/numpy_compat.h)
+    endif()
+    install(TARGETS ${MODULE} DESTINATION ${INSTALL_DIR})
+    add_custom_command(TARGET ${MODULE} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:${MODULE}>
+            ${CMAKE_SOURCE_DIR}/${INSTALL_DIR}/
+    )
+endmacro()
+
+add_cython_module(_functions_core
+    ${CMAKE_SOURCE_DIR}/susan/utils/_functions_core.pyx
+    susan/utils)
+
+add_cython_module(_particles_core
+    ${CMAKE_SOURCE_DIR}/susan/data/_particles_core.pyx
+    susan/data)
+
+add_cython_module(_ptclsgeom_core
+    ${CMAKE_SOURCE_DIR}/susan/data/_ptclsgeom_core.pyx
+    susan/data)
 
 

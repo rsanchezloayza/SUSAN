@@ -17,7 +17,6 @@
 ###########################################################################
 
 import numpy as _np
-from numba import jit as _jit
 from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.utils import rotm_euZYZ as _rotm_euZYZ
 
