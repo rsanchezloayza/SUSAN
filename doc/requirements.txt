@@ -1,0 +1,5 @@
+sphinx
+furo
+sphinx-copybutton
+sphinx-design
+numpy

@@ -1,0 +1,38 @@
+name: Build and deploy docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install doc dependencies
+        run: pip install -r doc/requirements.txt
+
+      # susan.__init__ checks for a compiled binary at import time.
+      # Create a dummy executable so autodoc can import the package.
+      - name: Create dummy SUSAN binary
+        run: mkdir -p bin && touch bin/susan_aligner && chmod +x bin/susan_aligner
+
+      - name: Build Sphinx docs
+        run: sphinx-build -W --keep-going doc/source doc/_build/html
+
+      # Only deploy on pushes to main (not on PRs)
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: doc/_build/html
