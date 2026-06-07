@@ -1,0 +1,23 @@
+name: susan-spyder
+# Working environment for Spyder IDE.
+# After activating, install SUSAN with one of the install overlays:
+#   conda env update --file envs/environment_susan.yml             (system cmake/CUDA)
+#   conda env update --file envs/environment_susan_devel_cuda12.yml (conda-managed CUDA 12)
+channels:
+  - pytorch
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python>=3.8
+  - numpy>=1.20
+  - scipy>=1.6
+  - pytorch
+  - scikit-learn
+  - scikit-image
+  - numba
+  - spyder
+  - matplotlib
+  - umap-learn
+  - pip
+  - pip:
+    - bm4d

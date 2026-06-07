@@ -1,0 +1,26 @@
+name: susan-hpc
+# Minimal environment for SLURM/HPC clusters; no GUI tools.
+# CUDA, cmake, gcc, and MPI are expected from the cluster module system.
+# Typical workflow:
+#   conda env create --file envs/environment_hpc.yml
+#   conda activate susan-hpc
+#   module load cuda cmake gcc openmpi
+#   pip install "git+https://github.com/rsanchezloayza/SUSAN"
+# If the conda-managed PyTorch does not match the cluster CUDA version,
+# install torch separately after SUSAN:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu<VER>
+channels:
+  - pytorch
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python>=3.8
+  - numpy>=1.20
+  - scipy>=1.6
+  - pytorch
+  - scikit-learn
+  - scikit-image
+  - numba
+  - pip
+  - pip:
+    - bm4d

@@ -1,0 +1,18 @@
+# SUSAN install overlay with conda-managed build tools (CUDA 12).
+# Use this instead of environment_susan.yml when cmake, gcc, or the CUDA toolkit
+# are not available system-wide.
+# Apply to an existing activated environment:
+#   conda env update --file envs/environment_susan_devel_cuda12.yml
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - numpy>=1.20
+  - scipy>=1.6
+  - cmake
+  - make
+  - gxx
+  - cudatoolkit-dev>=12,<13
+  - pip
+  - pip:
+    - "git+https://github.com/rsanchezloayza/SUSAN"
