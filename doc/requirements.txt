@@ -3,3 +3,4 @@ furo
 sphinx-copybutton
 sphinx-design
 numpy
+scipy
