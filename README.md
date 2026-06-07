@@ -1,5 +1,11 @@
-# SUbStack ANalysis (SUSAN): High performance Subtomogram Averaging
-**(Personal/Development version)**
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="doc/source/_static/logo_dark.svg">
+    <img alt="SUSAN logo" src="doc/source/_static/logo_light.svg" width="400">
+  </picture>
+</p>
+
+# SubStack Analysis: High performance Subtomogram Averaging
 
 ## Contents
 - [Description](#description)
@@ -12,7 +18,7 @@
 - [Tutorial](#tutorial)
 
 ## Description
-`SUSAN` is a low-level/mid-level framework for fast Subtomogram Averaging (StA) for CryoEM. It uses *susbtacks* instead of *subtomograms* that are cropped *on-the-fly* from the aligned stacks to reduce the computational complexity and to increase the overall performace of the StA pipeline.
+`SUSAN` is a low-level/mid-level framework for fast Subtomogram Averaging (StA) for CryoET. It uses *susbtacks* instead of *subtomograms* that are cropped *on-the-fly* from the aligned stacks to reduce the computational complexity and to increase the overall performace of the StA pipeline.
 
 `SUSAN` was designed to be modular, flexible and fast. It is conformed by two layers:
 - **Low-level layer**: Set of executables that perform the demanding computations. They were written in `C++` using a minimal set of dependencies: `Eigen`, as a header-only mathemetical engine, `CUDA` for GPU acceleration, and `PThreads` for lightweight multi-threading. Optionally, they can be built with [`MPI`](https://en.wikipedia.org/wiki/Message_Passing_Interface) support to run in multi-node environments.

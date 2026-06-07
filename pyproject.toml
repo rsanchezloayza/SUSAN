@@ -10,11 +10,12 @@ requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.20.0",
     "scipy>=1.6.0",
-    "cython>=3.0",
 ]
 
 [project.optional-dependencies]
-ml = ["torch"]
+ml       = ["torch"]
+analysis = ["scikit-image", "scikit-learn", "numba", "bm4d"]
+full     = ["susan[ml]", "susan[analysis]"]
 
 [[project.authors]]
 name = "Ricardo Miguel Sánchez Loayza"
