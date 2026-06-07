@@ -1,0 +1,1307 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
+        <link rel="prefetch" href="../../../_static/logo_light.svg" as="image">
+        <link rel="prefetch" href="../../../_static/logo_dark.svg" as="image">
+
+    <link rel="shortcut icon" href="../../../_static/icon.ico"><!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
+        <title>susan.project.STA - SUSAN 0.9 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=9cb7217d" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../index.html"><div class="brand">SUSAN 0.9 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../../../_static/logo_light.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../../../_static/logo_dark.svg" alt="Dark Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text" style="font-size: 1.0em;"><center>0.9</center></span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">General Information</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cryoet.html">CryoET Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advantages.html">Why SUSAN?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installing SUSAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../concepts.html">Basic Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Common operations/Usage Examples</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../tutorials.html">Tutorials</a><input aria-label="Toggle navigation of Tutorials" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../tutorials/empiar-10064.html">EMPIAR-10064</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../api/susan.html">susan</a><input aria-label="Toggle navigation of susan" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../api/susan.data.html">susan.data</a><input aria-label="Toggle navigation of susan.data" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.data.Tomograms.html">susan.data.Tomograms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.data.Reference.html">susan.data.Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.data.Particles.html">susan.data.Particles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.data.TiltRangeSelector.html">susan.data.TiltRangeSelector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.data.Particles.Geom.html">susan.data.Particles.Geom</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.data.Particles.MRA.html">susan.data.Particles.MRA</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../api/susan.modules.html">susan.modules</a><input aria-label="Toggle navigation of susan.modules" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.modules.Aligner.html">susan.modules.Aligner</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.modules.Averager.html">susan.modules.Averager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.modules.SubtomoRec.html">susan.modules.SubtomoRec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.modules.CropProjection.html">susan.modules.CropProjection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.modules.CtfEstimator.html">susan.modules.CtfEstimator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.modules.CtfRefiner.html">susan.modules.CtfRefiner</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../api/susan.project.html">susan.project</a><input aria-label="Toggle navigation of susan.project" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.Manager.html">susan.project.STA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.SubtomogramGenerator.html">susan.project.SubtomogramGenerator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.ProjectionExtractor.html">susan.project.ProjectionExtractor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.SubtomoAvg.html">susan.project.SubtomoAvg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.SubtomoAvgMonitor.html">susan.project.SubtomoAvgMonitor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.SubtomoAvgSched.html">susan.project.SubtomoAvgSched</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.SubtomoAvgN2N.html">susan.project.SubtomoAvgN2N</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.SubtomoAvgBase.html">susan.project.SubtomoAvgBase</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.SubtomoAvgCore.html">susan.project.SubtomoAvgCore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.Schedulers.html">susan.project.Schedulers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.project.diagnostics.html">susan.project.diagnostics</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../api/susan.ml.html">susan.ml</a><input aria-label="Toggle navigation of susan.ml" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.ml.VolumePairs.html">susan.ml.VolumePairs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.ml.Noise2Noise.html">susan.ml.Noise2Noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.ml.Noise2NoiseTrainer.html">susan.ml.Noise2NoiseTrainer</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../api/susan.io.html">susan.io</a><input aria-label="Toggle navigation of susan.io" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.io.em.html">susan.io.em</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.io.mrc.html">susan.io.mrc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.io.tlt.html">susan.io.tlt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.io.xf.html">susan.io.xf</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../api/susan.utils.html">susan.utils</a><input aria-label="Toggle navigation of susan.utils" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.utils.datatypes.html">susan.utils.datatypes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/susan.utils.functions.html">susan.utils.functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for susan.project.STA</h1><div class="highlight"><pre>
+<span></span><span class="c1">###########################################################################</span>
+<span class="c1"># This file is part of the Substack Analysis (SUSAN) framework.</span>
+<span class="c1"># Copyright (c) 2018-2021 Ricardo Miguel Sanchez Loayza.</span>
+<span class="c1"># </span>
+<span class="c1"># This program is free software: you can redistribute it and/or modify</span>
+<span class="c1"># it under the terms of the GNU Affero General Public License as</span>
+<span class="c1"># published by the Free Software Foundation, either version 3 of the</span>
+<span class="c1"># License, or (at your option) any later version.</span>
+<span class="c1"># </span>
+<span class="c1"># This program is distributed in the hope that it will be useful,</span>
+<span class="c1"># but WITHOUT ANY WARRANTY; without even the implied warranty</span>
+<span class="c1"># MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="c1"># GNU Affero General Public License for more details.</span>
+<span class="c1"># </span>
+<span class="c1"># You should have received a copy of the GNU Affero General Public License</span>
+<span class="c1"># along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span>
+<span class="c1">###########################################################################</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_warnings</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">KDTree</span> <span class="k">as</span> <span class="n">_KDTree</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">susan.data</span><span class="w">    </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_data</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w">   </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_utils</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">susan.modules</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_modules</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">susan.io.mrc</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span>     <span class="k">as</span> <span class="n">_mrc_read</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">susan.io.mrc</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_info</span> <span class="k">as</span> <span class="n">_mrc_get_info</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">susan.utils.datatypes</span><span class="w">  </span><span class="k">as</span><span class="w"> </span><span class="nn">_dt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">susan.utils.txt_parser</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_prsr</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">os</span><span class="w">      </span><span class="kn">import</span> <span class="n">remove</span> <span class="k">as</span> <span class="n">_rm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">os</span><span class="w">      </span><span class="kn">import</span> <span class="n">mkdir</span>  <span class="k">as</span> <span class="n">_mkdir</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">os.path</span><span class="w"> </span><span class="kn">import</span> <span class="n">exists</span> <span class="k">as</span> <span class="n">_file_exists</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_iteration_files</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_temp</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ite_dir</span>   <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_file_exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;File &#39;</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">+</span> <span class="s1">&#39; does not exist&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_file_exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reference</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;File &#39;</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">reference</span> <span class="o">+</span> <span class="s1">&#39; does not exist&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="STA">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">STA</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Subtomogram averaging project manager.</span>
+
+<span class="sd">    Manages an STA project stored on disk.  If *box_size* is provided the</span>
+<span class="sd">    project directory *prj_name* is created (or reused) and a metadata file</span>
+<span class="sd">    is written.  If *box_size* is omitted the constructor reads the existing</span>
+<span class="sd">    project.</span>
+
+<span class="sd">    The main entry point for automated workflows is :meth:`execute_iteration`.</span>
+<span class="sd">    Lower-level helpers (:meth:`exec_estimation`, :meth:`exec_particle_selection`,</span>
+<span class="sd">    :meth:`exec_averaging`, :meth:`exec_postprocessing`) can also be called</span>
+<span class="sd">    individually for custom pipelines.</span>
+
+<span class="sd">    .. rubric:: Project files</span>
+
+<span class="sd">    .. attribute:: prj_name</span>
+<span class="sd">       :type: str</span>
+
+<span class="sd">       Project directory path.  Set by the constructor.</span>
+
+<span class="sd">    .. attribute:: box_size</span>
+<span class="sd">       :type: int</span>
+
+<span class="sd">       Subvolume box size in pixels.  Set by the constructor.</span>
+
+<span class="sd">    .. attribute:: tomogram_file</span>
+<span class="sd">       :type: str</span>
+
+<span class="sd">       Path to the ``.tomostxt`` file used throughout the project.</span>
+
+<span class="sd">    .. attribute:: initial_reference</span>
+<span class="sd">       :type: str</span>
+
+<span class="sd">       Path to the initial ``.refstxt`` file (iteration 0 reference).</span>
+
+<span class="sd">    .. attribute:: initial_particles</span>
+<span class="sd">       :type: str</span>
+
+<span class="sd">       Path to the initial ``.ptclsraw`` file (iteration 0 particles).</span>
+
+<span class="sd">    .. rubric:: GPU &amp; processing</span>
+
+<span class="sd">    .. attribute:: list_gpus_ids</span>
+<span class="sd">       :type: list of int</span>
+
+<span class="sd">       GPU device IDs forwarded to :attr:`aligner`, :attr:`averager`, and</span>
+<span class="sd">       :attr:`ctf_refiner` at execution time.  Default: ``[0]``.</span>
+
+<span class="sd">    .. rubric:: Iteration control</span>
+
+<span class="sd">    .. attribute:: iteration_type</span>
+<span class="sd">       :type: int or str</span>
+
+<span class="sd">       Type of processing step executed by :meth:`execute_iteration`:</span>
+
+<span class="sd">       ==================  ===========================</span>
+<span class="sd">       Value               Step</span>
+<span class="sd">       ==================  ===========================</span>
+<span class="sd">       ``3`` / ``&#39;3D&#39;``    3-D angular + offset search</span>
+<span class="sd">       ``2`` / ``&#39;2D&#39;``    2-D in-plane alignment</span>
+<span class="sd">       ``&#39;ctf&#39;``           CTF refinement</span>
+<span class="sd">       ==================  ===========================</span>
+
+<span class="sd">       Default: ``3``.</span>
+
+<span class="sd">    .. attribute:: cc_threshold</span>
+<span class="sd">       :type: float</span>
+
+<span class="sd">       Fraction of top-scoring particles kept for reconstruction (by</span>
+<span class="sd">       cross-correlation score within each half-set).  Must be in</span>
+<span class="sd">       ``(0, 1]``.  Default: ``0.8``.</span>
+
+<span class="sd">    .. attribute:: fsc_threshold</span>
+<span class="sd">       :type: float</span>
+
+<span class="sd">       FSC threshold used for resolution estimation in</span>
+<span class="sd">       :meth:`exec_postprocessing`.  Default: ``0.143``.</span>
+
+<span class="sd">    .. rubric:: Modules</span>
+
+<span class="sd">    .. attribute:: aligner</span>
+<span class="sd">       :type: :class:`~susan.modules.Aligner`</span>
+
+<span class="sd">       Aligner instance used for 3-D/2-D alignment steps.</span>
+
+<span class="sd">    .. attribute:: averager</span>
+<span class="sd">       :type: :class:`~susan.modules.Averager`</span>
+
+<span class="sd">       Averager instance used for map reconstruction.</span>
+
+<span class="sd">    .. attribute:: ctf_refiner</span>
+<span class="sd">       :type: :class:`~susan.modules.CtfRefiner`</span>
+
+<span class="sd">       CtfRefiner instance used for CTF refinement steps.</span>
+
+<span class="sd">    .. rubric:: Advanced</span>
+
+<span class="sd">    .. attribute:: mpi</span>
+<span class="sd">       :type: :class:`~susan.utils.datatypes.mpi_params`</span>
+
+<span class="sd">       MPI launcher forwarded to child modules when ``mpi.arg &gt; 1``.</span>
+<span class="sd">       Default: ``mpi_params(&#39;srun -n %d &#39;, 1)``.</span>
+
+<span class="sd">    .. attribute:: verbosity</span>
+<span class="sd">       :type: int</span>
+
+<span class="sd">       Verbosity level forwarded to child modules.  Default: ``1``.</span>
+
+<span class="sd">    .. attribute:: max_2d_delta_angstroms</span>
+<span class="sd">       :type: float</span>
+
+<span class="sd">       Maximum 2-D shift magnitude (Å) allowed per iteration.  ``0``</span>
+<span class="sd">       disables the limit.  Default: ``0``.</span>
+
+<span class="sd">    .. attribute:: max_tilt_reconstruction</span>
+<span class="sd">       :type: None, float, or array-like of length 2</span>
+
+<span class="sd">       Tilt-angle limit applied during reconstruction.  Three forms:</span>
+
+<span class="sd">       * ``None`` or a negative scalar — disabled (default: ``-1``).</span>
+<span class="sd">       * Scalar (``int`` or ``float``) — passes ``tilt_deg_max`` to</span>
+<span class="sd">         :meth:`~susan.data.Particles.Geom.enable_by_tilt`; projections</span>
+<span class="sd">         whose absolute tilt exceeds this value are zeroed.</span>
+<span class="sd">       * Two-element sequence ``[min, max]`` — passes both signed bounds</span>
+<span class="sd">         to :meth:`~susan.data.Particles.Geom.enable_by_tilt_range`,</span>
+<span class="sd">         allowing asymmetric tilt ranges.</span>
+
+<span class="sd">    .. attribute:: type_2d_shift_fitting</span>
+<span class="sd">       :type: str</span>
+
+<span class="sd">       .. warning:: **Experimental.** This feature may change or be removed</span>
+<span class="sd">          in a future release.</span>
+
+<span class="sd">       Post-alignment 2-D shift regularisation: ``&#39;none&#39;``,</span>
+<span class="sd">       ``&#39;affine&#39;``, or ``&#39;gaussian&#39;``.  Default: ``&#39;none&#39;``.</span>
+
+<span class="sd">    .. attribute:: smooth_ctf</span>
+<span class="sd">       :type: bool</span>
+
+<span class="sd">       .. warning:: **Experimental.** This feature may change or be removed</span>
+<span class="sd">          in a future release.</span>
+
+<span class="sd">       If ``True``, apply Gaussian spatial smoothing to the per-particle</span>
+<span class="sd">       CTF defocus deltas (difference from previous iteration) after CTF</span>
+<span class="sd">       refinement.  Uses the same neighbourhood kernel as</span>
+<span class="sd">       ``type_2d_shift_fitting = &#39;gaussian&#39;``.  Default: ``False``.</span>
+
+<span class="sd">    .. attribute:: reweight_classification</span>
+<span class="sd">       :type: bool or float</span>
+
+<span class="sd">       .. warning:: **Experimental.** This feature may change or be removed</span>
+<span class="sd">          in a future release.</span>
+
+<span class="sd">       Multi-reference classification weight strategy.  ``False`` keeps</span>
+<span class="sd">       raw CC scores; ``True`` normalises them to sum to 1; a float *p*</span>
+<span class="sd">       raises them to the power *p* before normalising.</span>
+<span class="sd">       Default: ``False``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prj_name</span><span class="p">,</span> <span class="n">box_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load an existing project or create a new one.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        prj_name : str</span>
+<span class="sd">            Path to the project directory.  Created if it does not exist</span>
+<span class="sd">            (only when *box_size* is provided).</span>
+<span class="sd">        box_size : int, optional</span>
+<span class="sd">            Subvolume box size in pixels.  When given, initialises a new</span>
+<span class="sd">            project.  When omitted, reads ``prj_name/info.prjtxt``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">box_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">prj_name</span><span class="o">+</span><span class="s2">&quot;/info.prjtxt&quot;</span><span class="p">,</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span> <span class="o">=</span> <span class="n">_prsr</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;name&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_prsr</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;box_size&#39;</span><span class="p">))</span>
+            <span class="n">fp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_file_exists</span><span class="p">(</span><span class="n">prj_name</span><span class="p">):</span>
+                <span class="n">_mkdir</span><span class="p">(</span><span class="n">prj_name</span><span class="p">)</span>
+            <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">prj_name</span><span class="o">+</span><span class="s2">&quot;/info.prjtxt&quot;</span><span class="p">,</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;name&#39;</span><span class="p">,</span><span class="n">prj_name</span><span class="p">)</span>
+            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;box_size&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">box_size</span><span class="p">))</span>
+            <span class="n">fp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span> <span class="o">=</span> <span class="n">prj_name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="n">box_size</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span>     <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_particles</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span>    <span class="o">=</span> <span class="mi">3</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">cc_threshold</span>      <span class="o">=</span> <span class="mf">0.8</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fsc_threshold</span>     <span class="o">=</span> <span class="mf">0.143</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span>  <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_tilt_reconstruction</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span>   <span class="o">=</span> <span class="s1">&#39;none&#39;</span> <span class="c1"># affine / gaussian</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span>              <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reweight_classification</span> <span class="o">=</span> <span class="kc">False</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span>               <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">mpi_params</span><span class="p">(</span><span class="s1">&#39;srun -n </span><span class="si">%d</span><span class="s1"> &#39;</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="mi">1</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span>           <span class="o">=</span> <span class="n">_ssa_modules</span><span class="o">.</span><span class="n">Aligner</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span>          <span class="o">=</span> <span class="n">_ssa_modules</span><span class="o">.</span><span class="n">Averager</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span>       <span class="o">=</span> <span class="n">_ssa_modules</span><span class="o">.</span><span class="n">CtfRefiner</span><span class="p">()</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">&#39;on_reference&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">cc_type</span>           <span class="o">=</span> <span class="s1">&#39;cfsc&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">halfsets_independ</span> <span class="o">=</span> <span class="kc">False</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">&#39;wiener&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">rec_halfsets</span>      <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span>  <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    
+<div class="viewcode-block" id="STA.get_iteration_dir">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_iteration_dir">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_iteration_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the directory path for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number (1-based).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Path of the form ``&lt;prj_name&gt;/ite_NNNN/``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span> <span class="o">+</span> <span class="s1">&#39;/ite_</span><span class="si">%04d</span><span class="s1">/&#39;</span> <span class="o">%</span> <span class="n">ite</span></div>
+
+    
+<div class="viewcode-block" id="STA.get_iteration_files">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_iteration_files">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_iteration_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the standard file paths for iteration *ite*.</span>
+
+<span class="sd">        For ``ite &lt; 1`` the initial files (:attr:`initial_particles` and</span>
+<span class="sd">        :attr:`initial_reference`) are returned.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.  Use ``0`` for the initial state.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        _iteration_files</span>
+<span class="sd">            Object with attributes ``ptcl_rslt``, ``ptcl_temp``,</span>
+<span class="sd">            ``reference``, and ``ite_dir``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rslt</span> <span class="o">=</span> <span class="n">_iteration_files</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">ite</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_particles</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">base_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;particles.ptclsraw&#39;</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">ptcl_temp</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;temp.ptclsraw&#39;</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;reference.refstxt&#39;</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">ite_dir</span>   <span class="o">=</span> <span class="n">base_dir</span>
+        <span class="k">return</span> <span class="n">rslt</span></div>
+
+
+<div class="viewcode-block" id="STA.get_names_map">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_names_map">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_names_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the full reference map for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.  ``0`` returns the path from the initial</span>
+<span class="sd">            ``.refstxt``.</span>
+<span class="sd">        ref : int</span>
+<span class="sd">            1-based reference (class) index.  Default: ``1``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Path to the MRC map file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ite</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span><span class="p">)</span>
+            <span class="n">map_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ite_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+            <span class="n">map_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">&#39;map_class</span><span class="si">%03d</span><span class="s1">.mrc&#39;</span> <span class="o">%</span> <span class="n">ref</span>
+        <span class="k">return</span> <span class="n">map_name</span></div>
+
+
+<div class="viewcode-block" id="STA.get_names_mask">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_names_mask">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_names_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the soft mask for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.  ``0`` reads from the initial ``.refstxt``.</span>
+<span class="sd">        ref : int</span>
+<span class="sd">            1-based reference index.  Default: ``1``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Path to the mask MRC file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ite</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span><span class="p">)</span>
+            <span class="n">mask_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;reference.refstxt&#39;</span><span class="p">)</span>
+            <span class="n">mask_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">mask_name</span></div>
+
+
+<div class="viewcode-block" id="STA.get_names_halfmaps">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_names_halfmaps">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_names_halfmaps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the paths to the two half-maps for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.  ``0`` reads from the initial ``.refstxt``.</span>
+<span class="sd">        ref : int</span>
+<span class="sd">            1-based reference index.  Default: ``1``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of str</span>
+<span class="sd">            ``(half1_path, half2_path)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ite</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span><span class="p">)</span>
+            <span class="n">h1_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">h2_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ite_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+            <span class="n">h1_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">&#39;map_class</span><span class="si">%03d</span><span class="s1">_half1.mrc&#39;</span> <span class="o">%</span> <span class="n">ref</span>
+            <span class="n">h2_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">&#39;map_class</span><span class="si">%03d</span><span class="s1">_half2.mrc&#39;</span> <span class="o">%</span> <span class="n">ref</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">h1_name</span><span class="p">,</span><span class="n">h2_name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="STA.get_name_refstxt">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_name_refstxt">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_name_refstxt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the ``.refstxt`` file for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.  ``0`` returns :attr:`initial_reference`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Path to the ``.refstxt`` file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_files</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">files</span><span class="o">.</span><span class="n">reference</span></div>
+
+
+<div class="viewcode-block" id="STA.get_name_ptcls">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_name_ptcls">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_name_ptcls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the ``.ptclsraw`` file for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.  ``0`` returns :attr:`initial_particles`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Path to the ``.ptclsraw`` file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_files</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">files</span><span class="o">.</span><span class="n">ptcl_rslt</span></div>
+
+
+<div class="viewcode-block" id="STA.get_map">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_map">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load and return the reference map for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.</span>
+<span class="sd">        ref : int</span>
+<span class="sd">            1-based reference index.  Default: ``1``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        numpy.ndarray</span>
+<span class="sd">            3-D map array.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">v</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">_mrc_read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_names_map</span><span class="p">(</span><span class="n">ite</span><span class="p">,</span><span class="n">ref</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">v</span></div>
+
+
+<div class="viewcode-block" id="STA.get_ptcls">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_ptcls">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_ptcls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load and return the particles for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        :class:`~susan.data.Particles`</span>
+<span class="sd">            Particle container with aligned positions and scores.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_files</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">files</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="STA.get_cc">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_cc">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the per-particle cross-correlation scores for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.</span>
+<span class="sd">        ref : int</span>
+<span class="sd">            1-based reference index.  Default: ``1``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        numpy.ndarray, shape (N,)</span>
+<span class="sd">            CC scores for all particles assigned to reference *ref*.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ptcls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ptcls</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="STA.get_fsc">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_fsc">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_fsc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute and return the FSC curve for iteration *ite*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number.</span>
+<span class="sd">        ref : int</span>
+<span class="sd">            1-based reference index.  Default: ``1``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        numpy.ndarray</span>
+<span class="sd">            1-D FSC array indexed by Fourier shell.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">ref</span><span class="o">-</span><span class="mi">1</span>
+        <span class="n">refs</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_name_refstxt</span><span class="p">(</span><span class="n">ite</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">fsc_get</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">refs</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">refs</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">i</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="STA.setup_iteration">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.setup_iteration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setup_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare the directory and file-path objects for iteration *ite*.</span>
+
+<span class="sd">        Creates the iteration directory if needed and validates that the</span>
+<span class="sd">        previous iteration&#39;s output files exist.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number (must be ≥ 1).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple</span>
+<span class="sd">            ``(cur, prv)`` — file-path objects for the current and previous</span>
+<span class="sd">            iterations respectively.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NameError</span>
+<span class="sd">            If the previous iteration&#39;s particle or reference files are</span>
+<span class="sd">            missing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">base_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_file_exists</span><span class="p">(</span><span class="n">base_dir</span><span class="p">):</span>
+            <span class="n">_mkdir</span><span class="p">(</span><span class="n">base_dir</span><span class="p">)</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_files</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+        <span class="n">prv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_files</span><span class="p">(</span><span class="n">ite</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">prv</span><span class="o">.</span><span class="n">check</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span></div>
+
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_ite_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="s1">&#39;3&#39;</span><span class="p">,</span><span class="s1">&#39;3D&#39;</span><span class="p">,</span><span class="s1">&#39;3d&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="mi">3</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="s1">&#39;2&#39;</span><span class="p">,</span><span class="s1">&#39;2D&#39;</span><span class="p">,</span><span class="s1">&#39;2d&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="mi">2</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;ctf&#39;</span><span class="p">,</span><span class="s1">&#39;CTF&#39;</span><span class="p">,</span><span class="s1">&#39;Ctf&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s1">&#39;ctf&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid Iteration Type (accepted value: 3, 2, &quot;ctf&quot;)&#39;</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_exec_alignment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">,</span><span class="n">ite_type</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">dimensionality</span>    <span class="o">=</span> <span class="n">ite_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
+        
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [</span><span class="si">%d</span><span class="s1">D Alignment] Start:&#39;</span> <span class="o">%</span> <span class="n">ite_type</span> <span class="p">)</span>
+        
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">cmd</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">align_mpi</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">align</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span><span class="o">-</span><span class="n">start_time</span>
+        
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [</span><span class="si">%d</span><span class="s1">D Alignment] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ite_type</span><span class="p">,</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_exec_ctf_refinement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
+        
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [CTF Refinement] Start:&#39;</span> <span class="p">)</span>
+        
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">cmd</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">refine_mpi</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">refine</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span><span class="o">-</span><span class="n">start_time</span>
+        
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [CTF Refinement] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
+
+<div class="viewcode-block" id="STA.exec_estimation">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.exec_estimation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exec_estimation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the alignment or CTF refinement step.</span>
+
+<span class="sd">        Dispatches to :meth:`~susan.modules.Aligner.align` (or</span>
+<span class="sd">        :meth:`~susan.modules.Aligner.align_mpi`) for 3-D/2-D iteration</span>
+<span class="sd">        types, or to :meth:`~susan.modules.CtfRefiner.refine` for CTF</span>
+<span class="sd">        iterations.  The type is determined by :attr:`iteration_type`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cur : _iteration_files</span>
+<span class="sd">            File paths for the current iteration (output).</span>
+<span class="sd">        prv : _iteration_files</span>
+<span class="sd">            File paths for the previous iteration (input).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ite_type</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">ite_type</span> <span class="o">==</span> <span class="s1">&#39;ctf&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_exec_ctf_refinement</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_exec_alignment</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">,</span><span class="n">ite_type</span><span class="p">)</span></div>
+
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_2D_fixes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">ptcls_in</span><span class="p">,</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">):</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">smooth_deltas</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+            <span class="n">tree</span> <span class="o">=</span> <span class="n">_KDTree</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+            <span class="n">smoothed_deltas</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">deltas</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">point</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">points</span><span class="p">):</span>
+                <span class="n">distances</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+                <span class="n">weights</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">distances</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+                <span class="n">weights</span> <span class="o">/=</span> <span class="n">weights</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="n">smoothed_deltas</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">deltas</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span> <span class="o">*</span> <span class="n">weights</span><span class="p">[:,</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">smoothed_deltas</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span> <span class="o">==</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">allow_drift</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Limiting 2D drift to </span><span class="si">%.2f</span><span class="s1"> Å.&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">)</span>
+                    <span class="n">ptcls_old</span>  <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span>
+                    <span class="n">delta_angs</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span> <span class="o">-</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">prj_t</span>
+                    <span class="n">norm_angs</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span> <span class="n">delta_angs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span> <span class="p">)</span>
+                    <span class="n">scale_lim</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span><span class="o">/</span><span class="n">_np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">norm_angs</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span><span class="p">)</span>
+                    <span class="n">scale_lim</span><span class="p">[</span> <span class="n">norm_angs</span><span class="o">&lt;</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="n">scale_lim</span> <span class="o">=</span> <span class="n">scale_lim</span><span class="p">[:,:,</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+                    <span class="n">delta_angs</span> <span class="o">=</span> <span class="n">scale_lim</span><span class="o">*</span><span class="n">delta_angs</span>
+                    <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">prj_t</span> <span class="o">+</span> <span class="n">delta_angs</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Limiting 2D shift to </span><span class="si">%.2f</span><span class="s1"> Å.&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">)</span>
+                    <span class="n">norm_angs</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span> <span class="p">)</span>
+                    <span class="n">scale_lim</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span><span class="o">/</span><span class="n">_np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">norm_angs</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span><span class="p">)</span>
+                    <span class="n">scale_lim</span><span class="p">[</span> <span class="n">norm_angs</span><span class="o">&lt;</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="n">scale_lim</span> <span class="o">=</span> <span class="n">scale_lim</span><span class="p">[:,:,</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+                    <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">scale_lim</span><span class="o">*</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;affine&#39;</span><span class="p">:</span>
+            <span class="n">R</span>    <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">n</span>    <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_ptcl</span>
+            <span class="n">pt</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+            <span class="n">tomos</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">tcix</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">):</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">tomo_cix</span> <span class="o">==</span> <span class="n">tcix</span>
+                <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">num_proj</span><span class="p">[</span><span class="n">tcix</span><span class="p">]):</span>
+                    <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">proj_eZYZ</span><span class="p">[</span><span class="n">tcix</span><span class="p">,</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+                    <span class="n">pt0</span> <span class="o">=</span> <span class="n">pt</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="nd">@R</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">pt0</span> <span class="o">=</span> <span class="n">pt0</span><span class="p">[:,:</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">pt1</span> <span class="o">=</span> <span class="n">pt0</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">pt0_aug</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">pt0</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">pt0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">1</span><span class="p">))])</span>
+                    <span class="n">xform</span><span class="p">,</span><span class="n">_</span><span class="p">,</span><span class="n">_</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">pt0_aug</span><span class="p">,</span><span class="n">pt1</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+                    <span class="n">pt2</span> <span class="o">=</span> <span class="n">pt0_aug</span> <span class="o">@</span> <span class="n">xform</span>
+                    <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">pt2</span><span class="o">-</span><span class="n">pt0</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">:</span>
+            <span class="n">R</span>    <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">n</span>    <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_ptcl</span>
+            <span class="n">pt</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+            <span class="n">tomos</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">tcix</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">):</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">tomo_cix</span> <span class="o">==</span> <span class="n">tcix</span>
+                <span class="n">n_ptcl_tomo</span> <span class="o">=</span> <span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">n_ptcl_tomo</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">k_eff</span>   <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="n">n_ptcl_tomo</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">num_proj</span><span class="p">[</span><span class="n">tcix</span><span class="p">]):</span>
+                    <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">proj_eZYZ</span><span class="p">[</span><span class="n">tcix</span><span class="p">,</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+                    <span class="n">pt0</span> <span class="o">=</span> <span class="n">pt</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="nd">@R</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">pt0</span> <span class="o">=</span> <span class="n">pt0</span><span class="p">[:,:</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">sigma</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.25</span>
+                    <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">smooth_deltas</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">],</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k_eff</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;ctf&#39;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Smoothing CTF defocus deltas (Gaussian).&#39;</span><span class="p">)</span>
+            <span class="n">ptcls_old</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span>
+            <span class="n">delta_U</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">def_U</span> <span class="o">-</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">def_U</span>
+            <span class="n">delta_V</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">def_V</span> <span class="o">-</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">def_V</span>
+            <span class="n">R</span>    <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">n</span>    <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_ptcl</span>
+            <span class="n">pt</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+            <span class="n">tomos</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">tcix</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">):</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">tomo_cix</span> <span class="o">==</span> <span class="n">tcix</span>
+                <span class="n">n_ptcl_tomo</span> <span class="o">=</span> <span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">n_ptcl_tomo</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">k_eff</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="n">n_ptcl_tomo</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">num_proj</span><span class="p">[</span><span class="n">tcix</span><span class="p">]):</span>
+                    <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">proj_eZYZ</span><span class="p">[</span><span class="n">tcix</span><span class="p">,</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+                    <span class="n">pt0</span> <span class="o">=</span> <span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="nd">@R</span><span class="o">.</span><span class="n">T</span><span class="p">)[:,:</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">sigma</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.25</span>
+                    <span class="n">s_dU</span> <span class="o">=</span> <span class="n">smooth_deltas</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">delta_U</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k_eff</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+                    <span class="n">s_dV</span> <span class="o">=</span> <span class="n">smooth_deltas</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">delta_V</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k_eff</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+                    <span class="n">ptcls_in</span><span class="o">.</span><span class="n">def_U</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">def_U</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">s_dU</span>
+                    <span class="n">ptcls_in</span><span class="o">.</span><span class="n">def_V</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">def_V</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">s_dV</span>
+
+        <span class="n">ptcls_in</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_select_particles_reconstruction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">ptcls_in</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_refs</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span> <span class="o">==</span> <span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span> <span class="n">idx</span> <span class="p">):</span>
+                <span class="n">hid</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">half_id</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+                <span class="n">ccc</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span> <span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+                <span class="n">n_rf</span> <span class="o">=</span> <span class="n">hid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">n_h1</span> <span class="o">=</span> <span class="p">(</span><span class="n">hid</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="n">n_h2</span> <span class="o">=</span> <span class="p">(</span><span class="n">hid</span><span class="o">==</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                
+                <span class="k">if</span> <span class="n">n_h1</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">th1</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">ccc</span><span class="p">[</span> <span class="n">hid</span><span class="o">==</span><span class="mi">1</span> <span class="p">],</span> <span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">cc_threshold</span><span class="p">)</span>
+                    <span class="n">hid</span><span class="p">[</span> <span class="p">(</span><span class="n">hid</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">ccc</span><span class="o">&lt;</span><span class="n">th1</span><span class="p">)</span> <span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+                <span class="k">if</span> <span class="n">n_h2</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">th2</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">ccc</span><span class="p">[</span> <span class="n">hid</span><span class="o">==</span><span class="mi">2</span> <span class="p">],</span> <span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">cc_threshold</span><span class="p">)</span>
+                    <span class="n">hid</span><span class="p">[</span> <span class="p">(</span><span class="n">hid</span><span class="o">==</span><span class="mi">2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">ccc</span><span class="o">&lt;</span><span class="n">th2</span><span class="p">)</span> <span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            
+                <span class="n">ptcls_in</span><span class="o">.</span><span class="n">half_id</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">hid</span>
+            
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Class </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">n_rf</span><span class="p">,(</span><span class="n">hid</span> <span class="o">&gt;</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      Half 1: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].&#39;</span>  <span class="o">%</span> <span class="p">(</span>    <span class="n">n_h1</span><span class="p">,(</span><span class="n">hid</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      Half 2: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].&#39;</span>  <span class="o">%</span> <span class="p">(</span>    <span class="n">n_h2</span><span class="p">,(</span><span class="n">hid</span><span class="o">==</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Class </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7d</span><span class="s1"> particles.&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      Half 1: </span><span class="si">%7d</span><span class="s1"> particles.&#39;</span>  <span class="o">%</span> <span class="p">(</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      Half 2: </span><span class="si">%7d</span><span class="s1"> particles.&#39;</span>  <span class="o">%</span> <span class="p">(</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">)</span>
+            
+        <span class="k">return</span> <span class="n">ptcls_in</span><span class="p">[</span> <span class="p">(</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">half_id</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="p">]</span>
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">_limit_tilt_range_reconstruction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">ptcls_out</span><span class="p">):</span>
+        <span class="n">tomos</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">)</span>
+        <span class="n">prj_w</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">ptcls_out</span><span class="o">.</span><span class="n">prj_w</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_tilt_reconstruction</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Restricting reconstruction to tilt range [</span><span class="si">%.2f</span><span class="s1">, </span><span class="si">%.2f</span><span class="s1">] degrees.&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">v</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="p">)</span>
+            <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="o">.</span><span class="n">Geom</span><span class="o">.</span><span class="n">enable_by_tilt_range</span><span class="p">(</span><span class="n">ptcls_out</span><span class="p">,</span><span class="n">tomos</span><span class="p">,</span><span class="n">tilt_deg_min</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span><span class="n">tilt_deg_max</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Restricting reconstruction to </span><span class="si">%.2f</span><span class="s1"> maximum tilt.&#39;</span> <span class="o">%</span> <span class="n">v</span> <span class="p">)</span>
+            <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="o">.</span><span class="n">Geom</span><span class="o">.</span><span class="n">enable_by_tilt</span><span class="p">(</span><span class="n">ptcls_out</span><span class="p">,</span><span class="n">tomos</span><span class="p">,</span><span class="n">tilt_deg_max</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
+        <span class="n">ptcls_out</span><span class="o">.</span><span class="n">prj_w</span> <span class="o">=</span> <span class="n">ptcls_out</span><span class="o">.</span><span class="n">prj_w</span><span class="o">*</span><span class="n">prj_w</span>
+    
+<div class="viewcode-block" id="STA.exec_particle_selection">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.exec_particle_selection">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exec_particle_selection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select particles and prepare the input for reconstruction.</span>
+
+<span class="sd">        Performs multi-reference classification (if ``n_refs &gt; 1``), applies</span>
+<span class="sd">        optional 2-D shift corrections (:attr:`max_2d_delta_angstroms`,</span>
+<span class="sd">        :attr:`type_2d_shift_fitting`) for 2-D alignment and CTF iterations, filters</span>
+<span class="sd">        particles by CC score (:attr:`cc_threshold`), and optionally limits</span>
+<span class="sd">        the tilt range (:attr:`max_tilt_reconstruction`).  The selected</span>
+<span class="sd">        particles are saved to ``cur.ptcl_temp``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cur : _iteration_files</span>
+<span class="sd">            File paths for the current iteration.</span>
+<span class="sd">        prv : _iteration_files</span>
+<span class="sd">            File paths for the previous iteration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;  [Aligned particles] Processing:&#39;</span><span class="p">)</span>
+        <span class="n">ptcls_in</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span>
+        
+        <span class="c1"># Limit 2D shifts:</span>
+        <span class="n">should_fix_2D</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span> <span class="o">!=</span> <span class="s1">&#39;none&#39;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="s1">&#39;ctf&#39;</span><span class="p">))</span> <span class="ow">and</span> <span class="n">should_fix_2D</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_2D_fixes</span><span class="p">(</span><span class="n">ptcls_in</span><span class="p">,</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
+        
+        <span class="c1"># Classify</span>
+        <span class="k">if</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_refs</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="p">:</span>
+            <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reweight_classification</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">bool</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reweight_classification</span><span class="p">:</span>
+                    <span class="n">total</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">total</span><span class="p">[</span><span class="n">total</span><span class="o">==</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span><span class="o">/</span><span class="n">total</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reweight_classification</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">reweight_classification</span><span class="p">)</span>
+                <span class="n">total</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">total</span><span class="p">[</span><span class="n">total</span><span class="o">==</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_cc</span><span class="o">/</span><span class="n">total</span>
+            <span class="n">ptcls_in</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span>
+        
+        <span class="c1"># Select particles for reconstruction</span>
+        <span class="n">ptcls_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_particles_reconstruction</span><span class="p">(</span><span class="n">ptcls_in</span><span class="p">)</span>
+        
+        <span class="c1"># Limit tilt range</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_tilt_reconstruction</span>
+        <span class="n">_tilt_active</span> <span class="o">=</span> <span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">))</span> <span class="ow">or</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_tilt_active</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_limit_tilt_range_reconstruction</span><span class="p">(</span><span class="n">ptcls_out</span><span class="p">)</span>
+        
+        <span class="n">ptcls_out</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;  [Aligned particles] Done.&#39;</span><span class="p">)</span></div>
+
+        
+<div class="viewcode-block" id="STA.exec_averaging">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.exec_averaging">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exec_averaging</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct the reference maps and update the ``.refstxt`` file.</span>
+
+<span class="sd">        Calls :meth:`~susan.modules.Averager.reconstruct` (or MPI variant),</span>
+<span class="sd">        then updates ``cur.reference`` with the new map paths.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cur : _iteration_files</span>
+<span class="sd">            File paths for the current iteration.</span>
+<span class="sd">        prv : _iteration_files</span>
+<span class="sd">            File paths for the previous iteration (provides the mask paths).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
+        
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [Reconstruct Maps] Start:&#39;</span> <span class="p">)</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">cmd</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">reconstruct_mpi</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="o">+</span><span class="s1">&#39;map&#39;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="o">+</span><span class="s1">&#39;map&#39;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span><span class="o">-</span><span class="n">start_time</span>
+        
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [Reconstruct Maps] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
+        
+        <span class="n">_rm</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">)</span>
+        
+        <span class="n">refs</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">reference</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span><span class="p">):</span>
+            <span class="n">refs</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">.mrc&#39;</span>       <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">refs</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">_half1.mrc&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">refs</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">_half2.mrc&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">refs</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">reference</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="STA.exec_postprocessing">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.exec_postprocessing">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exec_postprocessing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cur</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute FSC-based resolution estimates for all references.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cur : _iteration_files</span>
+<span class="sd">            File paths for the current iteration.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        float or numpy.ndarray</span>
+<span class="sd">            Estimated resolution in Fourier pixels at the</span>
+<span class="sd">            :attr:`fsc_threshold` level.  A scalar for single-reference</span>
+<span class="sd">            projects; a 1-D array for multi-reference projects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">refs</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">reference</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [FSC Calculation] Start (1 reference):&#39;</span> <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [FSC Calculation] Start (</span><span class="si">%d</span><span class="s1"> references):&#39;</span> <span class="o">%</span> <span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span> <span class="p">)</span>
+        
+        <span class="n">rslt</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span> <span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span><span class="p">)</span> <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span><span class="p">):</span>
+            <span class="n">fsc</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">fsc_get</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">refs</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">refs</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">_</span><span class="p">,</span><span class="n">pix_size</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">_mrc_get_info</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">fsc_rslt</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">fsc_analyse</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span><span class="n">pix_size</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">fsc_threshold</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    - Reference </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7.3f</span><span class="s1"> angstroms [</span><span class="si">%d</span><span class="s1"> fourier pixels]&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">fsc_rslt</span><span class="o">.</span><span class="n">res</span><span class="p">,</span><span class="n">fsc_rslt</span><span class="o">.</span><span class="n">fpix</span><span class="p">))</span>
+            <span class="n">rslt</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">fsc_rslt</span><span class="o">.</span><span class="n">fpix</span>
+        
+        <span class="k">if</span> <span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">rslt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">rslt</span></div>
+
+    
+<div class="viewcode-block" id="STA.execute_iteration">
+<a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.execute_iteration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run a complete STA iteration.</span>
+
+<span class="sd">        Executes :meth:`setup_iteration`, :meth:`exec_estimation`,</span>
+<span class="sd">        :meth:`exec_particle_selection`, :meth:`exec_averaging`, and</span>
+<span class="sd">        :meth:`exec_postprocessing` in sequence.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ite : int</span>
+<span class="sd">            Iteration number (must be ≥ 1).  If the iteration directory</span>
+<span class="sd">            already exists its results are overwritten.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        float or numpy.ndarray</span>
+<span class="sd">            Estimated resolution in Fourier pixels (see</span>
+<span class="sd">            :meth:`exec_postprocessing`).</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Iteration ``0`` is the project seed and cannot be processed.  In</span>
+<span class="sd">        that case a warning is issued, the iteration is skipped, and the</span>
+<span class="sd">        configured starting lowpass is returned instead — the lowpass of</span>
+<span class="sd">        :attr:`aligner` for a 3-D/2-D iteration or :attr:`ctf_refiner` for a</span>
+<span class="sd">        CTF iteration.  For a multi-reference project a</span>
+<span class="sd">        :class:`numpy.ndarray` of length ``n_refs`` filled with that value</span>
+<span class="sd">        is returned; otherwise a scalar.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ite</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s1">&#39;execute_iteration(</span><span class="si">%d</span><span class="s1">): iteration 0 is the project seed and &#39;</span>
+                <span class="s1">&#39;cannot be run; returning the configured starting lowpass &#39;</span>
+                <span class="s1">&#39;instead.&#39;</span> <span class="o">%</span> <span class="n">ite</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;============================&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Project: </span><span class="si">%s</span><span class="s1"> (Iteration </span><span class="si">%d</span><span class="s1">) Skipped.&#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span><span class="p">,</span><span class="n">ite</span><span class="p">))</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;ctf&#39;</span><span class="p">:</span>
+                <span class="n">lowpass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">lowpass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span>
+            <span class="n">n_refs</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_name_refstxt</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">n_refs</span>
+            <span class="k">if</span> <span class="n">n_refs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n_refs</span><span class="p">,</span> <span class="n">lowpass</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">lowpass</span>
+
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;============================&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Project: </span><span class="si">%s</span><span class="s1"> (Iteration </span><span class="si">%d</span><span class="s1">)&#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span><span class="p">,</span><span class="n">ite</span><span class="p">))</span>
+        <span class="n">cur</span><span class="p">,</span><span class="n">prv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setup_iteration</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exec_estimation</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exec_particle_selection</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exec_averaging</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
+        <span class="n">rslt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exec_postprocessing</span><span class="p">(</span><span class="n">cur</span><span class="p">)</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span><span class="o">-</span><span class="n">start_time</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Iteration </span><span class="si">%d</span><span class="s1"> Finished [Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">)]&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">ite</span><span class="p">,</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">rslt</span></div>
+</div>
+
+
+
+<span class="n">Manager</span> <span class="o">=</span> <span class="n">STA</span>  <span class="c1"># Alias for back-compatibility</span>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2019-2026, Ricardo M. Sánchez L.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../_static/documentation_options.js?v=049aceee"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>

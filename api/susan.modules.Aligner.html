@@ -1,0 +1,975 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="susan.modules.Averager" href="susan.modules.Averager.html"><link rel="prev" title="susan.modules" href="susan.modules.html">
+        <link rel="prefetch" href="../_static/logo_light.svg" as="image">
+        <link rel="prefetch" href="../_static/logo_dark.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/icon.ico"><!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
+        <title>susan.modules.Aligner - SUSAN 0.9 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=9cb7217d" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">SUSAN 0.9 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/logo_light.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/logo_dark.svg" alt="Dark Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text" style="font-size: 1.0em;"><center>0.9</center></span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">General Information</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cryoet.html">CryoET Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advantages.html">Why SUSAN?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing SUSAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Basic Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Common operations/Usage Examples</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tutorials.html">Tutorials</a><input aria-label="Toggle navigation of Tutorials" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/empiar-10064.html">EMPIAR-10064</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="susan.html">susan</a><input aria-label="Toggle navigation of susan" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.data.html">susan.data</a><input aria-label="Toggle navigation of susan.data" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Tomograms.html">susan.data.Tomograms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Reference.html">susan.data.Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Particles.html">susan.data.Particles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.TiltRangeSelector.html">susan.data.TiltRangeSelector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Particles.Geom.html">susan.data.Particles.Geom</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Particles.MRA.html">susan.data.Particles.MRA</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current has-children"><a class="reference internal" href="susan.modules.html">susan.modules</a><input aria-label="Toggle navigation of susan.modules" checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l3 current current-page"><a class="current reference internal" href="#">susan.modules.Aligner</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.Averager.html">susan.modules.Averager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.SubtomoRec.html">susan.modules.SubtomoRec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.CropProjection.html">susan.modules.CropProjection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.CtfEstimator.html">susan.modules.CtfEstimator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.CtfRefiner.html">susan.modules.CtfRefiner</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.project.html">susan.project</a><input aria-label="Toggle navigation of susan.project" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.Manager.html">susan.project.STA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomogramGenerator.html">susan.project.SubtomogramGenerator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.ProjectionExtractor.html">susan.project.ProjectionExtractor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvg.html">susan.project.SubtomoAvg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgMonitor.html">susan.project.SubtomoAvgMonitor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgSched.html">susan.project.SubtomoAvgSched</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgN2N.html">susan.project.SubtomoAvgN2N</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgBase.html">susan.project.SubtomoAvgBase</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgCore.html">susan.project.SubtomoAvgCore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.Schedulers.html">susan.project.Schedulers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.diagnostics.html">susan.project.diagnostics</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.ml.html">susan.ml</a><input aria-label="Toggle navigation of susan.ml" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.ml.VolumePairs.html">susan.ml.VolumePairs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.ml.Noise2Noise.html">susan.ml.Noise2Noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.ml.Noise2NoiseTrainer.html">susan.ml.Noise2NoiseTrainer</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.io.html">susan.io</a><input aria-label="Toggle navigation of susan.io" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.io.em.html">susan.io.em</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.io.mrc.html">susan.io.mrc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.io.tlt.html">susan.io.tlt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.io.xf.html">susan.io.xf</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.utils.html">susan.utils</a><input aria-label="Toggle navigation of susan.utils" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.utils.datatypes.html">susan.utils.datatypes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.utils.functions.html">susan.utils.functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/api/susan.modules.Aligner.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="susan-modules-aligner">
+<h1>susan.modules.Aligner<a class="headerlink" href="#susan-modules-aligner" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="susan.modules.Aligner">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">susan.modules.</span></span><span class="sig-name descname"><span class="pre">Aligner</span></span><a class="reference internal" href="../_modules/susan/modules.html#Aligner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Particle alignment engine for 3-D and 2-D subtomogram averaging.</p>
+<p>Wraps the <code class="docutils literal notranslate"><span class="pre">susan_aligner</span></code> binary.  Configure the attributes, then call
+<a class="reference internal" href="#susan.modules.Aligner.align" title="susan.modules.Aligner.align"><code class="xref py py-meth docutils literal notranslate"><span class="pre">align()</span></code></a> (single-node) or <a class="reference internal" href="#susan.modules.Aligner.align_mpi" title="susan.modules.Aligner.align_mpi"><code class="xref py py-meth docutils literal notranslate"><span class="pre">align_mpi()</span></code></a> (multi-node MPI).</p>
+<p class="rubric">Attributes</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.list_gpus_ids">
+<span class="sig-name descname"><span class="pre">list_gpus_ids</span></span><a class="headerlink" href="#susan.modules.Aligner.list_gpus_ids" title="Link to this definition">¶</a></dt>
+<dd><p>GPU device IDs to use.  Default: <code class="docutils literal notranslate"><span class="pre">[0]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.bandpass">
+<span class="sig-name descname"><span class="pre">bandpass</span></span><a class="headerlink" href="#susan.modules.Aligner.bandpass" title="Link to this definition">¶</a></dt>
+<dd><p>Frequency bandpass applied to both particle and reference.
+Default: <code class="docutils literal notranslate"><span class="pre">bandpass(0,</span> <span class="pre">-1,</span> <span class="pre">2)</span></code> (full range, 2-pixel rolloff).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.bandpass" title="susan.utils.datatypes.bandpass"><code class="xref py py-class docutils literal notranslate"><span class="pre">bandpass</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.dimensionality">
+<span class="sig-name descname"><span class="pre">dimensionality</span></span><a class="headerlink" href="#susan.modules.Aligner.dimensionality" title="Link to this definition">¶</a></dt>
+<dd><p>Alignment search space: <code class="docutils literal notranslate"><span class="pre">3</span></code> for full 3-D, <code class="docutils literal notranslate"><span class="pre">2</span></code> for in-plane only.
+Default: <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.extra_padding">
+<span class="sig-name descname"><span class="pre">extra_padding</span></span><a class="headerlink" href="#susan.modules.Aligner.extra_padding" title="Link to this definition">¶</a></dt>
+<dd><p>Extra zero-padding (pixels) added on each side before FFT.
+Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.allow_drift">
+<span class="sig-name descname"><span class="pre">allow_drift</span></span><a class="headerlink" href="#susan.modules.Aligner.allow_drift" title="Link to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, 2-D shifts accumulate across iterations (drift mode).
+Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.halfsets_independ">
+<span class="sig-name descname"><span class="pre">halfsets_independ</span></span><a class="headerlink" href="#susan.modules.Aligner.halfsets_independ" title="Link to this definition">¶</a></dt>
+<dd><p>Process the two half-sets with independent references.
+Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.ignore_classes">
+<span class="sig-name descname"><span class="pre">ignore_classes</span></span><a class="headerlink" href="#susan.modules.Aligner.ignore_classes" title="Link to this definition">¶</a></dt>
+<dd><p>Ignore reference-class assignments; align against all references.
+Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.cone">
+<span class="sig-name descname"><span class="pre">cone</span></span><a class="headerlink" href="#susan.modules.Aligner.cone" title="Link to this definition">¶</a></dt>
+<dd><p>Out-of-plane (cone) angular search range and step in degrees.
+Default: <code class="docutils literal notranslate"><span class="pre">search_params(0,</span> <span class="pre">1)</span></code> (no search).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.search_params" title="susan.utils.datatypes.search_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">search_params</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.inplane">
+<span class="sig-name descname"><span class="pre">inplane</span></span><a class="headerlink" href="#susan.modules.Aligner.inplane" title="Link to this definition">¶</a></dt>
+<dd><p>In-plane angular search range and step in degrees.
+Default: <code class="docutils literal notranslate"><span class="pre">search_params(0,</span> <span class="pre">1)</span></code> (no search).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.search_params" title="susan.utils.datatypes.search_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">search_params</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.refine">
+<span class="sig-name descname"><span class="pre">refine</span></span><a class="headerlink" href="#susan.modules.Aligner.refine" title="Link to this definition">¶</a></dt>
+<dd><p>Multi-level angular refinement policy.
+Default: <code class="docutils literal notranslate"><span class="pre">refine_params(0,</span> <span class="pre">1)</span></code> (no refinement).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.refine_params" title="susan.utils.datatypes.refine_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">refine_params</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.angle_sigma">
+<span class="sig-name descname"><span class="pre">angle_sigma</span></span><a class="headerlink" href="#susan.modules.Aligner.angle_sigma" title="Link to this definition">¶</a></dt>
+<dd><p>Width (degrees) of a Gaussian prior on the candidate orientation’s
+deviation from the previous pose.  Acts as a soft regulariser that
+down-weights candidates with large angular offsets.  The
+out-of-plane (cone) and in-plane (twist) deviations are penalised
+independently with the same width and multiplied, so the
+per-orientation score becomes
+<code class="docutils literal notranslate"><span class="pre">CC</span> <span class="pre">·</span> <span class="pre">exp(−θ_cone²</span> <span class="pre">/</span> <span class="pre">(2·angle_sigma²))</span> <span class="pre">·</span> <span class="pre">exp(−θ_inplane²</span> <span class="pre">/</span> <span class="pre">(2·angle_sigma²))</span></code>
+for the argmax tiebreak only.  Raw CC values are preserved in stats
+and downstream outputs.</p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables the prior and reproduces the unregularised
+behaviour.  <code class="docutils literal notranslate"><span class="pre">θ</span></code> is the deviation from the current pose, so for a
+search of full width <code class="docutils literal notranslate"><span class="pre">span</span></code> the most-deviated candidate sits at
+<code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">/</span> <span class="pre">2</span></code>.  Useful settings (per axis): <code class="docutils literal notranslate"><span class="pre">angle_sigma</span> <span class="pre">=</span> <span class="pre">span</span></code>
+barely touches the search (edge candidate ≈ 0.88); <code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">/</span> <span class="pre">2</span></code> is
+mild (edge ≈ 0.61); <code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">/</span> <span class="pre">4</span></code> is aggressive (edge ≈ 0.14).
+Because the two axes multiply, a candidate at the edge of <em>both</em>
+cone and in-plane gets the square of the per-axis weight
+(e.g. <code class="docutils literal notranslate"><span class="pre">0.88²</span> <span class="pre">≈</span> <span class="pre">0.77</span></code>).</p>
+<p>Recommended in 2-D mode (<code class="docutils literal notranslate"><span class="pre">dimensionality=2</span></code>) with a cone search,
+where each tilt picks its own orientation and the
+per-particle degrees of freedom can otherwise drive overfitting.
+Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> for coarse / template-matching searches that depend
+on broad angular exploration.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.offset_sigma">
+<span class="sig-name descname"><span class="pre">offset_sigma</span></span><a class="headerlink" href="#susan.modules.Aligner.offset_sigma" title="Link to this definition">¶</a></dt>
+<dd><p>Width (pixels/voxels) of a Gaussian prior on the candidate
+translation’s magnitude.  Acts as a soft regulariser that
+down-weights large shifts — the per-point score becomes
+<code class="docutils literal notranslate"><span class="pre">CC(t)</span> <span class="pre">·</span> <span class="pre">exp(−|t|²</span> <span class="pre">/</span> <span class="pre">(2·offset_sigma²))</span></code> for the
+translation argmax, and the combined joint score
+<code class="docutils literal notranslate"><span class="pre">CC</span> <span class="pre">·</span> <span class="pre">w_shift</span> <span class="pre">·</span> <span class="pre">w_angle</span></code> drives the cross-orientation tiebreak.
+Raw CC values are preserved in stats and downstream outputs; the
+Sigma cc-stats tracker’s PSR / z-score uses raw CC so its
+discriminability metric is not polluted by the prior.</p>
+<p>Units are pixels in 2-D mode and voxels in 3-D mode, matching
+<a class="reference internal" href="#susan.modules.Aligner.offset" title="susan.modules.Aligner.offset"><code class="xref py py-attr docutils literal notranslate"><span class="pre">offset</span></code></a> (<code class="docutils literal notranslate"><span class="pre">offset.span</span></code> / <code class="docutils literal notranslate"><span class="pre">offset.step</span></code>).  <code class="docutils literal notranslate"><span class="pre">0</span></code>
+(default) disables the prior and reproduces the unregularised
+behaviour.  Typical useful values lie between <code class="docutils literal notranslate"><span class="pre">offset.span</span> <span class="pre">/</span> <span class="pre">4</span></code>
+(aggressive: edge of the offset grid gets weight ≈ 0.14) and
+<code class="docutils literal notranslate"><span class="pre">offset.span</span> <span class="pre">/</span> <span class="pre">2</span></code> (mild: edge gets weight ≈ 0.61).</p>
+<p>Useful when the translational search has converged near the
+previous estimate and you want to prevent late iterations from
+wandering due to noise.  Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> for initial / coarse
+alignment when the true shift may be far from the current
+estimate.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.offset">
+<span class="sig-name descname"><span class="pre">offset</span></span><a class="headerlink" href="#susan.modules.Aligner.offset" title="Link to this definition">¶</a></dt>
+<dd><p>Translational search range, step, and shape.
+Default: <code class="docutils literal notranslate"><span class="pre">offset_params([4,</span> <span class="pre">4,</span> <span class="pre">4],</span> <span class="pre">1,</span> <span class="pre">'ellipsoid')</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.offset_params" title="susan.utils.datatypes.offset_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">offset_params</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.offset_space">
+<span class="sig-name descname"><span class="pre">offset_space</span></span><a class="headerlink" href="#susan.modules.Aligner.offset_space" title="Link to this definition">¶</a></dt>
+<dd><p>Coordinate frame for the offset search: <code class="docutils literal notranslate"><span class="pre">'reference'</span></code> or
+<code class="docutils literal notranslate"><span class="pre">'tomogram'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'reference'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.padding_type">
+<span class="sig-name descname"><span class="pre">padding_type</span></span><a class="headerlink" href="#susan.modules.Aligner.padding_type" title="Link to this definition">¶</a></dt>
+<dd><p>Fill value for the padded region: <code class="docutils literal notranslate"><span class="pre">'zero'</span></code> or <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.
+Default: <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.normalize_type">
+<span class="sig-name descname"><span class="pre">normalize_type</span></span><a class="headerlink" href="#susan.modules.Aligner.normalize_type" title="Link to this definition">¶</a></dt>
+<dd><p>Per-substack normalisation applied before correlation.  One of
+<code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'zero_mean'</span></code>, <code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'zero_mean_proj_weight'</span></code>, <code class="docutils literal notranslate"><span class="pre">'poisson_raw'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'poisson_normal'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.ctf_correction">
+<span class="sig-name descname"><span class="pre">ctf_correction</span></span><a class="headerlink" href="#susan.modules.Aligner.ctf_correction" title="Link to this definition">¶</a></dt>
+<dd><p>CTF correction strategy.  One of <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'phase_flip'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'on_reference'</span></code>, <code class="docutils literal notranslate"><span class="pre">'on_substack'</span></code>, <code class="docutils literal notranslate"><span class="pre">'wiener_ssnr'</span></code>.
+<code class="docutils literal notranslate"><span class="pre">'cfsc'</span></code> is a deprecated alias for <code class="docutils literal notranslate"><span class="pre">'wiener_ssnr'</span></code>.
+Default: <code class="docutils literal notranslate"><span class="pre">'on_reference'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.cc_type">
+<span class="sig-name descname"><span class="pre">cc_type</span></span><a class="headerlink" href="#susan.modules.Aligner.cc_type" title="Link to this definition">¶</a></dt>
+<dd><p>Cross-correlation variant used for scoring: <code class="docutils literal notranslate"><span class="pre">'basic'</span></code> or
+<code class="docutils literal notranslate"><span class="pre">'cfsc'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'basic'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.cc_stats_type">
+<span class="sig-name descname"><span class="pre">cc_stats_type</span></span><a class="headerlink" href="#susan.modules.Aligner.cc_stats_type" title="Link to this definition">¶</a></dt>
+<dd><p>Post-CC statistics normalisation: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'probability'</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">'sigma'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.pseudo_symmetry">
+<span class="sig-name descname"><span class="pre">pseudo_symmetry</span></span><a class="headerlink" href="#susan.modules.Aligner.pseudo_symmetry" title="Link to this definition">¶</a></dt>
+<dd><p>Symmetry group applied to the angular search grid.  Default:
+<code class="docutils literal notranslate"><span class="pre">'c1'</span></code>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">'c1'</span></code> / <code class="docutils literal notranslate"><span class="pre">'none'</span></code></p></td>
+<td><p>No symmetry (identity).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">'cN'</span></code> / <code class="docutils literal notranslate"><span class="pre">'CN'</span></code></p></td>
+<td><p>Cyclic <em>N</em>-fold (e.g. <code class="docutils literal notranslate"><span class="pre">'c4'</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">'dN'</span></code> / <code class="docutils literal notranslate"><span class="pre">'DN'</span></code></p></td>
+<td><p>Dihedral <em>N</em>-fold (e.g. <code class="docutils literal notranslate"><span class="pre">'d2'</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">'cbo'</span></code> / <code class="docutils literal notranslate"><span class="pre">'CBO'</span></code></p></td>
+<td><p>Cuboctahedral (order 24).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">'ico'</span></code> / <code class="docutils literal notranslate"><span class="pre">'ICO'</span></code> / <code class="docutils literal notranslate"><span class="pre">'i2'</span></code> / <code class="docutils literal notranslate"><span class="pre">'I2'</span></code></p></td>
+<td><p>Icosahedral, I2 convention (order 60; RELION default).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">'i1'</span></code> / <code class="docutils literal notranslate"><span class="pre">'I1'</span></code></p></td>
+<td><p>Icosahedral, I1 convention.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">'i3'</span></code> / <code class="docutils literal notranslate"><span class="pre">'I3'</span></code></p></td>
+<td><p>Icosahedral, I3 convention.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">'i4'</span></code> / <code class="docutils literal notranslate"><span class="pre">'I4'</span></code></p></td>
+<td><p>Icosahedral, I4 convention.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">'cone_flip'</span></code> / <code class="docutils literal notranslate"><span class="pre">'y_180'</span></code></p></td>
+<td><p>180° rotation about the Y axis.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.ssnr">
+<span class="sig-name descname"><span class="pre">ssnr</span></span><a class="headerlink" href="#susan.modules.Aligner.ssnr" title="Link to this definition">¶</a></dt>
+<dd><p>Ad-hoc SSNR model used for CTF weighting.
+Default: <code class="docutils literal notranslate"><span class="pre">ssnr(0,</span> <span class="pre">0.001)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.ssnr" title="susan.utils.datatypes.ssnr"><code class="xref py py-class docutils literal notranslate"><span class="pre">ssnr</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.mpi">
+<span class="sig-name descname"><span class="pre">mpi</span></span><a class="headerlink" href="#susan.modules.Aligner.mpi" title="Link to this definition">¶</a></dt>
+<dd><p>MPI launcher configuration used by <a class="reference internal" href="#susan.modules.Aligner.align_mpi" title="susan.modules.Aligner.align_mpi"><code class="xref py py-meth docutils literal notranslate"><span class="pre">align_mpi()</span></code></a>.
+Default: <code class="docutils literal notranslate"><span class="pre">mpi_params('srun</span> <span class="pre">-n</span> <span class="pre">%d</span> <span class="pre">',</span> <span class="pre">1)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.mpi_params" title="susan.utils.datatypes.mpi_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">mpi_params</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.verbosity">
+<span class="sig-name descname"><span class="pre">verbosity</span></span><a class="headerlink" href="#susan.modules.Aligner.verbosity" title="Link to this definition">¶</a></dt>
+<dd><p>Verbosity level passed to the binary (0 = silent).  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.tm_type">
+<span class="sig-name descname"><span class="pre">tm_type</span></span><a class="headerlink" href="#susan.modules.Aligner.tm_type" title="Link to this definition">¶</a></dt>
+<dd><p>Template-matching output mode.  When not <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, per-particle
+cross-correlation statistics are written to disk for use by
+downstream template-matching workflows.  One of <code class="docutils literal notranslate"><span class="pre">'none'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'matlab'</span></code>, <code class="docutils literal notranslate"><span class="pre">'python'</span></code>, <code class="docutils literal notranslate"><span class="pre">'csv'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.tm_prefix">
+<span class="sig-name descname"><span class="pre">tm_prefix</span></span><a class="headerlink" href="#susan.modules.Aligner.tm_prefix" title="Link to this definition">¶</a></dt>
+<dd><p>Filename prefix for the template-matching output files (only used
+when <a class="reference internal" href="#susan.modules.Aligner.tm_type" title="susan.modules.Aligner.tm_type"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tm_type</span></code></a> ≠ <code class="docutils literal notranslate"><span class="pre">'none'</span></code>).  Default: <code class="docutils literal notranslate"><span class="pre">'template_matching'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.tm_sigma">
+<span class="sig-name descname"><span class="pre">tm_sigma</span></span><a class="headerlink" href="#susan.modules.Aligner.tm_sigma" title="Link to this definition">¶</a></dt>
+<dd><p>Threshold (in units of σ above the mean) below which CC values are
+discarded when saving template-matching output.  <code class="docutils literal notranslate"><span class="pre">0</span></code> keeps all
+values.  Only used when <a class="reference internal" href="#susan.modules.Aligner.tm_type" title="susan.modules.Aligner.tm_type"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tm_type</span></code></a> ≠ <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.dilate">
+<span class="sig-name descname"><span class="pre">dilate</span></span><a class="headerlink" href="#susan.modules.Aligner.dilate" title="Link to this definition">¶</a></dt>
+<dd><p>Dilation parameter for the sparse reconstruction step used during
+alignment scoring.  Controls how many neighbouring grid points each
+particle’s contribution spreads into.  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables dilation.
+Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.expfilt_gain">
+<span class="sig-name descname"><span class="pre">expfilt_gain</span></span><a class="headerlink" href="#susan.modules.Aligner.expfilt_gain" title="Link to this definition">¶</a></dt>
+<dd><p>Multiplicative gain applied to the dose estimated by the CC tracker
+before it is stored as the per-projection exposure-filter B-factor
+(<code class="docutils literal notranslate"><span class="pre">def.ExpFilt</span></code>).  Useful for calibrating the auto-estimated
+dose-weighting against an external reference.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.modules.Aligner.set_angular_search">
+<span class="sig-name descname"><span class="pre">set_angular_search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i_r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i_s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.set_angular_search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.set_angular_search" title="Link to this definition">¶</a></dt>
+<dd><p>Set the cone and in-plane angular search parameters.</p>
+<p>Convenience wrapper that writes to <a class="reference internal" href="#susan.modules.Aligner.cone" title="susan.modules.Aligner.cone"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cone</span></code></a> and <a class="reference internal" href="#susan.modules.Aligner.inplane" title="susan.modules.Aligner.inplane"><code class="xref py py-attr docutils literal notranslate"><span class="pre">inplane</span></code></a>
+in one call.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>c_r</strong> (<em>float</em>) – Cone (out-of-plane) search range in degrees.  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables
+the cone search.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></li>
+<li><p><strong>c_s</strong> (<em>float</em>) – Cone search angular step in degrees.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><strong>i_r</strong> (<em>float</em>) – In-plane search range in degrees.  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables the in-plane
+search.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></li>
+<li><p><strong>i_s</strong> (<em>float</em>) – In-plane search angular step in degrees.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.modules.Aligner.set_offset_search">
+<span class="sig-name descname"><span class="pre">set_offset_search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">off_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">off_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">off_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ellipsoid'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.set_offset_search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.set_offset_search" title="Link to this definition">¶</a></dt>
+<dd><p>Set the translational offset search parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>off_range</strong> (<em>float</em><em> or </em><em>sequence</em><em> of </em><em>float</em>) – <p>Search range in pixels.</p>
+<ul>
+<li><p><strong>scalar</strong> — same range applied to X, Y, and Z.</p></li>
+<li><p><strong>2-element sequence</strong> — <code class="docutils literal notranslate"><span class="pre">[XY,</span> <span class="pre">Z]</span></code>: same range for X and Y,
+separate range for Z.</p></li>
+<li><p><strong>3-element sequence</strong> — <code class="docutils literal notranslate"><span class="pre">[X,</span> <span class="pre">Y,</span> <span class="pre">Z]</span></code>: independent range per
+axis.</p></li>
+</ul>
+</p></li>
+<li><p><strong>off_step</strong> (<em>float</em>) – Search step size in pixels.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><strong>off_type</strong> (<em>str</em>) – Shape of the search volume.  For 3-D alignment: <code class="docutils literal notranslate"><span class="pre">'ellipsoid'</span></code>
+(default), <code class="docutils literal notranslate"><span class="pre">'cylinder'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'cuboid'</span></code>.  For 2-D alignment:
+<code class="docutils literal notranslate"><span class="pre">'circle'</span></code> (<code class="docutils literal notranslate"><span class="pre">'ellipsoid'</span></code>) or <code class="docutils literal notranslate"><span class="pre">'rectangle'</span></code> (<code class="docutils literal notranslate"><span class="pre">'cuboid'</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <em>off_type</em> is not valid for the current <a class="reference internal" href="#susan.modules.Aligner.dimensionality" title="susan.modules.Aligner.dimensionality"><code class="xref py py-attr docutils literal notranslate"><span class="pre">dimensionality</span></code></a>,
+    or if <em>off_range</em> has more than 3 elements.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.modules.Aligner.get_args">
+<span class="sig-name descname"><span class="pre">get_args</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ptcls_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.get_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.get_args" title="Link to this definition">¶</a></dt>
+<dd><p>Build the command-line argument string for <code class="docutils literal notranslate"><span class="pre">susan_aligner</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ptcls_out</strong> (<em>str</em>) – Path for the output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file with updated alignments.</p></li>
+<li><p><strong>refs_file</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> references file.</p></li>
+<li><p><strong>tomos_file</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code> tomograms file.</p></li>
+<li><p><strong>ptcls_in</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> particles file.</p></li>
+<li><p><strong>box_size</strong> (<em>int</em>) – Subvolume box size in pixels.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Space-separated argument string ready to be appended to the
+<code class="docutils literal notranslate"><span class="pre">susan_aligner</span></code> command.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.modules.Aligner.align">
+<span class="sig-name descname"><span class="pre">align</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ptcls_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.align"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.align" title="Link to this definition">¶</a></dt>
+<dd><p>Execute the alignment on a single node.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ptcls_out</strong> (<em>str</em>) – Path for the output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file.</p></li>
+<li><p><strong>refs_file</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> references file.</p></li>
+<li><p><strong>tomos_file</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code> tomograms file.</p></li>
+<li><p><strong>ptcls_in</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> particles file.</p></li>
+<li><p><strong>box_size</strong> (<em>int</em>) – Subvolume box size in pixels.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> – If the <code class="docutils literal notranslate"><span class="pre">susan_aligner</span></code> binary returns a non-zero exit code.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.modules.Aligner.align_mpi">
+<span class="sig-name descname"><span class="pre">align_mpi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ptcls_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.align_mpi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.align_mpi" title="Link to this definition">¶</a></dt>
+<dd><p>Execute the alignment using MPI across multiple nodes.</p>
+<p>The MPI command is taken from <a class="reference internal" href="#susan.modules.Aligner.mpi" title="susan.modules.Aligner.mpi"><code class="xref py py-attr docutils literal notranslate"><span class="pre">mpi</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ptcls_out</strong> (<em>str</em>) – Path for the output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file.</p></li>
+<li><p><strong>refs_file</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> references file.</p></li>
+<li><p><strong>tomos_file</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code> tomograms file.</p></li>
+<li><p><strong>ptcls_in</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> particles file.</p></li>
+<li><p><strong>box_size</strong> (<em>int</em>) – Subvolume box size in pixels.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> – If the MPI binary returns a non-zero exit code.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="susan.modules.Averager.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">susan.modules.Averager</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="susan.modules.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">susan.modules</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2019-2026, Ricardo M. Sánchez L.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">susan.modules.Aligner</a><ul>
+<li><a class="reference internal" href="#susan.modules.Aligner"><code class="docutils literal notranslate"><span class="pre">Aligner</span></code></a><ul>
+<li><a class="reference internal" href="#susan.modules.Aligner.list_gpus_ids"><code class="docutils literal notranslate"><span class="pre">Aligner.list_gpus_ids</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.bandpass"><code class="docutils literal notranslate"><span class="pre">Aligner.bandpass</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.dimensionality"><code class="docutils literal notranslate"><span class="pre">Aligner.dimensionality</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.extra_padding"><code class="docutils literal notranslate"><span class="pre">Aligner.extra_padding</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.allow_drift"><code class="docutils literal notranslate"><span class="pre">Aligner.allow_drift</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.halfsets_independ"><code class="docutils literal notranslate"><span class="pre">Aligner.halfsets_independ</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.ignore_classes"><code class="docutils literal notranslate"><span class="pre">Aligner.ignore_classes</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.cone"><code class="docutils literal notranslate"><span class="pre">Aligner.cone</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.inplane"><code class="docutils literal notranslate"><span class="pre">Aligner.inplane</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.refine"><code class="docutils literal notranslate"><span class="pre">Aligner.refine</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.angle_sigma"><code class="docutils literal notranslate"><span class="pre">Aligner.angle_sigma</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.offset_sigma"><code class="docutils literal notranslate"><span class="pre">Aligner.offset_sigma</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.offset"><code class="docutils literal notranslate"><span class="pre">Aligner.offset</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.offset_space"><code class="docutils literal notranslate"><span class="pre">Aligner.offset_space</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.padding_type"><code class="docutils literal notranslate"><span class="pre">Aligner.padding_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.normalize_type"><code class="docutils literal notranslate"><span class="pre">Aligner.normalize_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.ctf_correction"><code class="docutils literal notranslate"><span class="pre">Aligner.ctf_correction</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.cc_type"><code class="docutils literal notranslate"><span class="pre">Aligner.cc_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.cc_stats_type"><code class="docutils literal notranslate"><span class="pre">Aligner.cc_stats_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.pseudo_symmetry"><code class="docutils literal notranslate"><span class="pre">Aligner.pseudo_symmetry</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.ssnr"><code class="docutils literal notranslate"><span class="pre">Aligner.ssnr</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.mpi"><code class="docutils literal notranslate"><span class="pre">Aligner.mpi</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.verbosity"><code class="docutils literal notranslate"><span class="pre">Aligner.verbosity</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.tm_type"><code class="docutils literal notranslate"><span class="pre">Aligner.tm_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.tm_prefix"><code class="docutils literal notranslate"><span class="pre">Aligner.tm_prefix</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.tm_sigma"><code class="docutils literal notranslate"><span class="pre">Aligner.tm_sigma</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.dilate"><code class="docutils literal notranslate"><span class="pre">Aligner.dilate</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.expfilt_gain"><code class="docutils literal notranslate"><span class="pre">Aligner.expfilt_gain</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.set_angular_search"><code class="docutils literal notranslate"><span class="pre">Aligner.set_angular_search()</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.set_offset_search"><code class="docutils literal notranslate"><span class="pre">Aligner.set_offset_search()</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.get_args"><code class="docutils literal notranslate"><span class="pre">Aligner.get_args()</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.align"><code class="docutils literal notranslate"><span class="pre">Aligner.align()</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.align_mpi"><code class="docutils literal notranslate"><span class="pre">Aligner.align_mpi()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=049aceee"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>

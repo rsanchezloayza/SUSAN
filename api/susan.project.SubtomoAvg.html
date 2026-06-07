@@ -1,0 +1,962 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="susan.project.SubtomoAvgMonitor" href="susan.project.SubtomoAvgMonitor.html"><link rel="prev" title="susan.project.ProjectionExtractor" href="susan.project.ProjectionExtractor.html">
+        <link rel="prefetch" href="../_static/logo_light.svg" as="image">
+        <link rel="prefetch" href="../_static/logo_dark.svg" as="image">
+
+    <link rel="shortcut icon" href="../_static/icon.ico"><!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
+        <title>susan.project.SubtomoAvg - SUSAN 0.9 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=9cb7217d" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">SUSAN 0.9 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/logo_light.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/logo_dark.svg" alt="Dark Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text" style="font-size: 1.0em;"><center>0.9</center></span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">General Information</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cryoet.html">CryoET Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advantages.html">Why SUSAN?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installing SUSAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Basic Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Common operations/Usage Examples</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tutorials.html">Tutorials</a><input aria-label="Toggle navigation of Tutorials" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/empiar-10064.html">EMPIAR-10064</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="susan.html">susan</a><input aria-label="Toggle navigation of susan" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.data.html">susan.data</a><input aria-label="Toggle navigation of susan.data" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Tomograms.html">susan.data.Tomograms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Reference.html">susan.data.Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Particles.html">susan.data.Particles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.TiltRangeSelector.html">susan.data.TiltRangeSelector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Particles.Geom.html">susan.data.Particles.Geom</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.data.Particles.MRA.html">susan.data.Particles.MRA</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.modules.html">susan.modules</a><input aria-label="Toggle navigation of susan.modules" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.Aligner.html">susan.modules.Aligner</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.Averager.html">susan.modules.Averager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.SubtomoRec.html">susan.modules.SubtomoRec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.CropProjection.html">susan.modules.CropProjection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.CtfEstimator.html">susan.modules.CtfEstimator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.modules.CtfRefiner.html">susan.modules.CtfRefiner</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current has-children"><a class="reference internal" href="susan.project.html">susan.project</a><input aria-label="Toggle navigation of susan.project" checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="susan.project.Manager.html">susan.project.STA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomogramGenerator.html">susan.project.SubtomogramGenerator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.ProjectionExtractor.html">susan.project.ProjectionExtractor</a></li>
+<li class="toctree-l3 current current-page"><a class="current reference internal" href="#">susan.project.SubtomoAvg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgMonitor.html">susan.project.SubtomoAvgMonitor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgSched.html">susan.project.SubtomoAvgSched</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgN2N.html">susan.project.SubtomoAvgN2N</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgBase.html">susan.project.SubtomoAvgBase</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.SubtomoAvgCore.html">susan.project.SubtomoAvgCore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.Schedulers.html">susan.project.Schedulers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.project.diagnostics.html">susan.project.diagnostics</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.ml.html">susan.ml</a><input aria-label="Toggle navigation of susan.ml" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.ml.VolumePairs.html">susan.ml.VolumePairs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.ml.Noise2Noise.html">susan.ml.Noise2Noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.ml.Noise2NoiseTrainer.html">susan.ml.Noise2NoiseTrainer</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.io.html">susan.io</a><input aria-label="Toggle navigation of susan.io" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.io.em.html">susan.io.em</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.io.mrc.html">susan.io.mrc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.io.tlt.html">susan.io.tlt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.io.xf.html">susan.io.xf</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="susan.utils.html">susan.utils</a><input aria-label="Toggle navigation of susan.utils" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="susan.utils.datatypes.html">susan.utils.datatypes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="susan.utils.functions.html">susan.utils.functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/api/susan.project.SubtomoAvg.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="susan-project-subtomoavg">
+<h1>susan.project.SubtomoAvg<a class="headerlink" href="#susan-project-subtomoavg" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">susan.project.SubtomoAvg.</span></span><span class="sig-name descname"><span class="pre">SubtomoAvg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prj_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="susan.project.SubtomoAvgCore.html#susan.project.SubtomoAvg.SubtomoAvgCore" title="susan.project.SubtomoAvg.SubtomoAvgCore"><code class="xref py py-class docutils literal notranslate"><span class="pre">SubtomoAvgCore</span></code></a></p>
+<p>Subtomogram averaging project manager.</p>
+<p>Manages an STA project stored on disk.  Provide <em>box_size</em> to create
+(or reuse) a project directory; omit it to open an existing project.</p>
+<p>The main entry point for automated workflows is <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_iteration" title="susan.project.SubtomoAvg.SubtomoAvg.run_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run_iteration()</span></code></a>.
+Individual pipeline steps (<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_estimation" title="susan.project.SubtomoAvg.SubtomoAvg.run_estimation"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run_estimation()</span></code></a>,
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.select_particles" title="susan.project.SubtomoAvg.SubtomoAvg.select_particles"><code class="xref py py-meth docutils literal notranslate"><span class="pre">select_particles()</span></code></a>, <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_reconstruction" title="susan.project.SubtomoAvg.SubtomoAvg.run_reconstruction"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run_reconstruction()</span></code></a>,
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_postprocessing" title="susan.project.SubtomoAvg.SubtomoAvg.run_postprocessing"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run_postprocessing()</span></code></a>) can also be called directly.</p>
+<p class="rubric">Project files</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.prj_name">
+<span class="sig-name descname"><span class="pre">prj_name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.prj_name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.box_size">
+<span class="sig-name descname"><span class="pre">box_size</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.box_size" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.tomogram_file">
+<span class="sig-name descname"><span class="pre">tomogram_file</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.tomogram_file" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.initial_reference">
+<span class="sig-name descname"><span class="pre">initial_reference</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.initial_reference" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.initial_particles">
+<span class="sig-name descname"><span class="pre">initial_particles</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.initial_particles" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p class="rubric">GPU &amp; processing</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.list_gpus_ids">
+<span class="sig-name descname"><span class="pre">list_gpus_ids</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span> <span class="pre">of</span> <span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.list_gpus_ids" title="Link to this definition">¶</a></dt>
+<dd><p>Default: <code class="docutils literal notranslate"><span class="pre">[0]</span></code>.</p>
+</dd></dl>
+
+<p class="rubric">Iteration control</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.iteration_type">
+<span class="sig-name descname"><span class="pre">iteration_type</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span> <span class="pre">or</span> <span class="pre">str</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_type" title="Link to this definition">¶</a></dt>
+<dd><div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Step</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">3</span></code> / <code class="docutils literal notranslate"><span class="pre">'3D'</span></code></p></td>
+<td><p>3-D angular + offset search</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code> / <code class="docutils literal notranslate"><span class="pre">'2D'</span></code></p></td>
+<td><p>2-D in-plane alignment</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">'ctf'</span></code></p></td>
+<td><p>CTF refinement</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.cc_threshold">
+<span class="sig-name descname"><span class="pre">cc_threshold</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.cc_threshold" title="Link to this definition">¶</a></dt>
+<dd><p>Fraction of top-scoring particles kept per half-set.  Default: <code class="docutils literal notranslate"><span class="pre">0.8</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.fsc_threshold">
+<span class="sig-name descname"><span class="pre">fsc_threshold</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.fsc_threshold" title="Link to this definition">¶</a></dt>
+<dd><p>FSC threshold for resolution reporting.  Default: <code class="docutils literal notranslate"><span class="pre">0.143</span></code>.</p>
+</dd></dl>
+
+<p class="rubric">Modules</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.aligner">
+<span class="sig-name descname"><span class="pre">aligner</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.modules.Aligner`</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.aligner" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.averager">
+<span class="sig-name descname"><span class="pre">averager</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.modules.Averager`</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.averager" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner">
+<span class="sig-name descname"><span class="pre">ctf_refiner</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.modules.CtfRefiner`</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p class="rubric">Advanced</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.mpi">
+<span class="sig-name descname"><span class="pre">mpi</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.utils.datatypes.mpi_params`</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.mpi" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.verbosity">
+<span class="sig-name descname"><span class="pre">verbosity</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.verbosity" title="Link to this definition">¶</a></dt>
+<dd><p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.max_2d_delta_angstroms">
+<span class="sig-name descname"><span class="pre">max_2d_delta_angstroms</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.max_2d_delta_angstroms" title="Link to this definition">¶</a></dt>
+<dd><p>Maximum per-iteration 2-D shift magnitude (Å).  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables.
+Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.max_tilt_reconstruction">
+<span class="sig-name descname"><span class="pre">max_tilt_reconstruction</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">None,</span> <span class="pre">float,</span> <span class="pre">or</span> <span class="pre">array-like</span> <span class="pre">of</span> <span class="pre">length</span> <span class="pre">2</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.max_tilt_reconstruction" title="Link to this definition">¶</a></dt>
+<dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code> or negative scalar — disabled (default: <code class="docutils literal notranslate"><span class="pre">-1</span></code>).</p></li>
+<li><p>Scalar — <code class="docutils literal notranslate"><span class="pre">tilt_deg_max</span></code> passed to <code class="docutils literal notranslate"><span class="pre">enable_by_tilt</span></code>.</p></li>
+<li><p>Two-element sequence <code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code> — passed to
+<code class="docutils literal notranslate"><span class="pre">enable_by_tilt_range</span></code>.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.use_nominal">
+<span class="sig-name descname"><span class="pre">use_nominal</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.use_nominal" title="Link to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the tilt comparison in <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.max_tilt_reconstruction" title="susan.project.SubtomoAvg.SubtomoAvg.max_tilt_reconstruction"><code class="xref py py-attr docutils literal notranslate"><span class="pre">max_tilt_reconstruction</span></code></a>
+uses <code class="docutils literal notranslate"><span class="pre">Tomograms.nominal_tilt_angles</span></code> instead of deriving the tilt
+from <code class="docutils literal notranslate"><span class="pre">proj_eZYZ</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.discard_oversampled_views">
+<span class="sig-name descname"><span class="pre">discard_oversampled_views</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">None,</span> <span class="pre">int,</span> <span class="pre">or</span> <span class="pre">dict</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.discard_oversampled_views" title="Link to this definition">¶</a></dt>
+<dd><p>Flatten preferential orientation before reconstruction by keeping only
+the best particles per equal-area view bin (via
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">Particles.Geom.discard_oversampled_views()</span></code>).</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code> or non-positive scalar — disabled (default: <code class="docutils literal notranslate"><span class="pre">None</span></code>).</p></li>
+<li><p>Positive integer — used as <code class="docutils literal notranslate"><span class="pre">k_per_bin</span></code> with default
+<code class="docutils literal notranslate"><span class="pre">bin_size_deg=5.0</span></code>.</p></li>
+<li><p>Dict — passed verbatim as keyword arguments (e.g.
+<code class="docutils literal notranslate"><span class="pre">{'bin_size_deg':</span> <span class="pre">4.0,</span> <span class="pre">'k_per_bin':</span> <span class="pre">2}</span></code>).</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.type_2d_shift_fitting">
+<span class="sig-name descname"><span class="pre">type_2d_shift_fitting</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.type_2d_shift_fitting" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong></p>
+</div>
+<p>Post-alignment 2-D shift regularisation: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'affine'</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf">
+<span class="sig-name descname"><span class="pre">smooth_ctf</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong></p>
+</div>
+<p>Gaussian spatial smoothing of per-particle CTF defocus deltas.
+Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.reweight_classification">
+<span class="sig-name descname"><span class="pre">reweight_classification</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span> <span class="pre">or</span> <span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.reweight_classification" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong></p>
+</div>
+<p>Multi-reference CC reweighting.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.save_raw_map">
+<span class="sig-name descname"><span class="pre">save_raw_map</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.save_raw_map" title="Link to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the unfiltered map produced by the averager is saved
+alongside the final map as <code class="docutils literal notranslate"><span class="pre">map_classNNN.raw.mrc</span></code> before any
+filter is applied.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.map_filter">
+<span class="sig-name descname"><span class="pre">map_filter</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">callable</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.map_filter" title="Link to this definition">¶</a></dt>
+<dd><p>Optional post-reconstruction filter that does not use the FSC.
+Signature: <code class="docutils literal notranslate"><span class="pre">filter(vol)</span> <span class="pre">-&gt;</span> <span class="pre">vol</span></code>.  Setting this clears
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.map_filter_fsc" title="susan.project.SubtomoAvg.SubtomoAvg.map_filter_fsc"><code class="xref py py-attr docutils literal notranslate"><span class="pre">map_filter_fsc</span></code></a>.  Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.map_filter_fsc">
+<span class="sig-name descname"><span class="pre">map_filter_fsc</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">callable</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.map_filter_fsc" title="Link to this definition">¶</a></dt>
+<dd><p>Optional post-reconstruction filter that uses the FSC (e.g. FOM,
+spectral Wiener).  Signature: <code class="docutils literal notranslate"><span class="pre">filter(vol,</span> <span class="pre">fsc)</span> <span class="pre">-&gt;</span> <span class="pre">vol</span></code>, where
+<em>fsc</em> is the 1-D FSC array for that reference.  Setting this clears
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.map_filter" title="susan.project.SubtomoAvg.SubtomoAvg.map_filter"><code class="xref py py-attr docutils literal notranslate"><span class="pre">map_filter</span></code></a>.  Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.rho_v">
+<span class="sig-name descname"><span class="pre">rho_v</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.rho_v" title="Link to this definition">¶</a></dt>
+<dd><p>MACE consensus weight for the volume.  Must be in <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code>.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">1.0</span></code> (default) — classical mode: if a filter is set it is
+applied directly to <code class="docutils literal notranslate"><span class="pre">V_data</span></code> with no consensus.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;</span> <span class="pre">1.0</span></code> — MACE mode: <code class="docutils literal notranslate"><span class="pre">V_cons</span> <span class="pre">=</span> <span class="pre">ρ·V_data</span> <span class="pre">+</span> <span class="pre">(1−ρ)·V_prior</span></code>,
+where <code class="docutils literal notranslate"><span class="pre">V_prior</span></code> is the filter output.  The residual
+<code class="docutils literal notranslate"><span class="pre">U_V</span> <span class="pre">=</span> <span class="pre">U_V</span> <span class="pre">+</span> <span class="pre">V_data</span> <span class="pre">−</span> <span class="pre">V_cons</span></code> is saved as
+<code class="docutils literal notranslate"><span class="pre">map_classNNN.residual.mrc</span></code> in the iteration directory and
+loaded from the previous iteration to form the denoiser input
+<code class="docutils literal notranslate"><span class="pre">V_data</span> <span class="pre">+</span> <span class="pre">U_V</span></code>.  Setting <code class="docutils literal notranslate"><span class="pre">rho_v</span> <span class="pre">&lt;</span> <span class="pre">1</span></code> also forces
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.save_raw_map" title="susan.project.SubtomoAvg.SubtomoAvg.save_raw_map"><code class="xref py py-attr docutils literal notranslate"><span class="pre">save_raw_map</span></code></a> behaviour (<code class="docutils literal notranslate"><span class="pre">V_data</span></code> is always saved as
+<code class="docutils literal notranslate"><span class="pre">map_classNNN.raw.mrc</span></code>).</p></li>
+</ul>
+</dd></dl>
+
+<p class="rubric">Iteration Execution</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.run_iteration">
+<span class="sig-name descname"><span class="pre">run_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.run_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.run_iteration" title="Link to this definition">¶</a></dt>
+<dd><p>Run a complete STA iteration, or skip the seed iteration.</p>
+<p>For <code class="docutils literal notranslate"><span class="pre">ite</span> <span class="pre">&gt;=</span> <span class="pre">1</span></code> this defers to
+<a class="reference internal" href="susan.project.SubtomoAvgCore.html#susan.project.SubtomoAvg.SubtomoAvgCore.run_iteration" title="susan.project.SubtomoAvg.SubtomoAvgCore.run_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SubtomoAvgCore.run_iteration()</span></code></a>.  Iteration <code class="docutils literal notranslate"><span class="pre">0</span></code> is the project
+seed and cannot be processed: a warning is issued, the iteration is
+skipped, and the configured starting lowpass is returned instead —
+the lowpass of <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.aligner" title="susan.project.SubtomoAvg.SubtomoAvg.aligner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">aligner</span></code></a> for a 3-D/2-D iteration or
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner" title="susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ctf_refiner</span></code></a> for a CTF iteration.  For a multi-reference
+project (initial reference holding more than one map) a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code> of length <code class="docutils literal notranslate"><span class="pre">n_refs</span></code> filled with that value is
+returned, matching the per-reference shape of a real iteration’s
+result; otherwise a scalar <code class="docutils literal notranslate"><span class="pre">float</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ite</strong> (<em>int</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>float or numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.execute_iteration">
+<span class="sig-name descname"><span class="pre">execute_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.execute_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.execute_iteration" title="Link to this definition">¶</a></dt>
+<dd><p>Alias of <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_iteration" title="susan.project.SubtomoAvg.SubtomoAvg.run_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run_iteration()</span></code></a>, for backward compatibility with
+<a class="reference internal" href="susan.project.Manager.html#susan.project.STA.STA" title="susan.project.STA.STA"><code class="xref py py-class docutils literal notranslate"><span class="pre">STA</span></code></a>.</p>
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.execute_iteration" title="susan.project.SubtomoAvg.SubtomoAvg.execute_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">execute_iteration()</span></code></a> is an alias of <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_iteration" title="susan.project.SubtomoAvg.SubtomoAvg.run_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run_iteration()</span></code></a>, kept
+for backward compatibility with <a class="reference internal" href="susan.project.Manager.html#susan.project.STA.STA" title="susan.project.STA.STA"><code class="xref py py-class docutils literal notranslate"><span class="pre">STA</span></code></a>.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.setup_iteration">
+<span class="sig-name descname"><span class="pre">setup_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.setup_iteration" title="Link to this definition">¶</a></dt>
+<dd><p>Create the iteration directory and validate previous outputs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ite</strong> (<em>int</em>) – Iteration number (≥ 1).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(cur,</span> <span class="pre">prv)</span></code> — <code class="xref py py-class docutils literal notranslate"><span class="pre">_IterationFiles</span></code> for this and the
+previous iteration.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NameError</strong> – If the previous iteration’s files are missing.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.run_estimation">
+<span class="sig-name descname"><span class="pre">run_estimation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cur</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.run_estimation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.run_estimation" title="Link to this definition">¶</a></dt>
+<dd><p>Run alignment or CTF refinement (dispatches on <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_type" title="susan.project.SubtomoAvg.SubtomoAvg.iteration_type"><code class="xref py py-attr docutils literal notranslate"><span class="pre">iteration_type</span></code></a>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cur</strong> (<em>_IterationFiles</em>)</p></li>
+<li><p><strong>prv</strong> (<em>_IterationFiles</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.select_particles">
+<span class="sig-name descname"><span class="pre">select_particles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cur</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.select_particles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.select_particles" title="Link to this definition">¶</a></dt>
+<dd><p>Classify, regularise, threshold, and write <code class="docutils literal notranslate"><span class="pre">cur.ptcl_temp</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cur</strong> (<em>_IterationFiles</em>)</p></li>
+<li><p><strong>prv</strong> (<em>_IterationFiles</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.run_reconstruction">
+<span class="sig-name descname"><span class="pre">run_reconstruction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cur</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.run_reconstruction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.run_reconstruction" title="Link to this definition">¶</a></dt>
+<dd><p>Reconstruct reference maps and update <code class="docutils literal notranslate"><span class="pre">cur.reference</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cur</strong> (<em>_IterationFiles</em>)</p></li>
+<li><p><strong>prv</strong> (<em>_IterationFiles</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.run_postprocessing">
+<span class="sig-name descname"><span class="pre">run_postprocessing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cur</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.run_postprocessing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.run_postprocessing" title="Link to this definition">¶</a></dt>
+<dd><p>Compute FSC-based resolution estimates and apply post-reconstruction
+filtering (classical or MACE consensus).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cur</strong> (<em>_IterationFiles</em>)</p></li>
+<li><p><strong>prv</strong> (<em>_IterationFiles</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Estimated resolution in Fourier pixels.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float or numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Path Helpers</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.iteration_dir">
+<span class="sig-name descname"><span class="pre">iteration_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_dir" title="Link to this definition">¶</a></dt>
+<dd><p>Return the directory path for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ite</strong> (<em>int</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">&lt;prj_name&gt;/ite_NNNN/</span></code></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.iteration_files">
+<span class="sig-name descname"><span class="pre">iteration_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_files" title="Link to this definition">¶</a></dt>
+<dd><p>Return the standard file-path bundle for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ite</strong> (<em>int</em>) – Use <code class="docutils literal notranslate"><span class="pre">0</span></code> for the initial state.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>_IterationFiles</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_map">
+<span class="sig-name descname"><span class="pre">path_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_map" title="Link to this definition">¶</a></dt>
+<dd><p>Path to the full reference map for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ite</strong> (<em>int</em>)</p></li>
+<li><p><strong>ref</strong> (<em>int</em><em>, </em><em>optional</em>) – 1-based class index (default 1).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_halfmap">
+<span class="sig-name descname"><span class="pre">path_halfmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_halfmap" title="Link to this definition">¶</a></dt>
+<dd><p>Paths to the two half-maps for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">(half1_path,</span> <span class="pre">half2_path)</span></code></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple of str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_mask">
+<span class="sig-name descname"><span class="pre">path_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_mask" title="Link to this definition">¶</a></dt>
+<dd><p>Path to the soft mask for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_refstxt">
+<span class="sig-name descname"><span class="pre">path_refstxt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_refstxt" title="Link to this definition">¶</a></dt>
+<dd><p>Path to the <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> file for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_ptcls">
+<span class="sig-name descname"><span class="pre">path_ptcls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_ptcls" title="Link to this definition">¶</a></dt>
+<dd><p>Path to the <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_map_rec">
+<span class="sig-name descname"><span class="pre">path_map_rec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_map_rec" title="Link to this definition">¶</a></dt>
+<dd><p>Base path prefix used by the averager when reconstructing iteration <em>ite</em>.</p>
+<p>The averager appends <code class="docutils literal notranslate"><span class="pre">_classNNN.mrc</span></code>, <code class="docutils literal notranslate"><span class="pre">_classNNN_half1.mrc</span></code>, etc.
+to this prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">&lt;prj_name&gt;/ite_NNNN/map</span></code></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Data Access</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.get_map">
+<span class="sig-name descname"><span class="pre">get_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_map" title="Link to this definition">¶</a></dt>
+<dd><p>Load and return the reference map for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.get_ptcls">
+<span class="sig-name descname"><span class="pre">get_ptcls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_ptcls" title="Link to this definition">¶</a></dt>
+<dd><p>Load and return the particles for iteration <em>ite</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.data.Particles.html#susan.data.Particles" title="susan.data.Particles"><code class="xref py py-class docutils literal notranslate"><span class="pre">Particles</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.get_cc">
+<span class="sig-name descname"><span class="pre">get_cc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_cc" title="Link to this definition">¶</a></dt>
+<dd><p>Per-particle CC scores for iteration <em>ite</em>, reference <em>ref</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray, shape (N,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.get_fsc">
+<span class="sig-name descname"><span class="pre">get_fsc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_fsc" title="Link to this definition">¶</a></dt>
+<dd><p>Compute the FSC curve for iteration <em>ite</em>, reference <em>ref</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.map_change">
+<span class="sig-name descname"><span class="pre">map_change</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.map_change" title="Link to this definition">¶</a></dt>
+<dd><p>L2 norm of the voxel-wise difference between iterations <em>ite</em> and <em>ite-1</em>.</p>
+<p>Useful as a convergence monitor: a decreasing value indicates the
+reference is stabilising.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ite</strong> (<em>int</em>) – Iteration number (≥ 1).</p></li>
+<li><p><strong>ref</strong> (<em>int</em><em>, </em><em>optional</em>) – 1-based reference index.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="susan.project.SubtomoAvgMonitor.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">susan.project.SubtomoAvgMonitor</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="susan.project.ProjectionExtractor.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">susan.project.ProjectionExtractor</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2019-2026, Ricardo M. Sánchez L.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">susan.project.SubtomoAvg</a><ul>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg</span></code></a><ul>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.prj_name"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.prj_name</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.box_size"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.box_size</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tomogram_file"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.tomogram_file</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.initial_reference"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.initial_reference</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.initial_particles"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.initial_particles</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.list_gpus_ids"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.list_gpus_ids</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_type"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.iteration_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.cc_threshold"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.cc_threshold</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.fsc_threshold"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.fsc_threshold</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.aligner"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.aligner</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.averager"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.averager</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.ctf_refiner</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.mpi"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.mpi</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.verbosity"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.verbosity</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.max_2d_delta_angstroms"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.max_2d_delta_angstroms</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.max_tilt_reconstruction"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.max_tilt_reconstruction</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.use_nominal"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.use_nominal</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.discard_oversampled_views"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.discard_oversampled_views</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.type_2d_shift_fitting"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.type_2d_shift_fitting</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.smooth_ctf</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.reweight_classification"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.reweight_classification</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.save_raw_map"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.save_raw_map</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.map_filter"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.map_filter</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.map_filter_fsc"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.map_filter_fsc</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.rho_v"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.rho_v</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_iteration"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.run_iteration()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.execute_iteration"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.execute_iteration()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.setup_iteration"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.setup_iteration()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_estimation"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.run_estimation()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.select_particles"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.select_particles()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_reconstruction"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.run_reconstruction()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_postprocessing"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.run_postprocessing()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_dir"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.iteration_dir()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_files"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.iteration_files()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.path_map"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.path_map()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.path_halfmap"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.path_halfmap()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.path_mask"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.path_mask()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.path_refstxt"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.path_refstxt()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.path_ptcls"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.path_ptcls()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.path_map_rec"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.path_map_rec()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.get_map"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.get_map()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.get_ptcls"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.get_ptcls()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.get_cc"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.get_cc()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.get_fsc"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.get_fsc()</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.map_change"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.map_change()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=049aceee"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>

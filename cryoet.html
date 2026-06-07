@@ -1,0 +1,683 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Why SUSAN?" href="advantages.html"><link rel="prev" title="Overview" href="overview.html">
+        <link rel="prefetch" href="_static/logo_light.svg" as="image">
+        <link rel="prefetch" href="_static/logo_dark.svg" as="image">
+
+    <link rel="shortcut icon" href="_static/icon.ico"><!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
+        <title>CryoET Background - SUSAN 0.9 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=9cb7217d" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">SUSAN 0.9 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="_static/logo_light.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="_static/logo_dark.svg" alt="Dark Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text" style="font-size: 1.0em;"><center>0.9</center></span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">General Information</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">CryoET Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advantages.html">Why SUSAN?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing SUSAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Basic Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Common operations/Usage Examples</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="tutorials.html">Tutorials</a><input aria-label="Toggle navigation of Tutorials" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/empiar-10064.html">EMPIAR-10064</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="api/susan.html">susan</a><input aria-label="Toggle navigation of susan" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="api/susan.data.html">susan.data</a><input aria-label="Toggle navigation of susan.data" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.data.Tomograms.html">susan.data.Tomograms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.data.Reference.html">susan.data.Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.data.Particles.html">susan.data.Particles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.data.TiltRangeSelector.html">susan.data.TiltRangeSelector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.data.Particles.Geom.html">susan.data.Particles.Geom</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.data.Particles.MRA.html">susan.data.Particles.MRA</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="api/susan.modules.html">susan.modules</a><input aria-label="Toggle navigation of susan.modules" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.modules.Aligner.html">susan.modules.Aligner</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.modules.Averager.html">susan.modules.Averager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.modules.SubtomoRec.html">susan.modules.SubtomoRec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.modules.CropProjection.html">susan.modules.CropProjection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.modules.CtfEstimator.html">susan.modules.CtfEstimator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.modules.CtfRefiner.html">susan.modules.CtfRefiner</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="api/susan.project.html">susan.project</a><input aria-label="Toggle navigation of susan.project" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.Manager.html">susan.project.STA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.SubtomogramGenerator.html">susan.project.SubtomogramGenerator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.ProjectionExtractor.html">susan.project.ProjectionExtractor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.SubtomoAvg.html">susan.project.SubtomoAvg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.SubtomoAvgMonitor.html">susan.project.SubtomoAvgMonitor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.SubtomoAvgSched.html">susan.project.SubtomoAvgSched</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.SubtomoAvgN2N.html">susan.project.SubtomoAvgN2N</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.SubtomoAvgBase.html">susan.project.SubtomoAvgBase</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.SubtomoAvgCore.html">susan.project.SubtomoAvgCore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.Schedulers.html">susan.project.Schedulers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.project.diagnostics.html">susan.project.diagnostics</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="api/susan.ml.html">susan.ml</a><input aria-label="Toggle navigation of susan.ml" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.ml.VolumePairs.html">susan.ml.VolumePairs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.ml.Noise2Noise.html">susan.ml.Noise2Noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.ml.Noise2NoiseTrainer.html">susan.ml.Noise2NoiseTrainer</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="api/susan.io.html">susan.io</a><input aria-label="Toggle navigation of susan.io" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.io.em.html">susan.io.em</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.io.mrc.html">susan.io.mrc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.io.tlt.html">susan.io.tlt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.io.xf.html">susan.io.xf</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="api/susan.utils.html">susan.utils</a><input aria-label="Toggle navigation of susan.utils" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.utils.datatypes.html">susan.utils.datatypes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/susan.utils.functions.html">susan.utils.functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/cryoet.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="cryoet-background">
+<h1>CryoET Background<a class="headerlink" href="#cryoet-background" title="Link to this heading">¶</a></h1>
+<p>This page summarises the conceptual and mathematical background behind SUSAN:
+phase-contrast imaging and the Contrast Transfer Function, the missing wedge,
+Subtomogram Averaging (classical and high-resolution), and the substack
+formulation that SUSAN is built on.</p>
+<section id="phase-contrast-and-the-contrast-transfer-function">
+<h2>Phase contrast and the Contrast Transfer Function<a class="headerlink" href="#phase-contrast-and-the-contrast-transfer-function" title="Link to this heading">¶</a></h2>
+<p>Biological specimens scatter electrons only weakly, so the electron microscope
+introduces a controlled amount of <em>defocus</em> to convert phase modulations of the
+electron wave into measurable intensity contrast (phase-contrast imaging). The
+result is that each recorded projection is not a clean projection of the
+specimen’s electrostatic potential but is modulated by the <em>Contrast Transfer
+Function</em> (CTF):</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{CTF}(s) = -\sin\!\Bigl(
+    \tfrac{\pi}{2} C_s \lambda^3 s^4
+    + \pi \lambda \Delta_z s^2
+    + \phi_{A_c}
+\Bigr),\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(s\)</span> is the spatial frequency, <span class="math notranslate nohighlight">\(C_s\)</span> is the spherical
+aberration coefficient, <span class="math notranslate nohighlight">\(\lambda\)</span> is the electron wavelength,
+<span class="math notranslate nohighlight">\(\Delta_z\)</span> is the defocus, and <span class="math notranslate nohighlight">\(\phi_{A_c}\)</span> accounts for amplitude
+contrast. The CTF oscillates with frequency, creating phase reversals and zero
+crossings that suppress or invert specific Fourier components. Accurate
+modelling and correction of the CTF is therefore essential for achieving
+high-resolution reconstructions.</p>
+<p>In CryoET, defocus varies across the field of view and changes with specimen
+depth, so the CTF must be estimated and ideally corrected on a per-projection,
+per-particle basis.</p>
+</section>
+<section id="the-missing-wedge">
+<h2>The missing wedge<a class="headerlink" href="#the-missing-wedge" title="Link to this heading">¶</a></h2>
+<p>Mechanical constraints limit the tilt range of the specimen stage (typically
+<span class="math notranslate nohighlight">\(\pm 60°\)</span>). The resulting <em>missing wedge</em> is a cone-shaped region in
+Fourier space that is never sampled, regardless of how many projections are
+collected. The missing wedge causes characteristic elongation artefacts in
+tomogram reconstructions and introduces anisotropic resolution. Subtomogram
+averaging compensates for the missing wedge by combining particles in many
+different orientations, so that different copies fill in the missing Fourier
+information from one another.</p>
+</section>
+<section id="subtomogram-averaging">
+<h2>Subtomogram Averaging<a class="headerlink" href="#subtomogram-averaging" title="Link to this heading">¶</a></h2>
+<p>Let <span class="math notranslate nohighlight">\(V^*\)</span> denote the unknown structure of the target protein,
+<span class="math notranslate nohighlight">\(\mathbf{P} = \{P_j\}_{j=1}^{N_\text{proj}}\)</span> the acquired tilt series,
+<span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^\text{tilt} = \{\mathcal{T}^\text{tilt}_j\}_{j=1}^{N_\text{proj}}\)</span>
+the corresponding tilt geometry, and
+<span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{C}} = \{C_j\}\)</span> the CTF parameters estimated from <span class="math notranslate nohighlight">\(\mathbf{P}\)</span>.
+The tomogram <span class="math notranslate nohighlight">\(T\)</span> is reconstructed from <span class="math notranslate nohighlight">\(\mathbf{P}\)</span> using
+<span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^\text{tilt}\)</span> and <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{C}}\)</span>. Each particle
+<span class="math notranslate nohighlight">\(i\)</span> contributes a subtomogram <span class="math notranslate nohighlight">\(Y_i\)</span>, cropped from <span class="math notranslate nohighlight">\(T\)</span>,
+which contains a rotated and translated copy of <span class="math notranslate nohighlight">\(V^*\)</span>:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[Y_i = \mathcal{T}^v_i\, V^*,\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(\mathcal{T}^v_i\)</span> is the unknown spatial transformation (rotation
+and translation) for particle <span class="math notranslate nohighlight">\(i\)</span>, and
+<span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^v = \{\mathcal{T}^v_i\}_{i=1}^{N_\text{par}}\)</span>
+their collection. The goal of StA is to estimate
+<span class="math notranslate nohighlight">\(V \approx V^*\)</span> from the set
+<span class="math notranslate nohighlight">\(\mathbf{Y} = \{Y_i\}_{i=1}^{N_\text{par}}\)</span>. Averaging
+<span class="math notranslate nohighlight">\(N_\text{par}\)</span> aligned copies improves the signal-to-noise ratio
+proportionally to <span class="math notranslate nohighlight">\(\sqrt{N_\text{par}}\)</span>, enabling high-resolution
+reconstruction even from inherently noisy CryoET data. Throughout this section,
+capital letters denote Fourier-space quantities and boldface denotes collections.</p>
+<section id="classical-sta">
+<h3>Classical StA<a class="headerlink" href="#classical-sta" title="Link to this heading">¶</a></h3>
+<p>Given the subtomograms <span class="math notranslate nohighlight">\(\mathbf{Y}\)</span> and their unknown orientations
+<span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^v\)</span>, classical StA solves the least-squares problem</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[V = \arg\min_{\boldsymbol{\mathcal{T}}^v,\, V}
+    \bigl\| \mathbf{Y} - \boldsymbol{\mathcal{T}}^v V \bigr\|_2^2\]</div>
+</div>
+<p>by alternating between (i) an orientation search via exhaustive 3D
+cross-correlation and (ii) computing the aligned average. The missing wedge is
+accounted for in both steps: during the orientation search, unsampled Fourier
+voxels are masked to avoid correlating against missing data; during averaging,
+the same mask prevents missing-wedge artefacts from propagating into the
+consensus volume. Because the quality of <span class="math notranslate nohighlight">\(\mathbf{Y}\)</span> depends directly
+on the accuracy of <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{C}}\)</span> and <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^\text{tilt}\)</span>
+used to reconstruct <span class="math notranslate nohighlight">\(T\)</span>, classical StA is fundamentally limited by the
+initial estimates of these imaging parameters.</p>
+</section>
+<section id="high-resolution-sta">
+<h3>High-resolution StA<a class="headerlink" href="#high-resolution-sta" title="Link to this heading">¶</a></h3>
+<p><em>High-resolution StA</em> addresses this limitation through an iterative refinement
+loop. Using the current high-SNR average <span class="math notranslate nohighlight">\(V\)</span> as a reference, it refines
+<span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^\text{tilt}\)</span> per projection by projection-matching
+against <span class="math notranslate nohighlight">\(\mathbf{P}\)</span>; each per-projection update is regularised to
+prevent noise-driven drift of the geometric parameters. <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{C}}\)</span> is
+refined analogously. The improved parameters are then used to reconstruct an
+updated <span class="math notranslate nohighlight">\(T\)</span> and subtomograms <span class="math notranslate nohighlight">\(\mathbf{Y}\)</span>, and classical StA yields
+a higher-resolution estimate of <span class="math notranslate nohighlight">\(V\)</span>. Each cycle reveals finer structural
+detail, because every iteration improves the imaging parameters that determine
+the quality of <span class="math notranslate nohighlight">\(\mathbf{Y}\)</span>.</p>
+</section>
+<section id="resolution-assessment">
+<h3>Resolution assessment<a class="headerlink" href="#resolution-assessment" title="Link to this heading">¶</a></h3>
+<p>Resolution is assessed with the <em>Fourier Shell Correlation</em> (FSC) between two
+independently processed half-datasets; the reported resolution is the spatial
+frequency at which FSC falls below the 0.143 threshold. For two half-maps
+<span class="math notranslate nohighlight">\(V_a\)</span> and <span class="math notranslate nohighlight">\(V_b\)</span>, the FSC at shell <span class="math notranslate nohighlight">\(S(s)\)</span> is:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[FSC(s) = \frac{
+   \displaystyle\sum_{\mathbf{k} \in S(s)}
+      V_a(\mathbf{k})\,\overline{V_b(\mathbf{k})}
+}{\sqrt{
+   \displaystyle\sum_{\mathbf{k} \in S(s)} |V_a(\mathbf{k})|^2 \cdot
+   \displaystyle\sum_{\mathbf{k} \in S(s)} |V_b(\mathbf{k})|^2
+}}\]</div>
+</div>
+<p>A useful property of the FSC is its invariance to isotropic spectral envelopes.
+If both half-maps are modulated by the same radially symmetric factor
+<span class="math notranslate nohighlight">\(E(s)\)</span>, the <span class="math notranslate nohighlight">\(|E(s)|^2\)</span> terms cancel between numerator and
+denominator, leaving <span class="math notranslate nohighlight">\(FSC(s)\)</span> unchanged. This makes the FSC a reliable
+resolution estimator even when signal amplitudes are attenuated by the CTF,
+radiation damage, or other frequency-dependent effects.</p>
+</section>
+</section>
+<section id="susan-substack-analysis">
+<h2>SUSAN: Substack Analysis<a class="headerlink" href="#susan-substack-analysis" title="Link to this heading">¶</a></h2>
+<p>SUSAN reformulates the StA problem by replacing the subtomogram <span class="math notranslate nohighlight">\(Y_i\)</span>
+with its corresponding <em>substack</em> <span class="math notranslate nohighlight">\(\mathbf{X}_i\)</span> as the fundamental
+data unit. All processing, including alignment, CTF correction, and averaging,
+operates directly on <span class="math notranslate nohighlight">\(\mathbf{X}_i\)</span>, extracted on-the-fly from the
+original tilt series <span class="math notranslate nohighlight">\(\mathbf{P}\)</span>. Tomograms serve only for initial
+particle picking and visual validation; no tomogram reconstruction is needed
+inside the iterative refinement loop.</p>
+<a class="only-light reference internal image-reference" href="_images/substacks_subtomograms_light.svg"><img alt="_images/substacks_subtomograms_light.svg" class="align-center only-light" src="_images/substacks_subtomograms_light.svg" style="width: 100%;" />
+</a>
+<a class="only-dark reference internal image-reference" href="_images/substacks_subtomograms_dark.svg"><img alt="_images/substacks_subtomograms_dark.svg" class="align-center only-dark" src="_images/substacks_subtomograms_dark.svg" style="width: 100%;" />
+</a>
+<section id="projected-cross-correlation">
+<h3>Projected cross-correlation<a class="headerlink" href="#projected-cross-correlation" title="Link to this heading">¶</a></h3>
+<p>The substack <span class="math notranslate nohighlight">\(\mathbf{X}_i = \{X_{i,j}\}_{j=1}^{N_\text{proj}}\)</span>
+collects the 2D projections of particle <span class="math notranslate nohighlight">\(i\)</span>, extracted from
+<span class="math notranslate nohighlight">\(\mathbf{P}\)</span> using the tilt geometry <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^\text{tilt}\)</span> and
+CTF parameters <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{C}}_i\)</span>:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\mathbf{X}_i = \boldsymbol{\mathcal{C}}_i\operatorname{Proj}_{\boldsymbol{\mathcal{T}}^\text{tilt}}(Y_i).\]</div>
+</div>
+<p>Because the reconstruction operator is linear, <span class="math notranslate nohighlight">\(Y_i\)</span> can be recovered
+from <span class="math notranslate nohighlight">\(\mathbf{X}_i\)</span> by weighted backprojection after CTF correction.
+Substituting this expression into the Fourier-space cross-correlation and
+using linearity yields the <em>projected cross-correlation</em> (pCC), where
+<span class="math notranslate nohighlight">\(\Phi_{nD}\)</span> denotes the <span class="math notranslate nohighlight">\(n\)</span>-dimensional cross-correlation operator:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\Phi_{3D}(Y_i,\, V)
+= \Phi_{3D}(\operatorname{Rec}_{\boldsymbol{\mathcal{T}}^\text{tilt},\boldsymbol{\mathcal{C}}_i}\!(\mathbf{X}_i),\, V)
+= \operatorname{Rec}_{\boldsymbol{\mathcal{T}}^\text{tilt}}\! \bigl(
+  \Phi_{2D}
+   \bigl(
+    \mathbf{X}_i,\;
+    \boldsymbol{\mathcal{C}}_i\operatorname{Proj}_{\boldsymbol{\mathcal{T}}^\text{tilt}}(V)
+   \bigr)
+  \bigr).\]</div>
+</div>
+<p>The 3D cross-correlation is therefore the reconstruction of the per-projection
+2D cross-correlations between each substack projection <span class="math notranslate nohighlight">\(X_{i,j}\)</span> and the
+corresponding forward projection of the reference, computed exactly with no
+approximation to the alignment metric. All per-particle computation is in
+2D; the only 3D step is a small localised reconstruction of the CC peak
+region, reducing complexity from <span class="math notranslate nohighlight">\(\mathcal{O}(N^3 \log N)\)</span> to
+<span class="math notranslate nohighlight">\(\mathcal{O}(N_\text{proj} N^2 \log N + L^3)\)</span>, where <span class="math notranslate nohighlight">\(L \ll N\)</span>
+is the half-search radius.</p>
+<p>The pCC formulation has the following consequences:</p>
+<ul class="simple">
+<li><p><strong>Missing wedge in the CC domain.</strong> The missing wedge is no longer present
+in the data being correlated; it manifests instead as artefacts in the
+reconstructed CC volume. Because alignment uses only the peak location and
+its relative magnitude, these artefacts do not affect alignment accuracy.</p></li>
+<li><p><strong>Near-zero 3D computation per particle.</strong> All heavy computation runs in
+2D on the GPU; the single 3D operation per particle (the localised CC
+reconstruction) covers only a small volume of side <span class="math notranslate nohighlight">\(2L\)</span>.</p></li>
+<li><p><strong>Per-projection CTF correction.</strong> Because <span class="math notranslate nohighlight">\(\mathbf{X}_i\)</span> is
+extracted from the raw tilt series, the per-projection CTF parameters
+<span class="math notranslate nohighlight">\(C_j\)</span> are applied and refined in 2D, which is the natural and exact
+domain for these corrections.</p></li>
+<li><p><strong>No subtomogram storage.</strong> Substacks are extracted on-the-fly into GPU
+memory; no subtomogram or tomogram is written to disk inside the
+refinement loop.</p></li>
+<li><p><strong>Additive overlap contribution.</strong> Cross-correlation is a linear operator,
+so the contribution of any overlapping neighbouring particle is additive and
+separable: <span class="math notranslate nohighlight">\(\Phi(Y_\text{target} + Y_\text{neighbour},\, V) =
+\Phi(Y_\text{target},\, V) + \Phi(Y_\text{neighbour},\, V)\)</span>. Across a
+dataset where neighbouring particles adopt many different orientations, the
+neighbour term is diffuse in the CC volume and does not bias the peak used
+for alignment.</p></li>
+</ul>
+</section>
+<section id="cumulative-fourier-shell-correlation">
+<h3>Cumulative Fourier Shell Correlation<a class="headerlink" href="#cumulative-fourier-shell-correlation" title="Link to this heading">¶</a></h3>
+<p>The raw pCC metric is sensitive to spectral coloring from CTF modulation,
+radiation damage, and high-frequency noise. SUSAN replaces the raw
+cross-correlation with a shell-wise spectral normalisation inspired by the
+FSC, yielding the <em>cumulative Fourier Shell Correlation</em> (cFSC).</p>
+<p>Define the shell-normalised counterpart <span class="math notranslate nohighlight">\(\tilde{A}\)</span> of a volume
+<span class="math notranslate nohighlight">\(A\)</span> by dividing each Fourier coefficient <span class="math notranslate nohighlight">\(A(\mathbf{k})\)</span> by
+the root sum of squares of its shell:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\tilde{A}(\mathbf{k}) = \frac{A(\mathbf{k})}{\|A\|_{S(s)}},
+\qquad
+\|A\|_{S(s)} = \sqrt{\sum_{\mathbf{k}' \in S(s)} |A(\mathbf{k}')|^2}.\]</div>
+</div>
+<p>Summing the per-shell FSC across all shells then gives:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\operatorname{cFSC}(Y_i,\, V)
+= \sum_s \operatorname{FSC}_{Y_i,V}(s)
+= \Phi_{3D}\!\left(\tilde{Y}_i,\; \tilde{V}\right).\]</div>
+</div>
+<p>The cFSC is therefore a standard 3D cross-correlation applied to the
+shell-normalised volumes. This normalisation gives it three key properties:</p>
+<ul class="simple">
+<li><p><strong>Envelope invariance.</strong> Any isotropic spectral envelope (CTF, B-factor
+decay, radiation damage) applied to either volume is constant within each
+shell and cancels in the shell-wise denominator. The cFSC similarity score
+is therefore unaffected by spectral coloring, for the same reason the FSC
+is invariant to envelopes when measuring resolution.</p></li>
+<li><p><strong>Shift invariance.</strong> A spatial shift of the reference introduces
+per-coefficient phase factors of unit magnitude, which do not change the
+shell energy. The peak height is preserved under shifts, and the peak
+location continues to encode the relative displacement.</p></li>
+<li><p><strong>SNR weighting.</strong> Shells with low signal energy contribute little to the
+total score without requiring an explicit noise-power estimate. Unlike
+radial whitening, which forces a flat spectrum and can amplify noise in
+high-frequency shells, the cFSC preserves the natural relative
+contribution of each shell.</p></li>
+</ul>
+<p>For computational efficiency, the cFSC is computed per projection as a
+<em>cumulative Fourier Ring Correlation</em> (cFRC): each 2D projection of the
+substack is normalised shell-wise, correlated with the corresponding
+normalised reference projection, and the 2D results are backprojected to
+reconstruct the 3D similarity volume. The additional cost relative to raw
+pCC is negligible.</p>
+</section>
+<section id="susan-optimization-objective">
+<h3>SUSAN optimization objective<a class="headerlink" href="#susan-optimization-objective" title="Link to this heading">¶</a></h3>
+<p>The complete SUSAN problem is a joint optimization over the reference, particle
+orientations, tilt geometry, and CTF:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[V,\, \boldsymbol{\mathcal{T}}^v,\, \boldsymbol{\mathcal{T}}^\text{tilt},\, \boldsymbol{\mathcal{C}}
+\;=\;
+\underset{V,\, \boldsymbol{\mathcal{T}}^v,\, \boldsymbol{\mathcal{T}}^\text{tilt},\, \boldsymbol{\mathcal{C}}}
+{\arg\max}\;
+\operatorname{cFSC}\!\bigl(
+  \mathbf{X},\;
+  \boldsymbol{\mathcal{C}}\,\boldsymbol{\mathcal{T}}^\text{tilt}\,\boldsymbol{\mathcal{T}}^v V
+\bigr),\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbf{X} = \{\mathbf{X}_i\}\)</span> collects all substacks. This is
+solved by alternating among three sub-problems:</p>
+<ul class="simple">
+<li><p><strong>Particle orientations</strong> <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^v\)</span>: with <span class="math notranslate nohighlight">\(V\)</span>,
+<span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^\text{tilt}\)</span>, and <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{C}}\)</span> fixed, pCC
+reconstructs the 3D cross-correlation from per-projection 2D correlations for
+each candidate orientation. Finding the orientation that maximises it is the
+direct projection-domain equivalent of classical StA.</p></li>
+<li><p><strong>Tilt geometry and CTF</strong> <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^\text{tilt}\)</span>, <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{C}}\)</span>:
+with <span class="math notranslate nohighlight">\(V\)</span> and <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal{T}}^v\)</span> fixed, each per-projection
+parameter is refined by maximising the 2D cross-correlation between the
+substack projection and the corresponding forward projection of the reference.
+No 3D reconstruction is required for this step; this is the high-resolution
+component of the pipeline.</p></li>
+<li><p><strong>Reference</strong> <span class="math notranslate nohighlight">\(V\)</span>: with all parameters fixed, the reference is updated
+by direct Fourier reconstruction with Wiener inversion: substack projections
+are accumulated into 3D Fourier-space numerator and denominator volumes,
+weighted by the per-projection CTF, and divided to yield the
+CTF-deconvolved reference.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="advantages.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Why SUSAN?</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="overview.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Overview</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2019-2026, Ricardo M. Sánchez L.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">CryoET Background</a><ul>
+<li><a class="reference internal" href="#phase-contrast-and-the-contrast-transfer-function">Phase contrast and the Contrast Transfer Function</a></li>
+<li><a class="reference internal" href="#the-missing-wedge">The missing wedge</a></li>
+<li><a class="reference internal" href="#subtomogram-averaging">Subtomogram Averaging</a><ul>
+<li><a class="reference internal" href="#classical-sta">Classical StA</a></li>
+<li><a class="reference internal" href="#high-resolution-sta">High-resolution StA</a></li>
+<li><a class="reference internal" href="#resolution-assessment">Resolution assessment</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#susan-substack-analysis">SUSAN: Substack Analysis</a><ul>
+<li><a class="reference internal" href="#projected-cross-correlation">Projected cross-correlation</a></li>
+<li><a class="reference internal" href="#cumulative-fourier-shell-correlation">Cumulative Fourier Shell Correlation</a></li>
+<li><a class="reference internal" href="#susan-optimization-objective">SUSAN optimization objective</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=049aceee"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    </body>
+</html>
