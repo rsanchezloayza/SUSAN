@@ -56,6 +56,7 @@ autodoc_mock_imports = [
     'susan.data._particles_core',
     'susan.data._ptclsgeom_core',
     'susan.utils._functions_core',
+    'torch',
 ]
 
 autodoc_member_order   = 'bysource'   # preserve source order, not alphabetical
