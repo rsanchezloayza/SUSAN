@@ -50,6 +50,14 @@ source_suffix    = '.rst'
 # ---------------------------------------------------------------------------
 # autodoc
 # ---------------------------------------------------------------------------
+# The compiled Cython extensions are not available during a doc build.
+# Sphinx will replace them with MagicMock objects so import succeeds.
+autodoc_mock_imports = [
+    'susan.data._particles_core',
+    'susan.data._ptclsgeom_core',
+    'susan.utils._functions_core',
+]
+
 autodoc_member_order   = 'bysource'   # preserve source order, not alphabetical
 autodoc_default_options = {
     'members':         True,
