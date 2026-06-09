@@ -85,9 +85,12 @@ class SubtomoAvgBase:
             initref   = _prsr.read(fp, 'initial_reference')
             initptcls = _prsr.read(fp, 'initial_particles')
             fp.close()
-            self.tomogram_file     = tomofile  if tomofile  is not None else ''
+            self.tomogram_file     = ''
             self.initial_reference = initref   if initref   is not None else ''
             self.initial_particles = initptcls if initptcls is not None else ''
+            if tomofile is not None:
+                self.tomogram_file = tomofile
+                self.pix_size = float(_ssa_data.Tomograms(tomofile).pix_size[0])
         else:
             if not _file_exists(prj_name):
                 _mkdir(prj_name)

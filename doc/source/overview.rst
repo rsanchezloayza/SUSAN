@@ -104,6 +104,60 @@ must make the complete source of your modifications available under the same
 terms.  See the ``LICENSE`` file in the repository root for the full text.
 
 
+Acknowledgements
+----------------
+
+This work was funded by the Sofja Kovalevskaja Award from the Alexander von
+Humboldt Foundation to Mikhail Kudryashev. M. Kudryashev is supported by the
+Heisenberg Award from the DFG (KU3222/3-1). R. M. Sánchez L. was partially
+supported by the starter fellowship from SFB807 from the German Research
+Foundation.
+
+
+Logos and media
+---------------
+
+The SUSAN logo and icon are released under the
+`Creative Commons Attribution-NonCommercial 4.0 International License
+<https://creativecommons.org/licenses/by-nc/4.0/>`_ (CC BY-NC 4.0).
+You are free to use and adapt them in academic publications, presentations,
+and other non-commercial contexts, provided you give appropriate credit.
+A copy of the license is included in the repository as
+``LICENSE_CC-BY-NC-4.0.txt``.
+
+.. grid:: 3
+   :gutter: 3
+
+   .. grid-item-card:: Logo (light)
+      :text-align: center
+
+      .. image:: _static/logo_light.svg
+         :height: 80px
+         :alt: SUSAN logo (light)
+
+      `Download SVG <_static/logo_light.svg>`__
+
+   .. grid-item-card:: Logo (dark)
+      :text-align: center
+      :class-card: sd-bg-dark
+
+      .. image:: _static/logo_dark.svg
+         :height: 80px
+         :alt: SUSAN logo (dark)
+
+      `Download SVG <_static/logo_dark.svg>`__
+
+   .. grid-item-card:: Icon
+      :text-align: center
+
+      .. image:: _static/logo.svg
+         :height: 80px
+         :alt: SUSAN icon
+
+      `Download SVG <_static/logo.svg>`__
+      · `Download ICO <_static/icon.ico>`__
+
+
 .. rubric:: References
 
 .. [sanchez_2019_pcc] R. M. Sánchez, R. Mester, and M. Kudryashev,
