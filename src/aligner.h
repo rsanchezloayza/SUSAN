@@ -738,7 +738,7 @@ protected:
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
                         ali_data.invert_fourier(ptr->K,stream);
 
-                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,ptr->K,stream);
+                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,dilate,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose deviation
                         /// from the previous per-tilt pose is large.  Out-of-plane
@@ -1251,6 +1251,7 @@ public:
         P = info->pad_size;
         NP = N+P;
         MP = (NP/2)+1;
+
         if( info->cc_type == CC_TYPE_CFSC )
             load_reference_spectral_weighted(in_p_refs,info->p_gpu[0]);
         else
@@ -1271,13 +1272,49 @@ protected:
         }
     }
 
-    /// Loads the references applying the CFSC spectral weighting to each
-    /// reference map.  Equivalent to load_references() followed, per
-    /// reference, by a 3D spectral whitening of the masked map:
+    /// Applies the CFSC spectral whitening to a single masked volume in place:
     ///     mask * IFFT3( CFSC( FFT3( mask*vol ) ) )
-    /// so that the per-orientation projections are already spectrally
-    /// weighted and the soft mask edge is preserved (the mask is the last
-    /// real-space operation before the linear projection).
+    /// so the per-orientation projections are already spectrally weighted and
+    /// the soft mask edge is preserved (the mask is the last real-space
+    /// operation before the linear projection).
+    void spectral_weight_volume(single*vol,single*mask,uint32 numel,float pix_size,int r,
+                                GPU::GArrSingle&g_real,GPU::GArrSingle2&g_fourier,
+                                GpuFFT::FFT3D&fft3,GpuFFT::IFFT3D&ifft3,
+                                RadialAverager&radial,GPU::Stream&stream,
+                                dim3 blk,dim3 grd_r,dim3 grd_c) {
+
+        /// Upload mask*vol and switch to the FFT (corner) layout.
+        GPU::upload_async(g_real.ptr,vol,N*N*N,stream.strm);
+        stream.sync();
+        GpuKernels::fftshift3D<<<grd_r,blk>>>(g_real.ptr,N);
+
+        /// FFT3 -> centered layout -> CFSC spectral weighting.
+        fft3.exec(g_fourier.ptr,g_real.ptr);
+        GpuKernels::fftshift3D<<<grd_c,blk>>>(g_fourier.ptr,M,N);
+        GPU::sync();
+        radial.preset_FRC_vol(g_fourier,pix_size,make_float2(p_info->ssnr_F,p_info->ssnr_S));
+        GPU::sync();
+
+        /// Back to corner layout -> IFFT3 -> centered map.
+        GpuKernels::fftshift3D<<<grd_c,blk>>>(g_fourier.ptr,M,N);
+        ifft3.exec(g_real.ptr,g_fourier.ptr);
+        GpuKernels::fftshift3D<<<grd_r,blk>>>(g_real.ptr,N);
+        GPU::sync();
+
+        /// Download and re-apply normalize_masked: this re-masks the soft edge
+        /// and rescales (the IFFT3 N^3 factor is absorbed).
+        GPU::download_async(vol,g_real.ptr,N*N*N,stream.strm);
+        stream.sync();
+
+        if( !Math::normalize_masked(vol,mask,numel) ) {
+            fprintf(stderr,"Error normalizing spectrally-weighted reference %d.\n",r);
+            exit(1);
+        }
+    }
+
+    /// Loads the references applying the CFSC spectral weighting to each
+    /// reference map (and, when aligning against independent halves, to both
+    /// half-maps as well, since those are what gets projected in that mode).
     void load_reference_spectral_weighted(References*in_p_refs,int gpu_id) {
         R = in_p_refs->num_refs;
         p_refs = new RefMap[R];
@@ -1307,34 +1344,23 @@ protected:
             /// normalize_masked (the result is mask*vol).
             p_refs[r].load(in_p_refs->at(r),false);
 
-            if( p_refs[r].has_ref_map() && p_refs[r].has_ref_mask() ) {
+            if( p_refs[r].has_ref_mask() ) {
 
-                /// Upload mask*vol and switch to the FFT (corner) layout.
-                GPU::upload_async(g_real.ptr,p_refs[r].map,N*N*N,stream.strm);
-                stream.sync();
-                GpuKernels::fftshift3D<<<grd_r,blk>>>(g_real.ptr,N);
+                if( p_refs[r].has_ref_map() )
+                    spectral_weight_volume(p_refs[r].map,p_refs[r].mask,p_refs[r].numel,
+                                           p_refs[r].pix_size,r,g_real,g_fourier,fft3,ifft3,
+                                           radial,stream,blk,grd_r,grd_c);
 
-                /// FFT3 -> centered layout -> CFSC spectral weighting.
-                fft3.exec(g_fourier.ptr,g_real.ptr);
-                GpuKernels::fftshift3D<<<grd_c,blk>>>(g_fourier.ptr,M,N);
-                GPU::sync();
-                radial.preset_FRC_vol(g_fourier);
-                GPU::sync();
-
-                /// Back to corner layout -> IFFT3 -> centered map.
-                GpuKernels::fftshift3D<<<grd_c,blk>>>(g_fourier.ptr,M,N);
-                ifft3.exec(g_real.ptr,g_fourier.ptr);
-                GpuKernels::fftshift3D<<<grd_r,blk>>>(g_real.ptr,N);
-                GPU::sync();
-
-                /// Download and re-apply normalize_masked: this re-masks the
-                /// soft edge and rescales (the IFFT3 N^3 factor is absorbed).
-                GPU::download_async(p_refs[r].map,g_real.ptr,N*N*N,stream.strm);
-                stream.sync();
-
-                if( !Math::normalize_masked(p_refs[r].map,p_refs[r].mask,p_refs[r].numel) ) {
-                    fprintf(stderr,"Error normalizing spectrally-weighted reference %d.\n",r);
-                    exit(1);
+                /// In independent-halves mode the per-orientation projections
+                /// are taken from half_A/half_B, so they must receive the same
+                /// CFSC spectral weighting as the full map.
+                if( p_info->ali_halves && p_refs[r].has_half_maps() ) {
+                    spectral_weight_volume(p_refs[r].half_A,p_refs[r].mask,p_refs[r].numel,
+                                           p_refs[r].pix_size,r,g_real,g_fourier,fft3,ifft3,
+                                           radial,stream,blk,grd_r,grd_c);
+                    spectral_weight_volume(p_refs[r].half_B,p_refs[r].mask,p_refs[r].numel,
+                                           p_refs[r].pix_size,r,g_real,g_fourier,fft3,ifft3,
+                                           radial,stream,blk,grd_r,grd_c);
                 }
             }
         }

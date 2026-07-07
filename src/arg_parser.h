@@ -93,6 +93,7 @@ namespace ArgParser {
         check_arg_and_set(type,all_ok,arg,"zero_mean"            ,ZERO_MEAN      );
         check_arg_and_set(type,all_ok,arg,"zero_mean_proj_weight",ZERO_MEAN_W_STD); /// ToBeDeprecated
         check_arg_and_set(type,all_ok,arg,"zero_mean_one_std"    ,ZERO_MEAN_1_STD);
+        check_arg_and_set(type,all_ok,arg,"zero_mean_unit_var"   ,ZERO_MEAN_1_STD);
         check_arg_and_set(type,all_ok,arg,"poisson_raw"          ,GAT_RAW);
         check_arg_and_set(type,all_ok,arg,"poisson_normal"       ,GAT_NORMAL);
 

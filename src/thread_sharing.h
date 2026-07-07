@@ -113,6 +113,14 @@ public:
         delete [] stack;
     }
 
+    /// Release the (large) stack buffer once no more stacks will be read.
+    /// Safe to call multiple times; the destructor's delete[] on NULL is a no-op.
+    void free_stack() {
+        delete [] stack;
+        stack = NULL;
+        numel = 0;
+    }
+
 };
 
 class WorkerCommand  {

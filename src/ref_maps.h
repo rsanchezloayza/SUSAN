@@ -39,6 +39,7 @@ public:
     single *half_A;
     single *half_B;
     single *mask;
+    single pix_size;
     uint32 box_size;
     uint32 numel;
 
@@ -55,6 +56,7 @@ public:
 
         box_size = 0;
         numel    = 0;
+        pix_size = 0;
     }
 
     ~RefMap() {
@@ -70,6 +72,7 @@ public:
 
         if( box_size > 0 ) {
 
+            pix_size = Mrc::get_apix(ref_info.map);
             numel = box_size*box_size*box_size;
             map   = load_mrc(ref_info.map);
 

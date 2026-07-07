@@ -22,6 +22,152 @@ import numpy as _np
 import torch  as _torch
 
 
+# ---------------------------------------------------------------------------
+# Angular perturbation helpers
+#
+# A "proper" angular perturbation is an isotropic small rotation on SO(3):
+# a uniformly random axis with a Gaussian-distributed magnitude.  We build it
+# as a rotation matrix (Rodrigues), compose it with the particle rotation, and
+# only then convert back to ZYZ Euler angles.  Working through matrices avoids
+# the gimbal-lock artefacts of adding noise directly to Euler components.
+#
+# The Euler<->matrix formulas below replicate ``euZYZ_rotm`` / ``rotm_euZYZ``
+# in ``susan/utils/_functions_core.pyx`` exactly, so the ZYZ convention matches
+# the rest of SUSAN (ali_eu slot 0 = polar, 1 = azimuth, 2 = in-plane).
+
+
+def _euZYZ_to_R(eu: _np.ndarray) -> _np.ndarray:
+    """Vectorised ZYZ Euler (radians, ``(N, 3)``) to rotation matrices ``(N, 3, 3)``."""
+    t, p, s = eu[:, 0], eu[:, 1], eu[:, 2]
+    ct, cp, cs = _np.cos(t), _np.cos(p), _np.cos(s)
+    st, sp, ss = _np.sin(t), _np.sin(p), _np.sin(s)
+    R = _np.empty((eu.shape[0], 3, 3), dtype=_np.float64)
+    R[:, 0, 0] =  ct*cp*cs - st*ss
+    R[:, 0, 1] = -cs*st - ct*cp*ss
+    R[:, 0, 2] =  ct*sp
+    R[:, 1, 0] =  ct*ss + cp*cs*st
+    R[:, 1, 1] =  ct*cs - cp*st*ss
+    R[:, 1, 2] =  st*sp
+    R[:, 2, 0] = -cs*sp
+    R[:, 2, 1] =  sp*ss
+    R[:, 2, 2] =  cp
+    return R
+
+
+def _R_to_euZYZ(R: _np.ndarray) -> _np.ndarray:
+    """Vectorised rotation matrices ``(N, 3, 3)`` to ZYZ Euler (radians, ``(N, 3)``)."""
+    eu  = _np.empty((R.shape[0], 3), dtype=_np.float64)
+    r22 = R[:, 2, 2]
+    gimbal = _np.abs(_np.abs(r22) - 1.0) < 1e-6
+
+    # General case.
+    eu[:, 0] = _np.arctan2(R[:, 1, 2], R[:, 0, 2])
+    eu[:, 1] = _np.arctan2(_np.sqrt(_np.abs(1.0 - r22*r22)), r22)
+    eu[:, 2] = _np.arctan2(R[:, 2, 1], -R[:, 2, 0])
+
+    # Gimbal-lock case (R22 ~ +-1): polar collapses, only the sum/diff of the
+    # two remaining angles is defined; follow rotm_euZYZ and fold it into slot 2.
+    eu[gimbal, 0] = 0.0
+    eu[gimbal, 1] = _np.where(r22[gimbal] > 0, 0.0, _np.pi)
+    eu[gimbal, 2] = _np.arctan2(R[gimbal, 1, 0], R[gimbal, 1, 1])
+    return eu
+
+
+def _rotvec_to_R(rvec: _np.ndarray) -> _np.ndarray:
+    """Rodrigues: rotation vectors ``(N, 3)`` (axis*angle, radians) to matrices."""
+    theta = _np.linalg.norm(rvec, axis=1)
+    small = theta < 1e-8
+    axis  = _np.zeros_like(rvec)
+    nz    = ~small
+    axis[nz] = rvec[nz] / theta[nz, None]
+    x, y, z = axis[:, 0], axis[:, 1], axis[:, 2]
+    c = _np.cos(theta); s = _np.sin(theta); C = 1.0 - c
+    R = _np.empty((rvec.shape[0], 3, 3), dtype=_np.float64)
+    R[:, 0, 0] = c + x*x*C
+    R[:, 0, 1] = x*y*C - z*s
+    R[:, 0, 2] = x*z*C + y*s
+    R[:, 1, 0] = y*x*C + z*s
+    R[:, 1, 1] = c + y*y*C
+    R[:, 1, 2] = y*z*C - x*s
+    R[:, 2, 0] = z*x*C - y*s
+    R[:, 2, 1] = z*y*C + x*s
+    R[:, 2, 2] = c + z*z*C
+    R[small]   = _np.eye(3)
+    return R
+
+
+def _perturb_eulers(eu: _np.ndarray, sigma_deg: float) -> _np.ndarray:
+    """Apply an independent isotropic small rotation to each ZYZ Euler triple.
+
+    Parameters
+    ----------
+    eu : numpy.ndarray
+        ZYZ Euler angles in radians, shape ``(..., 3)``.
+    sigma_deg : float
+        Standard deviation of the perturbation rotation magnitude, in degrees.
+
+    Returns
+    -------
+    numpy.ndarray
+        Perturbed Euler angles, same shape and dtype as *eu*.
+    """
+    shp   = eu.shape
+    flat  = _np.ascontiguousarray(eu.reshape(-1, 3), dtype=_np.float64)
+    n     = flat.shape[0]
+    sigma = _np.deg2rad(sigma_deg)
+
+    axis  = _np.random.randn(n, 3)
+    axis /= _np.linalg.norm(axis, axis=1, keepdims=True) + 1e-12
+    angle = _np.random.randn(n) * sigma
+    rvec  = axis * angle[:, None]
+
+    dR  = _rotvec_to_R(rvec)
+    R   = _euZYZ_to_R(flat)
+    Rp  = _np.einsum('nij,njk->nik', dR, R)
+    out = _R_to_euZYZ(Rp).reshape(shp)
+    return out.astype(eu.dtype)
+
+
+def _sigma_schedule(sigma, n: int) -> _np.ndarray:
+    """Build a per-entry sequence of perturbation sigmas (degrees).
+
+    Accepts either a fixed scalar (constant schedule) or a ``(lo, hi)`` pair.
+    For a range the values are spread evenly over ``[lo, hi]`` with
+    :func:`numpy.linspace` and then shuffled, so the whole range is covered
+    with low variance while the sigma of a given entry is uncorrelated with its
+    position in the buffer (the trainer iterates entries in order).
+
+    Parameters
+    ----------
+    sigma : float or (float, float)
+        Fixed sigma, or ``(lo, hi)`` range in degrees.
+    n : int
+        Number of entries to generate a schedule for.
+
+    Returns
+    -------
+    numpy.ndarray
+        Length-``n`` array of sigmas in degrees.
+    """
+    arr = _np.atleast_1d(_np.asarray(sigma, dtype=float))
+    if arr.size == 1:
+        lo = hi = float(arr[0])
+    elif arr.size == 2:
+        lo, hi = float(arr[0]), float(arr[1])
+    else:
+        raise ValueError("sigma must be a scalar or a (lo, hi) pair")
+    if lo < 0.0 or hi < lo:
+        raise ValueError("sigma range must satisfy 0 <= lo <= hi")
+
+    if lo == hi:
+        return _np.full(n, lo)
+    if n == 1:
+        return _np.array([0.5 * (lo + hi)])
+    sched = _np.linspace(lo, hi, n)
+    _np.random.shuffle(sched)
+    return sched
+
+
 class VolumePairs():
     """Buffer of independent half-map pairs for Noise2Noise training.
 
@@ -358,7 +504,8 @@ class VolumePairs():
         return obj
 
     def populate(self, avgr, ptcls, tomo_filename: str,
-                 num_entries: int = None):
+                 num_entries: int = None,
+                 sigma_ang_3D=0.0, sigma_ang_2D=0.0, sigma_def=0.0):
         """Fill the buffer by re-randomising half-set assignments and running the Averager.
 
         Each iteration re-randomises the ``half_id`` array in *ptcls*, saves
@@ -367,9 +514,17 @@ class VolumePairs():
         repeats until the buffer is full or *num_entries* new pairs have been
         added.
 
+        When *sigma_ang_3D* or *sigma_ang_2D* is non-zero, the orientations of
+        the **half-1** particles are perturbed by an independent isotropic small
+        rotation before reconstruction, so ``vol1`` (buffer slot 0) becomes a
+        deliberately misaligned reconstruction while ``vol2`` (slot 1) stays
+        cleanly aligned.  Train with :meth:`Noise2NoiseTrainer.train`
+        ``directional=True`` on such pairs to teach the network to recover from
+        small alignment errors (slot 0 = input, slot 1 = target).
+
         The Averager's ``verbosity`` and ``rec_halfsets`` attributes, and the
-        original ``half_id`` array, are fully restored on exit even if an
-        exception is raised.
+        original ``half_id``, ``ali_eu`` and ``prj_eu`` arrays, are fully
+        restored on exit even if an exception is raised.
 
         Parameters
         ----------
@@ -377,44 +532,134 @@ class VolumePairs():
             Configured Averager instance.  ``rec_halfsets`` will be
             temporarily forced to ``True``; ``verbosity`` will be silenced.
         ptcls : :class:`~susan.data.Particles`
-            Particle stack.  The ``half_id`` array is temporarily modified
-            and restored on exit.
+            Particle stack.  The ``half_id`` array (and, when perturbation is
+            enabled, ``ali_eu`` / ``prj_eu``) is temporarily modified and
+            restored on exit.
         tomo_filename : str
             Path to the ``.tomostxt`` tomograms file.
         num_entries : int, optional
             Maximum number of new pairs to add in this call.  ``None``
             fills the buffer to capacity.  Default: ``None``.
+        sigma_ang_3D : float or (float, float), optional
+            Std. dev. (in degrees) of the isotropic rotation applied to the
+            half-1 particles' 3-D orientations (``ali_eu``).  Models 3-D
+            alignment error.  A scalar uses a fixed sigma for every entry; a
+            ``(lo, hi)`` pair sweeps the range across the entries generated in
+            this call (evenly spread and shuffled), which trains the network to
+            be robust over a range of blur levels rather than a single one.
+            Include ``lo == 0`` to also see cleanly-aligned pairs and avoid
+            over-sharpening at inference.  ``0.0`` disables it.  Default: ``0.0``.
+        sigma_ang_2D : float or (float, float), optional
+            Same as *sigma_ang_3D*, but applied independently to each half-1
+            projection orientation (``prj_eu``).  Models per-tilt / tilt-series
+            alignment error.  ``0.0`` disables it.  Default: ``0.0``.
+        sigma_def : float or (float, float), optional
+            Std. dev. (in Angstroms) of an additive Gaussian shift applied
+            independently to each half-1 projection's defocus.  The same shift
+            is added to ``def_U`` and ``def_V`` so the mean defocus moves while
+            the astigmatism is preserved.  Models defocus-estimation error,
+            which degrades CTF correction.  Scalar or ``(lo, hi)`` range, same
+            semantics as *sigma_ang_3D*.  ``0.0`` disables it.  Default: ``0.0``.
 
         Raises
         ------
         RuntimeError
             If the buffer has not been initialised; call :meth:`set_size`
             or :meth:`set_size_mask` first.
+
+        Examples
+        --------
+        Plain Noise2Noise denoising pairs (both halves cleanly aligned):
+
+        >>> vp = VolumePairs()
+        >>> vp.set_size_mask(box_size, num_vol=50, mask=mask)
+        >>> vp.populate(avgr, ptcls, 'tomos.tomostxt')
+        >>> trainer.train(vp, n_epochs=100)          # symmetric, denoising only
+
+        Misalignment-recovery pairs: perturb the half-1 orientations so slot 0
+        is a misaligned reconstruction and slot 1 is cleanly aligned, then train
+        directionally (slot 0 -> slot 1) so the network learns to undo the
+        alignment blur while still denoising:
+
+        >>> vp.populate(avgr, ptcls, 'tomos.tomostxt', sigma_ang_3D=3.0)
+        >>> trainer.train(vp, n_epochs=100, directional=True)
+
+        For robustness across blur levels (recommended), pass a ``(lo, hi)``
+        range including ``0`` instead of a single sigma, so the buffer spans
+        cleanly-aligned to strongly-misaligned pairs:
+
+        >>> vp.populate(avgr, ptcls, 'tomos.tomostxt', sigma_ang_3D=(0.0, 4.0))
+        >>> trainer.train(vp, n_epochs=100, directional=True)
+
+        ``sigma_ang_3D`` is the std. dev. of the applied rotation *magnitude* in
+        degrees, so the typical geodesic error is roughly ``0.8 * sigma`` (about
+        2.3 deg for ``sigma_ang_3D=3.0``).  Add ``sigma_ang_2D`` to also perturb
+        each projection orientation independently (per-tilt alignment error), or
+        ``sigma_def`` (Angstroms) to perturb the per-projection defocus and model
+        CTF-correction error.  Enable and validate these one at a time rather
+        than all at once.
         """
         if self.buffer is None:
             raise RuntimeError("Buffer not initialized; call set_size first")
 
         import susan as _susan
 
+        limit     = self.max_vol if num_entries is None else num_entries
+        sched_3D  = _sigma_schedule(sigma_ang_3D, limit)
+        sched_2D  = _sigma_schedule(sigma_ang_2D, limit)
+        sched_def = _sigma_schedule(sigma_def,    limit)
+        perturb   = bool(_np.any(sched_3D  > 0.0) or
+                         _np.any(sched_2D  > 0.0) or
+                         _np.any(sched_def > 0.0))
+
         half_id      = _np.copy(ptcls.half_id)
+        ali_eu0      = _np.copy(ptcls.ali_eu) if perturb else None
+        prj_eu0      = _np.copy(ptcls.prj_eu) if perturb else None
+        def_U0       = _np.copy(ptcls.def_U)  if perturb else None
+        def_V0       = _np.copy(ptcls.def_V)  if perturb else None
         verbosity    = avgr.verbosity
         rec_halfmaps = avgr.rec_halfsets
         avgr.verbosity    = 0
         avgr.rec_halfsets = True
 
         try:
-            count = 0
-            limit = self.max_vol if num_entries is None else num_entries
-            while count < limit:
+            for count in range(limit):
+                if perturb:
+                    # Reset to the pristine values so perturbations do not
+                    # accumulate across iterations.
+                    ptcls.ali_eu[:] = ali_eu0
+                    ptcls.prj_eu[:] = prj_eu0
+                    ptcls.def_U[:]  = def_U0
+                    ptcls.def_V[:]  = def_V0
                 ptcls.halfsets_randomize()
+                if perturb:
+                    sel = ptcls.half_id == 1
+                    if sched_3D[count] > 0.0:
+                        for r in range(ptcls.ali_eu.shape[0]):
+                            ptcls.ali_eu[r, sel, :] = _perturb_eulers(
+                                ptcls.ali_eu[r, sel, :], sched_3D[count])
+                    if sched_2D[count] > 0.0:
+                        ptcls.prj_eu[sel, :, :] = _perturb_eulers(
+                            ptcls.prj_eu[sel, :, :], sched_2D[count])
+                    if sched_def[count] > 0.0:
+                        # Same shift on U and V: moves mean defocus, keeps
+                        # astigmatism.  Independent per (particle, projection).
+                        d = (_np.random.randn(*ptcls.def_U[sel, :].shape)
+                             * sched_def[count]).astype(ptcls.def_U.dtype)
+                        ptcls.def_U[sel, :] += d
+                        ptcls.def_V[sel, :] += d
                 ptcls.save(f'{self.tmp_base}.ptclsraw')
                 avgr.reconstruct(self.tmp_base, tomo_filename,
                                  f'{self.tmp_base}.ptclsraw', self.box_size)
                 vol1 = -_susan.read(f'{self.tmp_base}_class001_half1.mrc')
                 vol2 = -_susan.read(f'{self.tmp_base}_class001_half2.mrc')
                 self.push(vol1, vol2)
-                count += 1
         finally:
             ptcls.half_id[:]  = half_id
+            if perturb:
+                ptcls.ali_eu[:] = ali_eu0
+                ptcls.prj_eu[:] = prj_eu0
+                ptcls.def_U[:]  = def_U0
+                ptcls.def_V[:]  = def_V0
             avgr.verbosity    = verbosity
             avgr.rec_halfsets = rec_halfmaps

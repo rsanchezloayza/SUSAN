@@ -36,6 +36,8 @@ __all__ = ['dose_from_fsc',
            'bin_frame_shape',
            'mask_diameter',
            'angular_step_from_fsc',
+           'is_odd',
+           'is_even',
           ]
 
 import datetime
@@ -386,11 +388,13 @@ def bin_frame_shape(H, W, scale):
 def bin_frame(in_frame, scale, out_frame=None):
     """Area-weighted downsample of a single 2-D frame by a float ``scale``.
 
-    Output dimensions are ``ceil(H/scale)`` and ``ceil(W/scale)``.  The
-    centred offset ``(N - N_b*scale)/2`` keeps the geometric centre at pixel
-    ``N_b/2`` exactly, matching SUSAN's ``stk_center = stk_dim/2`` projection
-    convention, so the same particle position projects to the same physical
-    point across binning levels.
+    Output dimensions are ``ceil(H/scale)`` and ``ceil(W/scale)``.  The window
+    offset ``(N - N_b*scale)/2 - (scale-1)/2`` keeps the sampling origin on
+    SUSAN's pixel-centre convention (input index ``i`` at coordinate ``i``,
+    tomogram centre at ``stk_center = N/2``), so the same particle position
+    projects to the same physical point across binning levels.  Preserving the
+    geometric box-edge centre instead would shift binned content by
+    ``(scale-1)/2`` input pixels and blur the reconstruction across tilts.
 
     Edge bins extend past the input boundary; out-of-bounds contributions are
     skipped and each output pixel is normalised by the actual in-bounds
@@ -533,3 +537,33 @@ def dose_from_fsc(fsc, apix, freq_range=(0.1, 0.8), fsc_min=0.1):
 
     slope, _ = np.polyfit(s2[mask], np.log(fsc[mask]), 1)
     return -4.0 * slope   # dose = −4 · slope  (matches exp(−s²·dose/4) convention)
+
+###########################################
+
+def is_odd(v):
+    """Check whether an integer is odd.
+
+    Parameters
+    ----------
+    v : int
+
+    Returns
+    -------
+    bool
+        True if ``v`` is odd, False otherwise.
+    """
+    return int(v) % 2 == 1
+
+def is_even(v):
+    """Check whether an integer is even.
+
+    Parameters
+    ----------
+    v : int
+
+    Returns
+    -------
+    bool
+        True if ``v`` is even, False otherwise.
+    """
+    return int(v) % 2 == 0

@@ -559,15 +559,62 @@ class SubtomoAvg(SubtomoAvgCore):
        .. warning:: **Experimental.**
 
        Post-alignment 2-D shift regularisation: ``'none'``, ``'affine'``,
-       or ``'gaussian'``.  Default: ``'none'``.
+       ``'gaussian'``, or ``'tps'``.  Default: ``'none'``.
+
+       ``'tps'`` fits a regularised thin-plate spline to the per-tilt 2-D
+       shift field.  It is the middle ground between ``'affine'`` (globally
+       rigid) and ``'gaussian'`` (purely local): a globally smooth warp whose
+       stiffness is set by :attr:`tps_lambda`.
+
+    .. attribute:: tps_lambda
+       :type: float
+
+       .. warning:: **Experimental.**
+
+       Stiffness of the ``'tps'`` shift warp (dimensionless; coordinates are
+       normalised per tomogram so the value is comparable across datasets).
+       ``0`` interpolates every shift (overfits noise), large values converge
+       to the pure affine fit.  Default: ``1.0``.
+
+    .. attribute:: fitting_from_origin
+       :type: bool
+
+       .. warning:: **Experimental.**
+
+       Controls what the ``'affine'``/``'gaussian'``/``'tps'`` shift
+       regularisers fit.  If ``True`` (default) they fit the absolute current
+       ``prj_t`` (measured from origin).  If ``False`` they fit only the
+       incremental ``prj_t`` (the delta versus the previous iteration) and
+       add the smoothed delta back onto the previous shifts.  Incremental
+       deltas are smaller and noisier, so :attr:`tps_lambda` typically needs
+       to be larger in this mode.  Default: ``True``.
 
     .. attribute:: smooth_ctf
        :type: bool
 
        .. warning:: **Experimental.**
 
-       Gaussian spatial smoothing of per-particle CTF defocus deltas.
-       Default: ``False``.
+       Enable spatial smoothing of per-particle CTF defocus deltas (the
+       change versus the previous iteration), per tilt.  The smoother is
+       selected by :attr:`type_ctf_smoothing`.  Default: ``False``.
+
+    .. attribute:: type_ctf_smoothing
+       :type: str
+
+       .. warning:: **Experimental.**
+
+       Smoother used when :attr:`smooth_ctf` is enabled: ``'gaussian'``
+       (local kNN average) or ``'tps'`` (regularised thin-plate spline warp).
+       Default: ``'gaussian'``.
+
+    .. attribute:: ctf_tps_lambda
+       :type: float
+
+       .. warning:: **Experimental.**
+
+       Stiffness of the ``'tps'`` defocus warp, analogous to
+       :attr:`tps_lambda` but applied independently to the CTF deltas.
+       Default: ``1.0``.
 
     .. attribute:: reweight_classification
        :type: bool or float
@@ -575,6 +622,15 @@ class SubtomoAvg(SubtomoAvgCore):
        .. warning:: **Experimental.**
 
        Multi-reference CC reweighting.  Default: ``False``.
+
+    .. attribute:: cross_halfmaps
+       :type: bool
+
+       If ``True``, the half-map paths in the reference are swapped when
+       writing ``cur.reference`` after each reconstruction: half1 particles
+       will be aligned against the half2 map and vice versa in the next
+       iteration.  Requires :attr:`aligner.halfsets_independ` to be
+       ``True`` to take effect.  Default: ``False``.
 
     .. attribute:: save_raw_map
        :type: bool
@@ -675,14 +731,19 @@ class SubtomoAvg(SubtomoAvgCore):
         self.cc_threshold  = 0.8
         self.fsc_threshold = 0.143
 
-        self.max_2d_delta_angstroms   = 0
-        self.max_tilt_reconstruction  = -1
-        self.use_nominal              = False
+        self.max_2d_delta_angstroms    = 0
+        self.max_tilt_reconstruction   = -1
+        self.use_nominal               = False
         self.discard_oversampled_views = None
-        self.type_2d_shift_fitting    = 'none'
-        self.smooth_ctf              = False
-        self.reweight_classification = False
+        self.type_2d_shift_fitting     = 'none'
+        self.tps_lambda                = 1.0
+        self.fitting_from_origin       = True
+        self.smooth_ctf                = False
+        self.type_ctf_smoothing        = 'gaussian'
+        self.ctf_tps_lambda            = 1.0
+        self.reweight_classification   = False
 
+        self.cross_halfmaps  = False
         self.save_raw_map    = False
         self._map_filter     = None
         self._map_filter_fsc = None
@@ -702,6 +763,7 @@ class SubtomoAvg(SubtomoAvgCore):
 
         self.averager.ctf_correction    = 'wiener'
         self.averager.rec_halfsets      = True
+        self.averager.normalize_type    = 'zero_mean'
         self.averager.bandpass.highpass = 0
         self.averager.bandpass.lowpass  = -1
 
@@ -801,6 +863,37 @@ class SubtomoAvg(SubtomoAvgCore):
                 out[i] = (deltas[idx] * w[:, _np.newaxis]).sum(axis=0)
             return out
 
+        def _tps_fit(pt0, deltas, lam):
+            # Regularised thin-plate spline warp of a 2-D shift field.
+            # lam is a dimensionless stiffness: 0 -> exact interpolation,
+            # large -> pure affine.  Coordinates are centred and scaled by
+            # their median radius so lam is comparable across tomograms.
+            m = pt0.shape[0]
+            c = pt0 - pt0.mean(0)
+            L = _np.median(_np.linalg.norm(c, axis=1))
+            if L <= 0:
+                return deltas
+            c  = (c / L).astype(_np.float64)
+            r2 = ((c[:, None, :] - c[None, :, :]) ** 2).sum(-1)
+            K  = _np.where(r2 > 0, 0.5 * r2 * _np.log(_np.maximum(r2, 1e-12)), 0.0)
+            P  = _np.hstack([_np.ones((m, 1)), c])
+            A  = _np.zeros((m + 3, m + 3), dtype=_np.float64)
+            A[:m, :m] = K + lam * _np.eye(m)
+            A[:m, m:] = P
+            A[m:, :m] = P.T
+            rhs = _np.zeros((m + 3, 2), dtype=_np.float64)
+            rhs[:m] = deltas
+            sol = _np.linalg.lstsq(A, rhs, rcond=None)[0]
+            return (K @ sol[:m] + P @ sol[m:]).astype(deltas.dtype)
+
+        # When fitting_from_origin is False, the regularisers act on the
+        # incremental shift (delta versus the previous iteration) and the
+        # smoothed delta is added back onto the previous prj_t.
+        prj_base = None
+        if (not self.fitting_from_origin
+                and self.type_2d_shift_fitting.lower() in ('affine', 'gaussian', 'tps')):
+            prj_base = _ssa_data.Particles(prv.ptcl_rslt).prj_t
+
         if self.type_2d_shift_fitting == 'none':
             # max_2d_delta_angstroms only applies to 2D alignment, not CTF refinement
             if self.max_2d_delta_angstroms > 0 and self._validate_iteration_type() == 2:
@@ -830,11 +923,12 @@ class SubtomoAvg(SubtomoAvgCore):
                     continue
                 for i in range(tomos.num_proj[tcix]):
                     _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, i]).astype(_np.float32))
+                    base    = 0.0 if prj_base is None else prj_base[idx, i]
                     pt0     = (pt[idx] @ R.T)[:, :2]
-                    pt1     = pt0 + ptcls_in.prj_t[idx, i]
+                    pt1     = pt0 + (ptcls_in.prj_t[idx, i] - base)
                     pt0_aug = _np.hstack([pt0, _np.ones((pt0.shape[0], 1))])
                     xform, _, _, _ = _np.linalg.lstsq(pt0_aug, pt1, rcond=None)
-                    ptcls_in.prj_t[idx, i] = pt0_aug @ xform - pt0
+                    ptcls_in.prj_t[idx, i] = base + (pt0_aug @ xform - pt0)
 
         elif self.type_2d_shift_fitting.lower() == 'gaussian':
             R     = _np.eye(3, dtype=_np.float32)
@@ -849,13 +943,31 @@ class SubtomoAvg(SubtomoAvgCore):
                 k_eff = min(7, n_t)
                 for i in range(tomos.num_proj[tcix]):
                     _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, i]).astype(_np.float32))
+                    base  = 0.0 if prj_base is None else prj_base[idx, i]
                     pt0   = (pt[idx] @ R.T)[:, :2]
                     sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
-                    ptcls_in.prj_t[idx, i] = _smooth_deltas(
-                        pt0, ptcls_in.prj_t[idx, i], sigma=sigma, k=k_eff)
+                    ptcls_in.prj_t[idx, i] = base + _smooth_deltas(
+                        pt0, ptcls_in.prj_t[idx, i] - base, sigma=sigma, k=k_eff)
+
+        elif self.type_2d_shift_fitting.lower() == 'tps':
+            R     = _np.eye(3, dtype=_np.float32)
+            n     = ptcls_in.n_ptcl
+            pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            tomos = _ssa_data.Tomograms(self.tomogram_file)
+            for tcix in range(tomos.n_tomos):
+                idx = ptcls_in.tomo_cix == tcix
+                if idx.sum() < 4:
+                    continue
+                for i in range(tomos.num_proj[tcix]):
+                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, i]).astype(_np.float32))
+                    base = 0.0 if prj_base is None else prj_base[idx, i]
+                    pt0  = (pt[idx] @ R.T)[:, :2]
+                    ptcls_in.prj_t[idx, i] = base + _tps_fit(
+                        pt0, ptcls_in.prj_t[idx, i] - base, self.tps_lambda)
 
         if self.smooth_ctf and self._validate_iteration_type() == 'ctf':
-            print('    Smoothing CTF defocus deltas (Gaussian).')
+            method = self.type_ctf_smoothing.lower()
+            print('    Smoothing CTF defocus deltas (%s).' % method)
             ptcls_old = _ssa_data.Particles(prv.ptcl_rslt)
             delta_U   = ptcls_in.def_U - ptcls_old.def_U
             delta_V   = ptcls_in.def_V - ptcls_old.def_V
@@ -863,20 +975,24 @@ class SubtomoAvg(SubtomoAvgCore):
             n     = ptcls_in.n_ptcl
             pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
+            min_n = 4 if method == 'tps' else 2
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_cix == tcix
                 n_t = idx.sum()
-                if n_t < 2:
+                if n_t < min_n:
                     continue
                 k_eff = min(7, n_t)
                 for i in range(tomos.num_proj[tcix]):
                     _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, i]).astype(_np.float32))
-                    pt0   = (pt[idx] @ R.T)[:, :2]
-                    sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
-                    s_dU = _smooth_deltas(pt0, delta_U[idx, i, _np.newaxis], sigma=sigma, k=k_eff).squeeze()
-                    s_dV = _smooth_deltas(pt0, delta_V[idx, i, _np.newaxis], sigma=sigma, k=k_eff).squeeze()
-                    ptcls_in.def_U[idx, i] = ptcls_old.def_U[idx, i] + s_dU
-                    ptcls_in.def_V[idx, i] = ptcls_old.def_V[idx, i] + s_dV
+                    pt0 = (pt[idx] @ R.T)[:, :2]
+                    d   = _np.stack([delta_U[idx, i], delta_V[idx, i]], axis=1)
+                    if method == 'tps':
+                        s = _tps_fit(pt0, d, self.ctf_tps_lambda)
+                    else:
+                        sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
+                        s = _smooth_deltas(pt0, d, sigma=sigma, k=k_eff)
+                    ptcls_in.def_U[idx, i] = ptcls_old.def_U[idx, i] + s[:, 0]
+                    ptcls_in.def_V[idx, i] = ptcls_old.def_V[idx, i] + s[:, 1]
 
         ptcls_in.save(cur.ptcl_rslt)
 
@@ -1092,8 +1208,10 @@ class SubtomoAvg(SubtomoAvgCore):
         refs = _ssa_data.Reference(prv.reference)
         for i in range(refs.n_refs):
             refs.ref[i] = cur.ite_dir + 'map_class%03d.mrc'       % (i + 1)
-            refs.h1[i]  = cur.ite_dir + 'map_class%03d_half1.mrc' % (i + 1)
-            refs.h2[i]  = cur.ite_dir + 'map_class%03d_half2.mrc' % (i + 1)
+            h1 = cur.ite_dir + 'map_class%03d_half1.mrc' % (i + 1)
+            h2 = cur.ite_dir + 'map_class%03d_half2.mrc' % (i + 1)
+            refs.h1[i]  = h2 if self.cross_halfmaps else h1
+            refs.h2[i]  = h1 if self.cross_halfmaps else h2
         refs.save(cur.reference)
 
     def run_postprocessing(self, cur, prv):

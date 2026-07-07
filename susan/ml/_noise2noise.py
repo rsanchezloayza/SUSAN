@@ -292,11 +292,20 @@ class Noise2NoiseTrainer:
     # -------------------------------------------------------------- train
 
     def train(self, vol_pairs, n_epochs: int = 10, lr: float = 1e-4,
-              batch_size: int = 1, print_every: int = 10):
+              batch_size: int = 1, print_every: int = 10,
+              directional: bool = False):
         """Train the network using Noise2Noise on half-map pairs.
 
-        Each sample ``(h1, h2)`` from *vol_pairs* contributes two gradient
-        steps: ``h1 → h2`` and ``h2 → h1``.
+        By default each sample ``(h1, h2)`` from *vol_pairs* contributes two
+        symmetric terms, ``h1 → h2`` and ``h2 → h1`` — correct for plain
+        denoising, where both halves share the same signal.
+
+        With ``directional=True`` only the ``h1 → h2`` term is used: slot 0 is
+        treated as the input and slot 1 as the target.  Use this for pairs
+        produced by :meth:`VolumePairs.populate` with an angular perturbation,
+        where slot 0 is a deliberately misaligned reconstruction and slot 1 is
+        cleanly aligned; the reverse term would train the network to *introduce*
+        misalignment and must be disabled.
 
         Parameters
         ----------
@@ -312,6 +321,9 @@ class Noise2NoiseTrainer:
         print_every : int
             Print mean loss every this many epochs.  ``0`` disables printing.
             Default: ``10``.
+        directional : bool
+            When ``True``, train only ``slot 0 → slot 1`` (input → target)
+            without the symmetric reverse term.  Default: ``False``.
 
         Returns
         -------
@@ -334,14 +346,16 @@ class Noise2NoiseTrainer:
                 h1 = _ensure_5d(h1).to(dev_in)
                 h2 = _ensure_5d(h2).to(dev_in)
 
-                # h1 → h2
+                # h1 → h2  (slot 0 = input, slot 1 = target)
                 pred_12 = self.model(h1)
                 loss = self._loss_fn(pred_12, h2.to(dev_out))
 
-                # h2 → h1
-                pred_21 = self.model(h2)
-                loss = loss + self._loss_fn(pred_21, h1.to(dev_out))
-                loss = loss / 2.0
+                if not directional:
+                    # h2 → h1 (symmetric term; only valid when both halves
+                    # share the same signal, i.e. no directional perturbation).
+                    pred_21 = self.model(h2)
+                    loss = loss + self._loss_fn(pred_21, h1.to(dev_out))
+                    loss = loss / 2.0
 
                 loss.backward()
                 running += loss.item()

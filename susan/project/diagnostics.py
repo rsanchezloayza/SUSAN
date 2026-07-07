@@ -148,6 +148,14 @@ def bandpass_shell_sweep(
 # suitable as the prior (``offset_sigma`` / ``angle_sigma`` /
 # ``defocus_sigma``) for the *next* iteration.
 #
+# Alignment: the ``estimate_delta_*`` arrays are aligned to iteration
+# ``ite``'s particles in file order — their leading (particle) axis matches
+# ``get_ptcls(ite)``, so they can be used directly to index ``prj_w`` etc.
+# Particles present in ``ite`` but absent from ``ite-1`` are ``NaN``.
+# Particles are matched on the composite ``(tomo_id, ptcl_id)`` key, since
+# ``ptcl_id`` alone is not unique across tomograms.  The ``estimate_sigma_*``
+# reductions ignore the ``NaN`` entries.
+#
 # Units: offset helpers default to pixels (``pixels=True``, using
 # ``sta.pix_size``; pass ``pixels=False`` for Ångströms); angle helpers
 # default to degrees (``degrees=True``; pass ``degrees=False`` for radians).
@@ -213,25 +221,44 @@ def _geodesic(R, degrees=True):
 
 
 def _match_pair(sta, ite):
-    """Load iterations ``ite`` and ``ite-1`` and match particles by id.
+    """Load iterations ``ite`` and ``ite-1`` and match particles.
 
-    Returns ``(cur, prv, idx_c, idx_p)`` where ``idx_c`` / ``idx_p`` are
-    index arrays selecting the particles present in *both* iterations,
-    aligned to each other (the set can shrink between iterations when
-    particle cleaning runs).
+    Matching uses the composite ``(tomo_id, ptcl_id)`` key — ``ptcl_id``
+    alone is not unique across tomograms, so matching on it would collapse
+    duplicates and pair the wrong particles.
+
+    Returns ``(cur, prv, idx_c, idx_p)`` where ``idx_c`` / ``idx_p`` are row
+    indices into ``cur`` / ``prv`` for the particles present in *both*
+    iterations, aligned to each other.  ``idx_c`` indexes ``cur`` in its
+    original (file) order positions, so it can be used to scatter results
+    back into a current-iteration-aligned array (see :func:`_to_current`).
     """
     if ite < 1:
         raise ValueError('iteration delta requires ite >= 1 (needs ite-1).')
     cur = sta.get_ptcls(ite)
     prv = sta.get_ptcls(ite - 1)
-    oc = _np.argsort(cur.ptcl_id)
-    op = _np.argsort(prv.ptcl_id)
-    common, ic, ip = _np.intersect1d(cur.ptcl_id[oc], prv.ptcl_id[op],
-                                     return_indices=True)
+    mult = int(max(int(cur.ptcl_id.max(initial=0)),
+                   int(prv.ptcl_id.max(initial=0)))) + 1
+    kc = cur.tomo_id.astype(_np.int64) * mult + cur.ptcl_id
+    kp = prv.tomo_id.astype(_np.int64) * mult + prv.ptcl_id
+    common, ic, ip = _np.intersect1d(kc, kp, return_indices=True)
     if common.size == 0:
-        raise ValueError('iterations %d and %d share no particle ids.'
+        raise ValueError('iterations %d and %d share no particles.'
                          % (ite, ite - 1))
-    return cur, prv, oc[ic], op[ip]
+    return cur, prv, ic, ip
+
+
+def _to_current(values, idx_c, n_cur):
+    """Scatter per-matched-particle *values* into a current-aligned array.
+
+    Returns a float array whose first axis has length *n_cur* (the current
+    iteration's particle count, in file order); rows for particles absent
+    from the previous iteration are left as ``NaN``.  ``values`` is indexed
+    on its first axis and may carry trailing dimensions (e.g. projections).
+    """
+    out = _np.full((n_cur,) + _np.shape(values)[1:], _np.nan, dtype=_np.float64)
+    out[idx_c] = values
+    return out
 
 
 def _rms_sigma(delta, dof, clip_pct=5.0, scale=1.0):
@@ -270,14 +297,16 @@ def estimate_delta_3D_offset(sta, ite, ref=0, pixels=True):
 
     Returns
     -------
-    numpy.ndarray, shape (n_common,)
-        Shift-change magnitude (pixels or Å) over particles present in both
-        iterations.
+    numpy.ndarray, shape (n_ptcl,)
+        Shift-change magnitude (pixels or Å), aligned to iteration *ite*'s
+        particles (file order).  Particles absent from ``ite-1`` are ``NaN``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    dt = cur.ali_t[ref][ic] - prv.ali_t[ref][ip]      # (N, 3) Å
+    dt = cur.ali_t[ref][ic] - prv.ali_t[ref][ip]      # (Nc, 3) Å
     d  = _np.linalg.norm(dt, axis=1)
-    return d / sta.pix_size if pixels else d
+    if pixels:
+        d = d / sta.pix_size
+    return _to_current(d, ic, cur.ptcl_id.size)
 
 
 def estimate_delta_2D_offset(sta, ite, pixels=True):
@@ -291,18 +320,19 @@ def estimate_delta_2D_offset(sta, ite, pixels=True):
 
     Returns
     -------
-    numpy.ndarray, shape (n_common, n_proj)
-        Shift-change magnitude (pixels or Å); projections disabled
-        (``prj_w<=0``) in either iteration are ``NaN``.
+    numpy.ndarray, shape (n_ptcl, n_proj)
+        Shift-change magnitude (pixels or Å), aligned to iteration *ite*'s
+        particles (file order).  ``NaN`` for particles absent from ``ite-1``
+        and for projections disabled (``prj_w<=0``) in either iteration.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    dt = cur.prj_t[ic] - prv.prj_t[ip]                # (N, P, 2) Å
+    dt = cur.prj_t[ic] - prv.prj_t[ip]                # (Nc, P, 2) Å
     d  = _np.linalg.norm(dt, axis=-1).astype(_np.float64)
     if pixels:
         d = d / sta.pix_size
     mask = (cur.prj_w[ic] > 0) & (prv.prj_w[ip] > 0)
     d[~mask] = _np.nan
-    return d
+    return _to_current(d, ic, cur.ptcl_id.size)
 
 
 def estimate_delta_3D_angle(sta, ite, ref=0, degrees=True):
@@ -316,15 +346,17 @@ def estimate_delta_3D_angle(sta, ite, ref=0, degrees=True):
 
     Returns
     -------
-    numpy.ndarray, shape (n_common, 2)
-        Column 0: cone (out-of-plane) deviation.
-        Column 1: in-plane (twist) deviation.  Units per *degrees*.
+    numpy.ndarray, shape (2, n_ptcl)
+        ``[0]`` cone (out-of-plane), ``[1]`` in-plane (twist), units per
+        *degrees*, aligned to iteration *ite*'s particles (file order).
+        Particles absent from ``ite-1`` are ``NaN``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
     Rd = _zyz_to_R(cur.ali_eu[ref][ic]) @ \
          _np.swapaxes(_zyz_to_R(prv.ali_eu[ref][ip]), -1, -2)
     cone, inpl = _cone_inplane(Rd, degrees=degrees)
-    return _np.stack([cone, inpl], axis=-1)
+    n = cur.ptcl_id.size
+    return _np.stack([_to_current(cone, ic, n), _to_current(inpl, ic, n)], axis=0)
 
 
 def estimate_delta_2D_angle(sta, ite, degrees=True):
@@ -338,11 +370,13 @@ def estimate_delta_2D_angle(sta, ite, degrees=True):
 
     Returns
     -------
-    numpy.ndarray, shape (n_common, n_proj, 2)
-        ``[..., 0]`` cone, ``[..., 1]`` in-plane (units per *degrees*);
-        disabled projections are ``NaN``.  In 2-D per-projection alignment
-        the cone component is usually weakly constrained — the in-plane
-        column is the meaningful one for setting ``angle_sigma``.
+    numpy.ndarray, shape (2, n_ptcl, n_proj)
+        ``[0]`` cone, ``[1]`` in-plane (units per *degrees*), aligned to
+        iteration *ite*'s particles (file order).  ``NaN`` for particles
+        absent from ``ite-1`` and for disabled projections.  In 2-D
+        per-projection alignment the cone component is usually weakly
+        constrained — the in-plane slice is the meaningful one for
+        ``angle_sigma``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
     Rd = _zyz_to_R(cur.prj_eu[ic]) @ \
@@ -351,7 +385,8 @@ def estimate_delta_2D_angle(sta, ite, degrees=True):
     mask = (cur.prj_w[ic] > 0) & (prv.prj_w[ip] > 0)
     cone[~mask] = _np.nan
     inpl[~mask] = _np.nan
-    return _np.stack([cone, inpl], axis=-1)
+    n = cur.ptcl_id.size
+    return _np.stack([_to_current(cone, ic, n), _to_current(inpl, ic, n)], axis=0)
 
 
 def estimate_delta_3D_total_angle(sta, ite, ref=0, degrees=True):
@@ -369,14 +404,15 @@ def estimate_delta_3D_total_angle(sta, ite, ref=0, degrees=True):
 
     Returns
     -------
-    numpy.ndarray, shape (n_common,)
-        Total rotation magnitude (units per *degrees*), over particles
-        present in both iterations.
+    numpy.ndarray, shape (n_ptcl,)
+        Total rotation magnitude (units per *degrees*), aligned to iteration
+        *ite*'s particles (file order).  Particles absent from ``ite-1`` are
+        ``NaN``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
     Rd = _zyz_to_R(cur.ali_eu[ref][ic]) @ \
          _np.swapaxes(_zyz_to_R(prv.ali_eu[ref][ip]), -1, -2)
-    return _geodesic(Rd, degrees=degrees)
+    return _to_current(_geodesic(Rd, degrees=degrees), ic, cur.ptcl_id.size)
 
 
 def estimate_delta_2D_total_angle(sta, ite, degrees=True):
@@ -392,9 +428,10 @@ def estimate_delta_2D_total_angle(sta, ite, degrees=True):
 
     Returns
     -------
-    numpy.ndarray, shape (n_common, n_proj)
-        Total rotation magnitude (units per *degrees*); disabled projections
-        are ``NaN``.
+    numpy.ndarray, shape (n_ptcl, n_proj)
+        Total rotation magnitude (units per *degrees*), aligned to iteration
+        *ite*'s particles (file order).  ``NaN`` for particles absent from
+        ``ite-1`` and for disabled projections.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
     Rd = _zyz_to_R(cur.prj_eu[ic]) @ \
@@ -402,7 +439,7 @@ def estimate_delta_2D_total_angle(sta, ite, degrees=True):
     d = _geodesic(Rd, degrees=degrees)
     mask = (cur.prj_w[ic] > 0) & (prv.prj_w[ip] > 0)
     d[~mask] = _np.nan
-    return d
+    return _to_current(d, ic, cur.ptcl_id.size)
 
 
 def estimate_delta_defocus(sta, ite):
@@ -410,16 +447,18 @@ def estimate_delta_defocus(sta, ite):
 
     Returns
     -------
-    numpy.ndarray, shape (n_common, n_proj)
-        Defocus-change magnitude in Å; disabled projections are ``NaN``.
+    numpy.ndarray, shape (n_ptcl, n_proj)
+        Defocus-change magnitude in Å, aligned to iteration *ite*'s particles
+        (file order).  ``NaN`` for particles absent from ``ite-1`` and for
+        disabled projections.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
     dU = cur.def_U[ic].astype(_np.float64) - prv.def_U[ip]
     dV = cur.def_V[ic].astype(_np.float64) - prv.def_V[ip]
-    d  = _np.sqrt(dU*dU + dV*dV)                       # (N, P) Å
+    d  = _np.sqrt(dU*dU + dV*dV)                       # (Nc, P) Å
     mask = (cur.prj_w[ic] > 0) & (prv.prj_w[ip] > 0)
     d[~mask] = _np.nan
-    return d
+    return _to_current(d, ic, cur.ptcl_id.size)
 
 
 # --------------------------------------------------------------------------
@@ -475,9 +514,9 @@ def estimate_sigma_3D_angle(sta, ite, ref=0, degrees=True, clip_pct=5.0, scale=1
         is a single engine knob applied to both axes; pass whichever you
         prefer (or their combination — e.g. ``max``) to the next iteration.
     """
-    d = estimate_delta_3D_angle(sta, ite, ref=ref, degrees=degrees)   # (N, 2)
-    sigma_cone = _rms_sigma(d[:, 0], dof=2, clip_pct=clip_pct, scale=scale)
-    sigma_inpl = _rms_sigma(d[:, 1], dof=1, clip_pct=clip_pct, scale=scale)
+    d = estimate_delta_3D_angle(sta, ite, ref=ref, degrees=degrees)   # (2, N)
+    sigma_cone = _rms_sigma(d[0], dof=2, clip_pct=clip_pct, scale=scale)
+    sigma_inpl = _rms_sigma(d[1], dof=1, clip_pct=clip_pct, scale=scale)
     return sigma_cone, sigma_inpl
 
 
@@ -497,9 +536,9 @@ def estimate_sigma_2D_angle(sta, ite, degrees=True, clip_pct=5.0, scale=1.0):
         projections.  The in-plane value is normally the relevant one for
         ``angle_sigma`` in 2-D mode.
     """
-    d = estimate_delta_2D_angle(sta, ite, degrees=degrees)            # (N, P, 2)
-    sigma_cone = _rms_sigma(d[..., 0], dof=2, clip_pct=clip_pct, scale=scale)
-    sigma_inpl = _rms_sigma(d[..., 1], dof=1, clip_pct=clip_pct, scale=scale)
+    d = estimate_delta_2D_angle(sta, ite, degrees=degrees)            # (2, N, P)
+    sigma_cone = _rms_sigma(d[0], dof=2, clip_pct=clip_pct, scale=scale)
+    sigma_inpl = _rms_sigma(d[1], dof=1, clip_pct=clip_pct, scale=scale)
     return sigma_cone, sigma_inpl
 
 

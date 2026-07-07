@@ -70,6 +70,14 @@ public:
         delete [] ptcls_tomoid;
     }
 
+    /// Release both full-stack buffers. Only call after the reader thread has
+    /// signalled DONE (i.e. no further stacks will be loaded), otherwise the
+    /// producer may still write into them.
+    void free_buffers() {
+        buffer_a->free_stack();
+        buffer_b->free_stack();
+    }
+
 protected:
 
     /// MAIN LOOP

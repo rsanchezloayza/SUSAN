@@ -215,9 +215,15 @@ cdef int _build_axis_table(int N, double scale, int N_b, double offset,
 def bin_frame(float[:, ::1] out_frame, float[:, ::1] in_frame, double scale):
     """Area-weighted downsample of a single 2-D frame.
 
-    Output size follows ``ceil`` of the input divided by ``scale``; the
-    centered offset ``(N - N_b*scale)/2`` keeps the geometric centre at
-    pixel ``N_b/2`` (matching SUSAN's ``stk_center = stk_dim/2`` convention).
+    Output size follows ``ceil`` of the input divided by ``scale``. The
+    window offset ``(N - N_b*scale)/2 - (scale-1)/2`` keeps the sampling
+    origin on SUSAN's pixel-centre convention, where input index ``i`` sits
+    at coordinate ``i`` and the tomogram centre is at ``stk_center = N/2``.
+    An extended particle therefore projects to the same physical point at
+    every binning level. (The ``-(scale-1)/2`` term matters: without it, the
+    geometric box-edge centre is preserved instead, which shifts binned
+    content by ``(scale-1)/2`` input pixels relative to the projector and
+    smears the reconstruction across tilts.)
     Edge bins extend past the input boundary; out-of-bounds input pixels
     are skipped and the per-output-pixel weight buffer normalises the result.
 
@@ -244,8 +250,8 @@ def bin_frame(float[:, ::1] out_frame, float[:, ::1] in_frame, double scale):
     if scale <= 1.0:
         raise ValueError("scale must be > 1.0")
 
-    cdef double offset_y = (H - H_b * scale) / 2.0
-    cdef double offset_x = (W - W_b * scale) / 2.0
+    cdef double offset_y = (H - H_b * scale) / 2.0 - (scale - 1.0) / 2.0
+    cdef double offset_x = (W - W_b * scale) / 2.0 - (scale - 1.0) / 2.0
     cdef int max_k = <int>ceil(scale) + 1
 
     cdef int* row_counts  = <int*>  malloc(H_b * sizeof(int))

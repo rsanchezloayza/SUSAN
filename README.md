@@ -7,6 +7,9 @@
 
 # SubStack Analysis: High performance Subtomogram Averaging
 
+> [!NOTE]
+> The documentation is being actively updated in preparation for the publication of the paper. Please check the latest version at [https://rsanchezloayza.github.io/SUSAN](https://rsanchezloayza.github.io/SUSAN).
+
 ## Contents
 - [Description](#description)
 - [Building and setup instructions](#building-and-setup-instructions)

@@ -620,6 +620,11 @@ protected:
             workers[i].wait();
         }
 
+        /// The reader has signalled DONE before we reach coord_end, so the
+        /// full-stack buffers are no longer needed. Release them here to free
+        /// host RAM before the memory-heavy gather/reconstruct stage.
+        stkrdr.free_buffers();
+
         gather_results();
         reconstruct_results();
     }
