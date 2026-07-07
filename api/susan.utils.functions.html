@@ -600,11 +600,13 @@ dimension; bin_level=2 quarters it, etc.</p></li>
 <dt class="sig sig-object py" id="susan.utils._functions.bin_frame">
 <span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">bin_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_frame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#bin_frame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.bin_frame" title="Link to this definition">¶</a></dt>
 <dd><p>Area-weighted downsample of a single 2-D frame by a float <code class="docutils literal notranslate"><span class="pre">scale</span></code>.</p>
-<p>Output dimensions are <code class="docutils literal notranslate"><span class="pre">ceil(H/scale)</span></code> and <code class="docutils literal notranslate"><span class="pre">ceil(W/scale)</span></code>.  The
-centred offset <code class="docutils literal notranslate"><span class="pre">(N</span> <span class="pre">-</span> <span class="pre">N_b*scale)/2</span></code> keeps the geometric centre at pixel
-<code class="docutils literal notranslate"><span class="pre">N_b/2</span></code> exactly, matching SUSAN’s <code class="docutils literal notranslate"><span class="pre">stk_center</span> <span class="pre">=</span> <span class="pre">stk_dim/2</span></code> projection
-convention, so the same particle position projects to the same physical
-point across binning levels.</p>
+<p>Output dimensions are <code class="docutils literal notranslate"><span class="pre">ceil(H/scale)</span></code> and <code class="docutils literal notranslate"><span class="pre">ceil(W/scale)</span></code>.  The window
+offset <code class="docutils literal notranslate"><span class="pre">(N</span> <span class="pre">-</span> <span class="pre">N_b*scale)/2</span> <span class="pre">-</span> <span class="pre">(scale-1)/2</span></code> keeps the sampling origin on
+SUSAN’s pixel-centre convention (input index <code class="docutils literal notranslate"><span class="pre">i</span></code> at coordinate <code class="docutils literal notranslate"><span class="pre">i</span></code>,
+tomogram centre at <code class="docutils literal notranslate"><span class="pre">stk_center</span> <span class="pre">=</span> <span class="pre">N/2</span></code>), so the same particle position
+projects to the same physical point across binning levels.  Preserving the
+geometric box-edge centre instead would shift binned content by
+<code class="docutils literal notranslate"><span class="pre">(scale-1)/2</span></code> input pixels and blur the reconstruction across tilts.</p>
 <p>Edge bins extend past the input boundary; out-of-bounds contributions are
 skipped and each output pixel is normalised by the actual in-bounds
 weight, so no artificial padding is introduced.</p>
@@ -680,6 +682,40 @@ the given resolution.  No pixel size or particle diameter is needed.</p>
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.is_odd">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">is_odd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#is_odd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.is_odd" title="Link to this definition">¶</a></dt>
+<dd><p>Check whether an integer is odd.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>v</strong> (<em>int</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if <code class="docutils literal notranslate"><span class="pre">v</span></code> is odd, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.is_even">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">is_even</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#is_even"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.is_even" title="Link to this definition">¶</a></dt>
+<dd><p>Check whether an integer is even.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>v</strong> (<em>int</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if <code class="docutils literal notranslate"><span class="pre">v</span></code> is even, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 
         </article>
@@ -746,6 +782,8 @@ the given resolution.  No pixel size or particle diameter is needed.</p>
 <li><a class="reference internal" href="#susan.utils._functions.bin_frame_shape"><code class="docutils literal notranslate"><span class="pre">bin_frame_shape()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.mask_diameter"><code class="docutils literal notranslate"><span class="pre">mask_diameter()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.angular_step_from_fsc"><code class="docutils literal notranslate"><span class="pre">angular_step_from_fsc()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.is_odd"><code class="docutils literal notranslate"><span class="pre">is_odd()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.is_even"><code class="docutils literal notranslate"><span class="pre">is_even()</span></code></a></li>
 </ul>
 </li>
 </ul>

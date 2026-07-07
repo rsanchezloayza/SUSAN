@@ -622,11 +622,20 @@
 <div class="viewcode-block" id="Noise2NoiseTrainer.train">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2NoiseTrainer.html#susan.ml.Noise2NoiseTrainer.train">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol_pairs</span><span class="p">,</span> <span class="n">n_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
-              <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">print_every</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">):</span>
+              <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">print_every</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+              <span class="n">directional</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Train the network using Noise2Noise on half-map pairs.</span>
 
-<span class="sd">        Each sample ``(h1, h2)`` from *vol_pairs* contributes two gradient</span>
-<span class="sd">        steps: ``h1 → h2`` and ``h2 → h1``.</span>
+<span class="sd">        By default each sample ``(h1, h2)`` from *vol_pairs* contributes two</span>
+<span class="sd">        symmetric terms, ``h1 → h2`` and ``h2 → h1`` — correct for plain</span>
+<span class="sd">        denoising, where both halves share the same signal.</span>
+
+<span class="sd">        With ``directional=True`` only the ``h1 → h2`` term is used: slot 0 is</span>
+<span class="sd">        treated as the input and slot 1 as the target.  Use this for pairs</span>
+<span class="sd">        produced by :meth:`VolumePairs.populate` with an angular perturbation,</span>
+<span class="sd">        where slot 0 is a deliberately misaligned reconstruction and slot 1 is</span>
+<span class="sd">        cleanly aligned; the reverse term would train the network to *introduce*</span>
+<span class="sd">        misalignment and must be disabled.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -642,6 +651,9 @@
 <span class="sd">        print_every : int</span>
 <span class="sd">            Print mean loss every this many epochs.  ``0`` disables printing.</span>
 <span class="sd">            Default: ``10``.</span>
+<span class="sd">        directional : bool</span>
+<span class="sd">            When ``True``, train only ``slot 0 → slot 1`` (input → target)</span>
+<span class="sd">            without the symmetric reverse term.  Default: ``False``.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -664,14 +676,16 @@
                 <span class="n">h1</span> <span class="o">=</span> <span class="n">_ensure_5d</span><span class="p">(</span><span class="n">h1</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dev_in</span><span class="p">)</span>
                 <span class="n">h2</span> <span class="o">=</span> <span class="n">_ensure_5d</span><span class="p">(</span><span class="n">h2</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dev_in</span><span class="p">)</span>
 
-                <span class="c1"># h1 → h2</span>
+                <span class="c1"># h1 → h2  (slot 0 = input, slot 1 = target)</span>
                 <span class="n">pred_12</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">h1</span><span class="p">)</span>
                 <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loss_fn</span><span class="p">(</span><span class="n">pred_12</span><span class="p">,</span> <span class="n">h2</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dev_out</span><span class="p">))</span>
 
-                <span class="c1"># h2 → h1</span>
-                <span class="n">pred_21</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">h2</span><span class="p">)</span>
-                <span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loss_fn</span><span class="p">(</span><span class="n">pred_21</span><span class="p">,</span> <span class="n">h1</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dev_out</span><span class="p">))</span>
-                <span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span> <span class="o">/</span> <span class="mf">2.0</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">directional</span><span class="p">:</span>
+                    <span class="c1"># h2 → h1 (symmetric term; only valid when both halves</span>
+                    <span class="c1"># share the same signal, i.e. no directional perturbation).</span>
+                    <span class="n">pred_21</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">h2</span><span class="p">)</span>
+                    <span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loss_fn</span><span class="p">(</span><span class="n">pred_21</span><span class="p">,</span> <span class="n">h1</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dev_out</span><span class="p">))</span>
+                    <span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span> <span class="o">/</span> <span class="mf">2.0</span>
 
                 <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
                 <span class="n">running</span> <span class="o">+=</span> <span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>

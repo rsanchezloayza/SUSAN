@@ -468,7 +468,40 @@ the best particles per equal-area view bin (via
 <p><strong>Experimental.</strong></p>
 </div>
 <p>Post-alignment 2-D shift regularisation: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'affine'</span></code>,
-or <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'tps'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">'tps'</span></code> fits a regularised thin-plate spline to the per-tilt 2-D
+shift field.  It is the middle ground between <code class="docutils literal notranslate"><span class="pre">'affine'</span></code> (globally
+rigid) and <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code> (purely local): a globally smooth warp whose
+stiffness is set by <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda" title="susan.project.SubtomoAvg.SubtomoAvg.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.tps_lambda">
+<span class="sig-name descname"><span class="pre">tps_lambda</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong></p>
+</div>
+<p>Stiffness of the <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> shift warp (dimensionless; coordinates are
+normalised per tomogram so the value is comparable across datasets).
+<code class="docutils literal notranslate"><span class="pre">0</span></code> interpolates every shift (overfits noise), large values converge
+to the pure affine fit.  Default: <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.fitting_from_origin">
+<span class="sig-name descname"><span class="pre">fitting_from_origin</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.fitting_from_origin" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong></p>
+</div>
+<p>Controls what the <code class="docutils literal notranslate"><span class="pre">'affine'</span></code>/<code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>/<code class="docutils literal notranslate"><span class="pre">'tps'</span></code> shift
+regularisers fit.  If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default) they fit the absolute current
+<code class="docutils literal notranslate"><span class="pre">prj_t</span></code> (measured from origin).  If <code class="docutils literal notranslate"><span class="pre">False</span></code> they fit only the
+incremental <code class="docutils literal notranslate"><span class="pre">prj_t</span></code> (the delta versus the previous iteration) and
+add the smoothed delta back onto the previous shifts.  Incremental
+deltas are smaller and noisier, so <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda" title="susan.project.SubtomoAvg.SubtomoAvg.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a> typically needs
+to be larger in this mode.  Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -478,8 +511,33 @@ or <code class="docutils literal notranslate"><span class="pre">'gaussian'</span
 <p class="admonition-title">Warning</p>
 <p><strong>Experimental.</strong></p>
 </div>
-<p>Gaussian spatial smoothing of per-particle CTF defocus deltas.
-Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<p>Enable spatial smoothing of per-particle CTF defocus deltas (the
+change versus the previous iteration), per tilt.  The smoother is
+selected by <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.type_ctf_smoothing" title="susan.project.SubtomoAvg.SubtomoAvg.type_ctf_smoothing"><code class="xref py py-attr docutils literal notranslate"><span class="pre">type_ctf_smoothing</span></code></a>.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.type_ctf_smoothing">
+<span class="sig-name descname"><span class="pre">type_ctf_smoothing</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.type_ctf_smoothing" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong></p>
+</div>
+<p>Smoother used when <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf" title="susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf"><code class="xref py py-attr docutils literal notranslate"><span class="pre">smooth_ctf</span></code></a> is enabled: <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>
+(local kNN average) or <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> (regularised thin-plate spline warp).
+Default: <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.ctf_tps_lambda">
+<span class="sig-name descname"><span class="pre">ctf_tps_lambda</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_tps_lambda" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong></p>
+</div>
+<p>Stiffness of the <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> defocus warp, analogous to
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda" title="susan.project.SubtomoAvg.SubtomoAvg.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a> but applied independently to the CTF deltas.
+Default: <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -490,6 +548,16 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <p><strong>Experimental.</strong></p>
 </div>
 <p>Multi-reference CC reweighting.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.cross_halfmaps">
+<span class="sig-name descname"><span class="pre">cross_halfmaps</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.cross_halfmaps" title="Link to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the half-map paths in the reference are swapped when
+writing <code class="docutils literal notranslate"><span class="pre">cur.reference</span></code> after each reconstruction: half1 particles
+will be aligned against the half2 map and vice versa in the next
+iteration.  Requires <code class="xref py py-attr docutils literal notranslate"><span class="pre">aligner.halfsets_independ</span></code> to be
+<code class="docutils literal notranslate"><span class="pre">True</span></code> to take effect.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -912,8 +980,13 @@ reference is stabilising.</p>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.use_nominal"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.use_nominal</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.discard_oversampled_views"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.discard_oversampled_views</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.type_2d_shift_fitting"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.type_2d_shift_fitting</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.tps_lambda</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.fitting_from_origin"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.fitting_from_origin</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.smooth_ctf</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.type_ctf_smoothing"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.type_ctf_smoothing</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_tps_lambda"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.ctf_tps_lambda</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.reweight_classification"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.reweight_classification</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.cross_halfmaps"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.cross_halfmaps</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.save_raw_map"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.save_raw_map</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.map_filter"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.map_filter</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.map_filter_fsc"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.map_filter_fsc</span></code></a></li>

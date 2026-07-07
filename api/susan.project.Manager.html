@@ -467,7 +467,42 @@ allowing asymmetric tilt ranges.</p></li>
 in a future release.</p>
 </div>
 <p>Post-alignment 2-D shift regularisation: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'affine'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">'affine'</span></code>, <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'tps'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">'tps'</span></code> fits a regularised thin-plate spline to the per-tilt 2-D
+shift field: a globally smooth warp sitting between <code class="docutils literal notranslate"><span class="pre">'affine'</span></code>
+(globally rigid) and <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code> (purely local), with stiffness
+controlled by <a class="reference internal" href="#susan.project.STA.STA.tps_lambda" title="susan.project.STA.STA.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.STA.STA.tps_lambda">
+<span class="sig-name descname"><span class="pre">tps_lambda</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.STA.STA.tps_lambda" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong> This feature may change or be removed
+in a future release.</p>
+</div>
+<p>Stiffness of the <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> shift warp (dimensionless; coordinates are
+normalised per tomogram so the value is comparable across datasets).
+<code class="docutils literal notranslate"><span class="pre">0</span></code> interpolates every shift (overfits noise), large values converge
+to the pure affine fit.  Default: <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.STA.STA.fitting_from_origin">
+<span class="sig-name descname"><span class="pre">fitting_from_origin</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.STA.STA.fitting_from_origin" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong> This feature may change or be removed
+in a future release.</p>
+</div>
+<p>Controls what the <code class="docutils literal notranslate"><span class="pre">'affine'</span></code>/<code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>/<code class="docutils literal notranslate"><span class="pre">'tps'</span></code> shift
+regularisers fit.  If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default) they fit the absolute current
+<code class="docutils literal notranslate"><span class="pre">prj_t</span></code> (measured from origin).  If <code class="docutils literal notranslate"><span class="pre">False</span></code> they fit only the
+incremental <code class="docutils literal notranslate"><span class="pre">prj_t</span></code> (the delta versus the previous iteration) and
+add the smoothed delta back onto the previous shifts.  Incremental
+deltas are smaller and noisier, so <a class="reference internal" href="#susan.project.STA.STA.tps_lambda" title="susan.project.STA.STA.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a> typically needs
+to be larger in this mode.  Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -478,10 +513,36 @@ in a future release.</p>
 <p><strong>Experimental.</strong> This feature may change or be removed
 in a future release.</p>
 </div>
-<p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, apply Gaussian spatial smoothing to the per-particle
-CTF defocus deltas (difference from previous iteration) after CTF
-refinement.  Uses the same neighbourhood kernel as
-<code class="docutils literal notranslate"><span class="pre">type_2d_shift_fitting</span> <span class="pre">=</span> <span class="pre">'gaussian'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, apply spatial smoothing to the per-particle CTF defocus
+deltas (difference from previous iteration) after CTF refinement.  The
+smoother is selected by <a class="reference internal" href="#susan.project.STA.STA.type_ctf_smoothing" title="susan.project.STA.STA.type_ctf_smoothing"><code class="xref py py-attr docutils literal notranslate"><span class="pre">type_ctf_smoothing</span></code></a>.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.STA.STA.type_ctf_smoothing">
+<span class="sig-name descname"><span class="pre">type_ctf_smoothing</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#susan.project.STA.STA.type_ctf_smoothing" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong> This feature may change or be removed
+in a future release.</p>
+</div>
+<p>Smoother used when <a class="reference internal" href="#susan.project.STA.STA.smooth_ctf" title="susan.project.STA.STA.smooth_ctf"><code class="xref py py-attr docutils literal notranslate"><span class="pre">smooth_ctf</span></code></a> is enabled: <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>
+(local kNN average, same kernel as <code class="docutils literal notranslate"><span class="pre">type_2d_shift_fitting</span> <span class="pre">=</span>
+<span class="pre">'gaussian'</span></code>) or <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> (regularised thin-plate spline warp).
+Default: <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.STA.STA.ctf_tps_lambda">
+<span class="sig-name descname"><span class="pre">ctf_tps_lambda</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.STA.STA.ctf_tps_lambda" title="Link to this definition">¶</a></dt>
+<dd><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental.</strong> This feature may change or be removed
+in a future release.</p>
+</div>
+<p>Stiffness of the <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> defocus warp, analogous to
+<a class="reference internal" href="#susan.project.STA.STA.tps_lambda" title="susan.project.STA.STA.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a> but applied independently to the CTF deltas.
+Default: <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -923,7 +984,11 @@ projects; a 1-D array for multi-reference projects.</p>
 <li><a class="reference internal" href="#susan.project.STA.STA.max_2d_delta_angstroms"><code class="docutils literal notranslate"><span class="pre">STA.max_2d_delta_angstroms</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.STA.STA.max_tilt_reconstruction"><code class="docutils literal notranslate"><span class="pre">STA.max_tilt_reconstruction</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.STA.STA.type_2d_shift_fitting"><code class="docutils literal notranslate"><span class="pre">STA.type_2d_shift_fitting</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.STA.STA.tps_lambda"><code class="docutils literal notranslate"><span class="pre">STA.tps_lambda</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.STA.STA.fitting_from_origin"><code class="docutils literal notranslate"><span class="pre">STA.fitting_from_origin</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.STA.STA.smooth_ctf"><code class="docutils literal notranslate"><span class="pre">STA.smooth_ctf</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.STA.STA.type_ctf_smoothing"><code class="docutils literal notranslate"><span class="pre">STA.type_ctf_smoothing</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.STA.STA.ctf_tps_lambda"><code class="docutils literal notranslate"><span class="pre">STA.ctf_tps_lambda</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.STA.STA.reweight_classification"><code class="docutils literal notranslate"><span class="pre">STA.reweight_classification</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.STA.STA.execute_iteration"><code class="docutils literal notranslate"><span class="pre">STA.execute_iteration()</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.STA.STA.setup_iteration"><code class="docutils literal notranslate"><span class="pre">STA.setup_iteration()</span></code></a></li>

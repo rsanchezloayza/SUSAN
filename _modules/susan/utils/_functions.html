@@ -338,6 +338,8 @@
            <span class="s1">&#39;bin_frame_shape&#39;</span><span class="p">,</span>
            <span class="s1">&#39;mask_diameter&#39;</span><span class="p">,</span>
            <span class="s1">&#39;angular_step_from_fsc&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;is_odd&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;is_even&#39;</span><span class="p">,</span>
           <span class="p">]</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
@@ -726,11 +728,13 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">bin_frame</span><span class="p">(</span><span class="n">in_frame</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">out_frame</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Area-weighted downsample of a single 2-D frame by a float ``scale``.</span>
 
-<span class="sd">    Output dimensions are ``ceil(H/scale)`` and ``ceil(W/scale)``.  The</span>
-<span class="sd">    centred offset ``(N - N_b*scale)/2`` keeps the geometric centre at pixel</span>
-<span class="sd">    ``N_b/2`` exactly, matching SUSAN&#39;s ``stk_center = stk_dim/2`` projection</span>
-<span class="sd">    convention, so the same particle position projects to the same physical</span>
-<span class="sd">    point across binning levels.</span>
+<span class="sd">    Output dimensions are ``ceil(H/scale)`` and ``ceil(W/scale)``.  The window</span>
+<span class="sd">    offset ``(N - N_b*scale)/2 - (scale-1)/2`` keeps the sampling origin on</span>
+<span class="sd">    SUSAN&#39;s pixel-centre convention (input index ``i`` at coordinate ``i``,</span>
+<span class="sd">    tomogram centre at ``stk_center = N/2``), so the same particle position</span>
+<span class="sd">    projects to the same physical point across binning levels.  Preserving the</span>
+<span class="sd">    geometric box-edge centre instead would shift binned content by</span>
+<span class="sd">    ``(scale-1)/2`` input pixels and blur the reconstruction across tilts.</span>
 
 <span class="sd">    Edge bins extend past the input boundary; out-of-bounds contributions are</span>
 <span class="sd">    skipped and each output pixel is normalised by the actual in-bounds</span>
@@ -882,6 +886,42 @@
 
     <span class="n">slope</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span><span class="n">s2</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">fsc</span><span class="p">[</span><span class="n">mask</span><span class="p">]),</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="o">-</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">slope</span>   <span class="c1"># dose = −4 · slope  (matches exp(−s²·dose/4) convention)</span></div>
+
+
+<span class="c1">###########################################</span>
+
+<div class="viewcode-block" id="is_odd">
+<a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.is_odd">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_odd</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether an integer is odd.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    v : int</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        True if ``v`` is odd, False otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="is_even">
+<a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.is_even">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_even</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether an integer is even.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    v : int</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        True if ``v`` is even, False otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span></div>
 
 </pre></div>
         </article>

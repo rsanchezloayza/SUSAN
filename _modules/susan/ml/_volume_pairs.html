@@ -324,6 +324,152 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span><span class="w">  </span><span class="k">as</span><span class="w"> </span><span class="nn">_torch</span>
 
 
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Angular perturbation helpers</span>
+<span class="c1">#</span>
+<span class="c1"># A &quot;proper&quot; angular perturbation is an isotropic small rotation on SO(3):</span>
+<span class="c1"># a uniformly random axis with a Gaussian-distributed magnitude.  We build it</span>
+<span class="c1"># as a rotation matrix (Rodrigues), compose it with the particle rotation, and</span>
+<span class="c1"># only then convert back to ZYZ Euler angles.  Working through matrices avoids</span>
+<span class="c1"># the gimbal-lock artefacts of adding noise directly to Euler components.</span>
+<span class="c1">#</span>
+<span class="c1"># The Euler&lt;-&gt;matrix formulas below replicate ``euZYZ_rotm`` / ``rotm_euZYZ``</span>
+<span class="c1"># in ``susan/utils/_functions_core.pyx`` exactly, so the ZYZ convention matches</span>
+<span class="c1"># the rest of SUSAN (ali_eu slot 0 = polar, 1 = azimuth, 2 = in-plane).</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_euZYZ_to_R</span><span class="p">(</span><span class="n">eu</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Vectorised ZYZ Euler (radians, ``(N, 3)``) to rotation matrices ``(N, 3, 3)``.&quot;&quot;&quot;</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">eu</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">eu</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">eu</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">ct</span><span class="p">,</span> <span class="n">cp</span><span class="p">,</span> <span class="n">cs</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">st</span><span class="p">,</span> <span class="n">sp</span><span class="p">,</span> <span class="n">ss</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span>  <span class="n">ct</span><span class="o">*</span><span class="n">cp</span><span class="o">*</span><span class="n">cs</span> <span class="o">-</span> <span class="n">st</span><span class="o">*</span><span class="n">ss</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">cs</span><span class="o">*</span><span class="n">st</span> <span class="o">-</span> <span class="n">ct</span><span class="o">*</span><span class="n">cp</span><span class="o">*</span><span class="n">ss</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span>  <span class="n">ct</span><span class="o">*</span><span class="n">sp</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span>  <span class="n">ct</span><span class="o">*</span><span class="n">ss</span> <span class="o">+</span> <span class="n">cp</span><span class="o">*</span><span class="n">cs</span><span class="o">*</span><span class="n">st</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span>  <span class="n">ct</span><span class="o">*</span><span class="n">cs</span> <span class="o">-</span> <span class="n">cp</span><span class="o">*</span><span class="n">st</span><span class="o">*</span><span class="n">ss</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span>  <span class="n">st</span><span class="o">*</span><span class="n">sp</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">cs</span><span class="o">*</span><span class="n">sp</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span>  <span class="n">sp</span><span class="o">*</span><span class="n">ss</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span>  <span class="n">cp</span>
+    <span class="k">return</span> <span class="n">R</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_R_to_euZYZ</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Vectorised rotation matrices ``(N, 3, 3)`` to ZYZ Euler (radians, ``(N, 3)``).&quot;&quot;&quot;</span>
+    <span class="n">eu</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">r22</span> <span class="o">=</span> <span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">gimbal</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">r22</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span>
+
+    <span class="c1"># General case.</span>
+    <span class="n">eu</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">R</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+    <span class="n">eu</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">r22</span><span class="o">*</span><span class="n">r22</span><span class="p">)),</span> <span class="n">r22</span><span class="p">)</span>
+    <span class="n">eu</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Gimbal-lock case (R22 ~ +-1): polar collapses, only the sum/diff of the</span>
+    <span class="c1"># two remaining angles is defined; follow rotm_euZYZ and fold it into slot 2.</span>
+    <span class="n">eu</span><span class="p">[</span><span class="n">gimbal</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">eu</span><span class="p">[</span><span class="n">gimbal</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">r22</span><span class="p">[</span><span class="n">gimbal</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+    <span class="n">eu</span><span class="p">[</span><span class="n">gimbal</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="n">gimbal</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">R</span><span class="p">[</span><span class="n">gimbal</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">eu</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_rotvec_to_R</span><span class="p">(</span><span class="n">rvec</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rodrigues: rotation vectors ``(N, 3)`` (axis*angle, radians) to matrices.&quot;&quot;&quot;</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">rvec</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">small</span> <span class="o">=</span> <span class="n">theta</span> <span class="o">&lt;</span> <span class="mf">1e-8</span>
+    <span class="n">axis</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">rvec</span><span class="p">)</span>
+    <span class="n">nz</span>    <span class="o">=</span> <span class="o">~</span><span class="n">small</span>
+    <span class="n">axis</span><span class="p">[</span><span class="n">nz</span><span class="p">]</span> <span class="o">=</span> <span class="n">rvec</span><span class="p">[</span><span class="n">nz</span><span class="p">]</span> <span class="o">/</span> <span class="n">theta</span><span class="p">[</span><span class="n">nz</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">axis</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">);</span> <span class="n">s</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">);</span> <span class="n">C</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">c</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">rvec</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span> <span class="o">+</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">C</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">y</span><span class="o">*</span><span class="n">C</span> <span class="o">-</span> <span class="n">z</span><span class="o">*</span><span class="n">s</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">z</span><span class="o">*</span><span class="n">C</span> <span class="o">+</span> <span class="n">y</span><span class="o">*</span><span class="n">s</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">C</span> <span class="o">+</span> <span class="n">z</span><span class="o">*</span><span class="n">s</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span> <span class="o">+</span> <span class="n">y</span><span class="o">*</span><span class="n">y</span><span class="o">*</span><span class="n">C</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span><span class="o">*</span><span class="n">z</span><span class="o">*</span><span class="n">C</span> <span class="o">-</span> <span class="n">x</span><span class="o">*</span><span class="n">s</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">z</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">C</span> <span class="o">-</span> <span class="n">y</span><span class="o">*</span><span class="n">s</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">z</span><span class="o">*</span><span class="n">y</span><span class="o">*</span><span class="n">C</span> <span class="o">+</span> <span class="n">x</span><span class="o">*</span><span class="n">s</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span> <span class="o">+</span> <span class="n">z</span><span class="o">*</span><span class="n">z</span><span class="o">*</span><span class="n">C</span>
+    <span class="n">R</span><span class="p">[</span><span class="n">small</span><span class="p">]</span>   <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">R</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_perturb_eulers</span><span class="p">(</span><span class="n">eu</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sigma_deg</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply an independent isotropic small rotation to each ZYZ Euler triple.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    eu : numpy.ndarray</span>
+<span class="sd">        ZYZ Euler angles in radians, shape ``(..., 3)``.</span>
+<span class="sd">    sigma_deg : float</span>
+<span class="sd">        Standard deviation of the perturbation rotation magnitude, in degrees.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray</span>
+<span class="sd">        Perturbed Euler angles, same shape and dtype as *eu*.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shp</span>   <span class="o">=</span> <span class="n">eu</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">flat</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">n</span>     <span class="o">=</span> <span class="n">flat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">sigma_deg</span><span class="p">)</span>
+
+    <span class="n">axis</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">axis</span> <span class="o">/=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">axis</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span>
+    <span class="n">angle</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="n">sigma</span>
+    <span class="n">rvec</span>  <span class="o">=</span> <span class="n">axis</span> <span class="o">*</span> <span class="n">angle</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="n">dR</span>  <span class="o">=</span> <span class="n">_rotvec_to_R</span><span class="p">(</span><span class="n">rvec</span><span class="p">)</span>
+    <span class="n">R</span>   <span class="o">=</span> <span class="n">_euZYZ_to_R</span><span class="p">(</span><span class="n">flat</span><span class="p">)</span>
+    <span class="n">Rp</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;nij,njk-&gt;nik&#39;</span><span class="p">,</span> <span class="n">dR</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">_R_to_euZYZ</span><span class="p">(</span><span class="n">Rp</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shp</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sigma_schedule</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a per-entry sequence of perturbation sigmas (degrees).</span>
+
+<span class="sd">    Accepts either a fixed scalar (constant schedule) or a ``(lo, hi)`` pair.</span>
+<span class="sd">    For a range the values are spread evenly over ``[lo, hi]`` with</span>
+<span class="sd">    :func:`numpy.linspace` and then shuffled, so the whole range is covered</span>
+<span class="sd">    with low variance while the sigma of a given entry is uncorrelated with its</span>
+<span class="sd">    position in the buffer (the trainer iterates entries in order).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sigma : float or (float, float)</span>
+<span class="sd">        Fixed sigma, or ``(lo, hi)`` range in degrees.</span>
+<span class="sd">    n : int</span>
+<span class="sd">        Number of entries to generate a schedule for.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray</span>
+<span class="sd">        Length-``n`` array of sigmas in degrees.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">lo</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">elif</span> <span class="n">arr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sigma must be a scalar or a (lo, hi) pair&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">lo</span> <span class="o">&lt;</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">hi</span> <span class="o">&lt;</span> <span class="n">lo</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sigma range must satisfy 0 &lt;= lo &lt;= hi&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">lo</span> <span class="o">==</span> <span class="n">hi</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">lo</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">hi</span><span class="p">)])</span>
+    <span class="n">sched</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">sched</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sched</span>
+
+
 <div class="viewcode-block" id="VolumePairs">
 <a class="viewcode-back" href="../../../api/susan.ml.VolumePairs.html#susan.ml.VolumePairs">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">VolumePairs</span><span class="p">():</span>
@@ -682,7 +828,8 @@
 <div class="viewcode-block" id="VolumePairs.populate">
 <a class="viewcode-back" href="../../../api/susan.ml.VolumePairs.html#susan.ml.VolumePairs.populate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">populate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">avgr</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="n">tomo_filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-                 <span class="n">num_entries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+                 <span class="n">num_entries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">sigma_ang_3D</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma_ang_2D</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma_def</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Fill the buffer by re-randomising half-set assignments and running the Averager.</span>
 
 <span class="sd">        Each iteration re-randomises the ``half_id`` array in *ptcls*, saves</span>
@@ -691,9 +838,17 @@
 <span class="sd">        repeats until the buffer is full or *num_entries* new pairs have been</span>
 <span class="sd">        added.</span>
 
+<span class="sd">        When *sigma_ang_3D* or *sigma_ang_2D* is non-zero, the orientations of</span>
+<span class="sd">        the **half-1** particles are perturbed by an independent isotropic small</span>
+<span class="sd">        rotation before reconstruction, so ``vol1`` (buffer slot 0) becomes a</span>
+<span class="sd">        deliberately misaligned reconstruction while ``vol2`` (slot 1) stays</span>
+<span class="sd">        cleanly aligned.  Train with :meth:`Noise2NoiseTrainer.train`</span>
+<span class="sd">        ``directional=True`` on such pairs to teach the network to recover from</span>
+<span class="sd">        small alignment errors (slot 0 = input, slot 1 = target).</span>
+
 <span class="sd">        The Averager&#39;s ``verbosity`` and ``rec_halfsets`` attributes, and the</span>
-<span class="sd">        original ``half_id`` array, are fully restored on exit even if an</span>
-<span class="sd">        exception is raised.</span>
+<span class="sd">        original ``half_id``, ``ali_eu`` and ``prj_eu`` arrays, are fully</span>
+<span class="sd">        restored on exit even if an exception is raised.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -701,45 +856,135 @@
 <span class="sd">            Configured Averager instance.  ``rec_halfsets`` will be</span>
 <span class="sd">            temporarily forced to ``True``; ``verbosity`` will be silenced.</span>
 <span class="sd">        ptcls : :class:`~susan.data.Particles`</span>
-<span class="sd">            Particle stack.  The ``half_id`` array is temporarily modified</span>
-<span class="sd">            and restored on exit.</span>
+<span class="sd">            Particle stack.  The ``half_id`` array (and, when perturbation is</span>
+<span class="sd">            enabled, ``ali_eu`` / ``prj_eu``) is temporarily modified and</span>
+<span class="sd">            restored on exit.</span>
 <span class="sd">        tomo_filename : str</span>
 <span class="sd">            Path to the ``.tomostxt`` tomograms file.</span>
 <span class="sd">        num_entries : int, optional</span>
 <span class="sd">            Maximum number of new pairs to add in this call.  ``None``</span>
 <span class="sd">            fills the buffer to capacity.  Default: ``None``.</span>
+<span class="sd">        sigma_ang_3D : float or (float, float), optional</span>
+<span class="sd">            Std. dev. (in degrees) of the isotropic rotation applied to the</span>
+<span class="sd">            half-1 particles&#39; 3-D orientations (``ali_eu``).  Models 3-D</span>
+<span class="sd">            alignment error.  A scalar uses a fixed sigma for every entry; a</span>
+<span class="sd">            ``(lo, hi)`` pair sweeps the range across the entries generated in</span>
+<span class="sd">            this call (evenly spread and shuffled), which trains the network to</span>
+<span class="sd">            be robust over a range of blur levels rather than a single one.</span>
+<span class="sd">            Include ``lo == 0`` to also see cleanly-aligned pairs and avoid</span>
+<span class="sd">            over-sharpening at inference.  ``0.0`` disables it.  Default: ``0.0``.</span>
+<span class="sd">        sigma_ang_2D : float or (float, float), optional</span>
+<span class="sd">            Same as *sigma_ang_3D*, but applied independently to each half-1</span>
+<span class="sd">            projection orientation (``prj_eu``).  Models per-tilt / tilt-series</span>
+<span class="sd">            alignment error.  ``0.0`` disables it.  Default: ``0.0``.</span>
+<span class="sd">        sigma_def : float or (float, float), optional</span>
+<span class="sd">            Std. dev. (in Angstroms) of an additive Gaussian shift applied</span>
+<span class="sd">            independently to each half-1 projection&#39;s defocus.  The same shift</span>
+<span class="sd">            is added to ``def_U`` and ``def_V`` so the mean defocus moves while</span>
+<span class="sd">            the astigmatism is preserved.  Models defocus-estimation error,</span>
+<span class="sd">            which degrades CTF correction.  Scalar or ``(lo, hi)`` range, same</span>
+<span class="sd">            semantics as *sigma_ang_3D*.  ``0.0`` disables it.  Default: ``0.0``.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        RuntimeError</span>
 <span class="sd">            If the buffer has not been initialised; call :meth:`set_size`</span>
 <span class="sd">            or :meth:`set_size_mask` first.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        Plain Noise2Noise denoising pairs (both halves cleanly aligned):</span>
+
+<span class="sd">        &gt;&gt;&gt; vp = VolumePairs()</span>
+<span class="sd">        &gt;&gt;&gt; vp.set_size_mask(box_size, num_vol=50, mask=mask)</span>
+<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, &#39;tomos.tomostxt&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; trainer.train(vp, n_epochs=100)          # symmetric, denoising only</span>
+
+<span class="sd">        Misalignment-recovery pairs: perturb the half-1 orientations so slot 0</span>
+<span class="sd">        is a misaligned reconstruction and slot 1 is cleanly aligned, then train</span>
+<span class="sd">        directionally (slot 0 -&gt; slot 1) so the network learns to undo the</span>
+<span class="sd">        alignment blur while still denoising:</span>
+
+<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, &#39;tomos.tomostxt&#39;, sigma_ang_3D=3.0)</span>
+<span class="sd">        &gt;&gt;&gt; trainer.train(vp, n_epochs=100, directional=True)</span>
+
+<span class="sd">        For robustness across blur levels (recommended), pass a ``(lo, hi)``</span>
+<span class="sd">        range including ``0`` instead of a single sigma, so the buffer spans</span>
+<span class="sd">        cleanly-aligned to strongly-misaligned pairs:</span>
+
+<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, &#39;tomos.tomostxt&#39;, sigma_ang_3D=(0.0, 4.0))</span>
+<span class="sd">        &gt;&gt;&gt; trainer.train(vp, n_epochs=100, directional=True)</span>
+
+<span class="sd">        ``sigma_ang_3D`` is the std. dev. of the applied rotation *magnitude* in</span>
+<span class="sd">        degrees, so the typical geodesic error is roughly ``0.8 * sigma`` (about</span>
+<span class="sd">        2.3 deg for ``sigma_ang_3D=3.0``).  Add ``sigma_ang_2D`` to also perturb</span>
+<span class="sd">        each projection orientation independently (per-tilt alignment error), or</span>
+<span class="sd">        ``sigma_def`` (Angstroms) to perturb the per-projection defocus and model</span>
+<span class="sd">        CTF-correction error.  Enable and validate these one at a time rather</span>
+<span class="sd">        than all at once.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Buffer not initialized; call set_size first&quot;</span><span class="p">)</span>
 
         <span class="kn">import</span><span class="w"> </span><span class="nn">susan</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_susan</span>
 
+        <span class="n">limit</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_vol</span> <span class="k">if</span> <span class="n">num_entries</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">num_entries</span>
+        <span class="n">sched_3D</span>  <span class="o">=</span> <span class="n">_sigma_schedule</span><span class="p">(</span><span class="n">sigma_ang_3D</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span>
+        <span class="n">sched_2D</span>  <span class="o">=</span> <span class="n">_sigma_schedule</span><span class="p">(</span><span class="n">sigma_ang_2D</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span>
+        <span class="n">sched_def</span> <span class="o">=</span> <span class="n">_sigma_schedule</span><span class="p">(</span><span class="n">sigma_def</span><span class="p">,</span>    <span class="n">limit</span><span class="p">)</span>
+        <span class="n">perturb</span>   <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">sched_3D</span>  <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span>
+                         <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">sched_2D</span>  <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span>
+                         <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">sched_def</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">))</span>
+
         <span class="n">half_id</span>      <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">half_id</span><span class="p">)</span>
+        <span class="n">ali_eu0</span>      <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">)</span> <span class="k">if</span> <span class="n">perturb</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">prj_eu0</span>      <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">prj_eu</span><span class="p">)</span> <span class="k">if</span> <span class="n">perturb</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">def_U0</span>       <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span><span class="p">)</span>  <span class="k">if</span> <span class="n">perturb</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">def_V0</span>       <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">def_V</span><span class="p">)</span>  <span class="k">if</span> <span class="n">perturb</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="n">verbosity</span>    <span class="o">=</span> <span class="n">avgr</span><span class="o">.</span><span class="n">verbosity</span>
         <span class="n">rec_halfmaps</span> <span class="o">=</span> <span class="n">avgr</span><span class="o">.</span><span class="n">rec_halfsets</span>
         <span class="n">avgr</span><span class="o">.</span><span class="n">verbosity</span>    <span class="o">=</span> <span class="mi">0</span>
         <span class="n">avgr</span><span class="o">.</span><span class="n">rec_halfsets</span> <span class="o">=</span> <span class="kc">True</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="n">limit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_vol</span> <span class="k">if</span> <span class="n">num_entries</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">num_entries</span>
-            <span class="k">while</span> <span class="n">count</span> <span class="o">&lt;</span> <span class="n">limit</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">limit</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">perturb</span><span class="p">:</span>
+                    <span class="c1"># Reset to the pristine values so perturbations do not</span>
+                    <span class="c1"># accumulate across iterations.</span>
+                    <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">ali_eu0</span>
+                    <span class="n">ptcls</span><span class="o">.</span><span class="n">prj_eu</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">prj_eu0</span>
+                    <span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span><span class="p">[:]</span>  <span class="o">=</span> <span class="n">def_U0</span>
+                    <span class="n">ptcls</span><span class="o">.</span><span class="n">def_V</span><span class="p">[:]</span>  <span class="o">=</span> <span class="n">def_V0</span>
                 <span class="n">ptcls</span><span class="o">.</span><span class="n">halfsets_randomize</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">perturb</span><span class="p">:</span>
+                    <span class="n">sel</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">half_id</span> <span class="o">==</span> <span class="mi">1</span>
+                    <span class="k">if</span> <span class="n">sched_3D</span><span class="p">[</span><span class="n">count</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                            <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">sel</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">_perturb_eulers</span><span class="p">(</span>
+                                <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">sel</span><span class="p">,</span> <span class="p">:],</span> <span class="n">sched_3D</span><span class="p">[</span><span class="n">count</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">sched_2D</span><span class="p">[</span><span class="n">count</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                        <span class="n">ptcls</span><span class="o">.</span><span class="n">prj_eu</span><span class="p">[</span><span class="n">sel</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">_perturb_eulers</span><span class="p">(</span>
+                            <span class="n">ptcls</span><span class="o">.</span><span class="n">prj_eu</span><span class="p">[</span><span class="n">sel</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">sched_2D</span><span class="p">[</span><span class="n">count</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">sched_def</span><span class="p">[</span><span class="n">count</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                        <span class="c1"># Same shift on U and V: moves mean defocus, keeps</span>
+                        <span class="c1"># astigmatism.  Independent per (particle, projection).</span>
+                        <span class="n">d</span> <span class="o">=</span> <span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="o">*</span><span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span><span class="p">[</span><span class="n">sel</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                             <span class="o">*</span> <span class="n">sched_def</span><span class="p">[</span><span class="n">count</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+                        <span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span><span class="p">[</span><span class="n">sel</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">d</span>
+                        <span class="n">ptcls</span><span class="o">.</span><span class="n">def_V</span><span class="p">[</span><span class="n">sel</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">d</span>
                 <span class="n">ptcls</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">.ptclsraw&#39;</span><span class="p">)</span>
                 <span class="n">avgr</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="p">,</span> <span class="n">tomo_filename</span><span class="p">,</span>
                                  <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">.ptclsraw&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
                 <span class="n">vol1</span> <span class="o">=</span> <span class="o">-</span><span class="n">_susan</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">_class001_half1.mrc&#39;</span><span class="p">)</span>
                 <span class="n">vol2</span> <span class="o">=</span> <span class="o">-</span><span class="n">_susan</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">_class001_half2.mrc&#39;</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">vol1</span><span class="p">,</span> <span class="n">vol2</span><span class="p">)</span>
-                <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="n">ptcls</span><span class="o">.</span><span class="n">half_id</span><span class="p">[:]</span>  <span class="o">=</span> <span class="n">half_id</span>
+            <span class="k">if</span> <span class="n">perturb</span><span class="p">:</span>
+                <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">ali_eu0</span>
+                <span class="n">ptcls</span><span class="o">.</span><span class="n">prj_eu</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">prj_eu0</span>
+                <span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span><span class="p">[:]</span>  <span class="o">=</span> <span class="n">def_U0</span>
+                <span class="n">ptcls</span><span class="o">.</span><span class="n">def_V</span><span class="p">[:]</span>  <span class="o">=</span> <span class="n">def_V0</span>
             <span class="n">avgr</span><span class="o">.</span><span class="n">verbosity</span>    <span class="o">=</span> <span class="n">verbosity</span>
             <span class="n">avgr</span><span class="o">.</span><span class="n">rec_halfsets</span> <span class="o">=</span> <span class="n">rec_halfmaps</span></div>
 </div>

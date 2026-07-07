@@ -496,26 +496,51 @@ pair is needed (e.g. for inference or a quick training run).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.ml.VolumePairs.populate">
-<span class="sig-name descname"><span class="pre">populate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">avgr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomo_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_entries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/ml/_volume_pairs.html#VolumePairs.populate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.ml.VolumePairs.populate" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">populate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">avgr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomo_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_entries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_ang_3D</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_ang_2D</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_def</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/ml/_volume_pairs.html#VolumePairs.populate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.ml.VolumePairs.populate" title="Link to this definition">¶</a></dt>
 <dd><p>Fill the buffer by re-randomising half-set assignments and running the Averager.</p>
 <p>Each iteration re-randomises the <code class="docutils literal notranslate"><span class="pre">half_id</span></code> array in <em>ptcls</em>, saves
 a temporary particles file, runs the Averager to produce a pair of
 half-maps, and stores the cropped pair in the buffer.  The loop
 repeats until the buffer is full or <em>num_entries</em> new pairs have been
 added.</p>
+<p>When <em>sigma_ang_3D</em> or <em>sigma_ang_2D</em> is non-zero, the orientations of
+the <strong>half-1</strong> particles are perturbed by an independent isotropic small
+rotation before reconstruction, so <code class="docutils literal notranslate"><span class="pre">vol1</span></code> (buffer slot 0) becomes a
+deliberately misaligned reconstruction while <code class="docutils literal notranslate"><span class="pre">vol2</span></code> (slot 1) stays
+cleanly aligned.  Train with <a class="reference internal" href="susan.ml.Noise2NoiseTrainer.html#susan.ml.Noise2NoiseTrainer.train" title="susan.ml.Noise2NoiseTrainer.train"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Noise2NoiseTrainer.train()</span></code></a>
+<code class="docutils literal notranslate"><span class="pre">directional=True</span></code> on such pairs to teach the network to recover from
+small alignment errors (slot 0 = input, slot 1 = target).</p>
 <p>The Averager’s <code class="docutils literal notranslate"><span class="pre">verbosity</span></code> and <code class="docutils literal notranslate"><span class="pre">rec_halfsets</span></code> attributes, and the
-original <code class="docutils literal notranslate"><span class="pre">half_id</span></code> array, are fully restored on exit even if an
-exception is raised.</p>
+original <code class="docutils literal notranslate"><span class="pre">half_id</span></code>, <code class="docutils literal notranslate"><span class="pre">ali_eu</span></code> and <code class="docutils literal notranslate"><span class="pre">prj_eu</span></code> arrays, are fully
+restored on exit even if an exception is raised.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>avgr</strong> (<a class="reference internal" href="susan.modules.Averager.html#susan.modules.Averager" title="susan.modules.Averager"><code class="xref py py-class docutils literal notranslate"><span class="pre">Averager</span></code></a>) – Configured Averager instance.  <code class="docutils literal notranslate"><span class="pre">rec_halfsets</span></code> will be
 temporarily forced to <code class="docutils literal notranslate"><span class="pre">True</span></code>; <code class="docutils literal notranslate"><span class="pre">verbosity</span></code> will be silenced.</p></li>
-<li><p><strong>ptcls</strong> (<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles" title="susan.data.Particles"><code class="xref py py-class docutils literal notranslate"><span class="pre">Particles</span></code></a>) – Particle stack.  The <code class="docutils literal notranslate"><span class="pre">half_id</span></code> array is temporarily modified
-and restored on exit.</p></li>
+<li><p><strong>ptcls</strong> (<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles" title="susan.data.Particles"><code class="xref py py-class docutils literal notranslate"><span class="pre">Particles</span></code></a>) – Particle stack.  The <code class="docutils literal notranslate"><span class="pre">half_id</span></code> array (and, when perturbation is
+enabled, <code class="docutils literal notranslate"><span class="pre">ali_eu</span></code> / <code class="docutils literal notranslate"><span class="pre">prj_eu</span></code>) is temporarily modified and
+restored on exit.</p></li>
 <li><p><strong>tomo_filename</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code> tomograms file.</p></li>
 <li><p><strong>num_entries</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of new pairs to add in this call.  <code class="docutils literal notranslate"><span class="pre">None</span></code>
 fills the buffer to capacity.  Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>sigma_ang_3D</strong> (<em>float</em><em> or </em><em>(</em><em>float</em><em>, </em><em>float</em><em>)</em><em>, </em><em>optional</em>) – Std. dev. (in degrees) of the isotropic rotation applied to the
+half-1 particles’ 3-D orientations (<code class="docutils literal notranslate"><span class="pre">ali_eu</span></code>).  Models 3-D
+alignment error.  A scalar uses a fixed sigma for every entry; a
+<code class="docutils literal notranslate"><span class="pre">(lo,</span> <span class="pre">hi)</span></code> pair sweeps the range across the entries generated in
+this call (evenly spread and shuffled), which trains the network to
+be robust over a range of blur levels rather than a single one.
+Include <code class="docutils literal notranslate"><span class="pre">lo</span> <span class="pre">==</span> <span class="pre">0</span></code> to also see cleanly-aligned pairs and avoid
+over-sharpening at inference.  <code class="docutils literal notranslate"><span class="pre">0.0</span></code> disables it.  Default: <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p><strong>sigma_ang_2D</strong> (<em>float</em><em> or </em><em>(</em><em>float</em><em>, </em><em>float</em><em>)</em><em>, </em><em>optional</em>) – Same as <em>sigma_ang_3D</em>, but applied independently to each half-1
+projection orientation (<code class="docutils literal notranslate"><span class="pre">prj_eu</span></code>).  Models per-tilt / tilt-series
+alignment error.  <code class="docutils literal notranslate"><span class="pre">0.0</span></code> disables it.  Default: <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p><strong>sigma_def</strong> (<em>float</em><em> or </em><em>(</em><em>float</em><em>, </em><em>float</em><em>)</em><em>, </em><em>optional</em>) – Std. dev. (in Angstroms) of an additive Gaussian shift applied
+independently to each half-1 projection’s defocus.  The same shift
+is added to <code class="docutils literal notranslate"><span class="pre">def_U</span></code> and <code class="docutils literal notranslate"><span class="pre">def_V</span></code> so the mean defocus moves while
+the astigmatism is preserved.  Models defocus-estimation error,
+which degrades CTF correction.  Scalar or <code class="docutils literal notranslate"><span class="pre">(lo,</span> <span class="pre">hi)</span></code> range, same
+semantics as <em>sigma_ang_3D</em>.  <code class="docutils literal notranslate"><span class="pre">0.0</span></code> disables it.  Default: <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
@@ -523,6 +548,36 @@ fills the buffer to capacity.  Default: <code class="docutils literal notranslat
     or <a class="reference internal" href="#susan.ml.VolumePairs.set_size_mask" title="susan.ml.VolumePairs.set_size_mask"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_size_mask()</span></code></a> first.</p>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<p>Plain Noise2Noise denoising pairs (both halves cleanly aligned):</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">vp</span> <span class="o">=</span> <span class="n">VolumePairs</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">vp</span><span class="o">.</span><span class="n">set_size_mask</span><span class="p">(</span><span class="n">box_size</span><span class="p">,</span> <span class="n">num_vol</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">vp</span><span class="o">.</span><span class="n">populate</span><span class="p">(</span><span class="n">avgr</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="s1">&#39;tomos.tomostxt&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">vp</span><span class="p">,</span> <span class="n">n_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>          <span class="c1"># symmetric, denoising only</span>
+</pre></div>
+</div>
+<p>Misalignment-recovery pairs: perturb the half-1 orientations so slot 0
+is a misaligned reconstruction and slot 1 is cleanly aligned, then train
+directionally (slot 0 -&gt; slot 1) so the network learns to undo the
+alignment blur while still denoising:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">vp</span><span class="o">.</span><span class="n">populate</span><span class="p">(</span><span class="n">avgr</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="s1">&#39;tomos.tomostxt&#39;</span><span class="p">,</span> <span class="n">sigma_ang_3D</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">vp</span><span class="p">,</span> <span class="n">n_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">directional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For robustness across blur levels (recommended), pass a <code class="docutils literal notranslate"><span class="pre">(lo,</span> <span class="pre">hi)</span></code>
+range including <code class="docutils literal notranslate"><span class="pre">0</span></code> instead of a single sigma, so the buffer spans
+cleanly-aligned to strongly-misaligned pairs:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">vp</span><span class="o">.</span><span class="n">populate</span><span class="p">(</span><span class="n">avgr</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="s1">&#39;tomos.tomostxt&#39;</span><span class="p">,</span> <span class="n">sigma_ang_3D</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">vp</span><span class="p">,</span> <span class="n">n_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">directional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">sigma_ang_3D</span></code> is the std. dev. of the applied rotation <em>magnitude</em> in
+degrees, so the typical geodesic error is roughly <code class="docutils literal notranslate"><span class="pre">0.8</span> <span class="pre">*</span> <span class="pre">sigma</span></code> (about
+2.3 deg for <code class="docutils literal notranslate"><span class="pre">sigma_ang_3D=3.0</span></code>).  Add <code class="docutils literal notranslate"><span class="pre">sigma_ang_2D</span></code> to also perturb
+each projection orientation independently (per-tilt alignment error), or
+<code class="docutils literal notranslate"><span class="pre">sigma_def</span></code> (Angstroms) to perturb the per-projection defocus and model
+CTF-correction error.  Enable and validate these one at a time rather
+than all at once.</p>
 </dd></dl>
 
 <dl class="py method">

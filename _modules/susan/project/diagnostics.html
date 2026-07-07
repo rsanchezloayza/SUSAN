@@ -453,6 +453,14 @@
 <span class="c1"># suitable as the prior (``offset_sigma`` / ``angle_sigma`` /</span>
 <span class="c1"># ``defocus_sigma``) for the *next* iteration.</span>
 <span class="c1">#</span>
+<span class="c1"># Alignment: the ``estimate_delta_*`` arrays are aligned to iteration</span>
+<span class="c1"># ``ite``&#39;s particles in file order — their leading (particle) axis matches</span>
+<span class="c1"># ``get_ptcls(ite)``, so they can be used directly to index ``prj_w`` etc.</span>
+<span class="c1"># Particles present in ``ite`` but absent from ``ite-1`` are ``NaN``.</span>
+<span class="c1"># Particles are matched on the composite ``(tomo_id, ptcl_id)`` key, since</span>
+<span class="c1"># ``ptcl_id`` alone is not unique across tomograms.  The ``estimate_sigma_*``</span>
+<span class="c1"># reductions ignore the ``NaN`` entries.</span>
+<span class="c1">#</span>
 <span class="c1"># Units: offset helpers default to pixels (``pixels=True``, using</span>
 <span class="c1"># ``sta.pix_size``; pass ``pixels=False`` for Ångströms); angle helpers</span>
 <span class="c1"># default to degrees (``degrees=True``; pass ``degrees=False`` for radians).</span>
@@ -518,25 +526,44 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_match_pair</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load iterations ``ite`` and ``ite-1`` and match particles by id.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load iterations ``ite`` and ``ite-1`` and match particles.</span>
 
-<span class="sd">    Returns ``(cur, prv, idx_c, idx_p)`` where ``idx_c`` / ``idx_p`` are</span>
-<span class="sd">    index arrays selecting the particles present in *both* iterations,</span>
-<span class="sd">    aligned to each other (the set can shrink between iterations when</span>
-<span class="sd">    particle cleaning runs).</span>
+<span class="sd">    Matching uses the composite ``(tomo_id, ptcl_id)`` key — ``ptcl_id``</span>
+<span class="sd">    alone is not unique across tomograms, so matching on it would collapse</span>
+<span class="sd">    duplicates and pair the wrong particles.</span>
+
+<span class="sd">    Returns ``(cur, prv, idx_c, idx_p)`` where ``idx_c`` / ``idx_p`` are row</span>
+<span class="sd">    indices into ``cur`` / ``prv`` for the particles present in *both*</span>
+<span class="sd">    iterations, aligned to each other.  ``idx_c`` indexes ``cur`` in its</span>
+<span class="sd">    original (file) order positions, so it can be used to scatter results</span>
+<span class="sd">    back into a current-iteration-aligned array (see :func:`_to_current`).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">ite</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;iteration delta requires ite &gt;= 1 (needs ite-1).&#39;</span><span class="p">)</span>
     <span class="n">cur</span> <span class="o">=</span> <span class="n">sta</span><span class="o">.</span><span class="n">get_ptcls</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
     <span class="n">prv</span> <span class="o">=</span> <span class="n">sta</span><span class="o">.</span><span class="n">get_ptcls</span><span class="p">(</span><span class="n">ite</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">oc</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="p">)</span>
-    <span class="n">op</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_id</span><span class="p">)</span>
-    <span class="n">common</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="p">[</span><span class="n">oc</span><span class="p">],</span> <span class="n">prv</span><span class="o">.</span><span class="n">ptcl_id</span><span class="p">[</span><span class="n">op</span><span class="p">],</span>
-                                     <span class="n">return_indices</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">mult</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+                   <span class="nb">int</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="mi">0</span><span class="p">))))</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">kc</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">tomo_id</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">*</span> <span class="n">mult</span> <span class="o">+</span> <span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span>
+    <span class="n">kp</span> <span class="o">=</span> <span class="n">prv</span><span class="o">.</span><span class="n">tomo_id</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">*</span> <span class="n">mult</span> <span class="o">+</span> <span class="n">prv</span><span class="o">.</span><span class="n">ptcl_id</span>
+    <span class="n">common</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">kc</span><span class="p">,</span> <span class="n">kp</span><span class="p">,</span> <span class="n">return_indices</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">common</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;iterations </span><span class="si">%d</span><span class="s1"> and </span><span class="si">%d</span><span class="s1"> share no particle ids.&#39;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;iterations </span><span class="si">%d</span><span class="s1"> and </span><span class="si">%d</span><span class="s1"> share no particles.&#39;</span>
                          <span class="o">%</span> <span class="p">(</span><span class="n">ite</span><span class="p">,</span> <span class="n">ite</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">oc</span><span class="p">[</span><span class="n">ic</span><span class="p">],</span> <span class="n">op</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_to_current</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">idx_c</span><span class="p">,</span> <span class="n">n_cur</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Scatter per-matched-particle *values* into a current-aligned array.</span>
+
+<span class="sd">    Returns a float array whose first axis has length *n_cur* (the current</span>
+<span class="sd">    iteration&#39;s particle count, in file order); rows for particles absent</span>
+<span class="sd">    from the previous iteration are left as ``NaN``.  ``values`` is indexed</span>
+<span class="sd">    on its first axis and may carry trailing dimensions (e.g. projections).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n_cur</span><span class="p">,)</span> <span class="o">+</span> <span class="n">_np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">values</span><span class="p">)[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">_np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">idx_c</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+    <span class="k">return</span> <span class="n">out</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_rms_sigma</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">dof</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
@@ -577,14 +604,16 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    numpy.ndarray, shape (n_common,)</span>
-<span class="sd">        Shift-change magnitude (pixels or Å) over particles present in both</span>
-<span class="sd">        iterations.</span>
+<span class="sd">    numpy.ndarray, shape (n_ptcl,)</span>
+<span class="sd">        Shift-change magnitude (pixels or Å), aligned to iteration *ite*&#39;s</span>
+<span class="sd">        particles (file order).  Particles absent from ``ite-1`` are ``NaN``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_match_pair</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span>
-    <span class="n">dt</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref</span><span class="p">][</span><span class="n">ic</span><span class="p">]</span> <span class="o">-</span> <span class="n">prv</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref</span><span class="p">][</span><span class="n">ip</span><span class="p">]</span>      <span class="c1"># (N, 3) Å</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref</span><span class="p">][</span><span class="n">ic</span><span class="p">]</span> <span class="o">-</span> <span class="n">prv</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref</span><span class="p">][</span><span class="n">ip</span><span class="p">]</span>      <span class="c1"># (Nc, 3) Å</span>
     <span class="n">d</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">d</span> <span class="o">/</span> <span class="n">sta</span><span class="o">.</span><span class="n">pix_size</span> <span class="k">if</span> <span class="n">pixels</span> <span class="k">else</span> <span class="n">d</span></div>
+    <span class="k">if</span> <span class="n">pixels</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">d</span> <span class="o">/</span> <span class="n">sta</span><span class="o">.</span><span class="n">pix_size</span>
+    <span class="k">return</span> <span class="n">_to_current</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">size</span><span class="p">)</span></div>
 
 
 
@@ -601,18 +630,19 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    numpy.ndarray, shape (n_common, n_proj)</span>
-<span class="sd">        Shift-change magnitude (pixels or Å); projections disabled</span>
-<span class="sd">        (``prj_w&lt;=0``) in either iteration are ``NaN``.</span>
+<span class="sd">    numpy.ndarray, shape (n_ptcl, n_proj)</span>
+<span class="sd">        Shift-change magnitude (pixels or Å), aligned to iteration *ite*&#39;s</span>
+<span class="sd">        particles (file order).  ``NaN`` for particles absent from ``ite-1``</span>
+<span class="sd">        and for projections disabled (``prj_w&lt;=0``) in either iteration.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_match_pair</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span>
-    <span class="n">dt</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">-</span> <span class="n">prv</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span>                <span class="c1"># (N, P, 2) Å</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">-</span> <span class="n">prv</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span>                <span class="c1"># (Nc, P, 2) Å</span>
     <span class="n">d</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">pixels</span><span class="p">:</span>
         <span class="n">d</span> <span class="o">=</span> <span class="n">d</span> <span class="o">/</span> <span class="n">sta</span><span class="o">.</span><span class="n">pix_size</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">d</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">nan</span>
-    <span class="k">return</span> <span class="n">d</span></div>
+    <span class="k">return</span> <span class="n">_to_current</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">size</span><span class="p">)</span></div>
 
 
 
@@ -629,15 +659,17 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    numpy.ndarray, shape (n_common, 2)</span>
-<span class="sd">        Column 0: cone (out-of-plane) deviation.</span>
-<span class="sd">        Column 1: in-plane (twist) deviation.  Units per *degrees*.</span>
+<span class="sd">    numpy.ndarray, shape (2, n_ptcl)</span>
+<span class="sd">        ``[0]`` cone (out-of-plane), ``[1]`` in-plane (twist), units per</span>
+<span class="sd">        *degrees*, aligned to iteration *ite*&#39;s particles (file order).</span>
+<span class="sd">        Particles absent from ``ite-1`` are ``NaN``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_match_pair</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span>
     <span class="n">Rd</span> <span class="o">=</span> <span class="n">_zyz_to_R</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref</span><span class="p">][</span><span class="n">ic</span><span class="p">])</span> <span class="o">@</span> \
          <span class="n">_np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">_zyz_to_R</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref</span><span class="p">][</span><span class="n">ip</span><span class="p">]),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">)</span>
     <span class="n">cone</span><span class="p">,</span> <span class="n">inpl</span> <span class="o">=</span> <span class="n">_cone_inplane</span><span class="p">(</span><span class="n">Rd</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="n">degrees</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">cone</span><span class="p">,</span> <span class="n">inpl</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">_to_current</span><span class="p">(</span><span class="n">cone</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">_to_current</span><span class="p">(</span><span class="n">inpl</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">n</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
 
 
@@ -654,11 +686,13 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    numpy.ndarray, shape (n_common, n_proj, 2)</span>
-<span class="sd">        ``[..., 0]`` cone, ``[..., 1]`` in-plane (units per *degrees*);</span>
-<span class="sd">        disabled projections are ``NaN``.  In 2-D per-projection alignment</span>
-<span class="sd">        the cone component is usually weakly constrained — the in-plane</span>
-<span class="sd">        column is the meaningful one for setting ``angle_sigma``.</span>
+<span class="sd">    numpy.ndarray, shape (2, n_ptcl, n_proj)</span>
+<span class="sd">        ``[0]`` cone, ``[1]`` in-plane (units per *degrees*), aligned to</span>
+<span class="sd">        iteration *ite*&#39;s particles (file order).  ``NaN`` for particles</span>
+<span class="sd">        absent from ``ite-1`` and for disabled projections.  In 2-D</span>
+<span class="sd">        per-projection alignment the cone component is usually weakly</span>
+<span class="sd">        constrained — the in-plane slice is the meaningful one for</span>
+<span class="sd">        ``angle_sigma``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_match_pair</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span>
     <span class="n">Rd</span> <span class="o">=</span> <span class="n">_zyz_to_R</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">prj_eu</span><span class="p">[</span><span class="n">ic</span><span class="p">])</span> <span class="o">@</span> \
@@ -667,7 +701,8 @@
     <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">cone</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">nan</span>
     <span class="n">inpl</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">nan</span>
-    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">cone</span><span class="p">,</span> <span class="n">inpl</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">_to_current</span><span class="p">(</span><span class="n">cone</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">_to_current</span><span class="p">(</span><span class="n">inpl</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">n</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
 
 
@@ -688,14 +723,15 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    numpy.ndarray, shape (n_common,)</span>
-<span class="sd">        Total rotation magnitude (units per *degrees*), over particles</span>
-<span class="sd">        present in both iterations.</span>
+<span class="sd">    numpy.ndarray, shape (n_ptcl,)</span>
+<span class="sd">        Total rotation magnitude (units per *degrees*), aligned to iteration</span>
+<span class="sd">        *ite*&#39;s particles (file order).  Particles absent from ``ite-1`` are</span>
+<span class="sd">        ``NaN``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_match_pair</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span>
     <span class="n">Rd</span> <span class="o">=</span> <span class="n">_zyz_to_R</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref</span><span class="p">][</span><span class="n">ic</span><span class="p">])</span> <span class="o">@</span> \
          <span class="n">_np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">_zyz_to_R</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref</span><span class="p">][</span><span class="n">ip</span><span class="p">]),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_geodesic</span><span class="p">(</span><span class="n">Rd</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="n">degrees</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_to_current</span><span class="p">(</span><span class="n">_geodesic</span><span class="p">(</span><span class="n">Rd</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="n">degrees</span><span class="p">),</span> <span class="n">ic</span><span class="p">,</span> <span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">size</span><span class="p">)</span></div>
 
 
 
@@ -714,9 +750,10 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    numpy.ndarray, shape (n_common, n_proj)</span>
-<span class="sd">        Total rotation magnitude (units per *degrees*); disabled projections</span>
-<span class="sd">        are ``NaN``.</span>
+<span class="sd">    numpy.ndarray, shape (n_ptcl, n_proj)</span>
+<span class="sd">        Total rotation magnitude (units per *degrees*), aligned to iteration</span>
+<span class="sd">        *ite*&#39;s particles (file order).  ``NaN`` for particles absent from</span>
+<span class="sd">        ``ite-1`` and for disabled projections.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_match_pair</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span>
     <span class="n">Rd</span> <span class="o">=</span> <span class="n">_zyz_to_R</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">prj_eu</span><span class="p">[</span><span class="n">ic</span><span class="p">])</span> <span class="o">@</span> \
@@ -724,7 +761,7 @@
     <span class="n">d</span> <span class="o">=</span> <span class="n">_geodesic</span><span class="p">(</span><span class="n">Rd</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="n">degrees</span><span class="p">)</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">d</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">nan</span>
-    <span class="k">return</span> <span class="n">d</span></div>
+    <span class="k">return</span> <span class="n">_to_current</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">size</span><span class="p">)</span></div>
 
 
 
@@ -735,16 +772,18 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    numpy.ndarray, shape (n_common, n_proj)</span>
-<span class="sd">        Defocus-change magnitude in Å; disabled projections are ``NaN``.</span>
+<span class="sd">    numpy.ndarray, shape (n_ptcl, n_proj)</span>
+<span class="sd">        Defocus-change magnitude in Å, aligned to iteration *ite*&#39;s particles</span>
+<span class="sd">        (file order).  ``NaN`` for particles absent from ``ite-1`` and for</span>
+<span class="sd">        disabled projections.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">_match_pair</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span>
     <span class="n">dU</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">def_U</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">-</span> <span class="n">prv</span><span class="o">.</span><span class="n">def_U</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span>
     <span class="n">dV</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">def_V</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">-</span> <span class="n">prv</span><span class="o">.</span><span class="n">def_V</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span>
-    <span class="n">d</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">dU</span><span class="o">*</span><span class="n">dU</span> <span class="o">+</span> <span class="n">dV</span><span class="o">*</span><span class="n">dV</span><span class="p">)</span>                       <span class="c1"># (N, P) Å</span>
+    <span class="n">d</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">dU</span><span class="o">*</span><span class="n">dU</span> <span class="o">+</span> <span class="n">dV</span><span class="o">*</span><span class="n">dV</span><span class="p">)</span>                       <span class="c1"># (Nc, P) Å</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">ip</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">d</span><span class="p">[</span><span class="o">~</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">nan</span>
-    <span class="k">return</span> <span class="n">d</span></div>
+    <span class="k">return</span> <span class="n">_to_current</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">ic</span><span class="p">,</span> <span class="n">cur</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">size</span><span class="p">)</span></div>
 
 
 
@@ -809,9 +848,9 @@
 <span class="sd">        is a single engine knob applied to both axes; pass whichever you</span>
 <span class="sd">        prefer (or their combination — e.g. ``max``) to the next iteration.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">d</span> <span class="o">=</span> <span class="n">estimate_delta_3D_angle</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="n">degrees</span><span class="p">)</span>   <span class="c1"># (N, 2)</span>
-    <span class="n">sigma_cone</span> <span class="o">=</span> <span class="n">_rms_sigma</span><span class="p">(</span><span class="n">d</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">dof</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="n">clip_pct</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
-    <span class="n">sigma_inpl</span> <span class="o">=</span> <span class="n">_rms_sigma</span><span class="p">(</span><span class="n">d</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dof</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="n">clip_pct</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">estimate_delta_3D_angle</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="n">degrees</span><span class="p">)</span>   <span class="c1"># (2, N)</span>
+    <span class="n">sigma_cone</span> <span class="o">=</span> <span class="n">_rms_sigma</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dof</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="n">clip_pct</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
+    <span class="n">sigma_inpl</span> <span class="o">=</span> <span class="n">_rms_sigma</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dof</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="n">clip_pct</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">sigma_cone</span><span class="p">,</span> <span class="n">sigma_inpl</span></div>
 
 
@@ -834,9 +873,9 @@
 <span class="sd">        projections.  The in-plane value is normally the relevant one for</span>
 <span class="sd">        ``angle_sigma`` in 2-D mode.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">d</span> <span class="o">=</span> <span class="n">estimate_delta_2D_angle</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="n">degrees</span><span class="p">)</span>            <span class="c1"># (N, P, 2)</span>
-    <span class="n">sigma_cone</span> <span class="o">=</span> <span class="n">_rms_sigma</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">dof</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="n">clip_pct</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
-    <span class="n">sigma_inpl</span> <span class="o">=</span> <span class="n">_rms_sigma</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dof</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="n">clip_pct</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">estimate_delta_2D_angle</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="n">degrees</span><span class="p">)</span>            <span class="c1"># (2, N, P)</span>
+    <span class="n">sigma_cone</span> <span class="o">=</span> <span class="n">_rms_sigma</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dof</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="n">clip_pct</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
+    <span class="n">sigma_inpl</span> <span class="o">=</span> <span class="n">_rms_sigma</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dof</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clip_pct</span><span class="o">=</span><span class="n">clip_pct</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">sigma_cone</span><span class="p">,</span> <span class="n">sigma_inpl</span></div>
 
 

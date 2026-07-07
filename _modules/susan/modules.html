@@ -430,7 +430,7 @@
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation applied before correlation.  One of</span>
 <span class="sd">        ``&#39;none&#39;``, ``&#39;zero_mean&#39;``, ``&#39;zero_mean_one_std&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_proj_weight&#39;``, ``&#39;poisson_raw&#39;``,</span>
+<span class="sd">        ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``, ``&#39;poisson_raw&#39;``,</span>
 <span class="sd">        ``&#39;poisson_normal&#39;``.  Default: ``&#39;zero_mean_one_std&#39;``.</span>
 <span class="sd">    ctf_correction : str</span>
 <span class="sd">        CTF correction strategy.  One of ``&#39;none&#39;``, ``&#39;phase_flip&#39;``,</span>
@@ -620,8 +620,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;zero&#39;</span><span class="p">,</span><span class="s1">&#39;noise&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid padding type. Only &quot;zero&quot; or &quot;noise&quot; are valid&#39;</span><span class="p">)</span>
         
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_raw&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_normal&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_proj_weight&quot;, &quot;poisson_raw&quot; or &quot;poisson_normal&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_raw&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_normal&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot;, &quot;zero_mean_proj_weight&quot;, &quot;poisson_raw&quot; or &quot;poisson_normal&quot; are valid&#39;</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;phase_flip&#39;</span><span class="p">,</span><span class="s1">&#39;on_reference&#39;</span><span class="p">,</span><span class="s1">&#39;on_substack&#39;</span><span class="p">,</span><span class="s1">&#39;wiener_ssnr&#39;</span><span class="p">,</span><span class="s1">&#39;cfsc&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid ctf correction type. Only &quot;none&quot;, &quot;phase_flip&quot;, &quot;on_reference&quot;, &quot;on_substack&quot;, &quot;wiener_ssnr&quot; or &quot;cfsc&quot; are valid&#39;</span><span class="p">)</span>
@@ -812,7 +812,7 @@
 <span class="sd">        Default: ``&#39;zero&#39;``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``&#39;none&#39;``, ``&#39;zero_mean&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
+<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
 <span class="sd">        Default: ``&#39;zero_mean_one_std&#39;``.</span>
 <span class="sd">    weighting_type : str</span>
 <span class="sd">        Particle weighting scheme.  One of ``&#39;none&#39;``, ``&#39;particle&#39;``,</span>
@@ -900,8 +900,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridding_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;linear&#39;</span><span class="p">,</span><span class="s1">&#39;kb&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid gridding type. Only &quot;linear&quot; or &quot;kb&quot; are valid&#39;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">weighting_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;particle&#39;</span><span class="p">,</span><span class="s1">&#39;projection&#39;</span><span class="p">,</span><span class="s1">&#39;3DCC&#39;</span><span class="p">,</span><span class="s1">&#39;2DCC&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid weighting type. Only &quot;none&quot;, &quot;particle&quot;, &quot;projection&quot;, &quot;3DCC&quot; or &quot;2DCC&quot; are valid&#39;</span><span class="p">)</span>
@@ -1048,7 +1048,7 @@
 <span class="sd">        Default: ``&#39;zero&#39;``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``&#39;none&#39;``, ``&#39;zero_mean&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
+<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
 <span class="sd">        Default: ``&#39;none&#39;``.</span>
 <span class="sd">    ctf_correction : str</span>
 <span class="sd">        CTF correction applied during back-projection.  One of ``&#39;none&#39;``,</span>
@@ -1100,8 +1100,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;zero&#39;</span><span class="p">,</span><span class="s1">&#39;noise&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid padding type. Only &quot;zero&quot; or &quot;noise&quot; are valid&#39;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;phase_flip&#39;</span><span class="p">,</span><span class="s1">&#39;wiener&#39;</span><span class="p">,</span><span class="s1">&#39;wiener_ssnr&#39;</span><span class="p">,</span> <span class="s1">&#39;pre_wiener&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid ctf correction type. Only &quot;none&quot;, &quot;phase_flip&quot;, &quot;wiener&quot;, &quot;pre_wiener&quot; or &quot;wiener_ssnr&quot; are valid&#39;</span><span class="p">)</span>
@@ -1207,7 +1207,7 @@
 <span class="sd">        Number of CPU threads to use.  Default: ``1``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-patch normalisation.  One of ``&#39;none&#39;``, ``&#39;zero_mean&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
+<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
 <span class="sd">        Default: ``&#39;zero_mean_one_std&#39;``.</span>
 <span class="sd">    invert_contrast : bool</span>
 <span class="sd">        Invert the sign of the cropped projections.  Default: ``False``.</span>
@@ -1219,8 +1219,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">invert_contrast</span>   <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="CropProjection.get_args">
 <a class="viewcode-back" href="../../api/susan.modules.CropProjection.html#susan.modules.CropProjection.get_args">[docs]</a>
@@ -1494,7 +1494,7 @@
 <span class="sd">        Default: ``&#39;zero&#39;``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``&#39;none&#39;``, ``&#39;zero_mean&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_proj_weight&#39;``,</span>
+<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``,</span>
 <span class="sd">        ``&#39;poisson_raw&#39;``, ``&#39;poisson_normal&#39;``.</span>
 <span class="sd">        Default: ``&#39;zero_mean_one_std&#39;``.</span>
 <span class="sd">    halfsets_independ : bool</span>
@@ -1613,8 +1613,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;zero&#39;</span><span class="p">,</span><span class="s1">&#39;noise&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid padding type. Only &quot;zero&quot; or &quot;noise&quot; are valid&#39;</span><span class="p">)</span>
         
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_raw&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_normal&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_proj_weight&quot;, &quot;poisson_raw&quot; or &quot;poisson_normal&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_raw&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_normal&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot;, &quot;zero_mean_proj_weight&quot;, &quot;poisson_raw&quot; or &quot;poisson_normal&quot; are valid&#39;</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">angles</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_shift_deg</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The steps values must be larger than 0&#39;</span><span class="p">)</span>

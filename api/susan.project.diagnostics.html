@@ -362,11 +362,11 @@ assigned the lowest-resolution shell value.</p>
 <code class="docutils literal notranslate"><span class="pre">sta.pix_size</span></code>; if <code class="docutils literal notranslate"><span class="pre">False</span></code> it is returned in Ångströms.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Shift-change magnitude (pixels or Å) over particles present in both
-iterations.</p>
+<dd class="field-even"><p>Shift-change magnitude (pixels or Å), aligned to iteration <em>ite</em>’s
+particles (file order).  Particles absent from <code class="docutils literal notranslate"><span class="pre">ite-1</span></code> are <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>numpy.ndarray, shape (n_common,)</p>
+<dd class="field-odd"><p>numpy.ndarray, shape (<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_ptcl" title="susan.data.Particles.n_ptcl">n_ptcl</a>,)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -381,11 +381,12 @@ iterations.</p>
 <code class="docutils literal notranslate"><span class="pre">sta.pix_size</span></code>; if <code class="docutils literal notranslate"><span class="pre">False</span></code> it is returned in Ångströms.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Shift-change magnitude (pixels or Å); projections disabled
-(<code class="docutils literal notranslate"><span class="pre">prj_w&lt;=0</span></code>) in either iteration are <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
+<dd class="field-even"><p>Shift-change magnitude (pixels or Å), aligned to iteration <em>ite</em>’s
+particles (file order).  <code class="docutils literal notranslate"><span class="pre">NaN</span></code> for particles absent from <code class="docutils literal notranslate"><span class="pre">ite-1</span></code>
+and for projections disabled (<code class="docutils literal notranslate"><span class="pre">prj_w&lt;=0</span></code>) in either iteration.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>numpy.ndarray, shape (n_common, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_proj" title="susan.data.Particles.n_proj">n_proj</a>)</p>
+<dd class="field-odd"><p>numpy.ndarray, shape (<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_ptcl" title="susan.data.Particles.n_ptcl">n_ptcl</a>, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_proj" title="susan.data.Particles.n_proj">n_proj</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -400,11 +401,12 @@ iterations.</p>
 <code class="docutils literal notranslate"><span class="pre">False</span></code> in radians.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Column 0: cone (out-of-plane) deviation.
-Column 1: in-plane (twist) deviation.  Units per <em>degrees</em>.</p>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">[0]</span></code> cone (out-of-plane), <code class="docutils literal notranslate"><span class="pre">[1]</span></code> in-plane (twist), units per
+<em>degrees</em>, aligned to iteration <em>ite</em>’s particles (file order).
+Particles absent from <code class="docutils literal notranslate"><span class="pre">ite-1</span></code> are <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>numpy.ndarray, shape (n_common, 2)</p>
+<dd class="field-odd"><p>numpy.ndarray, shape (2, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_ptcl" title="susan.data.Particles.n_ptcl">n_ptcl</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -419,13 +421,15 @@ Column 1: in-plane (twist) deviation.  Units per <em>degrees</em>.</p>
 <code class="docutils literal notranslate"><span class="pre">False</span></code> in radians.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">[...,</span> <span class="pre">0]</span></code> cone, <code class="docutils literal notranslate"><span class="pre">[...,</span> <span class="pre">1]</span></code> in-plane (units per <em>degrees</em>);
-disabled projections are <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.  In 2-D per-projection alignment
-the cone component is usually weakly constrained — the in-plane
-column is the meaningful one for setting <code class="docutils literal notranslate"><span class="pre">angle_sigma</span></code>.</p>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">[0]</span></code> cone, <code class="docutils literal notranslate"><span class="pre">[1]</span></code> in-plane (units per <em>degrees</em>), aligned to
+iteration <em>ite</em>’s particles (file order).  <code class="docutils literal notranslate"><span class="pre">NaN</span></code> for particles
+absent from <code class="docutils literal notranslate"><span class="pre">ite-1</span></code> and for disabled projections.  In 2-D
+per-projection alignment the cone component is usually weakly
+constrained — the in-plane slice is the meaningful one for
+<code class="docutils literal notranslate"><span class="pre">angle_sigma</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>numpy.ndarray, shape (n_common, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_proj" title="susan.data.Particles.n_proj">n_proj</a>, 2)</p>
+<dd class="field-odd"><p>numpy.ndarray, shape (2, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_ptcl" title="susan.data.Particles.n_ptcl">n_ptcl</a>, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_proj" title="susan.data.Particles.n_proj">n_proj</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -443,11 +447,12 @@ the current one, combining cone and in-plane into one value.</p>
 in radians.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Total rotation magnitude (units per <em>degrees</em>), over particles
-present in both iterations.</p>
+<dd class="field-even"><p>Total rotation magnitude (units per <em>degrees</em>), aligned to iteration
+<em>ite</em>’s particles (file order).  Particles absent from <code class="docutils literal notranslate"><span class="pre">ite-1</span></code> are
+<code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>numpy.ndarray, shape (n_common,)</p>
+<dd class="field-odd"><p>numpy.ndarray, shape (<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_ptcl" title="susan.data.Particles.n_ptcl">n_ptcl</a>,)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -463,11 +468,12 @@ present in both iterations.</p>
 in radians.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Total rotation magnitude (units per <em>degrees</em>); disabled projections
-are <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
+<dd class="field-even"><p>Total rotation magnitude (units per <em>degrees</em>), aligned to iteration
+<em>ite</em>’s particles (file order).  <code class="docutils literal notranslate"><span class="pre">NaN</span></code> for particles absent from
+<code class="docutils literal notranslate"><span class="pre">ite-1</span></code> and for disabled projections.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>numpy.ndarray, shape (n_common, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_proj" title="susan.data.Particles.n_proj">n_proj</a>)</p>
+<dd class="field-odd"><p>numpy.ndarray, shape (<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_ptcl" title="susan.data.Particles.n_ptcl">n_ptcl</a>, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_proj" title="susan.data.Particles.n_proj">n_proj</a>)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -478,10 +484,12 @@ are <code class="docutils literal notranslate"><span class="pre">NaN</span></cod
 <dd><p>Per-particle, per-projection defocus change <code class="docutils literal notranslate"><span class="pre">√(ΔU²</span> <span class="pre">+</span> <span class="pre">ΔV²)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Defocus-change magnitude in Å; disabled projections are <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
+<dd class="field-odd"><p>Defocus-change magnitude in Å, aligned to iteration <em>ite</em>’s particles
+(file order).  <code class="docutils literal notranslate"><span class="pre">NaN</span></code> for particles absent from <code class="docutils literal notranslate"><span class="pre">ite-1</span></code> and for
+disabled projections.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>numpy.ndarray, shape (n_common, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_proj" title="susan.data.Particles.n_proj">n_proj</a>)</p>
+<dd class="field-even"><p>numpy.ndarray, shape (<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_ptcl" title="susan.data.Particles.n_ptcl">n_ptcl</a>, <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.n_proj" title="susan.data.Particles.n_proj">n_proj</a>)</p>
 </dd>
 </dl>
 </dd></dl>
