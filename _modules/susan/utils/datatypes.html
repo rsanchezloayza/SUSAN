@@ -350,9 +350,14 @@
 <span class="sd">    The spectral signal-to-noise ratio is modelled as:</span>
 
 <span class="sd">    .. math::</span>
-<span class="sd">        SSNR(f) = 10^{3S} \\cdot e^{-100 F f}</span>
+<span class="sd">        SSNR(s) = 10^{3S} \\cdot e^{-100 F s}</span>
 
-<span class="sd">    where *f* is the spatial frequency in Fourier pixels.  See the</span>
+<span class="sd">    where *s* is the spatial frequency in 1/Angstrom (:math:`s = r/(N \\cdot</span>
+<span class="sd">    apix)`, with *r* the Fourier-pixel radius and *N* the box size).  This is</span>
+<span class="sd">    the SSNR of a single projection, not of the reconstructed map: the term</span>
+<span class="sd">    :math:`1/SSNR(s)` is added to the Wiener denominator once per projection,</span>
+<span class="sd">    so the resulting filter does not depend on how many particles or tilts</span>
+<span class="sd">    contribute.  See the</span>
 <span class="sd">    `Ad-hoc SSNR &lt;https://www.nature.com/articles/s41592-019-0580-y#Sec19&gt;`_</span>
 <span class="sd">    definition for background.</span>
 
@@ -361,12 +366,15 @@
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    S : float</span>
-<span class="sd">        Strength parameter.  Typically set to 1.</span>
+<span class="sd">        Strength parameter: the SSNR at zero frequency is :math:`10^{3S}`.</span>
+<span class="sd">        Typically set to 1.</span>
 <span class="sd">    F : float</span>
-<span class="sd">        Fall-off parameter, typically in the range 0 – 0.5.  Its value</span>
-<span class="sd">        depends on the noise level of the data.</span>
+<span class="sd">        Fall-off parameter, typically in the range 0 – 0.5.  The SSNR loses</span>
+<span class="sd">        one decade every :math:`0.023/F` 1/Angstrom.  Its value depends on</span>
+<span class="sd">        the noise level of the data.  With ``S = 1``, the Wiener filter</span>
+<span class="sd">        reaches half power at roughly :math:`16 \\cdot F` Angstrom.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># SSNR(f) = (10^(3*S)) * exp( -f * 100*F )</span>
+    <span class="c1"># SSNR(s) = (10^(3*S)) * exp( -s * 100*F ),  s in 1/Angstrom</span>
     <span class="n">S</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">F</span><span class="p">:</span> <span class="nb">float</span></div>
 

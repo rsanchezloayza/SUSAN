@@ -487,6 +487,89 @@ before taking the square root.</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.fsc_sharpen">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">fsc_sharpen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fsc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bfactor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fom</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rosenthal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lowpass</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thres</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.143</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rolloff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#fsc_sharpen"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.fsc_sharpen" title="Link to this definition">¶</a></dt>
+<dd><p>FSC-weighted B-factor sharpening of a map from its half-map FSC.</p>
+<p>Builds a single radial Fourier weight combining up to three per-shell
+terms and applies it to <em>v</em>:</p>
+<ol class="arabic simple">
+<li><p><strong>B-factor amplification</strong> <code class="docutils literal notranslate"><span class="pre">exp(-bfactor</span> <span class="pre">*</span> <span class="pre">s^2</span> <span class="pre">/</span> <span class="pre">4)</span></code> where
+<code class="docutils literal notranslate"><span class="pre">s</span> <span class="pre">=</span> <span class="pre">k</span> <span class="pre">/</span> <span class="pre">(N</span> <span class="pre">*</span> <span class="pre">apix)</span></code> is the spatial frequency (1/Angstrom) of shell
+<code class="docutils literal notranslate"><span class="pre">k</span></code>.  A <strong>negative</strong> <em>bfactor</em> sharpens (boosts high frequencies); a
+positive one blurs.</p></li>
+<li><p><strong>FOM weighting</strong> derived from the FSC, which tapers the amplification
+to zero where the half-maps stop correlating, so noise beyond the
+resolution limit is not amplified.  <code class="docutils literal notranslate"><span class="pre">'rosenthal'</span></code> uses the full-map
+figure of merit <span class="math notranslate nohighlight">\(\sqrt{2\,FSC/(1+FSC)}\)</span> (appropriate for the
+combined map; Rosenthal &amp; Henderson, 2003); <code class="docutils literal notranslate"><span class="pre">'sqrt'</span></code> uses
+<span class="math notranslate nohighlight">\(\sqrt{FSC}\)</span> (matches <a class="reference internal" href="#susan.utils._functions.apply_FOM" title="susan.utils._functions.apply_FOM"><code class="xref py py-func docutils literal notranslate"><span class="pre">apply_FOM()</span></code></a>); <code class="docutils literal notranslate"><span class="pre">None</span></code> disables it.</p></li>
+<li><p><strong>Cosine low-pass</strong> at the FSC resolution (<a class="reference internal" href="#susan.utils._functions.fsc_analyse" title="susan.utils._functions.fsc_analyse"><code class="xref py py-func docutils literal notranslate"><span class="pre">fsc_analyse()</span></code></a> with
+<em>thres</em>), a safety cut so shells past the resolution are not boosted.</p></li>
+</ol>
+<p>This is the principled alternative to a blind (FSC-agnostic) B-factor:
+the amplification is gated by where there is real, reproducible signal.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>v</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>Z</em><em>, </em><em>Y</em><em>, </em><em>X</em><em>)</em>) – Map to sharpen (typically the combined reconstruction).</p></li>
+<li><p><strong>fsc</strong> (<em>array_like</em><em>, </em><em>shape</em><em> (</em><em>N//2+1</em><em>,</em><em>)</em>) – Half-map FSC curve, as returned by <a class="reference internal" href="#susan.utils._functions.fsc_get" title="susan.utils._functions.fsc_get"><code class="xref py py-func docutils literal notranslate"><span class="pre">fsc_get()</span></code></a>.</p></li>
+<li><p><strong>apix</strong> (<em>float</em>) – Pixel size in Angstroms.</p></li>
+<li><p><strong>bfactor</strong> (<em>float</em>) – B-factor in Angstrom^2.  Negative sharpens, positive blurs.</p></li>
+<li><p><strong>fom</strong> (<em>{'rosenthal'</em><em>, </em><em>'sqrt'</em><em>, </em><em>None}</em><em>, </em><em>optional</em>) – FSC figure-of-merit weighting.  Default <code class="docutils literal notranslate"><span class="pre">'rosenthal'</span></code>.</p></li>
+<li><p><strong>lowpass</strong> (<em>bool</em><em>, </em><em>optional</em>) – Apply a cosine low-pass at the FSC resolution.  Default <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>thres</strong> (<em>float</em><em>, </em><em>optional</em>) – FSC threshold used to locate the low-pass edge.  Default <code class="docutils literal notranslate"><span class="pre">0.143</span></code>.</p></li>
+<li><p><strong>rolloff</strong> (<em>int</em><em>, </em><em>optional</em>) – Cosine rolloff width (Fourier pixels) of the low-pass.  Default <code class="docutils literal notranslate"><span class="pre">2</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Sharpened volume, same shape as <em>v</em>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray, float32</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#susan.utils._functions.apply_FOM" title="susan.utils._functions.apply_FOM"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_FOM</span></code></a></dt><dd><p>FSC figure-of-merit weighting only (no B-factor).</p>
+</dd>
+<dt><a class="reference internal" href="#susan.utils._functions.fsc_sharpen_filter" title="susan.utils._functions.fsc_sharpen_filter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fsc_sharpen_filter</span></code></a></dt><dd><p>wrap this as a <code class="docutils literal notranslate"><span class="pre">map_filter_fsc</span></code> callable for <a class="reference internal" href="susan.project.SubtomoAvg.html#susan.project.SubtomoAvg.SubtomoAvg" title="susan.project.SubtomoAvg.SubtomoAvg"><code class="xref py py-class docutils literal notranslate"><span class="pre">SubtomoAvg</span></code></a>.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.fsc_sharpen_filter">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">fsc_sharpen_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">apix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bfactor</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#fsc_sharpen_filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.fsc_sharpen_filter" title="Link to this definition">¶</a></dt>
+<dd><p>Build a <code class="docutils literal notranslate"><span class="pre">map_filter_fsc</span></code> callable that applies <a class="reference internal" href="#susan.utils._functions.fsc_sharpen" title="susan.utils._functions.fsc_sharpen"><code class="xref py py-func docutils literal notranslate"><span class="pre">fsc_sharpen()</span></code></a>.</p>
+<p>The returned function has signature <code class="docutils literal notranslate"><span class="pre">filter(vol,</span> <span class="pre">fsc)</span> <span class="pre">-&gt;</span> <span class="pre">vol</span></code>, matching
+<a class="reference internal" href="susan.project.SubtomoAvg.html#susan.project.SubtomoAvg.SubtomoAvg" title="susan.project.SubtomoAvg.SubtomoAvg"><code class="xref py py-attr docutils literal notranslate"><span class="pre">SubtomoAvg.map_filter_fsc</span></code></a>, so
+it plugs directly into the post-processing hook — the project passes the
+per-reference FSC in automatically each iteration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>apix</strong> (<em>float</em>) – Pixel size in Angstroms (e.g. <code class="docutils literal notranslate"><span class="pre">sta.pix_size</span></code>).</p></li>
+<li><p><strong>bfactor</strong> (<em>float</em>) – B-factor in Angstrom^2 (negative sharpens).</p></li>
+<li><p><strong>**kwargs</strong> – Forwarded to <a class="reference internal" href="#susan.utils._functions.fsc_sharpen" title="susan.utils._functions.fsc_sharpen"><code class="xref py py-func docutils literal notranslate"><span class="pre">fsc_sharpen()</span></code></a> (<code class="docutils literal notranslate"><span class="pre">fom</span></code>, <code class="docutils literal notranslate"><span class="pre">lowpass</span></code>, <code class="docutils literal notranslate"><span class="pre">thres</span></code>,
+<code class="docutils literal notranslate"><span class="pre">rolloff</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">lambda</span> <span class="pre">vol,</span> <span class="pre">fsc:</span> <span class="pre">fsc_sharpen(vol,</span> <span class="pre">fsc,</span> <span class="pre">apix,</span> <span class="pre">bfactor,</span> <span class="pre">**kwargs)</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>callable</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">sta</span><span class="o">.</span><span class="n">map_filter_fsc</span> <span class="o">=</span> <span class="n">fsc_sharpen_filter</span><span class="p">(</span><span class="n">sta</span><span class="o">.</span><span class="n">pix_size</span><span class="p">,</span> <span class="n">bfactor</span><span class="o">=-</span><span class="mi">120</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="susan.utils._functions.get_extension">
 <span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">get_extension</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#get_extension"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.get_extension" title="Link to this definition">¶</a></dt>
 <dd><p>Return the file extension including the leading dot.</p>
@@ -553,7 +636,7 @@ before taking the square root.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="susan.utils._functions.create_sphere">
-<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">create_sphere</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#create_sphere"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.create_sphere" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">create_sphere</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#create_sphere"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.create_sphere" title="Link to this definition">¶</a></dt>
 <dd><p>Create a soft spherical mask of radius <code class="docutils literal notranslate"><span class="pre">r</span></code> in a cube of side <code class="docutils literal notranslate"><span class="pre">N</span></code>.</p>
 <p>The mask value at each voxel is <code class="docutils literal notranslate"><span class="pre">clip(r</span> <span class="pre">-</span> <span class="pre">radius,</span> <span class="pre">0,</span> <span class="pre">1)</span></code>, giving a
 smooth 1-pixel-wide transition at the sphere boundary.</p>
@@ -562,6 +645,10 @@ smooth 1-pixel-wide transition at the sphere boundary.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>r</strong> (<em>float</em>) – Sphere radius in pixels.</p></li>
 <li><p><strong>N</strong> (<em>int</em>) – Side length of the output cube.</p></li>
+<li><p><strong>center</strong> (<em>array-like</em><em> of </em><em>3 floats</em><em>, </em><em>optional</em>) – Voxel coordinates <code class="docutils literal notranslate"><span class="pre">(z,</span> <span class="pre">y,</span> <span class="pre">x)</span></code> of the sphere centre.  <code class="docutils literal notranslate"><span class="pre">None</span></code>
+(default) places it at the geometric centre <code class="docutils literal notranslate"><span class="pre">(N//2,</span> <span class="pre">N//2,</span> <span class="pre">N//2)</span></code>,
+reproducing the original behaviour.  Use this to place a mask at an
+arbitrary location (e.g. a tile centre in local processing).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -772,6 +859,8 @@ the given resolution.  No pixel size or particle diameter is needed.</p>
 <li><a class="reference internal" href="#susan.utils._functions.fsc_analyse"><code class="docutils literal notranslate"><span class="pre">fsc_analyse()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.bandpass"><code class="docutils literal notranslate"><span class="pre">bandpass()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.apply_FOM"><code class="docutils literal notranslate"><span class="pre">apply_FOM()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.fsc_sharpen"><code class="docutils literal notranslate"><span class="pre">fsc_sharpen()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.fsc_sharpen_filter"><code class="docutils literal notranslate"><span class="pre">fsc_sharpen_filter()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.get_extension"><code class="docutils literal notranslate"><span class="pre">get_extension()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.is_extension"><code class="docutils literal notranslate"><span class="pre">is_extension()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.force_extension"><code class="docutils literal notranslate"><span class="pre">force_extension()</span></code></a></li>

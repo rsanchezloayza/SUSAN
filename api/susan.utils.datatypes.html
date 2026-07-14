@@ -348,16 +348,22 @@ requested threshold.</p>
 <p>The spectral signal-to-noise ratio is modelled as:</p>
 <div class="math-wrapper docutils container">
 <div class="math notranslate nohighlight">
-\[SSNR(f) = 10^{3S} \cdot e^{-100 F f}\]</div>
+\[SSNR(s) = 10^{3S} \cdot e^{-100 F s}\]</div>
 </div>
-<p>where <em>f</em> is the spatial frequency in Fourier pixels.  See the
+<p>where <em>s</em> is the spatial frequency in 1/Angstrom (<span class="math notranslate nohighlight">\(s = r/(N \cdot
+apix)\)</span>, with <em>r</em> the Fourier-pixel radius and <em>N</em> the box size).  This is
+the SSNR of a single projection, not of the reconstructed map: the term
+<span class="math notranslate nohighlight">\(1/SSNR(s)\)</span> is added to the Wiener denominator once per projection,
+so the resulting filter does not depend on how many particles or tilts
+contribute.  See the
 <a class="reference external" href="https://www.nature.com/articles/s41592-019-0580-y#Sec19">Ad-hoc SSNR</a>
 definition for background.</p>
 <p class="rubric">Attributes</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.utils.datatypes.ssnr.S">
 <span class="sig-name descname"><span class="pre">S</span></span><a class="headerlink" href="#susan.utils.datatypes.ssnr.S" title="Link to this definition">¶</a></dt>
-<dd><p>Strength parameter.  Typically set to 1.</p>
+<dd><p>Strength parameter: the SSNR at zero frequency is <span class="math notranslate nohighlight">\(10^{3S}\)</span>.
+Typically set to 1.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -368,8 +374,10 @@ definition for background.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.utils.datatypes.ssnr.F">
 <span class="sig-name descname"><span class="pre">F</span></span><a class="headerlink" href="#susan.utils.datatypes.ssnr.F" title="Link to this definition">¶</a></dt>
-<dd><p>Fall-off parameter, typically in the range 0 – 0.5.  Its value
-depends on the noise level of the data.</p>
+<dd><p>Fall-off parameter, typically in the range 0 – 0.5.  The SSNR loses
+one decade every <span class="math notranslate nohighlight">\(0.023/F\)</span> 1/Angstrom.  Its value depends on
+the noise level of the data.  With <code class="docutils literal notranslate"><span class="pre">S</span> <span class="pre">=</span> <span class="pre">1</span></code>, the Wiener filter
+reaches half power at roughly <span class="math notranslate nohighlight">\(16 \cdot F\)</span> Angstrom.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
