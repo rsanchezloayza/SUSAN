@@ -23,6 +23,8 @@ __all__ = ['dose_from_fsc',
            'fsc_analyse',
            'bandpass',
            'apply_FOM',
+           'fsc_sharpen',
+           'fsc_sharpen_filter',
            'euDYN_rotm',
            'euZYZ_rotm',
            'rotm_euZYZ',
@@ -161,6 +163,117 @@ def apply_FOM(v,fsc_array):
     """
     wgt = np.sqrt(fsc_array.clip(0,1))
     return _apply_fourier_rad_wgt(v,wgt)
+
+
+def fsc_sharpen(v, fsc, apix, bfactor, fom='rosenthal',
+                lowpass=True, thres=0.143, rolloff=2):
+    """FSC-weighted B-factor sharpening of a map from its half-map FSC.
+
+    Builds a single radial Fourier weight combining up to three per-shell
+    terms and applies it to *v*:
+
+    1. **B-factor amplification** ``exp(-bfactor * s^2 / 4)`` where
+       ``s = k / (N * apix)`` is the spatial frequency (1/Angstrom) of shell
+       ``k``.  A **negative** *bfactor* sharpens (boosts high frequencies); a
+       positive one blurs.
+    2. **FOM weighting** derived from the FSC, which tapers the amplification
+       to zero where the half-maps stop correlating, so noise beyond the
+       resolution limit is not amplified.  ``'rosenthal'`` uses the full-map
+       figure of merit :math:`\\sqrt{2\\,FSC/(1+FSC)}` (appropriate for the
+       combined map; Rosenthal & Henderson, 2003); ``'sqrt'`` uses
+       :math:`\\sqrt{FSC}` (matches :func:`apply_FOM`); ``None`` disables it.
+    3. **Cosine low-pass** at the FSC resolution (:func:`fsc_analyse` with
+       *thres*), a safety cut so shells past the resolution are not boosted.
+
+    This is the principled alternative to a blind (FSC-agnostic) B-factor:
+    the amplification is gated by where there is real, reproducible signal.
+
+    Parameters
+    ----------
+    v : ndarray, shape (Z, Y, X)
+        Map to sharpen (typically the combined reconstruction).
+    fsc : array_like, shape (N//2+1,)
+        Half-map FSC curve, as returned by :func:`fsc_get`.
+    apix : float
+        Pixel size in Angstroms.
+    bfactor : float
+        B-factor in Angstrom^2.  Negative sharpens, positive blurs.
+    fom : {'rosenthal', 'sqrt', None}, optional
+        FSC figure-of-merit weighting.  Default ``'rosenthal'``.
+    lowpass : bool, optional
+        Apply a cosine low-pass at the FSC resolution.  Default ``True``.
+    thres : float, optional
+        FSC threshold used to locate the low-pass edge.  Default ``0.143``.
+    rolloff : int, optional
+        Cosine rolloff width (Fourier pixels) of the low-pass.  Default ``2``.
+
+    Returns
+    -------
+    ndarray, float32
+        Sharpened volume, same shape as *v*.
+
+    See Also
+    --------
+    apply_FOM : FSC figure-of-merit weighting only (no B-factor).
+    fsc_sharpen_filter : wrap this as a ``map_filter_fsc`` callable for
+        :class:`~susan.project.SubtomoAvg.SubtomoAvg`.
+    """
+    apix = float(np.asarray(apix).flatten()[0])
+    fsc  = np.asarray(fsc, dtype=np.float64)
+    N    = v.shape[-1]
+    k    = np.arange(N // 2 + 1)
+    if fsc.size != k.size:
+        raise ValueError('fsc length (%d) does not match box size (expected %d)'
+                         % (fsc.size, k.size))
+
+    s   = k / (N * apix)                       # spatial frequency [1/A]
+    wgt = np.exp(-bfactor * s * s / 4.0)       # bfactor < 0 -> amplify
+
+    if fom is not None:
+        f = fsc.clip(0, 1)
+        if fom == 'rosenthal':
+            c = np.sqrt(np.clip(2 * f / (1 + f), 0, 1))
+        elif fom == 'sqrt':
+            c = np.sqrt(f)
+        else:
+            raise ValueError("fom must be 'rosenthal', 'sqrt', or None")
+        wgt = wgt * c
+
+    if lowpass:
+        fpix = fsc_analyse(fsc, apix, thres).fpix
+        wgt  = wgt * _gen_bandpass_wgt(N, fpix, 0, rolloff)
+
+    return _apply_fourier_rad_wgt(v, wgt.astype(np.float32))
+
+
+def fsc_sharpen_filter(apix, bfactor, **kwargs):
+    """Build a ``map_filter_fsc`` callable that applies :func:`fsc_sharpen`.
+
+    The returned function has signature ``filter(vol, fsc) -> vol``, matching
+    :attr:`SubtomoAvg.map_filter_fsc <susan.project.SubtomoAvg.SubtomoAvg>`, so
+    it plugs directly into the post-processing hook — the project passes the
+    per-reference FSC in automatically each iteration.
+
+    Parameters
+    ----------
+    apix : float
+        Pixel size in Angstroms (e.g. ``sta.pix_size``).
+    bfactor : float
+        B-factor in Angstrom^2 (negative sharpens).
+    **kwargs
+        Forwarded to :func:`fsc_sharpen` (``fom``, ``lowpass``, ``thres``,
+        ``rolloff``).
+
+    Returns
+    -------
+    callable
+        ``lambda vol, fsc: fsc_sharpen(vol, fsc, apix, bfactor, **kwargs)``.
+
+    Examples
+    --------
+    >>> sta.map_filter_fsc = fsc_sharpen_filter(sta.pix_size, bfactor=-120)
+    """
+    return lambda vol, fsc: fsc_sharpen(vol, fsc, apix, bfactor, **kwargs)
 
 ###########################################
 
@@ -329,7 +442,7 @@ def time_now():
 
 ###########################################
 
-def create_sphere(r,N):
+def create_sphere(r,N,center=None):
     """Create a soft spherical mask of radius ``r`` in a cube of side ``N``.
 
     The mask value at each voxel is ``clip(r - radius, 0, 1)``, giving a
@@ -341,6 +454,11 @@ def create_sphere(r,N):
         Sphere radius in pixels.
     N : int
         Side length of the output cube.
+    center : array-like of 3 floats, optional
+        Voxel coordinates ``(z, y, x)`` of the sphere centre.  ``None``
+        (default) places it at the geometric centre ``(N//2, N//2, N//2)``,
+        reproducing the original behaviour.  Use this to place a mask at an
+        arbitrary location (e.g. a tile centre in local processing).
 
     Returns
     -------
@@ -348,9 +466,13 @@ def create_sphere(r,N):
         Soft spherical mask; 1 inside, 0 outside, linear transition at edge.
     """
     M = N//2
-    t = np.arange(-M,M)
-    x,y,z = np.meshgrid(t,t,t)
-    rad = np.sqrt( x**2 + y**2 + z**2 )
+    if center is None:
+        center = (M, M, M)
+    a0 = np.arange(N) - center[0]
+    a1 = np.arange(N) - center[1]
+    a2 = np.arange(N) - center[2]
+    x0, x1, x2 = np.meshgrid(a0, a1, a2, indexing='ij')
+    rad = np.sqrt( x0**2 + x1**2 + x2**2 )
     return np.float32((r-rad).clip(0,1))
 
 ###########################################

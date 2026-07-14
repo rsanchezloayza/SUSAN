@@ -43,9 +43,14 @@ class ssnr:
     The spectral signal-to-noise ratio is modelled as:
 
     .. math::
-        SSNR(f) = 10^{3S} \\cdot e^{-100 F f}
+        SSNR(s) = 10^{3S} \\cdot e^{-100 F s}
 
-    where *f* is the spatial frequency in Fourier pixels.  See the
+    where *s* is the spatial frequency in 1/Angstrom (:math:`s = r/(N \\cdot
+    apix)`, with *r* the Fourier-pixel radius and *N* the box size).  This is
+    the SSNR of a single projection, not of the reconstructed map: the term
+    :math:`1/SSNR(s)` is added to the Wiener denominator once per projection,
+    so the resulting filter does not depend on how many particles or tilts
+    contribute.  See the
     `Ad-hoc SSNR <https://www.nature.com/articles/s41592-019-0580-y#Sec19>`_
     definition for background.
 
@@ -54,12 +59,15 @@ class ssnr:
     Attributes
     ----------
     S : float
-        Strength parameter.  Typically set to 1.
+        Strength parameter: the SSNR at zero frequency is :math:`10^{3S}`.
+        Typically set to 1.
     F : float
-        Fall-off parameter, typically in the range 0 – 0.5.  Its value
-        depends on the noise level of the data.
+        Fall-off parameter, typically in the range 0 – 0.5.  The SSNR loses
+        one decade every :math:`0.023/F` 1/Angstrom.  Its value depends on
+        the noise level of the data.  With ``S = 1``, the Wiener filter
+        reaches half power at roughly :math:`16 \\cdot F` Angstrom.
     """
-    # SSNR(f) = (10^(3*S)) * exp( -f * 100*F )
+    # SSNR(s) = (10^(3*S)) * exp( -s * 100*F ),  s in 1/Angstrom
     S: float
     F: float
 

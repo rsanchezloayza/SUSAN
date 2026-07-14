@@ -269,7 +269,12 @@ protected:
 
             /// Setup data for upload to GPU
             float def_sign = (p_info->is_overfocus) ? -1.0f : 1.0f;
-            p_factor[k].x = sqrt(base_defocus[k]/(base_defocus[k]-def_sign*pt_stack(2)));
+            /// Depth-to-defocus offset honors the tomogram handedness so the
+            /// estimator's per-box defocus model agrees with update_defocus
+            /// (dU = dU_in + handedness*def_sign*dZ) and with the reconstruction
+            /// geometry.  handedness=-1 (the default) reproduces the legacy
+            /// behavior: denominator = base_defocus - def_sign*dZ.
+            p_factor[k].x = sqrt(base_defocus[k]/(base_defocus[k]+p_tomo->handedness*def_sign*pt_stack(2)));
             p_factor[k].y = 1;
 
             /// Crop
