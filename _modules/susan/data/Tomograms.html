@@ -445,12 +445,19 @@
 <span class="sd">    .. attribute:: def_Bfct</span>
 <span class="sd">       :type: ndarray, float32, shape (N, P)</span>
 
-<span class="sd">       B-factor for the exposure filter.</span>
+<span class="sd">       Per-projection B-factor in Å², applied as :math:`e^{-s^2 B/4}`.  Part of</span>
+<span class="sd">       the CTF model, and therefore *compensated*: the Wiener inversion</span>
+<span class="sd">       deconvolves it.  Seeds :attr:`susan.data.Particles.def_Bfct`.</span>
 
 <span class="sd">    .. attribute:: def_ExFl</span>
 <span class="sd">       :type: ndarray, float32, shape (N, P)</span>
 
-<span class="sd">       Exposure filter value (dose-weighting).</span>
+<span class="sd">       Per-projection exposure filter (dose) in Å², applied as</span>
+<span class="sd">       :math:`e^{-s^2 D/4}`.  Despite sharing its form with :attr:`def_Bfct`,</span>
+<span class="sd">       it is *uncompensated*: it enters the Wiener numerator only, so it</span>
+<span class="sd">       persists in the reconstructed map.  Seeds</span>
+<span class="sd">       :attr:`susan.data.Particles.def_ExFl`, which the aligner then overwrites</span>
+<span class="sd">       on every run.  See :doc:`/cryoet`.</span>
 
 <span class="sd">    .. attribute:: def_mres</span>
 <span class="sd">       :type: ndarray, float32, shape (N, P)</span>

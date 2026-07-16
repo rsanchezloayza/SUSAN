@@ -432,13 +432,20 @@ followed by one data row per projection).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Tomograms.def_Bfct">
 <span class="sig-name descname"><span class="pre">def_Bfct</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">P</span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.def_Bfct" title="Link to this definition">¶</a></dt>
-<dd><p>B-factor for the exposure filter.</p>
+<dd><p>Per-projection B-factor in Å², applied as <span class="math notranslate nohighlight">\(e^{-s^2 B/4}\)</span>.  Part of
+the CTF model, and therefore <em>compensated</em>: the Wiener inversion
+deconvolves it.  Seeds <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.def_Bfct" title="susan.data.Particles.def_Bfct"><code class="xref py py-attr docutils literal notranslate"><span class="pre">susan.data.Particles.def_Bfct</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Tomograms.def_ExFl">
 <span class="sig-name descname"><span class="pre">def_ExFl</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">P</span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.def_ExFl" title="Link to this definition">¶</a></dt>
-<dd><p>Exposure filter value (dose-weighting).</p>
+<dd><p>Per-projection exposure filter (dose) in Å², applied as
+<span class="math notranslate nohighlight">\(e^{-s^2 D/4}\)</span>.  Despite sharing its form with <a class="reference internal" href="#susan.data.Tomograms.def_Bfct" title="susan.data.Tomograms.def_Bfct"><code class="xref py py-attr docutils literal notranslate"><span class="pre">def_Bfct</span></code></a>,
+it is <em>uncompensated</em>: it enters the Wiener numerator only, so it
+persists in the reconstructed map.  Seeds
+<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.def_ExFl" title="susan.data.Particles.def_ExFl"><code class="xref py py-attr docutils literal notranslate"><span class="pre">susan.data.Particles.def_ExFl</span></code></a>, which the aligner then overwrites
+on every run.  See <a class="reference internal" href="../cryoet.html"><span class="doc">CryoET Background</span></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -656,5 +663,6 @@ stored maximum-resolution limit is ignored during processing.</p></li>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     </body>
 </html>

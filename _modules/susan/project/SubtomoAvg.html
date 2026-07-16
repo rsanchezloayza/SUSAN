@@ -405,6 +405,47 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">initial_particles</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Resolution conversions</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">A2fpix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">angstroms</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert a resolution in angstroms to Fourier pixels.</span>
+
+<span class="sd">        Uses :attr:`box_size` and :attr:`pix_size`.  A Fourier pixel *k*</span>
+<span class="sd">        corresponds to a resolution of ``box_size * pix_size / k`` angstroms,</span>
+<span class="sd">        so ``fpix = box_size * pix_size / angstroms``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        angstroms : float</span>
+<span class="sd">            Resolution in angstroms.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        float</span>
+<span class="sd">            The corresponding radius in Fourier pixels.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">pix_size</span> <span class="o">/</span> <span class="n">angstroms</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fpix2A</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fpix</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert a radius in Fourier pixels to a resolution in angstroms.</span>
+
+<span class="sd">        Uses :attr:`box_size` and :attr:`pix_size`.  Inverse of</span>
+<span class="sd">        :meth:`A2fpix`: ``angstroms = box_size * pix_size / fpix``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        fpix : float</span>
+<span class="sd">            Radius in Fourier pixels.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        float</span>
+<span class="sd">            The corresponding resolution in angstroms.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">pix_size</span> <span class="o">/</span> <span class="n">fpix</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Path helpers</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 

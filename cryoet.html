@@ -588,6 +588,89 @@ CTF-deconvolved reference.</p></li>
 </ul>
 </section>
 </section>
+<section id="spectral-weighting-in-the-reconstruction">
+<h2>Spectral weighting in the reconstruction<a class="headerlink" href="#spectral-weighting-in-the-reconstruction" title="Link to this heading">¶</a></h2>
+<p>The Wiener inversion of the previous section accumulates two Fourier volumes
+over every contributing projection <span class="math notranslate nohighlight">\(j\)</span> and divides them:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[V(\mathbf{k}) \;=\;
+\frac{\sum_j\, w_j(s)\, C_j(s)\, X_j(\mathbf{k})}
+     {\sum_j\, \bigl[\, C_j(s)^2 \;+\; 1/\mathrm{SSNR}(s) \,\bigr]},
+\qquad s = |\mathbf{k}| / (N \cdot \mathrm{apix}),\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(s\)</span> is the spatial frequency in 1/Å. Three separate envelopes
+enter this expression, and <strong>they are not interchangeable</strong>: what
+distinguishes them is not their shape, which is identical, but whether they
+appear in the denominator.</p>
+<p><strong>CTF and B-factor</strong> (<code class="docutils literal notranslate"><span class="pre">def_Bfct</span></code>) form the transfer term
+<span class="math notranslate nohighlight">\(C_j(s) = \mathrm{CTF}_j(s)\cdot e^{-s^2 B_j/4}\)</span>. Because <span class="math notranslate nohighlight">\(C_j\)</span>
+appears once in the numerator and <em>squared</em> in the denominator, the B-factor
+is <strong>compensated</strong>: the division removes it, and the reconstruction attempts
+to deconvolve it. It describes an envelope that the reconstruction should
+<em>undo</em>.</p>
+<p><strong>Exposure filter</strong> (<code class="docutils literal notranslate"><span class="pre">def_ExFl</span></code>) forms the weight
+<span class="math notranslate nohighlight">\(w_j(s) = \mathrm{BP}(s)\cdot e^{-s^2 D_j/4}\)</span>, together with the
+bandpass. It appears in the numerator <strong>only</strong>. It is therefore
+<strong>uncompensated</strong>: it survives into the final map and permanently attenuates
+projection <span class="math notranslate nohighlight">\(j\)</span>, and, because the denominator still receives that
+projection’s full <span class="math notranslate nohighlight">\(C_j^2\)</span>, a heavily filtered projection also dilutes
+the contribution of the others in that shell. It describes an envelope that
+the reconstruction should <em>keep</em>.</p>
+<p>Both are stored in Å² and use the same functional form, <span class="math notranslate nohighlight">\(e^{-s^2 X/4}\)</span>.
+The choice of field is therefore a choice of semantics:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 20.0%" />
+<col style="width: 58.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Behaviour</p></th>
+<th class="head"><p>Use it for</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">def_Bfct</span></code></p></td>
+<td><p>Compensated</p></td>
+<td><p>An envelope you want deconvolved. Part of the CTF model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">def_ExFl</span></code></p></td>
+<td><p>Uncompensated</p></td>
+<td><p>An envelope you want to persist in the map, e.g. dose weighting.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Ad-hoc SSNR</strong> (<a class="reference internal" href="api/susan.utils.datatypes.html#susan.utils.datatypes.ssnr" title="susan.utils.datatypes.ssnr"><code class="xref py py-class docutils literal notranslate"><span class="pre">susan.utils.datatypes.ssnr</span></code></a>) contributes the
+regulariser <span class="math notranslate nohighlight">\(1/\mathrm{SSNR}(s)\)</span>, with
+<span class="math notranslate nohighlight">\(\mathrm{SSNR}(s) = 10^{3S} e^{-100 F s}\)</span>. Note that it is added <em>once
+per projection</em>, so for a voxel reached by <span class="math notranslate nohighlight">\(n\)</span> projections the
+denominator is <span class="math notranslate nohighlight">\(n\bigl(\langle C^2\rangle + 1/\mathrm{SSNR}\bigr)\)</span> and
+<span class="math notranslate nohighlight">\(n\)</span> cancels. Two consequences follow:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(S\)</span> and <span class="math notranslate nohighlight">\(F\)</span> parameterise the SSNR of a <strong>single projection</strong>,
+not of the reconstructed map. They must not be read off a half-map FSC
+directly: the map SSNR exceeds the per-projection SSNR by the Fourier-space
+redundancy <span class="math notranslate nohighlight">\(n(s)\)</span>.</p></li>
+<li><p>The resulting filter is <strong>invariant to the number of particles and tilts</strong>.
+Adding particles does not change the shape of the roll-off.</p></li>
+</ul>
+<p>The effective radial filter applied to the map is
+<span class="math notranslate nohighlight">\(H(s) = \langle C^2\rangle / \bigl(\langle C^2\rangle + 1/\mathrm{SSNR}(s)\bigr)\)</span>,
+which reaches half power near <span class="math notranslate nohighlight">\(100 F / (6.91 S - 0.69)\)</span> Å. With the
+usual <span class="math notranslate nohighlight">\(S = 1\)</span>, this is approximately <span class="math notranslate nohighlight">\(16 F\)</span> Å, so <span class="math notranslate nohighlight">\(F\)</span>
+behaves as a resolution knob: <span class="math notranslate nohighlight">\(F \approx d/16\)</span> keeps the Wiener
+inversion transparent out to <span class="math notranslate nohighlight">\(d\)</span> Å.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The exposure filter is applied only by the <code class="docutils literal notranslate"><span class="pre">'wiener'</span></code>, <code class="docutils literal notranslate"><span class="pre">'pre_wiener'</span></code>
+and <code class="docutils literal notranslate"><span class="pre">'wiener_ssnr'</span></code> reconstruction policies. <code class="docutils literal notranslate"><span class="pre">'none'</span></code> and
+<code class="docutils literal notranslate"><span class="pre">'phase_flip'</span></code> ignore <code class="docutils literal notranslate"><span class="pre">def_ExFl</span></code> entirely.</p>
+</div>
+</section>
 </section>
 
         </article>
@@ -660,6 +743,7 @@ CTF-deconvolved reference.</p></li>
 <li><a class="reference internal" href="#susan-optimization-objective">SUSAN optimization objective</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#spectral-weighting-in-the-reconstruction">Spectral weighting in the reconstruction</a></li>
 </ul>
 </li>
 </ul>

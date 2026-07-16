@@ -732,9 +732,18 @@ Default: <code class="docutils literal notranslate"><span class="pre">0</span></
 <dt class="sig sig-object py" id="susan.modules.Aligner.expfilt_gain">
 <span class="sig-name descname"><span class="pre">expfilt_gain</span></span><a class="headerlink" href="#susan.modules.Aligner.expfilt_gain" title="Link to this definition">¶</a></dt>
 <dd><p>Multiplicative gain applied to the dose estimated by the CC tracker
-before it is stored as the per-projection exposure-filter B-factor
-(<code class="docutils literal notranslate"><span class="pre">def.ExpFilt</span></code>).  Useful for calibrating the auto-estimated
-dose-weighting against an external reference.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+(from the width of the cross-correlation peak) before it is written to
+the per-projection exposure filter
+(<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.def_ExFl" title="susan.data.Particles.def_ExFl"><code class="xref py py-attr docutils literal notranslate"><span class="pre">def_ExFl</span></code></a>).  Useful for calibrating the
+auto-estimated dose-weighting against an external reference; see
+<code class="xref py py-func docutils literal notranslate"><span class="pre">susan.utils.dose_from_fsc()</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+<p>Note that the aligner writes <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">*</span> <span class="pre">dose</span></code> on <strong>every</strong> run,
+so <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">=</span> <span class="pre">0</span></code> zeroes the field rather than preserving it, and
+a hand-set exposure filter cannot survive an alignment.  The exposure
+filter is <em>uncompensated</em> in the reconstruction (it enters the Wiener
+numerator only), so whatever gain is used here is baked permanently into
+the resulting map.  For an envelope the reconstruction will deconvolve,
+use <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.def_Bfct" title="susan.data.Particles.def_Bfct"><code class="xref py py-attr docutils literal notranslate"><span class="pre">def_Bfct</span></code></a> instead.  See <a class="reference internal" href="../cryoet.html"><span class="doc">CryoET Background</span></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
