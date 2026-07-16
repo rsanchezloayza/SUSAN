@@ -312,3 +312,82 @@ solved by alternating among three sub-problems:
   are accumulated into 3D Fourier-space numerator and denominator volumes,
   weighted by the per-projection CTF, and divided to yield the
   CTF-deconvolved reference.
+
+
+Spectral weighting in the reconstruction
+----------------------------------------
+
+The Wiener inversion of the previous section accumulates two Fourier volumes
+over every contributing projection :math:`j` and divides them:
+
+.. math::
+
+   V(\mathbf{k}) \;=\;
+   \frac{\sum_j\, w_j(s)\, C_j(s)\, X_j(\mathbf{k})}
+        {\sum_j\, \bigl[\, C_j(s)^2 \;+\; 1/\mathrm{SSNR}(s) \,\bigr]},
+   \qquad s = |\mathbf{k}| / (N \cdot \mathrm{apix}),
+
+where :math:`s` is the spatial frequency in 1/Å. Three separate envelopes
+enter this expression, and **they are not interchangeable**: what
+distinguishes them is not their shape, which is identical, but whether they
+appear in the denominator.
+
+**CTF and B-factor** (``def_Bfct``) form the transfer term
+:math:`C_j(s) = \mathrm{CTF}_j(s)\cdot e^{-s^2 B_j/4}`. Because :math:`C_j`
+appears once in the numerator and *squared* in the denominator, the B-factor
+is **compensated**: the division removes it, and the reconstruction attempts
+to deconvolve it. It describes an envelope that the reconstruction should
+*undo*.
+
+**Exposure filter** (``def_ExFl``) forms the weight
+:math:`w_j(s) = \mathrm{BP}(s)\cdot e^{-s^2 D_j/4}`, together with the
+bandpass. It appears in the numerator **only**. It is therefore
+**uncompensated**: it survives into the final map and permanently attenuates
+projection :math:`j`, and, because the denominator still receives that
+projection's full :math:`C_j^2`, a heavily filtered projection also dilutes
+the contribution of the others in that shell. It describes an envelope that
+the reconstruction should *keep*.
+
+Both are stored in Å² and use the same functional form, :math:`e^{-s^2 X/4}`.
+The choice of field is therefore a choice of semantics:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 20 58
+
+   * - Field
+     - Behaviour
+     - Use it for
+   * - ``def_Bfct``
+     - Compensated
+     - An envelope you want deconvolved. Part of the CTF model.
+   * - ``def_ExFl``
+     - Uncompensated
+     - An envelope you want to persist in the map, e.g. dose weighting.
+
+**Ad-hoc SSNR** (:class:`susan.utils.datatypes.ssnr`) contributes the
+regulariser :math:`1/\mathrm{SSNR}(s)`, with
+:math:`\mathrm{SSNR}(s) = 10^{3S} e^{-100 F s}`. Note that it is added *once
+per projection*, so for a voxel reached by :math:`n` projections the
+denominator is :math:`n\bigl(\langle C^2\rangle + 1/\mathrm{SSNR}\bigr)` and
+:math:`n` cancels. Two consequences follow:
+
+* :math:`S` and :math:`F` parameterise the SSNR of a **single projection**,
+  not of the reconstructed map. They must not be read off a half-map FSC
+  directly: the map SSNR exceeds the per-projection SSNR by the Fourier-space
+  redundancy :math:`n(s)`.
+* The resulting filter is **invariant to the number of particles and tilts**.
+  Adding particles does not change the shape of the roll-off.
+
+The effective radial filter applied to the map is
+:math:`H(s) = \langle C^2\rangle / \bigl(\langle C^2\rangle + 1/\mathrm{SSNR}(s)\bigr)`,
+which reaches half power near :math:`100 F / (6.91 S - 0.69)` Å. With the
+usual :math:`S = 1`, this is approximately :math:`16 F` Å, so :math:`F`
+behaves as a resolution knob: :math:`F \approx d/16` keeps the Wiener
+inversion transparent out to :math:`d` Å.
+
+.. note::
+
+   The exposure filter is applied only by the ``'wiener'``, ``'pre_wiener'``
+   and ``'wiener_ssnr'`` reconstruction policies. ``'none'`` and
+   ``'phase_flip'`` ignore ``def_ExFl`` entirely.

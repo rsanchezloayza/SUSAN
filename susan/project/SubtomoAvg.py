@@ -101,6 +101,47 @@ class SubtomoAvgBase:
             self.initial_particles = ''
 
     # ------------------------------------------------------------------
+    # Resolution conversions
+    # ------------------------------------------------------------------
+
+    def A2fpix(self, angstroms):
+        """Convert a resolution in angstroms to Fourier pixels.
+
+        Uses :attr:`box_size` and :attr:`pix_size`.  A Fourier pixel *k*
+        corresponds to a resolution of ``box_size * pix_size / k`` angstroms,
+        so ``fpix = box_size * pix_size / angstroms``.
+
+        Parameters
+        ----------
+        angstroms : float
+            Resolution in angstroms.
+
+        Returns
+        -------
+        float
+            The corresponding radius in Fourier pixels.
+        """
+        return self.box_size * self.pix_size / angstroms
+
+    def fpix2A(self, fpix):
+        """Convert a radius in Fourier pixels to a resolution in angstroms.
+
+        Uses :attr:`box_size` and :attr:`pix_size`.  Inverse of
+        :meth:`A2fpix`: ``angstroms = box_size * pix_size / fpix``.
+
+        Parameters
+        ----------
+        fpix : float
+            Radius in Fourier pixels.
+
+        Returns
+        -------
+        float
+            The corresponding resolution in angstroms.
+        """
+        return self.box_size * self.pix_size / fpix
+
+    # ------------------------------------------------------------------
     # Path helpers
     # ------------------------------------------------------------------
 

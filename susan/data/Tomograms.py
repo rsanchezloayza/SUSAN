@@ -141,12 +141,19 @@ class Tomograms:
     .. attribute:: def_Bfct
        :type: ndarray, float32, shape (N, P)
 
-       B-factor for the exposure filter.
+       Per-projection B-factor in Å², applied as :math:`e^{-s^2 B/4}`.  Part of
+       the CTF model, and therefore *compensated*: the Wiener inversion
+       deconvolves it.  Seeds :attr:`susan.data.Particles.def_Bfct`.
 
     .. attribute:: def_ExFl
        :type: ndarray, float32, shape (N, P)
 
-       Exposure filter value (dose-weighting).
+       Per-projection exposure filter (dose) in Å², applied as
+       :math:`e^{-s^2 D/4}`.  Despite sharing its form with :attr:`def_Bfct`,
+       it is *uncompensated*: it enters the Wiener numerator only, so it
+       persists in the reconstructed map.  Seeds
+       :attr:`susan.data.Particles.def_ExFl`, which the aligner then overwrites
+       on every run.  See :doc:`/cryoet`.
 
     .. attribute:: def_mres
        :type: ndarray, float32, shape (N, P)

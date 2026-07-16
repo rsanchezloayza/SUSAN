@@ -194,9 +194,19 @@ class Aligner:
         Default: ``0``.
     expfilt_gain : float
         Multiplicative gain applied to the dose estimated by the CC tracker
-        before it is stored as the per-projection exposure-filter B-factor
-        (``def.ExpFilt``).  Useful for calibrating the auto-estimated
-        dose-weighting against an external reference.  Default: ``1``.
+        (from the width of the cross-correlation peak) before it is written to
+        the per-projection exposure filter
+        (:attr:`~susan.data.Particles.def_ExFl`).  Useful for calibrating the
+        auto-estimated dose-weighting against an external reference; see
+        :func:`susan.utils.dose_from_fsc`.  Default: ``1``.
+
+        Note that the aligner writes ``expfilt_gain * dose`` on **every** run,
+        so ``expfilt_gain = 0`` zeroes the field rather than preserving it, and
+        a hand-set exposure filter cannot survive an alignment.  The exposure
+        filter is *uncompensated* in the reconstruction (it enters the Wiener
+        numerator only), so whatever gain is used here is baked permanently into
+        the resulting map.  For an envelope the reconstruction will deconvolve,
+        use :attr:`~susan.data.Particles.def_Bfct` instead.  See :doc:`/cryoet`.
     """
 
     def __init__(self):

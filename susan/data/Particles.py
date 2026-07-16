@@ -144,12 +144,47 @@ class Particles:
     .. attribute:: def_Bfct
        :type: ndarray, float32, shape (M, P)
 
-       B-factor for exposure filtering.
+       Per-projection B-factor in Å², applied as :math:`e^{-s^2 B/4}`.
+
+       It is part of the **CTF model**: the reconstruction multiplies it into
+       the CTF, so it enters the Wiener numerator once and the denominator
+       squared, and the division deconvolves it.  Use this field for an
+       envelope that the reconstruction should *undo*.  It is never estimated
+       automatically (``estimate_ctf`` only resets it to 0), so it is free for
+       the user to set.
+
+       See :doc:`/cryoet` for how it enters the reconstruction, and contrast
+       with :attr:`def_ExFl`, which has the same form but the opposite effect.
 
     .. attribute:: def_ExFl
        :type: ndarray, float32, shape (M, P)
 
-       Exposure filter value.
+       Per-projection exposure filter (dose) in Å², applied as
+       :math:`e^{-s^2 D/4}`.
+
+       Unlike :attr:`def_Bfct`, it enters the Wiener numerator **only**, so it
+       is *not* compensated: it survives into the reconstructed map and
+       permanently attenuates that projection.  Use this field for an envelope
+       that the reconstruction should *keep*, such as dose weighting.
+
+       .. warning::
+
+          This field is an **output of the aligner**, not a user input.  Every
+          alignment overwrites it with ``expfilt_gain * dose``, where the dose
+          is estimated from the width of the cross-correlation peak.  Setting
+          ``expfilt_gain = 0`` writes zeros rather than preserving the field, so
+          a hand-set value cannot survive an alignment; it is only meaningful
+          between an alignment and a reconstruction.  For a user-owned envelope,
+          use :attr:`def_Bfct` instead.
+
+          A value of ``9999`` is the sentinel written when the CC peak width
+          cannot be measured.  It zeroes the projection's contribution to the
+          numerator while that projection still carries its full weight in the
+          denominator.
+
+       Only the ``'wiener'``, ``'pre_wiener'`` and ``'wiener_ssnr'``
+       reconstruction policies apply it; ``'none'`` and ``'phase_flip'`` ignore
+       it.
 
     .. attribute:: def_mres
        :type: ndarray, float32, shape (M, P)

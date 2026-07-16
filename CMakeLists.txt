@@ -78,6 +78,21 @@ endif()
 string(APPEND CMAKE_CUDA_FLAGS " --expt-relaxed-constexpr")
 string(APPEND CMAKE_CUDA_FLAGS " -Xcudafe --display_error_number")
 
+# EXPERIMENTAL. Treat the exposure filter (def.ExpFilt) as a weight instead of a
+# filter: it is squared into the Wiener denominator, so the reconstruction stops
+# re-applying an attenuation the dose already caused. Maps come out sharper and
+# noisier, and the high-frequency roll-off must then be set explicitly through
+# the ad-hoc SSNR (ssnr.F). Off by default, which keeps the numerator-only
+# (filtering) behaviour. Requires an SSNR-regularised policy: with plain
+# 'wiener' the denominator can approach zero at high frequency.
+option(SUSAN_EXPFILT_WEIGHT "Square the exposure filter into the Wiener denominator" OFF)
+if(SUSAN_EXPFILT_WEIGHT)
+	string(APPEND CMAKE_CUDA_FLAGS " -DSUSAN_EXPFILT_WEIGHT")
+	message(STATUS "ExpFilt: WEIGHT (squared into the Wiener denominator) [experimental]")
+else()
+	message(STATUS "ExpFilt: FILTER (numerator only) [default]")
+endif()
+
 ########################################################################
 ########################################################################
 
@@ -153,23 +168,48 @@ find_program(CYTHON_EXECUTABLE NAMES cython cython3 REQUIRED)
 # find_package(... NumPy). This is what lets `pip install ..` and a manual
 # `cmake ../` coexist in this shared bin/ directory. find_package keys its
 # NumPy cache on the interpreter path, which is identical for both: pip builds
-# PEP 517-isolated (NumPy in a throwaway /tmp/pip-build-env-* overlay) while a
-# manual cmake uses the venv NumPy -- same python3 either way. CMake would
-# reuse whichever include dir was cached first; once the /tmp overlay is gone
-# the manual build fails with "numpy/arrayobject.h: No such file". Querying the
-# interpreter directly each configure always yields the path valid right now.
+# PEP 517-isolated while a manual cmake uses the venv NumPy -- same python3
+# either way -- so CMake would reuse whichever include dir was cached first.
+#
+# PYTHONPATH is unset for the query because that is the mechanism pip uses to
+# inject its build isolation overlay. Without this, a `pip install .` resolves
+# NumPy to a throwaway /tmp/pip-build-env-*/overlay path, bakes it into
+# bin/CMakeFiles/*/flags.make, and then pip deletes it. A plain `make` in bin/
+# afterwards never reconfigures, so it keeps using the dead path and fails with
+# "numpy/arrayobject.h: No such file". Querying with the overlay stripped yields
+# the interpreter's own persistent NumPy, which is valid for both build paths
+# and, being the same NumPy the package imports at runtime, is also the correct
+# one to compile the extensions against.
 execute_process(
-    COMMAND ${Python_EXECUTABLE} -c
+    COMMAND ${CMAKE_COMMAND} -E env --unset=PYTHONPATH ${Python_EXECUTABLE} -c
         "import numpy,sys; sys.stdout.write(numpy.get_include()+';'+numpy.__version__)"
     OUTPUT_VARIABLE Python_NumPy_INFO
     OUTPUT_STRIP_TRAILING_WHITESPACE
     RESULT_VARIABLE Python_NumPy_RC)
 if(NOT Python_NumPy_RC EQUAL 0)
-    message(FATAL_ERROR "NumPy not importable with ${Python_EXECUTABLE}; "
-        "install it in the active environment.")
+    # No persistent NumPy: fall back to whatever the current environment offers
+    # (an isolated build in a venv that genuinely lacks NumPy). This can still
+    # bake a temporary path into the build tree, so warn.
+    execute_process(
+        COMMAND ${Python_EXECUTABLE} -c
+            "import numpy,sys; sys.stdout.write(numpy.get_include()+';'+numpy.__version__)"
+        OUTPUT_VARIABLE Python_NumPy_INFO
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE Python_NumPy_RC)
+    if(NOT Python_NumPy_RC EQUAL 0)
+        message(FATAL_ERROR "NumPy not importable with ${Python_EXECUTABLE}; "
+            "install it in the active environment.")
+    endif()
+    message(WARNING "NumPy resolved only from a build-isolation overlay; "
+        "install NumPy into ${Python_EXECUTABLE} to keep bin/ reusable.")
 endif()
 list(GET Python_NumPy_INFO 0 Python_NumPy_INCLUDE_DIRS)
 list(GET Python_NumPy_INFO 1 Python_NumPy_VERSION)
+if(NOT EXISTS "${Python_NumPy_INCLUDE_DIRS}/numpy/arrayobject.h")
+    message(FATAL_ERROR "NumPy headers not found at ${Python_NumPy_INCLUDE_DIRS}. "
+        "If this is a stale path from an earlier build, re-run cmake in this "
+        "directory to refresh it.")
+endif()
 message(STATUS "NumPy: v${Python_NumPy_VERSION} (${Python_NumPy_INCLUDE_DIRS})")
 
 macro(add_cython_module MODULE PYX_FILE INSTALL_DIR)

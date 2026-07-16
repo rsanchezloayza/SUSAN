@@ -849,12 +849,23 @@ __global__ void ctf_stk_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_
             float g = calc_gamma(z,ctf_const.LambdaPi,ctf_const.CsLambda3PiH,s*s,def[ss_idx.z].ph_shft);
             ctf  = calc_ctf(g,ctf_const.AC,ctf_const.CA);
             ctf *= calc_bfactor(s,def[ss_idx.z].Bfactor);
-            w   *= calc_bfactor(s,def[ss_idx.z].ExpFilt);
+
+            /// EXPERIMENTAL (SUSAN_EXPFILT_WEIGHT): treat the exposure filter as a weight
+            /// rather than a filter. The dose already destroyed the signal, so w enters the
+            /// numerator once and the weight volume squared, which leaves the amplitudes
+            /// unbiased and lets dead projections drop out neutrally instead of diluting
+            /// the shell. The roll-off then belongs to the SSNR term alone.
+            /// Disable to restore the numerator-only (filtering) behaviour.
+            float w_exp = calc_bfactor(s,def[ss_idx.z].ExpFilt);
+            w   *= w_exp;
 
             val   = g_data[ get_3d_idx(ss_idx,ss_siz) ];
             val.x = w*ctf*val.x;
             val.y = w*ctf*val.y;
             ctf  *= ctf;
+#ifdef SUSAN_EXPFILT_WEIGHT
+            ctf  *= w_exp*w_exp;
+#endif
         }
 
         store_surface(s_stk,val,ss_idx);
@@ -889,12 +900,21 @@ __global__ void ctf_stk_pre_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_
             float g = calc_gamma(z,ctf_const.LambdaPi,ctf_const.CsLambda3PiH,s*s,def[ss_idx.z].ph_shft);
             ctf  = calc_ctf(g,ctf_const.AC,ctf_const.CA);
             ctf *= calc_bfactor(s,def[ss_idx.z].Bfactor);
-            w   *= calc_bfactor(s,def[ss_idx.z].ExpFilt);
+
+            /// See ctf_stk_wiener. Here the weight volume is a plain count of contributing
+            /// projections, so weighting it makes the count exposure-weighted (it reduces
+            /// to the count when ExpFilt is 0).
+            float w_exp = calc_bfactor(s,def[ss_idx.z].ExpFilt);
+            w   *= w_exp;
 
             val   = g_data[ get_3d_idx(ss_idx,ss_siz) ];
             val.x = w*ctf*val.x;
             val.y = w*ctf*val.y;
+#ifdef SUSAN_EXPFILT_WEIGHT
+            ctf   = w_exp*w_exp;
+#else
             ctf   = 1.0;
+#endif
         }
 
         store_surface(s_stk,val,ss_idx);
@@ -930,12 +950,20 @@ __global__ void ctf_stk_wiener_ssnr(cudaSurfaceObject_t s_stk,cudaSurfaceObject_
             float g = calc_gamma(z,ctf_const.LambdaPi,ctf_const.CsLambda3PiH,s*s,def[ss_idx.z].ph_shft);
             ctf  = calc_ctf(g,ctf_const.AC,ctf_const.CA);
             ctf *= calc_bfactor(s,def[ss_idx.z].Bfactor);
-            w   *= calc_bfactor(s,def[ss_idx.z].ExpFilt);
+
+            /// See ctf_stk_wiener. The SSNR regulariser stays unweighted, so a projection
+            /// whose signal is fully gone still contributes 1/SSNR and the filter decays to
+            /// zero smoothly instead of dividing by ~0.
+            float w_exp = calc_bfactor(s,def[ss_idx.z].ExpFilt);
+            w   *= w_exp;
 
             val   = g_data[ get_3d_idx(ss_idx,ss_siz) ];
             val.x = w*ctf*val.x;
             val.y = w*ctf*val.y;
             ctf  *= ctf;
+#ifdef SUSAN_EXPFILT_WEIGHT
+            ctf  *= w_exp*w_exp;
+#endif
             ctf += calc_ssnr(s,ssnr_F,ssnr_S);
         }
 
