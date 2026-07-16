@@ -101,19 +101,19 @@ directly into any active Python environment.
 
   .. code-block:: bash
 
-     pip install "git+https://github.com/rsanchezloayza/SUSAN[ml]"
+     pip install "SUSAN[ml] @ git+https://github.com/rsanchezloayza/SUSAN"
 
 * Analysis tools (scikit-image, scikit-learn, numba, bm4d):
 
   .. code-block:: bash
 
-     pip install "git+https://github.com/rsanchezloayza/SUSAN[analysis]"
+     pip install "SUSAN[analysis] @ git+https://github.com/rsanchezloayza/SUSAN"
 
 * Both:
 
   .. code-block:: bash
 
-     pip install "git+https://github.com/rsanchezloayza/SUSAN[full]"
+     pip install "SUSAN[full] @ git+https://github.com/rsanchezloayza/SUSAN"
 
 
 .. _install-conda-system:
