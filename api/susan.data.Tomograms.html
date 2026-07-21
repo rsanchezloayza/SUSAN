@@ -531,6 +531,9 @@ stores astigmatic defocus (def_U, def_V, def_ang).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">.txt</span></code> — SUSAN per-projection text format with eight columns:
 def_U, def_V, def_ang, def_phas, def_Bfct, def_ExFl, def_mres, def_scor.</p></li>
 </ul>
+<p>Projections the CTF estimator flagged as empty (blank frames, written
+out with <code class="docutils literal notranslate"><span class="pre">def_U</span> <span class="pre">==</span> <span class="pre">def_V</span> <span class="pre">==</span> <span class="pre">0</span></code>) have their projection weight zeroed
+so they are excluded from downstream alignment and reconstruction.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

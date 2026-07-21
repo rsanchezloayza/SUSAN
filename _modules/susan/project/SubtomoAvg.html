@@ -321,7 +321,8 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_warnings</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">KDTree</span> <span class="k">as</span> <span class="n">_KDTree</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w">      </span><span class="kn">import</span> <span class="n">KDTree</span> <span class="k">as</span> <span class="n">_KDTree</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">BSpline</span> <span class="k">as</span> <span class="n">_BSpline</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.data</span><span class="w">    </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_data</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w">   </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_utils</span>
@@ -342,6 +343,252 @@
 <span class="c1">###########################################################################</span>
 <span class="c1"># Internal helpers</span>
 <span class="c1">###########################################################################</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_bspline_basis_1d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">n_ctrl</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clamped uniform B-spline basis on [0, 1].</span>
+
+<span class="sd">    The degree adapts to the control-point count, so a thin axis (2 control</span>
+<span class="sd">    points, as used along Z) degrades to linear instead of failing.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    u : numpy.ndarray, shape (n,)</span>
+<span class="sd">        Sample coordinates, clipped to [0, 1].</span>
+<span class="sd">    n_ctrl : int</span>
+<span class="sd">        Number of control points (&gt;= 1).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray, shape (n, n_ctrl)</span>
+<span class="sd">        Basis values.  Rows sum to 1.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_ctrl</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">u</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">deg</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">n_ctrl</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">knots</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span>
+        <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">deg</span><span class="p">),</span>
+        <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">n_ctrl</span> <span class="o">-</span> <span class="n">deg</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="n">_np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">deg</span><span class="p">)])</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">u</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">n_ctrl</span><span class="p">))</span>
+    <span class="n">coef</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_ctrl</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_ctrl</span><span class="p">):</span>
+        <span class="n">coef</span><span class="p">[:]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">coef</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="n">B</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">_BSpline</span><span class="p">(</span><span class="n">knots</span><span class="p">,</span> <span class="n">coef</span><span class="p">,</span> <span class="n">deg</span><span class="p">,</span> <span class="n">extrapolate</span><span class="o">=</span><span class="kc">True</span><span class="p">)(</span><span class="n">u</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">B</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_bspline_basis_3d</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">bbox</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tensor-product 3-D B-spline basis evaluated at *pts*.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pts : numpy.ndarray, shape (n, 3)</span>
+<span class="sd">        Particle positions (Angstroms).</span>
+<span class="sd">    grid : sequence of 3 int</span>
+<span class="sd">        Control points per axis.</span>
+<span class="sd">    bbox : tuple of numpy.ndarray</span>
+<span class="sd">        ``(lo, hi)`` bounding box used to map *pts* into [0, 1] per axis.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray, shape (n, nx*ny*nz)</span>
+<span class="sd">        Basis matrix, C-ordered over ``(ix, iy, iz)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">bbox</span>
+    <span class="n">span</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="p">(</span><span class="n">pts</span> <span class="o">-</span> <span class="n">lo</span><span class="p">)</span> <span class="o">/</span> <span class="n">span</span>
+    <span class="n">Bx</span> <span class="o">=</span> <span class="n">_bspline_basis_1d</span><span class="p">(</span><span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">By</span> <span class="o">=</span> <span class="n">_bspline_basis_1d</span><span class="p">(</span><span class="n">u</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">grid</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">Bz</span> <span class="o">=</span> <span class="n">_bspline_basis_1d</span><span class="p">(</span><span class="n">u</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">grid</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="p">(</span><span class="n">Bx</span><span class="p">[:,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">By</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">Bz</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+    <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_grid_penalty</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Roughness penalty over a 3-D control grid.</span>
+
+<span class="sd">    Sums the squared second differences along each axis (first differences</span>
+<span class="sd">    where an axis is too short for a second difference).  Returned in the</span>
+<span class="sd">    same C-ordered flattening as :func:`_bspline_basis_3d`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid : sequence of 3 int</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray, shape (nc, nc)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_diff_op</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">):</span>
+                <span class="n">D</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">D</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]])</span>
+        <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+
+    <span class="n">nc</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">grid</span><span class="p">))</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nc</span><span class="p">,</span> <span class="n">nc</span><span class="p">))</span>
+    <span class="n">eyes</span> <span class="o">=</span> <span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grid</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+        <span class="n">mats</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">eyes</span><span class="p">)</span>
+        <span class="n">mats</span><span class="p">[</span><span class="n">ax</span><span class="p">]</span> <span class="o">=</span> <span class="n">_diff_op</span><span class="p">(</span><span class="n">grid</span><span class="p">[</span><span class="n">ax</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">mats</span><span class="p">[</span><span class="n">ax</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">mats</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mats</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">mats</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">P</span> <span class="o">+=</span> <span class="n">D</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">D</span>
+    <span class="k">return</span> <span class="n">P</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_global_field_normal_eqs</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">prj_t</span><span class="p">,</span> <span class="n">R2</span><span class="p">,</span> <span class="n">wgt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Accumulate the normal equations for the global 3-D deformation field.</span>
+
+<span class="sd">    The model is ``prj_t[i,k] = (R_k · D(pos_i))[:2]`` with</span>
+<span class="sd">    ``D(pos_i) = Σ_c B[i,c] · C[c,:]``, so the unknown is the ``(nc, 3)``</span>
+<span class="sd">    coefficient array *C*.  Exploits the fact that *B* does not depend on the</span>
+<span class="sd">    projection: per projection the design matrix is a Kronecker product of</span>
+<span class="sd">    ``BᵀWB`` and ``R2ᵀR2``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    B : numpy.ndarray, shape (n, nc)</span>
+<span class="sd">        Spline basis at the particle positions.</span>
+<span class="sd">    prj_t : numpy.ndarray, shape (n, n_proj, 2)</span>
+<span class="sd">        Observed 2-D shifts (Angstroms).</span>
+<span class="sd">    R2 : numpy.ndarray, shape (n_proj, 2, 3)</span>
+<span class="sd">        Top two rows of each projection&#39;s rotation matrix.</span>
+<span class="sd">    wgt : numpy.ndarray, shape (n, n_proj)</span>
+<span class="sd">        Per-observation weights; 0 excludes the observation.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        ``(AtA, Atb)`` with shapes ``(3*nc, 3*nc)`` and ``(3*nc,)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nc</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">AtA</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span> <span class="o">*</span> <span class="n">nc</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">nc</span><span class="p">))</span>
+    <span class="n">Atb</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nc</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">R2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">wgt</span><span class="p">[:,</span> <span class="n">k</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">Bw</span>   <span class="o">=</span> <span class="n">B</span> <span class="o">*</span> <span class="n">w</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="n">BtB</span>  <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">Bw</span>
+        <span class="n">AtA</span> <span class="o">+=</span> <span class="n">_np</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">BtB</span><span class="p">,</span> <span class="n">R2</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">R2</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+        <span class="n">Atb</span> <span class="o">+=</span> <span class="p">(</span><span class="n">Bw</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">prj_t</span><span class="p">[:,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:])</span> <span class="o">@</span> <span class="n">R2</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">AtA</span><span class="p">,</span> <span class="n">Atb</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_solve_global_field</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">prj_t</span><span class="p">,</span> <span class="n">R2</span><span class="p">,</span> <span class="n">wgt</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">lam</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Solve the penalised normal equations for the field coefficients.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray, shape (nc, 3)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nc</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">AtA</span><span class="p">,</span> <span class="n">Atb</span> <span class="o">=</span> <span class="n">_global_field_normal_eqs</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">prj_t</span><span class="p">,</span> <span class="n">R2</span><span class="p">,</span> <span class="n">wgt</span><span class="p">)</span>
+    <span class="n">Pk</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+    <span class="c1"># Scale the penalty so that lam is dimensionless and comparable across</span>
+    <span class="c1"># datasets: without this, lam would absorb the units of prj_t and the</span>
+    <span class="c1"># particle count.</span>
+    <span class="n">tr_a</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">AtA</span><span class="p">)</span>
+    <span class="n">tr_p</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">Pk</span><span class="p">)</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="p">(</span><span class="n">tr_a</span> <span class="o">/</span> <span class="n">tr_p</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">tr_p</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">tr_a</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="k">else</span> <span class="mf">1.0</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">AtA</span> <span class="o">+</span> <span class="p">(</span><span class="n">lam</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span> <span class="o">*</span> <span class="n">Pk</span>
+    <span class="c1"># Ridge floor keeps the system solvable when a control point has no</span>
+    <span class="c1"># particles in its support.</span>
+    <span class="n">M</span><span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">diag_indices_from</span><span class="p">(</span><span class="n">M</span><span class="p">)]</span> <span class="o">+=</span> <span class="mf">1e-9</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">tr_a</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">nc</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">Atb</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nc</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_image_warp_basis</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">B</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">R2k</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-projection 2-D warp basis, flattened as ``[i*2+r, j*2+s]``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    G : numpy.ndarray, shape (n, m)</span>
+<span class="sd">        2-D spline basis at the projected particle coordinates.</span>
+<span class="sd">    B, R2k : optional</span>
+<span class="sd">        Global-field basis and projection rotation.  When both are given, the</span>
+<span class="sd">        part of the warp basis lying inside the global field&#39;s span *at this</span>
+<span class="sd">        projection* is projected out.</span>
+
+<span class="sd">        .. warning:: This is almost always the wrong thing to do and is off by</span>
+<span class="sd">           default.  At a single projection the global field spans ``span(B)``</span>
+<span class="sd">           independently per output component (``R2k`` has rank 2), which</span>
+<span class="sd">           contains essentially all of a 2-D spline in projected coordinates:</span>
+<span class="sd">           measured at 99.96% for a ``(4,4,2)`` field against a ``(4,4)`` warp.</span>
+<span class="sd">           Orthogonalising here therefore annihilates the warp rather than</span>
+<span class="sd">           separating it.  What distinguishes the global field from the image</span>
+<span class="sd">           warp is that its coefficients are shared *across* projections, which</span>
+<span class="sd">           is a constraint in the joint (particle × projection) space; a correct</span>
+<span class="sd">           orthogonalisation has to be performed there, and the result is no</span>
+<span class="sd">           longer block-diagonal per projection.</span>
+<span class="sd">    rcond : float, optional</span>
+<span class="sd">        Relative singular-value cutoff for the span.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray, shape (2n, 2m)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+        <span class="n">T</span><span class="p">[</span><span class="n">s</span><span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">G</span>
+    <span class="k">if</span> <span class="n">B</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">R2k</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">T</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="p">(</span><span class="n">B</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">R2k</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">U</span><span class="p">,</span> <span class="n">sv</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sv</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="n">sv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">U</span><span class="p">[:,</span> <span class="n">sv</span> <span class="o">&gt;</span> <span class="n">sv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">rcond</span><span class="p">]</span>
+        <span class="n">T</span> <span class="o">-=</span> <span class="n">Q</span> <span class="o">@</span> <span class="p">(</span><span class="n">Q</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">T</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">T</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_solve_penalized</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">lam</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Weighted least squares with a scaled roughness penalty.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A : numpy.ndarray, shape (r, p)</span>
+<span class="sd">    b : numpy.ndarray, shape (r,)</span>
+<span class="sd">    w : numpy.ndarray, shape (r,)</span>
+<span class="sd">        Non-negative observation weights.</span>
+<span class="sd">    P : numpy.ndarray, shape (p, p)</span>
+<span class="sd">        Penalty matrix.</span>
+<span class="sd">    lam : float</span>
+<span class="sd">        Dimensionless stiffness.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray, shape (p,)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Aw</span>   <span class="o">=</span> <span class="n">A</span> <span class="o">*</span> <span class="n">w</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">AtA</span>  <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">Aw</span>
+    <span class="n">Atb</span>  <span class="o">=</span> <span class="n">Aw</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">b</span>
+    <span class="n">tr_a</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">AtA</span><span class="p">)</span>
+    <span class="n">tr_p</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">P</span><span class="p">)</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="p">(</span><span class="n">tr_a</span> <span class="o">/</span> <span class="n">tr_p</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">tr_p</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">tr_a</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="k">else</span> <span class="mf">1.0</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">AtA</span> <span class="o">+</span> <span class="p">(</span><span class="n">lam</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span> <span class="o">*</span> <span class="n">P</span>
+    <span class="n">M</span><span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">diag_indices_from</span><span class="p">(</span><span class="n">M</span><span class="p">)]</span> <span class="o">+=</span> <span class="mf">1e-9</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">tr_a</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">Atb</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_predict_global_field</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Project a fitted field back to per-projection 2-D shifts.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    numpy.ndarray, shape (n, n_proj, 2)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">D</span> <span class="o">=</span> <span class="n">B</span> <span class="o">@</span> <span class="n">C</span>                                  <span class="c1"># (n, 3) displacement field</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;id,krd-&gt;ikr&#39;</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">R2</span><span class="p">)</span>    <span class="c1"># (n, n_proj, 2)</span>
+
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_IterationFiles</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;File-path bundle for a single iteration.&quot;&quot;&quot;</span>
@@ -973,12 +1220,45 @@
 <span class="sd">       .. warning:: **Experimental.**</span>
 
 <span class="sd">       Post-alignment 2-D shift regularisation: ``&#39;none&#39;``, ``&#39;affine&#39;``,</span>
-<span class="sd">       ``&#39;gaussian&#39;``, or ``&#39;tps&#39;``.  Default: ``&#39;none&#39;``.</span>
+<span class="sd">       ``&#39;gaussian&#39;``, ``&#39;tps&#39;``, or ``&#39;global&#39;``.  Default: ``&#39;none&#39;``.</span>
 
 <span class="sd">       ``&#39;tps&#39;`` fits a regularised thin-plate spline to the per-tilt 2-D</span>
 <span class="sd">       shift field.  It is the middle ground between ``&#39;affine&#39;`` (globally</span>
 <span class="sd">       rigid) and ``&#39;gaussian&#39;`` (purely local): a globally smooth warp whose</span>
 <span class="sd">       stiffness is set by :attr:`tps_lambda`.</span>
+
+<span class="sd">       ``&#39;global&#39;`` is different in kind from the other three.  Those fit each</span>
+<span class="sd">       projection independently in the projected 2-D plane; ``&#39;global&#39;`` fits</span>
+<span class="sd">       a single 3-D displacement field per tomogram, jointly across the whole</span>
+<span class="sd">       tilt series, and projects it back into each image.  Because every tilt</span>
+<span class="sd">       constrains one field, it can represent deformations that are invisible</span>
+<span class="sd">       to a per-tilt 2-D fit, notably doming: a displacement along the</span>
+<span class="sd">       specimen normal projects as ``sinθ·dz``, so it vanishes at 0° and is</span>
+<span class="sd">       carried almost entirely by the high-tilt images.  Always fits from</span>
+<span class="sd">       origin, so :attr:`fitting_from_origin` does not apply.</span>
+
+<span class="sd">    .. attribute:: global_grid</span>
+<span class="sd">       :type: tuple of 3 int</span>
+
+<span class="sd">       .. warning:: **Experimental.**</span>
+
+<span class="sd">       Control points per axis for the ``&#39;global&#39;`` B-spline field.  Deliberately</span>
+<span class="sd">       anisotropic by default: the lateral extent of a tomogram exceeds its</span>
+<span class="sd">       thickness by one to two orders of magnitude, so Z needs far fewer knots.</span>
+<span class="sd">       Degree adapts per axis (cubic where the axis allows, linear at 2 control</span>
+<span class="sd">       points).  A tomogram needs at least ``3 * nx * ny * nz`` particles or it</span>
+<span class="sd">       is skipped.  Default: ``(4, 4, 2)``.</span>
+
+<span class="sd">    .. attribute:: global_lambda</span>
+<span class="sd">       :type: float or None</span>
+
+<span class="sd">       .. warning:: **Experimental.**</span>
+
+<span class="sd">       Roughness penalty for the ``&#39;global&#39;`` field, normalised so the value is</span>
+<span class="sd">       comparable across datasets.  ``None`` (default) selects it per tomogram</span>
+<span class="sd">       by two-fold cross-validation over particles, which lets a tomogram with</span>
+<span class="sd">       no real deformation collapse to a stiff, near-null field on its own</span>
+<span class="sd">       rather than by user choice.</span>
 
 <span class="sd">    .. attribute:: tps_lambda</span>
 <span class="sd">       :type: float</span>
@@ -989,6 +1269,46 @@
 <span class="sd">       normalised per tomogram so the value is comparable across datasets).</span>
 <span class="sd">       ``0`` interpolates every shift (overfits noise), large values converge</span>
 <span class="sd">       to the pure affine fit.  Default: ``1.0``.</span>
+
+<span class="sd">    .. attribute:: image_grid</span>
+<span class="sd">       :type: tuple of 2 int</span>
+
+<span class="sd">       .. warning:: **Experimental.**</span>
+
+<span class="sd">       Control points per axis for the per-projection 2-D warp used by</span>
+<span class="sd">       ``type_2d_shift_fitting = &#39;global+image&#39;``, fitted on the residual left</span>
+<span class="sd">       by the global field.  Models per-image effects no specimen-frame field</span>
+<span class="sd">       can express: residual stage drift, magnification and rotation errors,</span>
+<span class="sd">       beam-induced image warp within an exposure.  Default: ``(4, 4)``.</span>
+
+<span class="sd">    .. attribute:: image_lambda</span>
+<span class="sd">       :type: float or None</span>
+
+<span class="sd">       .. warning:: **Experimental.**</span>
+
+<span class="sd">       Stiffness of the image warp; ``None`` (default) selects it by two-fold</span>
+<span class="sd">       cross-validation over particles, pooled across projections.</span>
+
+<span class="sd">    .. attribute:: image_orthogonalize</span>
+<span class="sd">       :type: bool</span>
+
+<span class="sd">       .. warning:: **Experimental.**  Default ``False``; leave it there.</span>
+
+<span class="sd">       Project the image-warp basis out of the global field&#39;s span at each</span>
+<span class="sd">       projection.  This does *not* separate the two terms.  At a single</span>
+<span class="sd">       projection the global field already spans ``span(B)`` independently per</span>
+<span class="sd">       output component, which contains ~99.96% of a 2-D spline in projected</span>
+<span class="sd">       coordinates, so enabling this annihilates the warp instead: in</span>
+<span class="sd">       simulation a genuine 28.6 Å per-image warp is recovered as 27.7 Å with</span>
+<span class="sd">       the flag off and 1.1 Å with it on.</span>
+
+<span class="sd">       With the flag off, the global field is fitted first and the warp takes</span>
+<span class="sd">       the residual, so content representable by both is attributed to the</span>
+<span class="sd">       global field.  The total written to ``prj_t`` is correct either way;</span>
+<span class="sd">       only the split between the two terms is ambiguous, which matters if the</span>
+<span class="sd">       global field&#39;s amplitude is being read as a physical doming</span>
+<span class="sd">       measurement.  Resolving it properly requires a joint solve over both</span>
+<span class="sd">       coefficient blocks, which is not implemented.</span>
 
 <span class="sd">    .. attribute:: fitting_from_origin</span>
 <span class="sd">       :type: bool</span>
@@ -1151,6 +1471,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">discard_oversampled_views</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span>     <span class="o">=</span> <span class="s1">&#39;none&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tps_lambda</span>                <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">global_grid</span>               <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">global_lambda</span>             <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_grid</span>                <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_lambda</span>              <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_orthogonalize</span>       <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fitting_from_origin</span>       <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span>                <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">type_ctf_smoothing</span>        <span class="o">=</span> <span class="s1">&#39;gaussian&#39;</span>
@@ -1261,6 +1586,276 @@
         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;  [CTF Refinement] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).&#39;</span>
               <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span> <span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">)))</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_image_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_depth</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normalise :attr:`image_grid` to ``(mx, my, mz)``.</span>
+
+<span class="sd">        A 2-tuple gains a depth axis of 2 control points (linear in depth) when</span>
+<span class="sd">        *use_depth* is set, or 1 (no depth dependence) otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">g</span> <span class="o">+</span> <span class="p">((</span><span class="mi">2</span><span class="p">,)</span> <span class="k">if</span> <span class="n">use_depth</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,))</span>
+        <span class="k">return</span> <span class="n">g</span> <span class="k">if</span> <span class="n">use_depth</span> <span class="k">else</span> <span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fit_image_warp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R2</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">wgt</span><span class="p">,</span> <span class="n">use_depth</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit a per-projection warp to the residual left by the global field.</span>
+
+<span class="sd">        Each projection gets its own B-spline warp.  With *use_depth* off the</span>
+<span class="sd">        warp is a function of the projected coordinates ``(x&#39;, y&#39;)`` only, which</span>
+<span class="sd">        forces every particle along a line of sight to share one shift.  With it</span>
+<span class="sd">        on the domain gains a third axis and the warp becomes a per-projection</span>
+<span class="sd">        *3-D* field.</span>
+
+<span class="sd">        That third axis is the **specimen** Z, not the rotated depth</span>
+<span class="sd">        ``d = (R·pos)_z``.  The two carry the same extra information, since</span>
+
+<span class="sd">            d = −tanθ·x&#39; + z/cosθ</span>
+
+<span class="sd">        so the only content in *d* not already spanned by ``x&#39;`` is the specimen</span>
+<span class="sd">        Z term, amplified by ``1/cosθ``.  But ``(x&#39;, y&#39;, d)`` is badly</span>
+<span class="sd">        conditioned: the particle cloud in ``(x&#39;, d)`` is a thin slab rotated by</span>
+<span class="sd">        the tilt angle, so the two coordinates are strongly correlated.</span>
+<span class="sd">        ``(x&#39;, y&#39;, z)`` carries the same information with the image-plane and</span>
+<span class="sd">        thickness directions cleanly separated.</span>
+
+<span class="sd">        This is the model implied by a global 3-D field failing while a</span>
+<span class="sd">        per-projection fit succeeds: the deformation is three-dimensional but</span>
+<span class="sd">        *changes between exposures*, as dose-driven beam-induced deformation</span>
+<span class="sd">        does.  A static field cannot represent that; a per-projection 3-D field</span>
+<span class="sd">        can.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        B : numpy.ndarray, shape (n, nc)</span>
+<span class="sd">            Global-field basis at the particle positions.</span>
+<span class="sd">        R2 : numpy.ndarray, shape (n_proj, 2, 3)</span>
+<span class="sd">        pt : numpy.ndarray, shape (n, 3)</span>
+<span class="sd">            Particle positions (Angstroms).</span>
+<span class="sd">        res : numpy.ndarray, shape (n, n_proj, 2)</span>
+<span class="sd">            Residual after the global field.</span>
+<span class="sd">        wgt : numpy.ndarray, shape (n, n_proj)</span>
+<span class="sd">        use_depth : bool, optional</span>
+<span class="sd">            Include the specimen-Z axis.  Default ``False``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple</span>
+<span class="sd">            ``(pred, lam)`` with *pred* shaped ``(n, n_proj, 2)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">n</span><span class="p">,</span> <span class="n">n_proj</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">res</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">grid2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_image_grid</span><span class="p">(</span><span class="n">use_depth</span><span class="p">)</span>
+        <span class="n">P2</span>    <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">_grid_penalty</span><span class="p">(</span><span class="n">grid2</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">third</span> <span class="o">=</span> <span class="n">pt</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="n">use_depth</span> <span class="k">else</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+
+        <span class="n">bases</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_proj</span><span class="p">):</span>
+            <span class="n">xy</span> <span class="o">=</span> <span class="n">pt</span> <span class="o">@</span> <span class="n">R2</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>                       <span class="c1"># projected coordinates</span>
+            <span class="n">p3</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">xy</span><span class="p">,</span> <span class="n">third</span><span class="p">])</span>
+            <span class="n">bbox</span> <span class="o">=</span> <span class="p">(</span><span class="n">p3</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">p3</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+            <span class="n">G</span> <span class="o">=</span> <span class="n">_bspline_basis_3d</span><span class="p">(</span><span class="n">p3</span><span class="p">,</span> <span class="n">grid2</span><span class="p">,</span> <span class="n">bbox</span><span class="p">)</span>
+            <span class="n">bases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_image_warp_basis</span><span class="p">(</span>
+                <span class="n">G</span><span class="p">,</span> <span class="n">B</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_orthogonalize</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span> <span class="n">R2</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span>
+            <span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">[:,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+            <span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">wgt</span><span class="p">[:,</span> <span class="n">k</span><span class="p">],</span> <span class="mi">2</span><span class="p">))</span>
+
+        <span class="n">lam_grid</span> <span class="o">=</span> <span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">13</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_lambda</span> <span class="ow">is</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image_lambda</span><span class="p">)))</span>
+
+        <span class="k">if</span> <span class="n">lam_grid</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">rng</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">fold</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span>
+            <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">fold</span> <span class="o">==</span> <span class="n">f</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+            <span class="n">best_lam</span><span class="p">,</span> <span class="n">best_err</span> <span class="o">=</span> <span class="n">lam_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="k">for</span> <span class="n">lam</span> <span class="ow">in</span> <span class="n">lam_grid</span><span class="p">:</span>
+                <span class="n">err</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">va</span><span class="p">,</span> <span class="n">tr</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[</span><span class="n">f</span><span class="p">],</span> <span class="o">~</span><span class="n">rows</span><span class="p">[</span><span class="n">f</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_proj</span><span class="p">):</span>
+                        <span class="n">a</span> <span class="o">=</span> <span class="n">_solve_penalized</span><span class="p">(</span><span class="n">bases</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">tr</span><span class="p">],</span> <span class="n">targets</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">tr</span><span class="p">],</span>
+                                             <span class="n">weights</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">tr</span><span class="p">],</span> <span class="n">P2</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">bases</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">va</span><span class="p">]</span> <span class="o">@</span> <span class="n">a</span> <span class="o">-</span> <span class="n">targets</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">va</span><span class="p">]</span>
+                        <span class="n">w</span> <span class="o">=</span> <span class="n">weights</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">va</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">err</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">((</span><span class="n">w</span> <span class="o">*</span> <span class="n">r</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+                <span class="k">if</span> <span class="n">err</span> <span class="o">&lt;</span> <span class="n">best_err</span><span class="p">:</span>
+                    <span class="n">best_lam</span><span class="p">,</span> <span class="n">best_err</span> <span class="o">=</span> <span class="n">lam</span><span class="p">,</span> <span class="n">err</span>
+            <span class="n">lam</span> <span class="o">=</span> <span class="n">best_lam</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">lam</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lam_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_proj</span><span class="p">):</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">_solve_penalized</span><span class="p">(</span><span class="n">bases</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">targets</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">weights</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">P2</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span>
+            <span class="n">pred</span><span class="p">[:,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">bases</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">@</span> <span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pred</span><span class="p">,</span> <span class="n">lam</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fit_global_deformation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">with_image</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_global</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                <span class="n">use_depth</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit a global 3-D deformation field per tomogram and rewrite ``prj_t``.</span>
+
+<span class="sd">        Models the specimen as a single smooth 3-D displacement field</span>
+<span class="sd">        ``D(x, y, z)`` sampled by every projection through its own rotation,</span>
+<span class="sd">        so all tilts constrain one object.  The field is a tensor-product</span>
+<span class="sd">        cubic B-spline over :attr:`global_grid` control points, fitted jointly</span>
+<span class="sd">        across the tilt series by penalised least squares and written back as</span>
+<span class="sd">        ``prj_t[i,k] = (R_k · D(pos_i))[:2]``.</span>
+
+<span class="sd">        The fit is always from origin: the returned ``prj_t`` is entirely the</span>
+<span class="sd">        model&#39;s output, so nothing unregularised carries across iterations.</span>
+
+<span class="sd">        Stiffness is chosen by two-fold cross-validation over particles unless</span>
+<span class="sd">        :attr:`global_lambda` is set explicitly.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ptcls_in : :class:`~susan.data.Particles`</span>
+<span class="sd">            Modified in place.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">grid</span>  <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">global_grid</span><span class="p">)</span>
+        <span class="n">nc</span>    <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">grid</span><span class="p">))</span>
+        <span class="n">tomos</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">)</span>
+        <span class="n">n</span>     <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_ptcl</span>
+        <span class="n">pt</span>    <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+
+        <span class="n">lam_grid</span> <span class="o">=</span> <span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">13</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">global_lambda</span> <span class="ow">is</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">global_lambda</span><span class="p">)))</span>
+
+        <span class="c1"># Minimum particles: the global field needs 3 unknowns per control</span>
+        <span class="c1"># point over the whole series; the image warp needs 2 per control</span>
+        <span class="c1"># point but only sees one projection at a time.</span>
+        <span class="k">if</span> <span class="n">with_global</span><span class="p">:</span>
+            <span class="n">n_min</span><span class="p">,</span> <span class="n">what</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">nc</span><span class="p">,</span> <span class="s1">&#39;</span><span class="si">%d</span><span class="s1">x</span><span class="si">%d</span><span class="s1">x</span><span class="si">%d</span><span class="s1"> global grid&#39;</span> <span class="o">%</span> <span class="n">grid</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">g2</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_image_grid</span><span class="p">(</span><span class="n">use_depth</span><span class="p">)</span>
+            <span class="n">n_min</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">g2</span><span class="p">))</span>
+            <span class="n">what</span>  <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%d</span><span class="s1">x</span><span class="si">%d</span><span class="s1">x</span><span class="si">%d</span><span class="s1"> image grid&#39;</span> <span class="o">%</span> <span class="n">g2</span>
+
+        <span class="c1"># Accumulate sums of squares so the summary is a properly pooled RMS</span>
+        <span class="c1"># rather than an average of per-tomogram RMS values.</span>
+        <span class="n">lams_l1</span><span class="p">,</span> <span class="n">lams_l2</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="n">acc</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;n_tomo&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;n_ptcl&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+               <span class="s1">&#39;obs&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;field&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;warp&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;res&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">}</span>
+        <span class="n">verbose</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span> <span class="o">&gt;</span> <span class="mi">1</span>
+
+        <span class="k">for</span> <span class="n">tcix</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">tomo_cix</span> <span class="o">==</span> <span class="n">tcix</span>
+            <span class="n">n_t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">n_t</span> <span class="o">&lt;</span> <span class="n">n_min</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">n_t</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Tomogram </span><span class="si">%d</span><span class="s1">: </span><span class="si">%d</span><span class="s1"> particles &lt; </span><span class="si">%d</span><span class="s1"> needed for a </span><span class="si">%s</span><span class="s1">; &#39;</span>
+                          <span class="s1">&#39;skipped.&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">tcix</span><span class="p">,</span> <span class="n">n_t</span><span class="p">,</span> <span class="n">n_min</span><span class="p">,</span> <span class="n">what</span><span class="p">))</span>
+                <span class="k">continue</span>
+
+            <span class="n">n_proj</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">num_proj</span><span class="p">[</span><span class="n">tcix</span><span class="p">])</span>
+            <span class="n">R2</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_proj</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+            <span class="n">R</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_proj</span><span class="p">):</span>
+                <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">proj_eZYZ</span><span class="p">[</span><span class="n">tcix</span><span class="p">,</span> <span class="n">k</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+                <span class="n">R2</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">R</span><span class="p">[:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span>
+
+            <span class="n">pt_t</span>  <span class="o">=</span> <span class="n">pt</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">obs</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:</span><span class="n">n_proj</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">wgt</span>   <span class="o">=</span> <span class="p">(</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:</span><span class="n">n_proj</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">bbox</span>  <span class="o">=</span> <span class="p">(</span><span class="n">pt_t</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">pt_t</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+            <span class="n">B</span>     <span class="o">=</span> <span class="n">_bspline_basis_3d</span><span class="p">(</span><span class="n">pt_t</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">bbox</span><span class="p">)</span>
+            <span class="n">P</span>     <span class="o">=</span> <span class="n">_grid_penalty</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">_rms</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">wgt</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="mf">0.0</span>
+                <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">float</span><span class="p">((</span><span class="n">wgt</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">wgt</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+
+            <span class="n">rms_before</span> <span class="o">=</span> <span class="n">_rms</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">with_global</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">lam_grid</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">rng</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">fold</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">n_t</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span>
+                    <span class="n">best_lam</span><span class="p">,</span> <span class="n">best_err</span> <span class="o">=</span> <span class="n">lam_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_np</span><span class="o">.</span><span class="n">inf</span>
+                    <span class="k">for</span> <span class="n">lam</span> <span class="ow">in</span> <span class="n">lam_grid</span><span class="p">:</span>
+                        <span class="n">err</span> <span class="o">=</span> <span class="mf">0.0</span>
+                        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+                            <span class="n">tr</span><span class="p">,</span> <span class="n">va</span> <span class="o">=</span> <span class="p">(</span><span class="n">fold</span> <span class="o">!=</span> <span class="n">f</span><span class="p">),</span> <span class="p">(</span><span class="n">fold</span> <span class="o">==</span> <span class="n">f</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">tr</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">nc</span> <span class="ow">or</span> <span class="n">va</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+                                <span class="n">err</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">inf</span>
+                                <span class="k">break</span>
+                            <span class="n">C</span> <span class="o">=</span> <span class="n">_solve_global_field</span><span class="p">(</span><span class="n">B</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">obs</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">R2</span><span class="p">,</span> <span class="n">wgt</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">P</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span>
+                            <span class="n">r</span> <span class="o">=</span> <span class="n">_predict_global_field</span><span class="p">(</span><span class="n">B</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">C</span><span class="p">,</span> <span class="n">R2</span><span class="p">)</span> <span class="o">-</span> <span class="n">obs</span><span class="p">[</span><span class="n">va</span><span class="p">]</span>
+                            <span class="n">w</span> <span class="o">=</span> <span class="n">wgt</span><span class="p">[</span><span class="n">va</span><span class="p">]</span>
+                            <span class="k">if</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="n">err</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">((</span><span class="n">w</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+                        <span class="k">if</span> <span class="n">err</span> <span class="o">&lt;</span> <span class="n">best_err</span><span class="p">:</span>
+                            <span class="n">best_lam</span><span class="p">,</span> <span class="n">best_err</span> <span class="o">=</span> <span class="n">lam</span><span class="p">,</span> <span class="n">err</span>
+                    <span class="n">lam</span> <span class="o">=</span> <span class="n">best_lam</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">lam</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lam_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+                <span class="n">C</span>    <span class="o">=</span> <span class="n">_solve_global_field</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">obs</span><span class="p">,</span> <span class="n">R2</span><span class="p">,</span> <span class="n">wgt</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span>
+                <span class="n">pred</span> <span class="o">=</span> <span class="n">_predict_global_field</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">R2</span><span class="p">)</span>
+                <span class="n">amp</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(((</span><span class="n">B</span> <span class="o">@</span> <span class="n">C</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+                <span class="n">lams_l1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lam</span><span class="p">)</span>
+                <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;field&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">((</span><span class="n">amp</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+                <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Tomogram </span><span class="si">%d</span><span class="s1">: </span><span class="si">%d</span><span class="s1"> particles, L1 lambda=</span><span class="si">%.3g</span><span class="s1">, &#39;</span>
+                          <span class="s1">&#39;field RMS </span><span class="si">%.2f</span><span class="s1"> A, unexplained RMS </span><span class="si">%.2f</span><span class="s1"> A (of </span><span class="si">%.2f</span><span class="s1"> A).&#39;</span>
+                          <span class="o">%</span> <span class="p">(</span><span class="n">tcix</span><span class="p">,</span> <span class="n">n_t</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">amp</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())),</span>
+                             <span class="n">_rms</span><span class="p">(</span><span class="n">pred</span> <span class="o">-</span> <span class="n">obs</span><span class="p">),</span> <span class="n">rms_before</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">pred</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Tomogram </span><span class="si">%d</span><span class="s1">: </span><span class="si">%d</span><span class="s1"> particles, no global field, &#39;</span>
+                          <span class="s1">&#39;input RMS </span><span class="si">%.2f</span><span class="s1"> A.&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">tcix</span><span class="p">,</span> <span class="n">n_t</span><span class="p">,</span> <span class="n">rms_before</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">with_image</span><span class="p">:</span>
+                <span class="n">warp</span><span class="p">,</span> <span class="n">lam2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_image_warp</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">R2</span><span class="p">,</span> <span class="n">pt_t</span><span class="p">,</span> <span class="n">obs</span> <span class="o">-</span> <span class="n">pred</span><span class="p">,</span> <span class="n">wgt</span><span class="p">,</span>
+                                                  <span class="n">use_depth</span><span class="o">=</span><span class="n">use_depth</span><span class="p">)</span>
+                <span class="n">pred</span> <span class="o">=</span> <span class="n">pred</span> <span class="o">+</span> <span class="n">warp</span>
+                <span class="n">lams_l2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lam2</span><span class="p">)</span>
+                <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;warp&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">((</span><span class="n">wgt</span> <span class="o">*</span> <span class="p">(</span><span class="n">warp</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+                <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      image warp: lambda=</span><span class="si">%.3g</span><span class="s1">, warp RMS </span><span class="si">%.2f</span><span class="s1"> A, &#39;</span>
+                          <span class="s1">&#39;unexplained RMS </span><span class="si">%.2f</span><span class="s1"> A.&#39;</span>
+                          <span class="o">%</span> <span class="p">(</span><span class="n">lam2</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">warp</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())),</span>
+                             <span class="n">_rms</span><span class="p">(</span><span class="n">pred</span> <span class="o">-</span> <span class="n">obs</span><span class="p">)))</span>
+
+            <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;n_tomo&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;n_ptcl&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">n_t</span>
+            <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]</span>      <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">wgt</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+            <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;obs&#39;</span><span class="p">]</span>    <span class="o">+=</span> <span class="nb">float</span><span class="p">((</span><span class="n">wgt</span> <span class="o">*</span> <span class="p">(</span><span class="n">obs</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+            <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;res&#39;</span><span class="p">]</span>    <span class="o">+=</span> <span class="nb">float</span><span class="p">((</span><span class="n">wgt</span> <span class="o">*</span> <span class="p">((</span><span class="n">pred</span> <span class="o">-</span> <span class="n">obs</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+
+            <span class="n">prj_new</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">prj_new</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n_proj</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">prj_new</span>
+
+        <span class="k">if</span> <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;n_tomo&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Shift fitting: no tomogram had enough particles.&#39;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Geometric mean: lambda is swept on a log grid, so the log-average is</span>
+        <span class="c1"># the meaningful summary and a single loose tomogram does not dominate.</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_gmean</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="mf">1e-30</span><span class="p">)))))</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_rms_pooled</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">acc</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">/</span> <span class="n">w</span><span class="p">))</span> <span class="k">if</span> <span class="n">w</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="n">w</span>        <span class="o">=</span> <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]</span>
+        <span class="n">rms_in</span>   <span class="o">=</span> <span class="n">_rms_pooled</span><span class="p">(</span><span class="s1">&#39;obs&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">rms_out</span>  <span class="o">=</span> <span class="n">_rms_pooled</span><span class="p">(</span><span class="s1">&#39;res&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">expl</span>     <span class="o">=</span> <span class="mf">100.0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="n">rms_out</span> <span class="o">/</span> <span class="n">rms_in</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="n">rms_in</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">parts</span>    <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">lams_l1</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;global lambda </span><span class="si">%.4g</span><span class="s1">, field RMS </span><span class="si">%.2f</span><span class="s1"> A&#39;</span>
+                         <span class="o">%</span> <span class="p">(</span><span class="n">_gmean</span><span class="p">(</span><span class="n">lams_l1</span><span class="p">),</span>
+                            <span class="n">_np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">acc</span><span class="p">[</span><span class="s1">&#39;field&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">acc</span><span class="p">[</span><span class="s1">&#39;n_ptcl&#39;</span><span class="p">],</span> <span class="mi">1</span><span class="p">))))</span>
+        <span class="k">if</span> <span class="n">lams_l2</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;image lambda </span><span class="si">%.4g</span><span class="s1">, warp RMS </span><span class="si">%.2f</span><span class="s1"> A&#39;</span>
+                         <span class="o">%</span> <span class="p">(</span><span class="n">_gmean</span><span class="p">(</span><span class="n">lams_l2</span><span class="p">),</span> <span class="n">_rms_pooled</span><span class="p">(</span><span class="s1">&#39;warp&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">)))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Shift fitting: </span><span class="si">%d</span><span class="s1"> tomograms, </span><span class="si">%d</span><span class="s1"> particles; </span><span class="si">%s</span><span class="s1">.&#39;</span>
+              <span class="o">%</span> <span class="p">(</span><span class="n">acc</span><span class="p">[</span><span class="s1">&#39;n_tomo&#39;</span><span class="p">],</span> <span class="n">acc</span><span class="p">[</span><span class="s1">&#39;n_ptcl&#39;</span><span class="p">],</span> <span class="s1">&#39;; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      input RMS </span><span class="si">%.2f</span><span class="s1"> A -&gt; unexplained </span><span class="si">%.2f</span><span class="s1"> A (</span><span class="si">%.0f%%</span><span class="s1"> of variance &#39;</span>
+              <span class="s1">&#39;explained).&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">rms_in</span><span class="p">,</span> <span class="n">rms_out</span><span class="p">,</span> <span class="n">expl</span><span class="p">))</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_regularize_2d_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply 2-D shift regularisation and/or CTF smoothing in-place.</span>
 
@@ -1362,6 +1957,19 @@
                     <span class="n">sigma</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.25</span>
                     <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">_smooth_deltas</span><span class="p">(</span>
                         <span class="n">pt0</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">base</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k_eff</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;global&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fit_global_deformation</span><span class="p">(</span><span class="n">ptcls_in</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;global+image&#39;</span><span class="p">,</span> <span class="s1">&#39;global_image&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fit_global_deformation</span><span class="p">(</span><span class="n">ptcls_in</span><span class="p">,</span> <span class="n">with_image</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;image&#39;</span><span class="p">,</span> <span class="s1">&#39;local&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fit_global_deformation</span><span class="p">(</span><span class="n">ptcls_in</span><span class="p">,</span> <span class="n">with_image</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_global</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;local_3d&#39;</span><span class="p">,</span> <span class="s1">&#39;image_3d&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fit_global_deformation</span><span class="p">(</span><span class="n">ptcls_in</span><span class="p">,</span> <span class="n">with_image</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                         <span class="n">with_global</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">use_depth</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;tps&#39;</span><span class="p">:</span>
             <span class="n">R</span>     <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>

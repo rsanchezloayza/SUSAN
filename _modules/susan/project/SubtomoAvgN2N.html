@@ -373,7 +373,9 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w">     </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.data</span><span class="w">    </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_data</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">susan.ml</span><span class="w">      </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_ml</span>
+<span class="c1"># NOTE: susan.ml (and its torch dependency) is imported lazily inside the</span>
+<span class="c1"># methods that need it, so that importing susan without PyTorch installed</span>
+<span class="c1"># still works and simply disables the ML features.</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">os</span><span class="w">      </span><span class="kn">import</span> <span class="n">mkdir</span>  <span class="k">as</span> <span class="n">_mkdir</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">os.path</span><span class="w"> </span><span class="kn">import</span> <span class="n">exists</span> <span class="k">as</span> <span class="n">_file_exists</span>
@@ -513,6 +515,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_make_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weights_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a Noise2Noise model, optionally loading weights.&quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">susan.ml</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_ml</span>
         <span class="k">if</span> <span class="n">weights_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_file_exists</span><span class="p">(</span><span class="n">weights_path</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">_ssa_ml</span><span class="o">.</span><span class="n">Noise2Noise</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">weights_path</span><span class="p">,</span>
                                             <span class="n">gpus</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
@@ -527,6 +530,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_make_trainer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a Noise2NoiseTrainer with the configured loss.&quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">susan.ml</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_ml</span>
         <span class="k">return</span> <span class="n">_ssa_ml</span><span class="o">.</span><span class="n">Noise2NoiseTrainer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n2n_loss</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_free_gpu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">trainer</span><span class="p">):</span>
@@ -552,6 +556,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_make_volume_pairs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_pairs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate a VolumePairs buffer with the project&#39;s tmp_base.&quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">susan.ml</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_ml</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">_ssa_ml</span><span class="o">.</span><span class="n">VolumePairs</span><span class="p">(</span><span class="n">tmp_base</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_tmp_base</span><span class="p">())</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n2n_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">mask</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_mrc_read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n2n_mask</span><span class="p">)</span>
