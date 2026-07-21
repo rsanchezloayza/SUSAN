@@ -71,7 +71,9 @@ import gc        as _gc
 import numpy     as _np
 
 import susan.data    as _ssa_data
-import susan.ml      as _ssa_ml
+# NOTE: susan.ml (and its torch dependency) is imported lazily inside the
+# methods that need it, so that importing susan without PyTorch installed
+# still works and simply disables the ML features.
 
 from os      import mkdir  as _mkdir
 from os.path import exists as _file_exists
@@ -209,6 +211,7 @@ class SubtomoAvgN2N(_SubtomoAvgSched):
 
     def _make_model(self, weights_path=None):
         """Create a Noise2Noise model, optionally loading weights."""
+        import susan.ml as _ssa_ml
         if weights_path is not None and _file_exists(weights_path):
             return _ssa_ml.Noise2Noise.load(weights_path,
                                             gpus=self.list_gpus_ids)
@@ -223,6 +226,7 @@ class SubtomoAvgN2N(_SubtomoAvgSched):
 
     def _make_trainer(self, model):
         """Create a Noise2NoiseTrainer with the configured loss."""
+        import susan.ml as _ssa_ml
         return _ssa_ml.Noise2NoiseTrainer(model, loss=self.n2n_loss)
 
     def _free_gpu(self, model, trainer):
@@ -248,6 +252,7 @@ class SubtomoAvgN2N(_SubtomoAvgSched):
 
     def _make_volume_pairs(self, n_pairs):
         """Allocate a VolumePairs buffer with the project's tmp_base."""
+        import susan.ml as _ssa_ml
         data = _ssa_ml.VolumePairs(tmp_base=self._tmp_base())
         if self.n2n_mask is not None:
             mask, _ = _mrc_read(self.n2n_mask)
