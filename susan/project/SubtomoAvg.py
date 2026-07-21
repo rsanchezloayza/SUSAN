@@ -19,7 +19,8 @@
 import numpy as _np
 import warnings as _warnings
 
-from scipy.spatial import KDTree as _KDTree
+from scipy.spatial      import KDTree as _KDTree
+from scipy.interpolate import BSpline as _BSpline
 
 import susan.data    as _ssa_data
 import susan.utils   as _ssa_utils
@@ -40,6 +41,252 @@ from os.path import exists as _file_exists
 ###########################################################################
 # Internal helpers
 ###########################################################################
+
+def _bspline_basis_1d(u, n_ctrl):
+    """Clamped uniform B-spline basis on [0, 1].
+
+    The degree adapts to the control-point count, so a thin axis (2 control
+    points, as used along Z) degrades to linear instead of failing.
+
+    Parameters
+    ----------
+    u : numpy.ndarray, shape (n,)
+        Sample coordinates, clipped to [0, 1].
+    n_ctrl : int
+        Number of control points (>= 1).
+
+    Returns
+    -------
+    numpy.ndarray, shape (n, n_ctrl)
+        Basis values.  Rows sum to 1.
+    """
+    u = _np.clip(_np.asarray(u, dtype=_np.float64), 0.0, 1.0)
+    if n_ctrl < 2:
+        return _np.ones((u.size, 1))
+    deg = min(3, n_ctrl - 1)
+    knots = _np.concatenate([
+        _np.zeros(deg),
+        _np.linspace(0.0, 1.0, n_ctrl - deg + 1),
+        _np.ones(deg)])
+    B = _np.zeros((u.size, n_ctrl))
+    coef = _np.zeros(n_ctrl)
+    for j in range(n_ctrl):
+        coef[:] = 0.0
+        coef[j] = 1.0
+        B[:, j] = _BSpline(knots, coef, deg, extrapolate=True)(u)
+    return B
+
+
+def _bspline_basis_3d(pts, grid, bbox):
+    """Tensor-product 3-D B-spline basis evaluated at *pts*.
+
+    Parameters
+    ----------
+    pts : numpy.ndarray, shape (n, 3)
+        Particle positions (Angstroms).
+    grid : sequence of 3 int
+        Control points per axis.
+    bbox : tuple of numpy.ndarray
+        ``(lo, hi)`` bounding box used to map *pts* into [0, 1] per axis.
+
+    Returns
+    -------
+    numpy.ndarray, shape (n, nx*ny*nz)
+        Basis matrix, C-ordered over ``(ix, iy, iz)``.
+    """
+    lo, hi = bbox
+    span = _np.maximum(hi - lo, 1e-6)
+    u = (pts - lo) / span
+    Bx = _bspline_basis_1d(u[:, 0], grid[0])
+    By = _bspline_basis_1d(u[:, 1], grid[1])
+    Bz = _bspline_basis_1d(u[:, 2], grid[2])
+    B = (Bx[:, :, None, None] * By[:, None, :, None] * Bz[:, None, None, :])
+    return B.reshape(pts.shape[0], -1)
+
+
+def _grid_penalty(grid):
+    """Roughness penalty over a 3-D control grid.
+
+    Sums the squared second differences along each axis (first differences
+    where an axis is too short for a second difference).  Returned in the
+    same C-ordered flattening as :func:`_bspline_basis_3d`.
+
+    Parameters
+    ----------
+    grid : sequence of 3 int
+
+    Returns
+    -------
+    numpy.ndarray, shape (nc, nc)
+    """
+    def _diff_op(n):
+        if n >= 3:
+            D = _np.zeros((n - 2, n))
+            for i in range(n - 2):
+                D[i, i:i + 3] = (1.0, -2.0, 1.0)
+            return D
+        if n == 2:
+            return _np.array([[1.0, -1.0]])
+        return _np.zeros((0, n))
+
+    nc = int(_np.prod(grid))
+    P = _np.zeros((nc, nc))
+    eyes = [_np.eye(g) for g in grid]
+    for ax in range(3):
+        mats = list(eyes)
+        mats[ax] = _diff_op(grid[ax])
+        if mats[ax].shape[0] == 0:
+            continue
+        D = _np.kron(_np.kron(mats[0], mats[1]), mats[2])
+        P += D.T @ D
+    return P
+
+
+def _global_field_normal_eqs(B, prj_t, R2, wgt):
+    """Accumulate the normal equations for the global 3-D deformation field.
+
+    The model is ``prj_t[i,k] = (R_k · D(pos_i))[:2]`` with
+    ``D(pos_i) = Σ_c B[i,c] · C[c,:]``, so the unknown is the ``(nc, 3)``
+    coefficient array *C*.  Exploits the fact that *B* does not depend on the
+    projection: per projection the design matrix is a Kronecker product of
+    ``BᵀWB`` and ``R2ᵀR2``.
+
+    Parameters
+    ----------
+    B : numpy.ndarray, shape (n, nc)
+        Spline basis at the particle positions.
+    prj_t : numpy.ndarray, shape (n, n_proj, 2)
+        Observed 2-D shifts (Angstroms).
+    R2 : numpy.ndarray, shape (n_proj, 2, 3)
+        Top two rows of each projection's rotation matrix.
+    wgt : numpy.ndarray, shape (n, n_proj)
+        Per-observation weights; 0 excludes the observation.
+
+    Returns
+    -------
+    tuple
+        ``(AtA, Atb)`` with shapes ``(3*nc, 3*nc)`` and ``(3*nc,)``.
+    """
+    nc = B.shape[1]
+    AtA = _np.zeros((3 * nc, 3 * nc))
+    Atb = _np.zeros((nc, 3))
+    for k in range(R2.shape[0]):
+        w = wgt[:, k]
+        if not _np.any(w):
+            continue
+        Bw   = B * w[:, None]
+        BtB  = B.T @ Bw
+        AtA += _np.kron(BtB, R2[k].T @ R2[k])
+        Atb += (Bw.T @ prj_t[:, k, :]) @ R2[k]
+    return AtA, Atb.ravel()
+
+
+def _solve_global_field(B, prj_t, R2, wgt, P, lam):
+    """Solve the penalised normal equations for the field coefficients.
+
+    Returns
+    -------
+    numpy.ndarray, shape (nc, 3)
+    """
+    nc = B.shape[1]
+    AtA, Atb = _global_field_normal_eqs(B, prj_t, R2, wgt)
+    Pk = _np.kron(P, _np.eye(3))
+    # Scale the penalty so that lam is dimensionless and comparable across
+    # datasets: without this, lam would absorb the units of prj_t and the
+    # particle count.
+    tr_a = _np.trace(AtA)
+    tr_p = _np.trace(Pk)
+    scale = (tr_a / tr_p) if (tr_p > 0 and tr_a > 0) else 1.0
+    M = AtA + (lam * scale) * Pk
+    # Ridge floor keeps the system solvable when a control point has no
+    # particles in its support.
+    M[_np.diag_indices_from(M)] += 1e-9 * max(tr_a, 1.0) / (3 * nc)
+    return _np.linalg.solve(M, Atb).reshape(nc, 3)
+
+
+def _image_warp_basis(G, B=None, R2k=None, rcond=1e-10):
+    """Per-projection 2-D warp basis, flattened as ``[i*2+r, j*2+s]``.
+
+    Parameters
+    ----------
+    G : numpy.ndarray, shape (n, m)
+        2-D spline basis at the projected particle coordinates.
+    B, R2k : optional
+        Global-field basis and projection rotation.  When both are given, the
+        part of the warp basis lying inside the global field's span *at this
+        projection* is projected out.
+
+        .. warning:: This is almost always the wrong thing to do and is off by
+           default.  At a single projection the global field spans ``span(B)``
+           independently per output component (``R2k`` has rank 2), which
+           contains essentially all of a 2-D spline in projected coordinates:
+           measured at 99.96% for a ``(4,4,2)`` field against a ``(4,4)`` warp.
+           Orthogonalising here therefore annihilates the warp rather than
+           separating it.  What distinguishes the global field from the image
+           warp is that its coefficients are shared *across* projections, which
+           is a constraint in the joint (particle × projection) space; a correct
+           orthogonalisation has to be performed there, and the result is no
+           longer block-diagonal per projection.
+    rcond : float, optional
+        Relative singular-value cutoff for the span.
+
+    Returns
+    -------
+    numpy.ndarray, shape (2n, 2m)
+    """
+    n, m = G.shape
+    T = _np.zeros((2 * n, 2 * m))
+    for s in range(2):
+        T[s::2, s::2] = G
+    if B is None or R2k is None:
+        return T
+    S = (B[:, None, :, None] * R2k[None, :, None, :]).reshape(2 * n, -1)
+    U, sv, _ = _np.linalg.svd(S, full_matrices=False)
+    if sv.size and sv[0] > 0:
+        Q = U[:, sv > sv[0] * rcond]
+        T -= Q @ (Q.T @ T)
+    return T
+
+
+def _solve_penalized(A, b, w, P, lam):
+    """Weighted least squares with a scaled roughness penalty.
+
+    Parameters
+    ----------
+    A : numpy.ndarray, shape (r, p)
+    b : numpy.ndarray, shape (r,)
+    w : numpy.ndarray, shape (r,)
+        Non-negative observation weights.
+    P : numpy.ndarray, shape (p, p)
+        Penalty matrix.
+    lam : float
+        Dimensionless stiffness.
+
+    Returns
+    -------
+    numpy.ndarray, shape (p,)
+    """
+    Aw   = A * w[:, None]
+    AtA  = A.T @ Aw
+    Atb  = Aw.T @ b
+    tr_a = _np.trace(AtA)
+    tr_p = _np.trace(P)
+    scale = (tr_a / tr_p) if (tr_p > 0 and tr_a > 0) else 1.0
+    M = AtA + (lam * scale) * P
+    M[_np.diag_indices_from(M)] += 1e-9 * max(tr_a, 1.0) / max(A.shape[1], 1)
+    return _np.linalg.solve(M, Atb)
+
+
+def _predict_global_field(B, C, R2):
+    """Project a fitted field back to per-projection 2-D shifts.
+
+    Returns
+    -------
+    numpy.ndarray, shape (n, n_proj, 2)
+    """
+    D = B @ C                                  # (n, 3) displacement field
+    return _np.einsum('id,krd->ikr', D, R2)    # (n, n_proj, 2)
+
 
 class _IterationFiles:
     """File-path bundle for a single iteration."""
@@ -600,12 +847,45 @@ class SubtomoAvg(SubtomoAvgCore):
        .. warning:: **Experimental.**
 
        Post-alignment 2-D shift regularisation: ``'none'``, ``'affine'``,
-       ``'gaussian'``, or ``'tps'``.  Default: ``'none'``.
+       ``'gaussian'``, ``'tps'``, or ``'global'``.  Default: ``'none'``.
 
        ``'tps'`` fits a regularised thin-plate spline to the per-tilt 2-D
        shift field.  It is the middle ground between ``'affine'`` (globally
        rigid) and ``'gaussian'`` (purely local): a globally smooth warp whose
        stiffness is set by :attr:`tps_lambda`.
+
+       ``'global'`` is different in kind from the other three.  Those fit each
+       projection independently in the projected 2-D plane; ``'global'`` fits
+       a single 3-D displacement field per tomogram, jointly across the whole
+       tilt series, and projects it back into each image.  Because every tilt
+       constrains one field, it can represent deformations that are invisible
+       to a per-tilt 2-D fit, notably doming: a displacement along the
+       specimen normal projects as ``sinθ·dz``, so it vanishes at 0° and is
+       carried almost entirely by the high-tilt images.  Always fits from
+       origin, so :attr:`fitting_from_origin` does not apply.
+
+    .. attribute:: global_grid
+       :type: tuple of 3 int
+
+       .. warning:: **Experimental.**
+
+       Control points per axis for the ``'global'`` B-spline field.  Deliberately
+       anisotropic by default: the lateral extent of a tomogram exceeds its
+       thickness by one to two orders of magnitude, so Z needs far fewer knots.
+       Degree adapts per axis (cubic where the axis allows, linear at 2 control
+       points).  A tomogram needs at least ``3 * nx * ny * nz`` particles or it
+       is skipped.  Default: ``(4, 4, 2)``.
+
+    .. attribute:: global_lambda
+       :type: float or None
+
+       .. warning:: **Experimental.**
+
+       Roughness penalty for the ``'global'`` field, normalised so the value is
+       comparable across datasets.  ``None`` (default) selects it per tomogram
+       by two-fold cross-validation over particles, which lets a tomogram with
+       no real deformation collapse to a stiff, near-null field on its own
+       rather than by user choice.
 
     .. attribute:: tps_lambda
        :type: float
@@ -616,6 +896,46 @@ class SubtomoAvg(SubtomoAvgCore):
        normalised per tomogram so the value is comparable across datasets).
        ``0`` interpolates every shift (overfits noise), large values converge
        to the pure affine fit.  Default: ``1.0``.
+
+    .. attribute:: image_grid
+       :type: tuple of 2 int
+
+       .. warning:: **Experimental.**
+
+       Control points per axis for the per-projection 2-D warp used by
+       ``type_2d_shift_fitting = 'global+image'``, fitted on the residual left
+       by the global field.  Models per-image effects no specimen-frame field
+       can express: residual stage drift, magnification and rotation errors,
+       beam-induced image warp within an exposure.  Default: ``(4, 4)``.
+
+    .. attribute:: image_lambda
+       :type: float or None
+
+       .. warning:: **Experimental.**
+
+       Stiffness of the image warp; ``None`` (default) selects it by two-fold
+       cross-validation over particles, pooled across projections.
+
+    .. attribute:: image_orthogonalize
+       :type: bool
+
+       .. warning:: **Experimental.**  Default ``False``; leave it there.
+
+       Project the image-warp basis out of the global field's span at each
+       projection.  This does *not* separate the two terms.  At a single
+       projection the global field already spans ``span(B)`` independently per
+       output component, which contains ~99.96% of a 2-D spline in projected
+       coordinates, so enabling this annihilates the warp instead: in
+       simulation a genuine 28.6 Å per-image warp is recovered as 27.7 Å with
+       the flag off and 1.1 Å with it on.
+
+       With the flag off, the global field is fitted first and the warp takes
+       the residual, so content representable by both is attributed to the
+       global field.  The total written to ``prj_t`` is correct either way;
+       only the split between the two terms is ambiguous, which matters if the
+       global field's amplitude is being read as a physical doming
+       measurement.  Resolving it properly requires a joint solve over both
+       coefficient blocks, which is not implemented.
 
     .. attribute:: fitting_from_origin
        :type: bool
@@ -778,6 +1098,11 @@ class SubtomoAvg(SubtomoAvgCore):
         self.discard_oversampled_views = None
         self.type_2d_shift_fitting     = 'none'
         self.tps_lambda                = 1.0
+        self.global_grid               = (4, 4, 2)
+        self.global_lambda             = None
+        self.image_grid                = (4, 4)
+        self.image_lambda              = None
+        self.image_orthogonalize       = False
         self.fitting_from_origin       = True
         self.smooth_ctf                = False
         self.type_ctf_smoothing        = 'gaussian'
@@ -888,6 +1213,276 @@ class SubtomoAvg(SubtomoAvgCore):
         print('  [CTF Refinement] Finished. Elapsed time: %.1f seconds (%s).'
               % (elapsed.total_seconds(), str(elapsed)))
 
+    def _resolve_image_grid(self, use_depth):
+        """Normalise :attr:`image_grid` to ``(mx, my, mz)``.
+
+        A 2-tuple gains a depth axis of 2 control points (linear in depth) when
+        *use_depth* is set, or 1 (no depth dependence) otherwise.
+        """
+        g = tuple(int(v) for v in self.image_grid)
+        if len(g) == 2:
+            return g + ((2,) if use_depth else (1,))
+        return g if use_depth else (g[0], g[1], 1)
+
+    def _fit_image_warp(self, B, R2, pt, res, wgt, use_depth=False):
+        """Fit a per-projection warp to the residual left by the global field.
+
+        Each projection gets its own B-spline warp.  With *use_depth* off the
+        warp is a function of the projected coordinates ``(x', y')`` only, which
+        forces every particle along a line of sight to share one shift.  With it
+        on the domain gains a third axis and the warp becomes a per-projection
+        *3-D* field.
+
+        That third axis is the **specimen** Z, not the rotated depth
+        ``d = (R·pos)_z``.  The two carry the same extra information, since
+
+            d = −tanθ·x' + z/cosθ
+
+        so the only content in *d* not already spanned by ``x'`` is the specimen
+        Z term, amplified by ``1/cosθ``.  But ``(x', y', d)`` is badly
+        conditioned: the particle cloud in ``(x', d)`` is a thin slab rotated by
+        the tilt angle, so the two coordinates are strongly correlated.
+        ``(x', y', z)`` carries the same information with the image-plane and
+        thickness directions cleanly separated.
+
+        This is the model implied by a global 3-D field failing while a
+        per-projection fit succeeds: the deformation is three-dimensional but
+        *changes between exposures*, as dose-driven beam-induced deformation
+        does.  A static field cannot represent that; a per-projection 3-D field
+        can.
+
+        Parameters
+        ----------
+        B : numpy.ndarray, shape (n, nc)
+            Global-field basis at the particle positions.
+        R2 : numpy.ndarray, shape (n_proj, 2, 3)
+        pt : numpy.ndarray, shape (n, 3)
+            Particle positions (Angstroms).
+        res : numpy.ndarray, shape (n, n_proj, 2)
+            Residual after the global field.
+        wgt : numpy.ndarray, shape (n, n_proj)
+        use_depth : bool, optional
+            Include the specimen-Z axis.  Default ``False``.
+
+        Returns
+        -------
+        tuple
+            ``(pred, lam)`` with *pred* shaped ``(n, n_proj, 2)``.
+        """
+        n, n_proj = res.shape[0], res.shape[1]
+        grid2 = self._resolve_image_grid(use_depth)
+        P2    = _np.kron(_grid_penalty(grid2), _np.eye(2))
+        third = pt[:, 2] if use_depth else _np.zeros(n)
+
+        bases, targets, weights = [], [], []
+        for k in range(n_proj):
+            xy = pt @ R2[k].T                       # projected coordinates
+            p3 = _np.column_stack([xy, third])
+            bbox = (p3.min(axis=0), p3.max(axis=0))
+            G = _bspline_basis_3d(p3, grid2, bbox)
+            bases.append(_image_warp_basis(
+                G, B if self.image_orthogonalize else None, R2[k]))
+            targets.append(res[:, k, :].ravel())
+            weights.append(_np.repeat(wgt[:, k], 2))
+
+        lam_grid = (_np.logspace(-3, 3, 13) if self.image_lambda is None
+                    else _np.atleast_1d(float(self.image_lambda)))
+
+        if lam_grid.size > 1:
+            rng  = _np.random.default_rng(1)
+            fold = rng.permutation(n) % 2
+            rows = [_np.repeat(fold == f, 2) for f in (0, 1)]
+            best_lam, best_err = lam_grid[0], _np.inf
+            for lam in lam_grid:
+                err = 0.0
+                for f in (0, 1):
+                    va, tr = rows[f], ~rows[f]
+                    for k in range(n_proj):
+                        a = _solve_penalized(bases[k][tr], targets[k][tr],
+                                             weights[k][tr], P2, lam)
+                        r = bases[k][va] @ a - targets[k][va]
+                        w = weights[k][va]
+                        if w.sum() > 0:
+                            err += float((w * r ** 2).sum() / w.sum())
+                if err < best_err:
+                    best_lam, best_err = lam, err
+            lam = best_lam
+        else:
+            lam = float(lam_grid[0])
+
+        pred = _np.zeros_like(res)
+        for k in range(n_proj):
+            a = _solve_penalized(bases[k], targets[k], weights[k], P2, lam)
+            pred[:, k, :] = (bases[k] @ a).reshape(n, 2)
+        return pred, lam
+
+    def _fit_global_deformation(self, ptcls_in, with_image=False, with_global=True,
+                                use_depth=False):
+        """Fit a global 3-D deformation field per tomogram and rewrite ``prj_t``.
+
+        Models the specimen as a single smooth 3-D displacement field
+        ``D(x, y, z)`` sampled by every projection through its own rotation,
+        so all tilts constrain one object.  The field is a tensor-product
+        cubic B-spline over :attr:`global_grid` control points, fitted jointly
+        across the tilt series by penalised least squares and written back as
+        ``prj_t[i,k] = (R_k · D(pos_i))[:2]``.
+
+        The fit is always from origin: the returned ``prj_t`` is entirely the
+        model's output, so nothing unregularised carries across iterations.
+
+        Stiffness is chosen by two-fold cross-validation over particles unless
+        :attr:`global_lambda` is set explicitly.
+
+        Parameters
+        ----------
+        ptcls_in : :class:`~susan.data.Particles`
+            Modified in place.
+        """
+        grid  = tuple(int(g) for g in self.global_grid)
+        nc    = int(_np.prod(grid))
+        tomos = _ssa_data.Tomograms(self.tomogram_file)
+        n     = ptcls_in.n_ptcl
+        pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+
+        lam_grid = (_np.logspace(-3, 3, 13) if self.global_lambda is None
+                    else _np.atleast_1d(float(self.global_lambda)))
+
+        # Minimum particles: the global field needs 3 unknowns per control
+        # point over the whole series; the image warp needs 2 per control
+        # point but only sees one projection at a time.
+        if with_global:
+            n_min, what = 3 * nc, '%dx%dx%d global grid' % grid
+        else:
+            g2    = self._resolve_image_grid(use_depth)
+            n_min = 3 * int(_np.prod(g2))
+            what  = '%dx%dx%d image grid' % g2
+
+        # Accumulate sums of squares so the summary is a properly pooled RMS
+        # rather than an average of per-tomogram RMS values.
+        lams_l1, lams_l2 = [], []
+        acc = {'n_tomo': 0, 'n_ptcl': 0, 'w': 0.0,
+               'obs': 0.0, 'field': 0.0, 'warp': 0.0, 'res': 0.0}
+        verbose = self.verbosity > 1
+
+        for tcix in range(tomos.n_tomos):
+            idx = ptcls_in.tomo_cix == tcix
+            n_t = int(idx.sum())
+            if n_t < n_min:
+                if n_t > 0:
+                    print('    Tomogram %d: %d particles < %d needed for a %s; '
+                          'skipped.' % (tcix, n_t, n_min, what))
+                continue
+
+            n_proj = int(tomos.num_proj[tcix])
+            R2 = _np.zeros((n_proj, 2, 3))
+            R  = _np.eye(3, dtype=_np.float32)
+            for k in range(n_proj):
+                _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, k]).astype(_np.float32))
+                R2[k] = R[:2, :]
+
+            pt_t  = pt[idx].astype(_np.float64)
+            obs   = ptcls_in.prj_t[idx, :n_proj, :].astype(_np.float64)
+            wgt   = (ptcls_in.prj_w[idx, :n_proj] > 0).astype(_np.float64)
+            bbox  = (pt_t.min(axis=0), pt_t.max(axis=0))
+            B     = _bspline_basis_3d(pt_t, grid, bbox)
+            P     = _grid_penalty(grid)
+
+            def _rms(v):
+                if wgt.sum() <= 0:
+                    return 0.0
+                return _np.sqrt(float((wgt * (v ** 2).sum(axis=2)).sum() / wgt.sum()))
+
+            rms_before = _rms(obs)
+
+            if with_global:
+                if lam_grid.size > 1:
+                    rng  = _np.random.default_rng(0)
+                    fold = rng.permutation(n_t) % 2
+                    best_lam, best_err = lam_grid[0], _np.inf
+                    for lam in lam_grid:
+                        err = 0.0
+                        for f in (0, 1):
+                            tr, va = (fold != f), (fold == f)
+                            if tr.sum() < 3 * nc or va.sum() < 1:
+                                err = _np.inf
+                                break
+                            C = _solve_global_field(B[tr], obs[tr], R2, wgt[tr], P, lam)
+                            r = _predict_global_field(B[va], C, R2) - obs[va]
+                            w = wgt[va]
+                            if w.sum() > 0:
+                                err += float((w * (r ** 2).sum(axis=2)).sum() / w.sum())
+                        if err < best_err:
+                            best_lam, best_err = lam, err
+                    lam = best_lam
+                else:
+                    lam = float(lam_grid[0])
+
+                C    = _solve_global_field(B, obs, R2, wgt, P, lam)
+                pred = _predict_global_field(B, C, R2)
+                amp  = _np.sqrt(((B @ C) ** 2).sum(axis=1))
+                lams_l1.append(lam)
+                acc['field'] += float((amp ** 2).sum())
+                if verbose:
+                    print('    Tomogram %d: %d particles, L1 lambda=%.3g, '
+                          'field RMS %.2f A, unexplained RMS %.2f A (of %.2f A).'
+                          % (tcix, n_t, lam, float(_np.sqrt((amp ** 2).mean())),
+                             _rms(pred - obs), rms_before))
+            else:
+                pred = _np.zeros_like(obs)
+                if verbose:
+                    print('    Tomogram %d: %d particles, no global field, '
+                          'input RMS %.2f A.' % (tcix, n_t, rms_before))
+
+            if with_image:
+                warp, lam2 = self._fit_image_warp(B, R2, pt_t, obs - pred, wgt,
+                                                  use_depth=use_depth)
+                pred = pred + warp
+                lams_l2.append(lam2)
+                acc['warp'] += float((wgt * (warp ** 2).sum(axis=2)).sum())
+                if verbose:
+                    print('      image warp: lambda=%.3g, warp RMS %.2f A, '
+                          'unexplained RMS %.2f A.'
+                          % (lam2, float(_np.sqrt((warp ** 2).sum(axis=2).mean())),
+                             _rms(pred - obs)))
+
+            acc['n_tomo'] += 1
+            acc['n_ptcl'] += n_t
+            acc['w']      += float(wgt.sum())
+            acc['obs']    += float((wgt * (obs ** 2).sum(axis=2)).sum())
+            acc['res']    += float((wgt * ((pred - obs) ** 2).sum(axis=2)).sum())
+
+            prj_new = ptcls_in.prj_t[idx]
+            prj_new[:, :n_proj, :] = pred.astype(ptcls_in.prj_t.dtype)
+            ptcls_in.prj_t[idx] = prj_new
+
+        if acc['n_tomo'] == 0:
+            print('    Shift fitting: no tomogram had enough particles.')
+            return
+
+        # Geometric mean: lambda is swept on a log grid, so the log-average is
+        # the meaningful summary and a single loose tomogram does not dominate.
+        def _gmean(v):
+            return float(_np.exp(_np.mean(_np.log(_np.maximum(v, 1e-30)))))
+        def _rms_pooled(key, w):
+            return float(_np.sqrt(acc[key] / w)) if w > 0 else 0.0
+
+        w        = acc['w']
+        rms_in   = _rms_pooled('obs', w)
+        rms_out  = _rms_pooled('res', w)
+        expl     = 100.0 * (1.0 - (rms_out / rms_in) ** 2) if rms_in > 0 else 0.0
+        parts    = []
+        if lams_l1:
+            parts.append('global lambda %.4g, field RMS %.2f A'
+                         % (_gmean(lams_l1),
+                            _np.sqrt(acc['field'] / max(acc['n_ptcl'], 1))))
+        if lams_l2:
+            parts.append('image lambda %.4g, warp RMS %.2f A'
+                         % (_gmean(lams_l2), _rms_pooled('warp', w)))
+        print('    Shift fitting: %d tomograms, %d particles; %s.'
+              % (acc['n_tomo'], acc['n_ptcl'], '; '.join(parts)))
+        print('      input RMS %.2f A -> unexplained %.2f A (%.0f%% of variance '
+              'explained).' % (rms_in, rms_out, expl))
+
     def _regularize_2d_parameters(self, ptcls_in, cur, prv):
         """Apply 2-D shift regularisation and/or CTF smoothing in-place.
 
@@ -989,6 +1584,19 @@ class SubtomoAvg(SubtomoAvgCore):
                     sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
                     ptcls_in.prj_t[idx, i] = base + _smooth_deltas(
                         pt0, ptcls_in.prj_t[idx, i] - base, sigma=sigma, k=k_eff)
+
+        elif self.type_2d_shift_fitting.lower() == 'global':
+            self._fit_global_deformation(ptcls_in)
+
+        elif self.type_2d_shift_fitting.lower() in ('global+image', 'global_image'):
+            self._fit_global_deformation(ptcls_in, with_image=True)
+
+        elif self.type_2d_shift_fitting.lower() in ('image', 'local'):
+            self._fit_global_deformation(ptcls_in, with_image=True, with_global=False)
+
+        elif self.type_2d_shift_fitting.lower() in ('local_3d', 'image_3d'):
+            self._fit_global_deformation(ptcls_in, with_image=True,
+                                         with_global=False, use_depth=True)
 
         elif self.type_2d_shift_fitting.lower() == 'tps':
             R     = _np.eye(3, dtype=_np.float32)
