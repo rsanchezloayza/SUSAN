@@ -303,10 +303,10 @@ protected:
     }
 
     bool check_substack(float2*p_factor,int K) {
-        bool rslt = true;
+        bool rslt = false;
         for(int k=0;k<K;k++) {
-            if( p_factor[k].y < 1 )
-                rslt = false;
+            if( p_factor[k].y >= 0 )
+                rslt = true;
         }
         return rslt;
     }
@@ -427,6 +427,7 @@ protected:
     void reduce_and_bcast(const int K) {
         int p = (p_info->box_size/2+1)*p_info->box_size;
         int l = p*K;
+        
         if( p_info->n_threads > 1 ) {
             for(int i=1;i<p_info->n_threads;i++)
                 Math::sum(workers[0].c_rslt.ptr,workers[i].c_rslt.ptr,l);

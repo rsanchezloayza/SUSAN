@@ -421,6 +421,10 @@ class Tomograms:
         * ``.txt`` — SUSAN per-projection text format with eight columns:
           def_U, def_V, def_ang, def_phas, def_Bfct, def_ExFl, def_mres, def_scor.
 
+        Projections the CTF estimator flagged as empty (blank frames, written
+        out with ``def_U == def_V == 0``) have their projection weight zeroed
+        so they are excluded from downstream alignment and reconstruction.
+
         Parameters
         ----------
         idx : int
@@ -462,6 +466,14 @@ class Tomograms:
             self.def_ExFl  [idx,:P]   = buffer[:,5]
             self.def_mres  [idx,:P]   = buffer[:,6]
             self.def_scor  [idx,:P]   = buffer[:,7]
+            # Disable empty projections: the CTF estimator zeroes def_U/def_V
+            # (and def_ang, max_res, score) for blank frames in the stack, see
+            # mark_empty_projections in src/ctf_linearizer.h.  Mirror that here
+            # by zeroing their projection weight so they are excluded from
+            # alignment and reconstruction (update_defocus copies proj_wgt into
+            # the per-particle prj_w, which the C++/CUDA kernels mask on).
+            empty = _np.where((buffer[:,0] == 0) & (buffer[:,1] == 0))[0]
+            self.proj_wgt[idx,empty] = 0
             if skip_max_res:
                 self.def_mres[idx,:P] = 0
         else:

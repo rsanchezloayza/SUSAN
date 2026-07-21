@@ -220,22 +220,29 @@ protected:
     }
 
     void estimate_mu_sigma(float&mu,float&sigma,float*p_data,int ix0,int ix1) {
-        float acc = 0;
-        mu    = 0;
-        sigma = 0;
+        float acc   = 0;
+        float mu_ws = 0;
 
         for(int ix=ix0;ix<=ix1;ix++) {
-            mu  += p_data[ix]*ix;
-            acc += p_data[ix];
+            mu_ws += p_data[ix]*ix;
+            acc   += p_data[ix];
         }
-        mu = mu/acc;
 
+        /// Empty/degenerate projection (e.g. a blank frame in the stack):
+        /// keep the carried-in mu,sigma so the defocus sweep is not poisoned
+        /// with NaN (acc==0 -> 0/0), and the empty projection simply inherits
+        /// its neighbour's estimate.
+        if( fabsf(acc) < SUSAN_FLOAT_TOL )
+            return;
+
+        float l_mu  = mu_ws/acc;
+        float l_sig = 0;
         for(int ix=ix0;ix<=ix1;ix++) {
-            sigma += p_data[ix]*((ix-mu)*(ix-mu)) ;
+            l_sig += p_data[ix]*((ix-l_mu)*(ix-l_mu));
         }
-        sigma = sigma/acc;
 
-        sigma = sqrtf(sigma);
+        mu    = l_mu;
+        sigma = sqrtf(l_sig/acc);
     }
 
     void save_gpu_mrc(single*p_cpu,const single*p_gpu,const int m,const int n,const int k,const char*out_dir,const char*name,const int req_verb) {
@@ -690,11 +697,41 @@ public:
         /// REFINE AND ESTIMATE PHASE SHIFT
         estimate_phase_shift(c_buffer,g_input,out_dir);
 
+        /// FLAG EMPTY PROJECTIONS (blank frames in the stack)
+        mark_empty_projections(input,p_tomo);
+
         /// SAVE RESULTS
         save_fitting(out_dir,c_buffer,g_input);
         save_defocus_result(out_dir);
 
         delete [] c_buffer;
+    }
+
+    /// A blank frame in the stack yields an all-zero averaged power spectrum
+    /// slice.  Its defocus is only a carried-over neighbour estimate, so we
+    /// flag it as invalid (score=0, max_res=0).  max_res=0 is already treated
+    /// as "excluded" by the reconstruction/aligner band-pass setup.
+    void mark_empty_projections(const float*input,Tomogram*p_tomo) {
+        long slice = (long)M*(long)N;
+        for(int k=0;k<K;k++) {
+            const float*p_slice = input + (long)k*slice;
+            double acc = 0.0;
+            for(long i=0;i<slice;i++)
+                acc += fabs(p_slice[i]);
+            if( acc < SUSAN_FLOAT_TOL ) {
+                /// Disable the projection: zero its weight and its (otherwise
+                /// NaN / meaningless carried-over) defocus estimate.
+                p_tomo->w[k] = 0.0f;
+                c_estimate[k].U       = 0.0f;
+                c_estimate[k].V       = 0.0f;
+                c_estimate[k].angle   = 0.0f;
+                c_estimate[k].ph_shft = 0.0f;
+                c_estimate[k].Bfactor = 0.0f;
+                c_estimate[k].ExpFilt = 0.0f;
+                c_estimate[k].max_res = 0.0f;
+                c_estimate[k].score   = 0.0f;
+            }
+        }
     }
 
 
@@ -723,22 +760,29 @@ protected:
     }
 
     void estimate_mu_sigma_1D(float&mu,float&sigma,float*p_data,int ix0,int ix1) {
-        float acc = 0;
-        mu    = 0;
-        sigma = 0;
+        float acc   = 0;
+        float mu_ws = 0;
 
         for(int ix=ix0;ix<=ix1;ix++) {
-            mu  += p_data[ix]*ix;
-            acc += p_data[ix];
+            mu_ws += p_data[ix]*ix;
+            acc   += p_data[ix];
         }
-        mu = mu/acc;
 
+        /// Empty/degenerate projection (e.g. a blank frame in the stack):
+        /// keep the carried-in mu,sigma so the peak tracking is not poisoned
+        /// with NaN (acc==0 -> 0/0), and the empty projection simply inherits
+        /// its neighbour's estimate.
+        if( fabsf(acc) < SUSAN_FLOAT_TOL )
+            return;
+
+        float l_mu  = mu_ws/acc;
+        float l_sig = 0;
         for(int ix=ix0;ix<=ix1;ix++) {
-            sigma += p_data[ix]*((ix-mu)*(ix-mu)) ;
+            l_sig += p_data[ix]*((ix-l_mu)*(ix-l_mu));
         }
-        sigma = sigma/acc;
 
-        sigma = sqrtf(sigma);
+        mu    = l_mu;
+        sigma = sqrtf(l_sig/acc);
     }
 
     void track_peaks_in_linear_ps(float*c_linear) {
