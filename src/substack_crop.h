@@ -84,7 +84,7 @@ public:
     }
 
     void crop(float*substack,float*stack,const V3f&p_proj,const int k) {
-        internal_crop( substack+k*N*N, stack+k*tomo->stk_dim.x*tomo->stk_dim.y, (int)floorf(p_proj(0)), (int)floorf(p_proj(1)) );
+        internal_crop( substack+(size_t)k*N*N, stack+(size_t)k*tomo->stk_dim.x*tomo->stk_dim.y, (int)floorf(p_proj(0)), (int)floorf(p_proj(1)) );
     }
 
     float normalize_zero_mean(float*substack,const int k) {

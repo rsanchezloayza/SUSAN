@@ -458,10 +458,10 @@ inline void get_avg_std(float&avg,float&std,const float*ptr,const uint32 length)
     }
 }
 
-inline void get_min_max_avg_std(float&min,float&max,float&avg,float&std,const float*ptr,const uint32 length) {
+inline void get_min_max_avg_std(float&min,float&max,float&avg,float&std,const float*ptr,const size_t length) {
     /// One pass estimation of AVG and STD
 
-    uint32 i;
+    size_t i;
     avg = 0;
     std = 0;
     min = 0;

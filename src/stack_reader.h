@@ -110,7 +110,7 @@ protected:
                 Z = tomos->at(i).stk_dim.z;
         }
 
-        return X*Y*Z;
+        return (long)X*Y*Z;
     }
 
     void parse_ptcls() {

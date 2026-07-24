@@ -41,7 +41,7 @@ namespace EM {
         header[2]  = Y;
         header[3]  = Z;
         fwrite((void*)header,sizeof(uint32),128,fp);
-        fwrite((void*)data,sizeof(single),X*Y*Z,fp);
+        fwrite((void*)data,sizeof(single),(size_t)X*Y*Z,fp);
         fclose(fp);
     }
 
