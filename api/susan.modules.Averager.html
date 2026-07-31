@@ -428,6 +428,28 @@ Default: <code class="docutils literal notranslate"><span class="pre">'wiener'</
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Averager.splat_gain">
+<span class="sig-name descname"><span class="pre">splat_gain</span></span><a class="headerlink" href="#susan.modules.Averager.splat_gain" title="Link to this definition">¶</a></dt>
+<dd><p><em>Experimental.</em>  Angular-spread splatting.  When greater than 0, the
+bandpass lowpass and the per-projection <code class="docutils literal notranslate"><span class="pre">def_mres</span></code> stop acting as a
+cutoff and instead set the width of a tangential gaussian insertion
+kernel, so every frequency up to Nyquist is inserted, progressively
+blurred rather than truncated.  The width is
+<code class="docutils literal notranslate"><span class="pre">clamp(splat_gain*0.4*R/R_ref,</span> <span class="pre">0.4,</span> <span class="pre">1.0)</span></code> fourier pixels with
+<code class="docutils literal notranslate"><span class="pre">R_ref</span> <span class="pre">=</span> <span class="pre">min(lowpass,</span> <span class="pre">def_mres)</span></code>, so it is flat (and equivalent to
+trilinear) up to <code class="docutils literal notranslate"><span class="pre">R_ref/splat_gain</span></code> and then grows.  <code class="docutils literal notranslate"><span class="pre">1</span></code> is the
+physically anchored value; larger distrusts the stated resolution more
+and starts blurring earlier.  Overrides <code class="docutils literal notranslate"><span class="pre">gridding_type</span></code>, and costs
+roughly 50-100x more time in the insertion stage.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>
+(disabled, ordinary reconstruction).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Averager.symmetry">
 <span class="sig-name descname"><span class="pre">symmetry</span></span><a class="headerlink" href="#susan.modules.Averager.symmetry" title="Link to this definition">¶</a></dt>
 <dd><p>Point-group symmetry applied to the reconstructed map.  Default:
@@ -697,6 +719,7 @@ etc.</p></li>
 <li><a class="reference internal" href="#susan.modules.Averager.weighting_type"><code class="docutils literal notranslate"><span class="pre">Averager.weighting_type</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Averager.ctf_correction"><code class="docutils literal notranslate"><span class="pre">Averager.ctf_correction</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Averager.gridding_type"><code class="docutils literal notranslate"><span class="pre">Averager.gridding_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Averager.splat_gain"><code class="docutils literal notranslate"><span class="pre">Averager.splat_gain</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Averager.symmetry"><code class="docutils literal notranslate"><span class="pre">Averager.symmetry</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Averager.ssnr"><code class="docutils literal notranslate"><span class="pre">Averager.ssnr</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Averager.inversion"><code class="docutils literal notranslate"><span class="pre">Averager.inversion</span></code></a></li>

@@ -339,7 +339,8 @@
     <span class="n">ite</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">apix</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">shell_hw</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
-    <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
+    <span class="n">shell_pick</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;first&#39;</span><span class="p">,</span>
     <span class="n">use_halfsets</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">save_cc</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">fpix_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -349,8 +350,8 @@
 <span class="sd">    For each bandpass shell centred on successive Fourier-pixel frequencies, a</span>
 <span class="sd">    2-D alignment is run with no angular or translational search to collect</span>
 <span class="sd">    the per-projection CC scores.  The result is a ``(n_ptcl, n_proj)`` array</span>
-<span class="sd">    of the finest-resolution shell at which each projection still shows signal</span>
-<span class="sd">    above *threshold*.</span>
+<span class="sd">    of the resolution of the shell selected by *shell_pick* among those in</span>
+<span class="sd">    which each projection shows signal above *threshold*.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -369,6 +370,14 @@
 <span class="sd">        Fraction of the global maximum positive CC used as the &quot;above noise&quot;</span>
 <span class="sd">        cut-off.  The absolute threshold is computed as</span>
 <span class="sd">        ``threshold * max(prj_cc[prj_cc &gt; 0])``.  Default: ``0.1``.</span>
+<span class="sd">    shell_pick : {&#39;first&#39;, &#39;last&#39;}, optional</span>
+<span class="sd">        Which threshold crossing defines the cut-off, with shells ordered from</span>
+<span class="sd">        low to high frequency.  ``&#39;first&#39;`` (default) reports the last shell</span>
+<span class="sd">        of the leading above-threshold run — it stops at the first shell that</span>
+<span class="sd">        drops below the cut-off, so an isolated high-frequency spike cannot</span>
+<span class="sd">        pull the estimate out; ``&#39;last&#39;`` reports the highest-frequency shell</span>
+<span class="sd">        above the cut-off anywhere in the sweep, ignoring any dips in between.</span>
+<span class="sd">        The two agree when the CC decays monotonically.</span>
 <span class="sd">    use_halfsets : bool, optional</span>
 <span class="sd">        Whether to respect half-set assignments during alignment.</span>
 <span class="sd">        Default: ``False``.</span>
@@ -381,10 +390,14 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    max_res_A : numpy.ndarray, shape (n_ptcl, n_proj)</span>
-<span class="sd">        Finest resolution (in Å) at which each projection carries signal above</span>
-<span class="sd">        *threshold*.  Particles/projections with no signal in any shell are</span>
-<span class="sd">        assigned the lowest-resolution shell value.</span>
+<span class="sd">        Resolution (in Å) of the selected shell in which each projection</span>
+<span class="sd">        carries signal above *threshold*.  Particles/projections with no</span>
+<span class="sd">        signal in any shell are assigned the lowest-resolution shell value.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">shell_pick</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;first&#39;</span><span class="p">,</span> <span class="s1">&#39;last&#39;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;shell_pick must be &#39;first&#39; or &#39;last&#39;, got </span><span class="si">%r</span><span class="s2">&quot;</span>
+                         <span class="o">%</span> <span class="p">(</span><span class="n">shell_pick</span><span class="p">,))</span>
+
     <span class="n">ali</span> <span class="o">=</span> <span class="n">_ssa_modules</span><span class="o">.</span><span class="n">Aligner</span><span class="p">()</span>
     <span class="n">ali</span><span class="o">.</span><span class="n">dimensionality</span>   <span class="o">=</span> <span class="mi">2</span>
     <span class="n">ali</span><span class="o">.</span><span class="n">list_gpus_ids</span>    <span class="o">=</span> <span class="n">sta</span><span class="o">.</span><span class="n">list_gpus_ids</span>
@@ -434,11 +447,22 @@
     <span class="n">cc_max</span> <span class="o">=</span> <span class="n">pos_cc</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">if</span> <span class="n">pos_cc</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
     <span class="n">above</span>  <span class="o">=</span> <span class="n">prj_cc_shells</span> <span class="o">&gt;</span> <span class="n">threshold</span> <span class="o">*</span> <span class="n">cc_max</span>
 
-    <span class="c1"># For each (ptcl, proj): index of the *last* shell still above threshold</span>
-    <span class="n">last_above</span> <span class="o">=</span> <span class="p">(</span><span class="n">above</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">_np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">above</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">last_above</span><span class="p">[</span><span class="o">~</span><span class="n">above</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># For each (ptcl, proj): the shell at the chosen threshold crossing.</span>
+    <span class="k">if</span> <span class="n">shell_pick</span> <span class="o">==</span> <span class="s1">&#39;first&#39;</span><span class="p">:</span>
+        <span class="c1"># Last shell of the leading above-threshold run: stop at the first</span>
+        <span class="c1"># shell that drops below the cut-off.</span>
+        <span class="n">below</span>      <span class="o">=</span> <span class="o">~</span><span class="n">above</span>
+        <span class="n">n_shells</span>   <span class="o">=</span> <span class="n">above</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">first_below</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">below</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+                                <span class="n">_np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">below</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+                                <span class="n">n_shells</span><span class="p">)</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">first_below</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Highest-frequency shell above the cut-off, dips ignored.</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="p">(</span><span class="n">above</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">_np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">above</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">sel</span><span class="p">[</span><span class="o">~</span><span class="n">above</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
 
-    <span class="n">max_res_A</span> <span class="o">=</span> <span class="n">shell_res_A</span><span class="p">[</span><span class="n">last_above</span><span class="p">]</span>   <span class="c1"># (n_ptcl, n_proj) in Å</span>
+    <span class="n">max_res_A</span> <span class="o">=</span> <span class="n">shell_res_A</span><span class="p">[</span><span class="n">sel</span><span class="p">]</span>   <span class="c1"># (n_ptcl, n_proj) in Å</span>
     <span class="k">return</span> <span class="n">max_res_A</span></div>
 
 
