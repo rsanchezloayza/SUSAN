@@ -87,6 +87,7 @@ public:
     int ctf_type;
     int grid_type;
     int max_K;
+    float   splat_gain;
     float3  bandpass;
     float2  ssnr; /// x=F; y=S;
     double2 **c_acc;
@@ -158,22 +159,38 @@ protected:
     }
 
     void correct_ctf(RecSubstack&ss_data,RecBuffer*ptr,GPU::Stream&stream) {
+        /// With splatting on, the resolution limit is not a cutoff any more, it is the scale
+        /// that sets the insertion kernel width. So the data must survive the CTF stage out to
+        /// nyquist: the lowpass opens up and the per-projection max_res clamp is bypassed.
+        /// The highpass is unrelated and stays. See insert_stk_splat_atomic.
+        float3 working_bandpass = bandpass;
+        bool   use_max_res      = true;
+        if( splat_gain > 0 ) {
+            working_bandpass.y = ((float)(N+P))/2;
+            use_max_res        = false;
+        }
+
         if( ctf_type == INV_NO_INV )
-            ss_data.set_no_ctf(ptr->g_def,bandpass,ptr->K,stream);
+            ss_data.set_no_ctf(ptr->g_def,working_bandpass,ptr->K,stream,use_max_res);
         if( ctf_type == INV_PHASE_FLIP )
-            ss_data.set_phase_flip(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
+            ss_data.set_phase_flip(ptr->ctf_vals,ptr->g_def,working_bandpass,ptr->K,stream,use_max_res);
         if( ctf_type == INV_WIENER )
-            ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
+            ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,working_bandpass,ptr->K,stream,use_max_res);
         if( ctf_type == INV_WIENER_SSNR )
-            ss_data.set_wiener_ssnr(ptr->ctf_vals,ptr->g_def,bandpass,ssnr,ptr->K,stream);
+            ss_data.set_wiener_ssnr(ptr->ctf_vals,ptr->g_def,working_bandpass,ssnr,ptr->K,stream,use_max_res);
         if( ctf_type == INV_WIENER_ARCTAN )
-            ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
+            ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,working_bandpass,ptr->K,stream,use_max_res);
         if( ctf_type == INV_WIENER_LOGISTIC )
-            ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,bandpass,ptr->K,stream);
+            ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,working_bandpass,ptr->K,stream,use_max_res);
     }
 
     void insert_vol(RecAcc&vol,RecSubstack&ss_data,RecBuffer*ptr,GPU::Stream&stream) {
-        if(grid_type == GRIDDING_LINEAR_FWD)
+        /// splat_gain takes precedence over grid_type: at 0 the kernel width would be pinned at
+        /// its floor and it would only be a slower trilinear, so there is nothing to gain from
+        /// combining them.
+        if(splat_gain > 0)
+            vol.insert_splat_fwd(ss_data.ss_tex,ss_data.ss_ctf,ptr->g_ali,ptr->g_def,splat_gain,bandpass,ptr->K,stream);
+        else if(grid_type == GRIDDING_LINEAR_FWD)
             vol.insert_linear_fwd(ss_data.ss_tex,ss_data.ss_ctf,ptr->g_ali,bandpass,ptr->K,stream);
         else if(grid_type == GRIDDING_KAISER_BESSEL_FWD)
             vol.insert_kaiser_bessel_fwd(ss_data.ss_tex,ss_data.ss_ctf,ptr->g_ali,bandpass,ptr->K,stream);
@@ -311,6 +328,7 @@ protected:
         gpu_worker.pad_type   = pad_type;
         gpu_worker.ctf_type   = p_info->ctf_type;
         gpu_worker.grid_type  = p_info->grid_type;
+        gpu_worker.splat_gain = p_info->splat_gain;
         gpu_worker.max_K      = max_K;
         gpu_worker.c_acc      = c_acc;
         gpu_worker.c_wgt      = c_wgt;

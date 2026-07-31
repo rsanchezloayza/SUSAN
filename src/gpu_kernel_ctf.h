@@ -754,7 +754,8 @@ __global__ void vis_add_ctf(float*p_out,const Defocus*p_def_inf,const float apix
 
 /// For reconstruction
 __global__ void ctf_stk_no_correction(cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_ctf,const float2*g_data,
-                                      const Defocus*def, const float3 bandpass,const int3 ss_siz) {
+                                      const Defocus*def, const float3 bandpass,const int3 ss_siz,
+                                      const bool use_max_res=true) {
 
     int3 ss_idx = get_th_idx();
 
@@ -767,7 +768,7 @@ __global__ void ctf_stk_no_correction(cudaSurfaceObject_t s_stk,cudaSurfaceObjec
         get_xyR_unit(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
-        if( def[ss_idx.z].max_res > 0 )
+        if( use_max_res && def[ss_idx.z].max_res > 0 )
             max_R = min(max_R,def[ss_idx.z].max_res);
         float w = get_bp_wgt(bandpass.x,max_R,bandpass.z,R);
 
@@ -787,7 +788,8 @@ __global__ void ctf_stk_no_correction(cudaSurfaceObject_t s_stk,cudaSurfaceObjec
 
 /// For reconstruction
 __global__ void ctf_stk_phase_flip( cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_ctf,const float2*g_data,
-                                    const CtfConst ctf_const, const Defocus*def, const float3 bandpass,const int3 ss_siz)
+                                    const CtfConst ctf_const, const Defocus*def, const float3 bandpass,const int3 ss_siz,
+                                    const bool use_max_res=true)
 {
 
     int3 ss_idx = get_th_idx();
@@ -801,7 +803,7 @@ __global__ void ctf_stk_phase_flip( cudaSurfaceObject_t s_stk,cudaSurfaceObject_
         get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
-        if( def[ss_idx.z].max_res > 0 )
+        if( use_max_res && def[ss_idx.z].max_res > 0 )
             max_R = min(max_R,def[ss_idx.z].max_res);
         float w = get_bp_wgt(bandpass.x,max_R,bandpass.z,R);
 
@@ -825,7 +827,8 @@ __global__ void ctf_stk_phase_flip( cudaSurfaceObject_t s_stk,cudaSurfaceObject_
 
 /// For reconstruction
 __global__ void ctf_stk_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_ctf,const float2*g_data,
-                                const CtfConst ctf_const,const Defocus*def,const float3 bandpass,const int3 ss_siz)
+                                const CtfConst ctf_const,const Defocus*def,const float3 bandpass,const int3 ss_siz,
+                                const bool use_max_res=true)
 {
 
     int3 ss_idx = get_th_idx();
@@ -839,7 +842,7 @@ __global__ void ctf_stk_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_
         get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
-        if( def[ss_idx.z].max_res > 0 )
+        if( use_max_res && def[ss_idx.z].max_res > 0 )
             max_R = min(max_R,def[ss_idx.z].max_res);
         float w = get_bp_wgt(bandpass.x,max_R,bandpass.z,R);
 
@@ -876,7 +879,8 @@ __global__ void ctf_stk_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_
 
 /// For reconstruction
 __global__ void ctf_stk_pre_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_ctf,const float2*g_data,
-                                    const CtfConst ctf_const,const Defocus*def,const float3 bandpass,const int3 ss_siz)
+                                    const CtfConst ctf_const,const Defocus*def,const float3 bandpass,const int3 ss_siz,
+                                    const bool use_max_res=true)
 {
 
     int3 ss_idx = get_th_idx();
@@ -890,7 +894,7 @@ __global__ void ctf_stk_pre_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_
         get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
-        if( def[ss_idx.z].max_res > 0 )
+        if( use_max_res && def[ss_idx.z].max_res > 0 )
             max_R = min(max_R,def[ss_idx.z].max_res);
         float w = get_bp_wgt(bandpass.x,max_R,bandpass.z,R);
 
@@ -926,7 +930,8 @@ __global__ void ctf_stk_pre_wiener( cudaSurfaceObject_t s_stk,cudaSurfaceObject_
 /// For reconstruction
 __global__ void ctf_stk_wiener_ssnr(cudaSurfaceObject_t s_stk,cudaSurfaceObject_t s_ctf,const float2*g_data,
                                     const CtfConst ctf_const,const Defocus*def,const float ssnr_F,const float ssnr_S,
-                                    const float3 bandpass,const int3 ss_siz)
+                                    const float3 bandpass,const int3 ss_siz,
+                                    const bool use_max_res=true)
 {
 
     int3 ss_idx = get_th_idx();
@@ -940,7 +945,7 @@ __global__ void ctf_stk_wiener_ssnr(cudaSurfaceObject_t s_stk,cudaSurfaceObject_
         get_xyR(x,y,R,ss_idx.x,ss_idx.y-ss_siz.y/2);
 
         float max_R = bandpass.y;
-        if( def[ss_idx.z].max_res > 0 )
+        if( use_max_res && def[ss_idx.z].max_res > 0 )
             max_R = min(max_R,def[ss_idx.z].max_res);
         float w = get_bp_wgt(bandpass.x,max_R,bandpass.z,R);
 

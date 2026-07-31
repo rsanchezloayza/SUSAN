@@ -35,7 +35,8 @@ def bandpass_shell_sweep(
     ite: int,
     apix: float,
     shell_hw: int = 5,
-    threshold: float = 0.1,
+    threshold: float = 0.01,
+    shell_pick: str = 'first',
     use_halfsets: bool = False,
     save_cc: str = None,
     fpix_max: int = None,
@@ -45,8 +46,8 @@ def bandpass_shell_sweep(
     For each bandpass shell centred on successive Fourier-pixel frequencies, a
     2-D alignment is run with no angular or translational search to collect
     the per-projection CC scores.  The result is a ``(n_ptcl, n_proj)`` array
-    of the finest-resolution shell at which each projection still shows signal
-    above *threshold*.
+    of the resolution of the shell selected by *shell_pick* among those in
+    which each projection shows signal above *threshold*.
 
     Parameters
     ----------
@@ -65,6 +66,14 @@ def bandpass_shell_sweep(
         Fraction of the global maximum positive CC used as the "above noise"
         cut-off.  The absolute threshold is computed as
         ``threshold * max(prj_cc[prj_cc > 0])``.  Default: ``0.1``.
+    shell_pick : {'first', 'last'}, optional
+        Which threshold crossing defines the cut-off, with shells ordered from
+        low to high frequency.  ``'first'`` (default) reports the last shell
+        of the leading above-threshold run — it stops at the first shell that
+        drops below the cut-off, so an isolated high-frequency spike cannot
+        pull the estimate out; ``'last'`` reports the highest-frequency shell
+        above the cut-off anywhere in the sweep, ignoring any dips in between.
+        The two agree when the CC decays monotonically.
     use_halfsets : bool, optional
         Whether to respect half-set assignments during alignment.
         Default: ``False``.
@@ -77,10 +86,14 @@ def bandpass_shell_sweep(
     Returns
     -------
     max_res_A : numpy.ndarray, shape (n_ptcl, n_proj)
-        Finest resolution (in Å) at which each projection carries signal above
-        *threshold*.  Particles/projections with no signal in any shell are
-        assigned the lowest-resolution shell value.
+        Resolution (in Å) of the selected shell in which each projection
+        carries signal above *threshold*.  Particles/projections with no
+        signal in any shell are assigned the lowest-resolution shell value.
     """
+    if shell_pick not in ('first', 'last'):
+        raise ValueError("shell_pick must be 'first' or 'last', got %r"
+                         % (shell_pick,))
+
     ali = _ssa_modules.Aligner()
     ali.dimensionality   = 2
     ali.list_gpus_ids    = sta.list_gpus_ids
@@ -130,11 +143,22 @@ def bandpass_shell_sweep(
     cc_max = pos_cc.max() if pos_cc.size > 0 else 1.0
     above  = prj_cc_shells > threshold * cc_max
 
-    # For each (ptcl, proj): index of the *last* shell still above threshold
-    last_above = (above.shape[0] - 1) - _np.argmax(above[::-1], axis=0)
-    last_above[~above.any(axis=0)] = 0
+    # For each (ptcl, proj): the shell at the chosen threshold crossing.
+    if shell_pick == 'first':
+        # Last shell of the leading above-threshold run: stop at the first
+        # shell that drops below the cut-off.
+        below      = ~above
+        n_shells   = above.shape[0]
+        first_below = _np.where(below.any(axis=0),
+                                _np.argmax(below, axis=0),
+                                n_shells)
+        sel = _np.maximum(first_below - 1, 0)
+    else:
+        # Highest-frequency shell above the cut-off, dips ignored.
+        sel = (above.shape[0] - 1) - _np.argmax(above[::-1], axis=0)
+    sel[~above.any(axis=0)] = 0
 
-    max_res_A = shell_res_A[last_above]   # (n_ptcl, n_proj) in Å
+    max_res_A = shell_res_A[sel]   # (n_ptcl, n_proj) in Å
     return max_res_A
 
 

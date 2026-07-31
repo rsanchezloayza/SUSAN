@@ -45,6 +45,7 @@ typedef struct {
     uint32 wgt_type;
     uint32 norm_type;
     uint32 grid_type;
+    float  splat_gain;
     int    w_inv_ite;
     float  w_inv_std;
     float  ssnr_F;
@@ -108,6 +109,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.wgt_type    = WGT_NONE;
     info.norm_type   = NO_NORM;
     info.grid_type   = GRIDDING_LINEAR_FWD;
+    info.splat_gain  = 0;
     info.w_inv_ite   = 10;
     info.w_inv_std   = 0.75;
     info.ssnr_F      = 0;
@@ -139,6 +141,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         CTF_TYPE,
         WGT_TYPE,
         GRID_TYPE,
+        SPLAT_GAIN,
         SSNR,
         W_INV_ITE,
         W_INV_STD,
@@ -166,6 +169,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"ctf_type",    1, 0, CTF_TYPE   },
         {"wgt_type",    1, 0, WGT_TYPE   },
         {"grid_type",   1, 0, GRID_TYPE  },
+        {"splat_gain",  1, 0, SPLAT_GAIN },
         {"ssnr_param",  1, 0, SSNR       },
         {"w_inv_iter",  1, 0, W_INV_ITE  },
         {"w_inv_gstd",  1, 0, W_INV_STD  },
@@ -217,6 +221,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case GRID_TYPE:
                 info.grid_type = ArgParser::get_gridding_type(optarg);
+                break;
+            case SPLAT_GAIN:
+                info.splat_gain = atof(optarg);
                 break;
             case BANDPASS:
                 ArgParser::get_single_pair(info.fpix_min,info.fpix_max,optarg);
@@ -300,6 +307,11 @@ inline void print_full(const Info&info,FILE*fp) {
     else
         fprintf(fp,".\n");
 
+    if( info.splat_gain > 0 )
+        fprintf(fp,"\t\tAngular-spread splatting enabled (gain %.2f): the lowpass and the per-projection\n"
+                   "\t\tmax_res are not applied as a cutoff, they set the tangential width of the insertion\n"
+                   "\t\tkernel instead. All frequencies up to nyquist are inserted.\n",info.splat_gain);
+
     if( info.pad_size > 0 ) {
         if( info.pad_type == PAD_ZERO )
             fprintf(fp,"\t\tPadding policy: Fill with zeros.\n");
@@ -375,6 +387,9 @@ inline void print_basic(const Info&info,FILE*fp) {
         fprintf(fp," (Smooth decay: %.2f)",info.fpix_roll);
 
     fprintf(fp,". %s Symmetry.\n",info.sym);
+
+    if( info.splat_gain > 0 )
+        fprintf(fp,"    - Angular-spread splatting (gain %.2f): bandpass/max_res set the kernel width, not a cutoff.\n",info.splat_gain);
 
     fprintf(fp,"    - ");
     if( info.pad_size > 0 ) {

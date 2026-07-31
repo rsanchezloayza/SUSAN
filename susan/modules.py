@@ -513,6 +513,19 @@ class Averager:
     gridding_type : str
         Fourier-space gridding method: ``'linear'`` or ``'kb'``
         (Kaiser–Bessel).  Default: ``'linear'``.
+    splat_gain : float
+        *Experimental.*  Angular-spread splatting.  When greater than 0, the
+        bandpass lowpass and the per-projection ``def_mres`` stop acting as a
+        cutoff and instead set the width of a tangential gaussian insertion
+        kernel, so every frequency up to Nyquist is inserted, progressively
+        blurred rather than truncated.  The width is
+        ``clamp(splat_gain*0.4*R/R_ref, 0.4, 1.0)`` fourier pixels with
+        ``R_ref = min(lowpass, def_mres)``, so it is flat (and equivalent to
+        trilinear) up to ``R_ref/splat_gain`` and then grows.  ``1`` is the
+        physically anchored value; larger distrusts the stated resolution more
+        and starts blurring earlier.  Overrides ``gridding_type``, and costs
+        roughly 50-100x more time in the insertion stage.  Default: ``0``
+        (disabled, ordinary reconstruction).
     symmetry : str
         Point-group symmetry applied to the reconstructed map.  Default:
         ``'c1'``.
@@ -572,6 +585,7 @@ class Averager:
         self.weighting_type    = 'none'
         self.ctf_correction    = 'wiener'
         self.gridding_type     = 'linear'
+        self.splat_gain        = 0
         self.symmetry          = 'c1'
         self.ssnr              = _dt.ssnr(1,0.01)
         self.inversion         = _dt.inversion_params(10,0.75)
@@ -587,6 +601,9 @@ class Averager:
 
         if not self.gridding_type in ['linear','kb']:
             raise ValueError('Invalid gridding type. Only "linear" or "kb" are valid')
+
+        if self.splat_gain < 0:
+            raise ValueError('Invalid splat gain. Must be 0 (disabled) or positive')
 
         if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','zero_mean_proj_weight']:
             raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var" or "zero_mean_proj_weight" are valid')
@@ -635,6 +652,7 @@ class Averager:
         args = args + ' -ctf_type '        + self.ctf_correction
         args = args + ' -wgt_type '        + self.weighting_type
         args = args + ' -grid_type '       + self.gridding_type
+        args = args + ' -splat_gain %f'    % self.splat_gain
         args = args + ' -ssnr_param %f,%f' % (self.ssnr.F,self.ssnr.S)
         args = args + ' -w_inv_iter %d'    % self.inversion.ite
         args = args + ' -w_inv_gstd %f'    % self.inversion.std

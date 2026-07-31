@@ -108,42 +108,42 @@ public:
         GpuKernels::subpixel_shift<<<grd_fou,blk,0,stream.strm>>>(ss_fourier.ptr,g_ali.ptr,ss_fou);
     }
 
-    void set_no_ctf(GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream) {
+    void set_no_ctf(GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream,bool use_max_res=true) {
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::ctf_stk_no_correction<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,g_def.ptr,bandpass,ss);
+        GpuKernelsCtf::ctf_stk_no_correction<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,g_def.ptr,bandpass,ss,use_max_res);
     }
 
-    void set_phase_flip(const CtfConst ctf_const,GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream) {
+    void set_phase_flip(const CtfConst ctf_const,GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream,bool use_max_res=true) {
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::ctf_stk_phase_flip<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,ctf_const,g_def.ptr,bandpass,ss);
+        GpuKernelsCtf::ctf_stk_phase_flip<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,ctf_const,g_def.ptr,bandpass,ss,use_max_res);
     }
 
-    void set_wiener(const CtfConst ctf_const,GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream) {
+    void set_wiener(const CtfConst ctf_const,GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream,bool use_max_res=true) {
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::ctf_stk_wiener<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,ctf_const,g_def.ptr,bandpass,ss);
+        GpuKernelsCtf::ctf_stk_wiener<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,ctf_const,g_def.ptr,bandpass,ss,use_max_res);
     }
 
-    void set_pre_wiener(const CtfConst ctf_const,GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream) {
+    void set_pre_wiener(const CtfConst ctf_const,GPU::GArrDefocus&g_def,float3 bandpass,int k,GPU::Stream&stream,bool use_max_res=true) {
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::ctf_stk_pre_wiener<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,ctf_const,g_def.ptr,bandpass,ss);
+        GpuKernelsCtf::ctf_stk_pre_wiener<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,ctf_const,g_def.ptr,bandpass,ss,use_max_res);
     }
 
-    void set_wiener_ssnr(const CtfConst ctf_const,GPU::GArrDefocus&g_def,float3 bandpass,float2 ssnr,int k,GPU::Stream&stream) {
+    void set_wiener_ssnr(const CtfConst ctf_const,GPU::GArrDefocus&g_def,float3 bandpass,float2 ssnr,int k,GPU::Stream&stream,bool use_max_res=true) {
         // float2  ssnr; /// x=F; y=S;
         single ssnr_f = -100*ssnr.x;
         single ssnr_s = pow(10,3*ssnr.y);
         int3 ss = make_int3(MP,NP,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
-        GpuKernelsCtf::ctf_stk_wiener_ssnr<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,ctf_const,g_def.ptr,ssnr_f,ssnr_s,bandpass,ss);
+        GpuKernelsCtf::ctf_stk_wiener_ssnr<<<grd,blk,0,stream.strm>>>(ss_tex.surface,ss_ctf.surface,ss_fourier.ptr,ctf_const,g_def.ptr,ssnr_f,ssnr_s,bandpass,ss,use_max_res);
     }
 
 };
@@ -194,6 +194,12 @@ public:
     void insert_kaiser_bessel_fwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
         /// insert_stk_atomic faster for larger volumes (small bottleneck, less operations).
         GpuKernelsVol::insert_stk_kb_atomic<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
+    }
+
+    void insert_splat_fwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,GPU::GArrDefocus&g_def,float splat_gain,float3 bandpass,int k,GPU::Stream&stream) {
+        /// bandpass is not applied as a weight here; it only sets the kernel width, together
+        /// with the per-projection max_res (see insert_stk_splat_atomic).
+        GpuKernelsVol::insert_stk_splat_atomic<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,g_def.ptr,splat_gain,bandpass,MP,NP,k);
     }
 
     void fftshift_wgt(GPU::Stream&stream) {

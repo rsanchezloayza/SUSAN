@@ -261,6 +261,185 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
     }
 }
 
+/// EXPERIMENTAL (SUSAN_SPLAT): angular-spread splatting.
+///
+/// Instead of inserting each Fourier pixel with a fixed-support kernel and hard-cutting at the
+/// resolution limit, spread it over a gaussian whose width grows with the radius, and admit
+/// every frequency. The model is the MAP insertion in RELION, where a slice is added at every
+/// orientation weighted by its posterior probability.
+///
+/// A small orientation error w displaces a Fourier point p by d = w x p. For isotropic w with
+/// per-axis std s_th, Cov(d) = s_th^2 * ( |p|^2 I - p p' ) = s_th^2 R^2 ( I - r r' ): rank 2,
+/// zero radially, std s_th*R in both tangential directions. So the blur is purely tangential
+/// and linear in R, and the radial width stays at the interpolation width always.
+///
+/// s_th is not measured; R_ref (the lowpass, tightened by the per-projection max_res) pins it.
+/// Claiming a projection is good to R_ref means the angular error has not displaced anything
+/// by more than one interpolation width at that shell, so s_th*R_ref = SIGMA_0, giving
+/// s_th = SIGMA_0/R_ref. Below R_ref the induced blur is smaller than the interpolation kernel
+/// itself and is already absorbed by it, which is why the width is flat there rather than
+/// merely approximated as flat. The whole profile is then one clamp:
+///
+///     sigma_t(R) = clamp( splat_gain * SIGMA_0 * R / R_ref , SIGMA_0 , SIGMA_MAX )
+///
+/// splat_gain moves the crossover (R_ref/splat_gain) rather than the slope; 1 is the physical
+/// anchor and 0 clamps to SIGMA_0 everywhere, i.e. plain trilinear. SIGMA_MAX is set by the
+/// 5x5x5 support: at 1.0 the kernel keeps 97% of its mass inside the box, at 1.5 only 75%,
+/// and the truncated remainder rings.
+#define SPLAT_SIGMA_0   0.4f  /// closest match to trilinear over all sub-voxel offsets
+#define SPLAT_SIGMA_MAX 1.0f
+#define SPLAT_RAD       2     /// 5x5x5
+
+__global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
+                                    cudaTextureObject_t ss_stk, cudaTextureObject_t ss_wgt,
+                                    const Proj2D*pTlt, const Defocus*pDef, const float splat_gain,
+                                    const float3 bandpass,const int M, const int N, const int K)
+{
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x >= M || ss_idx.y >= N || ss_idx.z >= K )
+        return;
+
+    if( pTlt[ss_idx.z].w == 0 )
+        return;
+
+    int Nh = N/2;
+    Vec3 pt;
+    pt.x = ss_idx.x;
+    pt.y = ss_idx.y - N/2;
+    pt.z = 0;
+
+    float R = sqrtf( pt.x*pt.x + pt.y*pt.y );
+
+    /// No bandpass weight here: the resolution limit acts through the kernel width instead.
+    /// The corners of the box lie outside the nyquist sphere and would be discarded anyway.
+    if( R > (float)Nh )
+        return;
+
+    /// Reference shell: the lowpass, tightened by the per-projection max_res when set. The CTF
+    /// stage no longer cuts at either of them (see RecSubstack::set_*, use_max_res), so both
+    /// survive here purely as the scale that sets the kernel width.
+    float R_ref = bandpass.y;
+    if( pDef[ss_idx.z].max_res > 0 )
+        R_ref = fminf(R_ref,pDef[ss_idx.z].max_res);
+
+    float sigma_t = SPLAT_SIGMA_0;
+    if( R_ref >= 1.0f ) {
+        sigma_t = splat_gain*SPLAT_SIGMA_0*R/R_ref;
+        sigma_t = fminf( fmaxf(sigma_t,SPLAT_SIGMA_0), SPLAT_SIGMA_MAX );
+    }
+
+    float2 val     = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    float  ctf_wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
+    float  prj_w   = pTlt[ss_idx.z].w;
+
+    float x,y,z;
+    rot_pt(x,y,z,pTlt[ss_idx.z].R,pt);
+
+    /// Centring on the nearest voxel rather than the floor keeps the captured mass at 97-99%
+    /// whatever the sub-voxel offset; with floorf the support reaches 3.0 on one side and the
+    /// truncated fraction swings with the landing position.
+    int ix0 = (int)rintf(x);
+    int iy0 = (int)rintf(y);
+    int iz0 = (int)rintf(z);
+
+    float inv2_s0 = 1.0f/(2.0f*SPLAT_SIGMA_0*SPLAT_SIGMA_0);
+    float inv2_st = 1.0f/(2.0f*sigma_t*sigma_t);
+
+    /// The radial direction is undefined at the origin, where sigma_t is at the floor anyway.
+    bool  aniso = (R > 1.0f);
+    float rx = 0, ry = 0, rz = 0;
+    if( aniso ) {
+        rx = x/R;
+        ry = y/R;
+        rz = z/R;
+    }
+
+    /// The truncated, off-lattice gaussian does not sum to a constant, and the weight volume
+    /// feeds a non-linear inversion downstream, so normalize the taps explicitly. Normalizing
+    /// over the full support (not only the in-bounds taps) keeps the inserted mass consistent.
+    float norm = 0;
+    for(int dz=-SPLAT_RAD; dz<=SPLAT_RAD; dz++) {
+        float ez = float(iz0+dz) - z;
+        for(int dy=-SPLAT_RAD; dy<=SPLAT_RAD; dy++) {
+            float ey = float(iy0+dy) - y;
+            for(int dx=-SPLAT_RAD; dx<=SPLAT_RAD; dx++) {
+                float ex = float(ix0+dx) - x;
+                float d2 = ex*ex + ey*ey + ez*ez;
+                float e;
+                if( aniso ) {
+                    float d_par = ex*rx + ey*ry + ez*rz;
+                    e = d_par*d_par*inv2_s0 + (d2 - d_par*d_par)*inv2_st;
+                }
+                else
+                    e = d2*inv2_s0;
+                norm += __expf(-e);
+            }
+        }
+    }
+
+    if( norm <= 1e-12f )
+        return;
+    norm = 1.0f/norm;
+
+    for(int dz=-SPLAT_RAD; dz<=SPLAT_RAD; dz++) {
+        int iz = iz0 + dz;
+        if( (iz<-Nh) || (iz>=Nh) ) continue;
+        float ez = float(iz) - z;
+
+        for(int dy=-SPLAT_RAD; dy<=SPLAT_RAD; dy++) {
+            int iy = iy0 + dy;
+            if( (iy<-Nh) || (iy>=Nh) ) continue;
+            float ey = float(iy) - y;
+
+            for(int dx=-SPLAT_RAD; dx<=SPLAT_RAD; dx++) {
+                int ix = ix0 + dx;
+                float ex = float(ix) - x;
+
+                float d2 = ex*ex + ey*ey + ez*ez;
+                float e;
+                if( aniso ) {
+                    float d_par = ex*rx + ey*ry + ez*rz;
+                    e = d_par*d_par*inv2_s0 + (d2 - d_par*d_par)*inv2_st;
+                }
+                else
+                    e = d2*inv2_s0;
+
+                float g_wgt = __expf(-e)*norm;
+                if( g_wgt < 1e-6f ) continue;
+                g_wgt *= prj_w;
+
+                /// Insert into hermitian volume
+                bool should_conj = false;
+                int ix_h = ix;
+                int iy_h = iy;
+                int iz_h = iz;
+
+                if (ix_h < 0) {
+                    ix_h = -ix_h;
+                    iy_h = -iy_h;
+                    iz_h = -iz_h;
+                    should_conj = true;
+                }
+                iy_h += Nh;
+                iz_h += Nh;
+
+                if( (ix_h >= M) ) continue;
+                if( (iy_h < 0) || (iy_h >= N) ) continue;
+                if( (iz_h < 0) || (iz_h >= N) ) continue;
+
+                long   idx = get_3d_idx(ix_h,iy_h,iz_h,M,N);
+                float2 out = val;
+                if( should_conj ) out.y = -out.y;
+
+                atomic_Add( &(p_acc[idx].x) , g_wgt*out.x );
+                atomic_Add( &(p_acc[idx].y) , g_wgt*out.y );
+                atomic_Add( &(p_wgt[idx]  ) , fabsf(g_wgt)*ctf_wgt );
+            }
+        }
+    }
+}
+
 __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
                                     cudaTextureObject_t ss_stk, cudaTextureObject_t ss_wgt, const Proj2D*pTlt,
                                     const float3 bandpass,const int M, const int N, const int K)
