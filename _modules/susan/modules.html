@@ -845,9 +845,9 @@
 <span class="sd">        ``R_ref = min(lowpass, def_mres)``, so it is flat (and equivalent to</span>
 <span class="sd">        trilinear) up to ``R_ref/splat_gain`` and then grows.  ``1`` is the</span>
 <span class="sd">        physically anchored value; larger distrusts the stated resolution more</span>
-<span class="sd">        and starts blurring earlier.  Overrides ``gridding_type``, and costs</span>
-<span class="sd">        roughly 50-100x more time in the insertion stage.  Default: ``0``</span>
-<span class="sd">        (disabled, ordinary reconstruction).</span>
+<span class="sd">        and starts blurring earlier.  Overrides ``gridding_type``.  Costs</span>
+<span class="sd">        roughly 4x more time in the insertion stage than linear gridding.</span>
+<span class="sd">        Default: ``0`` (disabled, ordinary reconstruction).</span>
 <span class="sd">    symmetry : str</span>
 <span class="sd">        Point-group symmetry applied to the reconstructed map.  Default:</span>
 <span class="sd">        ``&#39;c1&#39;``.</span>

@@ -439,9 +439,9 @@ blurred rather than truncated.  The width is
 <code class="docutils literal notranslate"><span class="pre">R_ref</span> <span class="pre">=</span> <span class="pre">min(lowpass,</span> <span class="pre">def_mres)</span></code>, so it is flat (and equivalent to
 trilinear) up to <code class="docutils literal notranslate"><span class="pre">R_ref/splat_gain</span></code> and then grows.  <code class="docutils literal notranslate"><span class="pre">1</span></code> is the
 physically anchored value; larger distrusts the stated resolution more
-and starts blurring earlier.  Overrides <code class="docutils literal notranslate"><span class="pre">gridding_type</span></code>, and costs
-roughly 50-100x more time in the insertion stage.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>
-(disabled, ordinary reconstruction).</p>
+and starts blurring earlier.  Overrides <code class="docutils literal notranslate"><span class="pre">gridding_type</span></code>.  Costs
+roughly 4x more time in the insertion stage than linear gridding.
+Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled, ordinary reconstruction).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
