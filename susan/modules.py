@@ -523,9 +523,9 @@ class Averager:
         ``R_ref = min(lowpass, def_mres)``, so it is flat (and equivalent to
         trilinear) up to ``R_ref/splat_gain`` and then grows.  ``1`` is the
         physically anchored value; larger distrusts the stated resolution more
-        and starts blurring earlier.  Overrides ``gridding_type``, and costs
-        roughly 50-100x more time in the insertion stage.  Default: ``0``
-        (disabled, ordinary reconstruction).
+        and starts blurring earlier.  Overrides ``gridding_type``.  Costs
+        roughly 4x more time in the insertion stage than linear gridding.
+        Default: ``0`` (disabled, ordinary reconstruction).
     symmetry : str
         Point-group symmetry applied to the reconstructed map.  Default:
         ``'c1'``.

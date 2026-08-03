@@ -156,10 +156,18 @@ public:
     int MP;
 
     dim3 blk;
-    dim3 grd;
+    dim3 grd_2D;
+    dim3 grd_3D;
 
     GPU::GArrDouble2 vol_acc;
     GPU::GArrDouble  vol_wgt;
+
+    /// Per-source-pixel splat geometry, filled by splat_prepass and read by the main kernel:
+    /// xyz is the landing point, w is sigma_t; inorm is 1/normalizer, or 0 to skip the pixel.
+    GPU::GArrSingle4 splat_geom;
+    GPU::GArrSingle  splat_inorm;
+    dim3 blk_splat;
+    dim3 grd_splat;
 
     void alloc(const int x,const int y,const int z) {
         MP = x;
@@ -173,7 +181,15 @@ public:
         vol_wgt.clear();
 
         blk = GPU::get_block_size_2D();
-        grd = GPU::calc_grid_size(blk,MP,NP,NP);
+        grd_2D = GPU::calc_grid_size(blk,MP,NP,maxK);
+        grd_3D = GPU::calc_grid_size(blk,MP,NP,NP);
+
+        splat_geom.alloc(MP*NP*maxK);
+        splat_inorm.alloc(MP*NP*maxK);
+
+        /// One warp per source pixel: x is the lane, y indexes the warps in the block.
+        blk_splat = dim3(SUSAN_CUDA_WARP,SPLAT_WARPS,1);
+        grd_splat = dim3((unsigned int)GPU::div_round_up(MP,SPLAT_WARPS),NP,maxK);
     }
 
     void clear() {
@@ -183,29 +199,28 @@ public:
 
     void insert_linear_fwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
         /// insert_stk_atomic faster for larger volumes (small bottleneck, less operations).
-        GpuKernelsVol::insert_stk_atomic<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
-    }
-
-    void insert_linear_bwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
-        /// insert_stk faster for small volumes (no bottleneck, more operations).
-        GpuKernelsVol::insert_stk<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
+        GpuKernelsVol::insert_stk_atomic<<<grd_2D,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
     }
 
     void insert_kaiser_bessel_fwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
         /// insert_stk_atomic faster for larger volumes (small bottleneck, less operations).
-        GpuKernelsVol::insert_stk_kb_atomic<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
+        GpuKernelsVol::insert_stk_kb_atomic<<<grd_2D,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
     }
 
     void insert_splat_fwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,GPU::GArrDefocus&g_def,float splat_gain,float3 bandpass,int k,GPU::Stream&stream) {
         /// bandpass is not applied as a weight here; it only sets the kernel width, together
-        /// with the per-projection max_res (see insert_stk_splat_atomic).
-        GpuKernelsVol::insert_stk_splat_atomic<<<grd,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,g_def.ptr,splat_gain,bandpass,MP,NP,k);
+        /// with the per-projection max_res (see splat_prepass).
+        GpuKernelsVol::splat_prepass<<<grd_2D,blk,0,stream.strm>>>(splat_geom.ptr,splat_inorm.ptr,g_ali.ptr,g_def.ptr,splat_gain,bandpass,MP,NP,k);
+        GpuKernelsVol::insert_stk_splat_atomic<<<grd_splat,blk_splat,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,splat_geom.ptr,splat_inorm.ptr,g_ali.ptr,MP,NP,k);
+    }
+
+    void insert_linear_bwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {
+        /// insert_stk faster for small volumes (no bottleneck, more operations).
+        GpuKernelsVol::insert_stk<<<grd_3D,blk,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,g_ali.ptr,bandpass,MP,NP,k);
     }
 
     void fftshift_wgt(GPU::Stream&stream) {
-        dim3 blk = GPU::get_block_size_2D();
-        dim3 grd = GPU::calc_grid_size(blk,MP,NP,NP);
-        GpuKernels::fftshift3D<<<grd,blk,0,stream.strm>>>(vol_wgt.ptr,MP,NP);
+        GpuKernels::fftshift3D<<<grd_3D,blk,0,stream.strm>>>(vol_wgt.ptr,MP,NP);
     }
 };
 

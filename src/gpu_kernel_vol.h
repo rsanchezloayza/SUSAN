@@ -290,31 +290,80 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
 #define SPLAT_SIGMA_MAX 1.0f
 #define SPLAT_RAD       2     /// 5x5x5
 
-__global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
-                                    cudaTextureObject_t ss_stk, cudaTextureObject_t ss_wgt,
-                                    const Proj2D*pTlt, const Defocus*pDef, const float splat_gain,
-                                    const float3 bandpass,const int M, const int N, const int K)
+/// Taps below this share of the (normalized) kernel are dropped. Scattered write traffic is
+/// what this kernel costs, so the tap count is by far the most effective knob: at 5e-3 a source
+/// pixel writes ~31 of its 125 taps and deposits 94% of the kernel mass. Dropping mass is
+/// cheap because it is a uniform scale on p_acc and p_wgt, which cancels in their ratio; what
+/// does not cancel is that the retained fraction varies with sigma_t (98.5% at 0.4 against 94%
+/// at 1.0), so two projections with different max_res are weighted slightly differently where
+/// they overlap. That spread is 4.5 points here, against 2.5 at 3e-3 and 9.3 at 1e-2.
+///
+/// Measured, per particle: 1e-6 -> 3e-3 was 335.6 -> 89.4 ms, and 3e-3 -> 5e-3 a further
+/// 89.4 -> 73.2 ms. Verify a reconstruction before raising it again.
+#define SPLAT_W_MIN     5e-3f
+
+/// Warps per block in the main splat kernel, i.e. source pixels handled per block. Only affects
+/// occupancy and scheduling granularity, not results.
+#define SPLAT_WARPS     8
+
+
+__device__ __forceinline__ float splat_sigma_t(const float R,const float R_ref,const float gain) {
+    if( R_ref < 1.0f )
+        return SPLAT_SIGMA_0;
+    float s = gain*SPLAT_SIGMA_0*R/R_ref;
+    return fminf( fmaxf(s,SPLAT_SIGMA_0), SPLAT_SIGMA_MAX );
+}
+
+/// Splatting runs as two kernels.
+///
+/// The shape below follows from where the time actually goes, which was measured rather than
+/// assumed: of the original single-thread-per-pixel version, ~71% was scattered write traffic,
+/// ~27% arithmetic, and only ~2.3% the atomics themselves. Restructuring for the traffic took
+/// it from 73.2 to 21.4 ms per particle; against ordinary trilinear insertion at 4.9 ms, that
+/// is ~4.3x rather than the ~50x the naive tap count suggests.
+///
+/// The per-source-pixel setup (landing point, sigma_t, and the 125-tap normalizer) is identical
+/// for every tap, so it is hoisted into a pre-pass and read back by the main kernel. That keeps
+/// the main kernel small enough to give a warp one source pixel instead of one thread, which is
+/// what the memory pattern needs: the cost of this insertion is neither the atomics (2.3% of
+/// runtime, measured) nor the arithmetic, it is that a store instruction fans out to 32 separate
+/// transactions. Consecutive threads walk consecutive source pixels, whose landing points step
+/// by only R.xx along the volume's fastest axis, so nothing coalesces.
+///
+/// One warp per source pixel fixes that. The 125 taps are a compact 5x5x5 neighbourhood, and
+/// indexing them t = dx + 5*dy + 25*dz makes consecutive lanes carry consecutive dx, hence five
+/// contiguous voxels at a time instead of 32 unrelated ones.
+__global__ void splat_prepass(float4*p_geom,float*p_inorm,
+                              const Proj2D*pTlt, const Defocus*pDef, const float splat_gain,
+                              const float3 bandpass,const int M, const int N, const int K)
 {
     int3 ss_idx = get_th_idx();
 
     if( ss_idx.x >= M || ss_idx.y >= N || ss_idx.z >= K )
         return;
 
-    if( pTlt[ss_idx.z].w == 0 )
+    long idx = get_3d_idx(ss_idx.x,ss_idx.y,ss_idx.z,M,N);
+
+    /// inorm == 0 is how the main kernel learns to skip this source pixel.
+    if( pTlt[ss_idx.z].w == 0 ) {
+        p_inorm[idx] = 0;
         return;
+    }
 
     int Nh = N/2;
     Vec3 pt;
     pt.x = ss_idx.x;
-    pt.y = ss_idx.y - N/2;
+    pt.y = ss_idx.y - Nh;
     pt.z = 0;
 
     float R = sqrtf( pt.x*pt.x + pt.y*pt.y );
 
-    /// No bandpass weight here: the resolution limit acts through the kernel width instead.
-    /// The corners of the box lie outside the nyquist sphere and would be discarded anyway.
-    if( R > (float)Nh )
+    /// No bandpass weight: the resolution limit acts through the kernel width instead. The
+    /// corners of the box lie outside the nyquist sphere and would be discarded anyway.
+    if( R > (float)Nh ) {
+        p_inorm[idx] = 0;
         return;
+    }
 
     /// Reference shell: the lowpass, tightened by the per-projection max_res when set. The CTF
     /// stage no longer cuts at either of them (see RecSubstack::set_*, use_max_res), so both
@@ -323,15 +372,7 @@ __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
     if( pDef[ss_idx.z].max_res > 0 )
         R_ref = fminf(R_ref,pDef[ss_idx.z].max_res);
 
-    float sigma_t = SPLAT_SIGMA_0;
-    if( R_ref >= 1.0f ) {
-        sigma_t = splat_gain*SPLAT_SIGMA_0*R/R_ref;
-        sigma_t = fminf( fmaxf(sigma_t,SPLAT_SIGMA_0), SPLAT_SIGMA_MAX );
-    }
-
-    float2 val     = tex2DLayered<float2>(ss_stk, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
-    float  ctf_wgt = tex2DLayered<float >(ss_wgt, float(ss_idx.x)+0.5, float(ss_idx.y)+0.5, ss_idx.z);
-    float  prj_w   = pTlt[ss_idx.z].w;
+    float sigma_t = splat_sigma_t(R,R_ref,splat_gain);
 
     float x,y,z;
     rot_pt(x,y,z,pTlt[ss_idx.z].R,pt);
@@ -339,9 +380,9 @@ __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
     /// Centring on the nearest voxel rather than the floor keeps the captured mass at 97-99%
     /// whatever the sub-voxel offset; with floorf the support reaches 3.0 on one side and the
     /// truncated fraction swings with the landing position.
-    int ix0 = (int)rintf(x);
-    int iy0 = (int)rintf(y);
-    int iz0 = (int)rintf(z);
+    float ix0 = rintf(x);
+    float iy0 = rintf(y);
+    float iz0 = rintf(z);
 
     float inv2_s0 = 1.0f/(2.0f*SPLAT_SIGMA_0*SPLAT_SIGMA_0);
     float inv2_st = 1.0f/(2.0f*sigma_t*sigma_t);
@@ -360,11 +401,11 @@ __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
     /// over the full support (not only the in-bounds taps) keeps the inserted mass consistent.
     float norm = 0;
     for(int dz=-SPLAT_RAD; dz<=SPLAT_RAD; dz++) {
-        float ez = float(iz0+dz) - z;
+        float ez = iz0 + float(dz) - z;
         for(int dy=-SPLAT_RAD; dy<=SPLAT_RAD; dy++) {
-            float ey = float(iy0+dy) - y;
+            float ey = iy0 + float(dy) - y;
             for(int dx=-SPLAT_RAD; dx<=SPLAT_RAD; dx++) {
-                float ex = float(ix0+dx) - x;
+                float ex = ix0 + float(dx) - x;
                 float d2 = ex*ex + ey*ey + ez*ez;
                 float e;
                 if( aniso ) {
@@ -378,68 +419,124 @@ __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
         }
     }
 
-    if( norm <= 1e-12f )
+    if( norm <= 1e-12f ) {
+        p_inorm[idx] = 0;
         return;
-    norm = 1.0f/norm;
-
-    for(int dz=-SPLAT_RAD; dz<=SPLAT_RAD; dz++) {
-        int iz = iz0 + dz;
-        if( (iz<-Nh) || (iz>=Nh) ) continue;
-        float ez = float(iz) - z;
-
-        for(int dy=-SPLAT_RAD; dy<=SPLAT_RAD; dy++) {
-            int iy = iy0 + dy;
-            if( (iy<-Nh) || (iy>=Nh) ) continue;
-            float ey = float(iy) - y;
-
-            for(int dx=-SPLAT_RAD; dx<=SPLAT_RAD; dx++) {
-                int ix = ix0 + dx;
-                float ex = float(ix) - x;
-
-                float d2 = ex*ex + ey*ey + ez*ez;
-                float e;
-                if( aniso ) {
-                    float d_par = ex*rx + ey*ry + ez*rz;
-                    e = d_par*d_par*inv2_s0 + (d2 - d_par*d_par)*inv2_st;
-                }
-                else
-                    e = d2*inv2_s0;
-
-                float g_wgt = __expf(-e)*norm;
-                if( g_wgt < 1e-6f ) continue;
-                g_wgt *= prj_w;
-
-                /// Insert into hermitian volume
-                bool should_conj = false;
-                int ix_h = ix;
-                int iy_h = iy;
-                int iz_h = iz;
-
-                if (ix_h < 0) {
-                    ix_h = -ix_h;
-                    iy_h = -iy_h;
-                    iz_h = -iz_h;
-                    should_conj = true;
-                }
-                iy_h += Nh;
-                iz_h += Nh;
-
-                if( (ix_h >= M) ) continue;
-                if( (iy_h < 0) || (iy_h >= N) ) continue;
-                if( (iz_h < 0) || (iz_h >= N) ) continue;
-
-                long   idx = get_3d_idx(ix_h,iy_h,iz_h,M,N);
-                float2 out = val;
-                if( should_conj ) out.y = -out.y;
-
-                atomic_Add( &(p_acc[idx].x) , g_wgt*out.x );
-                atomic_Add( &(p_acc[idx].y) , g_wgt*out.y );
-                atomic_Add( &(p_wgt[idx]  ) , fabsf(g_wgt)*ctf_wgt );
-            }
-        }
     }
+
+    p_geom[idx]  = make_float4(x,y,z,sigma_t);
+    p_inorm[idx] = 1.0f/norm;
 }
 
+/// One warp per source pixel. blockDim must be (32, warps_per_block, 1).
+__global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
+                                        cudaTextureObject_t ss_stk, cudaTextureObject_t ss_wgt,
+                                        const float4*p_geom, const float*p_inorm,
+                                        const Proj2D*pTlt,
+                                        const int M, const int N, const int K)
+{
+    int lane = threadIdx.x;
+    int i    = blockIdx.x*blockDim.y + threadIdx.y;
+    int j    = blockIdx.y;
+    int k    = blockIdx.z;
+
+    if( i >= M || j >= N || k >= K )
+        return;
+
+    long  sidx  = get_3d_idx(i,j,k,M,N);
+    float inorm = p_inorm[sidx];
+    if( inorm <= 0 )
+        return;
+
+    float4 geom = p_geom[sidx];
+    float  x = geom.x, y = geom.y, z = geom.z;
+    float  sigma_t = geom.w;
+
+    int   Nh = N/2;
+    float pty = float(j) - float(Nh);
+    float R   = sqrtf( float(i)*float(i) + pty*pty );
+
+    float2 val     = tex2DLayered<float2>(ss_stk, float(i)+0.5, float(j)+0.5, k);
+    float  ctf_wgt = tex2DLayered<float >(ss_wgt, float(i)+0.5, float(j)+0.5, k);
+    float  prj_w   = pTlt[k].w;
+
+    int ix0 = (int)rintf(x);
+    int iy0 = (int)rintf(y);
+    int iz0 = (int)rintf(z);
+
+    float inv2_s0 = 1.0f/(2.0f*SPLAT_SIGMA_0*SPLAT_SIGMA_0);
+    float inv2_st = 1.0f/(2.0f*sigma_t*sigma_t);
+
+    bool  aniso = (R > 1.0f);
+    float rx = 0, ry = 0, rz = 0;
+    if( aniso ) {
+        rx = x/R;
+        ry = y/R;
+        rz = z/R;
+    }
+
+    /// t = dx + 5*dy + 25*dz, so lanes 0..4 share (dy,dz) and differ only in dx: five voxels
+    /// adjacent in memory. 125 taps over 32 lanes is four rounds, the last one partial.
+    for(int s=0; s<4; s++) {
+        int t = lane + 32*s;
+        if( t >= 125 ) break;
+
+        int dx = (t     % 5) - SPLAT_RAD;
+        int dy = ((t/5) % 5) - SPLAT_RAD;
+        int dz = (t/25)      - SPLAT_RAD;
+
+        int iz = iz0 + dz;
+        int iy = iy0 + dy;
+        int ix = ix0 + dx;
+
+        if( (iz<-Nh) || (iz>=Nh) ) continue;
+        if( (iy<-Nh) || (iy>=Nh) ) continue;
+
+        float ex = float(ix) - x;
+        float ey = float(iy) - y;
+        float ez = float(iz) - z;
+
+        float d2 = ex*ex + ey*ey + ez*ez;
+        float e;
+        if( aniso ) {
+            float d_par = ex*rx + ey*ry + ez*rz;
+            e = d_par*d_par*inv2_s0 + (d2 - d_par*d_par)*inv2_st;
+        }
+        else
+            e = d2*inv2_s0;
+
+        float g_wgt = __expf(-e)*inorm;
+        if( g_wgt < SPLAT_W_MIN ) continue;
+        g_wgt *= prj_w;
+
+        /// Insert into hermitian volume
+        bool should_conj = false;
+        int ix_h = ix;
+        int iy_h = iy;
+        int iz_h = iz;
+
+        if (ix_h < 0) {
+            ix_h = -ix_h;
+            iy_h = -iy_h;
+            iz_h = -iz_h;
+            should_conj = true;
+        }
+        iy_h += Nh;
+        iz_h += Nh;
+
+        if( (ix_h >= M) ) continue;
+        if( (iy_h < 0) || (iy_h >= N) ) continue;
+        if( (iz_h < 0) || (iz_h >= N) ) continue;
+
+        long   idx = get_3d_idx(ix_h,iy_h,iz_h,M,N);
+        float2 out = val;
+        if( should_conj ) out.y = -out.y;
+
+        atomic_Add( &(p_acc[idx].x) , g_wgt*out.x );
+        atomic_Add( &(p_acc[idx].y) , g_wgt*out.y );
+        atomic_Add( &(p_wgt[idx]  ) , fabsf(g_wgt)*ctf_wgt );
+    }
+}
 __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
                                     cudaTextureObject_t ss_stk, cudaTextureObject_t ss_wgt, const Proj2D*pTlt,
                                     const float3 bandpass,const int M, const int N, const int K)
