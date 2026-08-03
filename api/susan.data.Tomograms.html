@@ -332,6 +332,14 @@ followed by one data row per projection).</p>
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="susan.data.Tomograms.tomo_position">
+<span class="sig-name descname"><span class="pre">tomo_position</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.tomo_position" title="Link to this definition">¶</a></dt>
+<dd><p>Origin offset (X, Y, Z) of the tomogram in Ångströms, subtracted from
+the particle position before projecting.  Same units as
+<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.position" title="susan.data.Particles.position"><code class="xref py py-attr docutils literal notranslate"><span class="pre">Particles.position</span></code></a>.  Defaults to (0, 0, 0), which is a no-op.</p>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Tomograms.stack_file">
 <span class="sig-name descname"><span class="pre">stack_file</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span> <span class="pre">of</span> <span class="pre">str,</span> <span class="pre">length</span> <span class="pre">N</span></span><a class="headerlink" href="#susan.data.Tomograms.stack_file" title="Link to this definition">¶</a></dt>
 <dd><p>Path to the tilt-series image stack for each tomogram.</p>
@@ -620,6 +628,7 @@ stored maximum-resolution limit is ignored during processing.</p></li>
 <li><a class="reference internal" href="#susan.data.Tomograms"><code class="docutils literal notranslate"><span class="pre">Tomograms</span></code></a><ul>
 <li><a class="reference internal" href="#susan.data.Tomograms.tomo_id"><code class="docutils literal notranslate"><span class="pre">Tomograms.tomo_id</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.tomo_size"><code class="docutils literal notranslate"><span class="pre">Tomograms.tomo_size</span></code></a></li>
+<li><a class="reference internal" href="#susan.data.Tomograms.tomo_position"><code class="docutils literal notranslate"><span class="pre">Tomograms.tomo_position</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.stack_file"><code class="docutils literal notranslate"><span class="pre">Tomograms.stack_file</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.stack_size"><code class="docutils literal notranslate"><span class="pre">Tomograms.stack_size</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.num_proj"><code class="docutils literal notranslate"><span class="pre">Tomograms.num_proj</span></code></a></li>
