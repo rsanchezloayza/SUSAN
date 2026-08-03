@@ -342,7 +342,15 @@ reference slots.</p></li>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Particles.tomo_cix">
 <span class="sig-name descname"><span class="pre">tomo_cix</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">uint32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">M</span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Particles.tomo_cix" title="Link to this definition">¶</a></dt>
-<dd><p>Contiguous index into the Tomograms array for fast look-up.</p>
+<dd><p>Contiguous index into the Tomograms array.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Not: </span>read by SUSAN anymore.  The index is derived from
+<a class="reference internal" href="#susan.data.Particles.tomo_id" title="susan.data.Particles.tomo_id"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tomo_id</span></code></a> through <code class="xref py py-meth docutils literal notranslate"><span class="pre">Tomograms.get_cix()</span></code>, so it cannot go
+stale when a particle set is paired with a different
+<code class="docutils literal notranslate"><span class="pre">Tomograms</span></code>.  The field is still stored in the <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code>
+file for older SUSAN versions; refresh it with
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">update_tomo_cix()</span></code> before saving.</p>
+</div>
 </dd></dl>
 
 <dl class="py attribute">

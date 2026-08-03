@@ -334,6 +334,32 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">bin_frame</span> <span class="k">as</span> <span class="n">_bin_frame</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">bin_frame_shape</span> <span class="k">as</span> <span class="n">_bin_frame_shape</span>
 
+<span class="k">def</span><span class="w"> </span><span class="nf">lookup_cix</span><span class="p">(</span><span class="n">id_table</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map tomogram IDs onto their index in ``id_table``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    id_table : ndarray, uint32, shape (N,)</span>
+<span class="sd">        Tomogram IDs, in container order.  Need not be sorted.</span>
+<span class="sd">    tomo_id : int or array_like of uint32</span>
+<span class="sd">        IDs to look up.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    cix : ndarray, int64</span>
+<span class="sd">        Index into ``id_table``.  Undefined where *valid* is False.</span>
+<span class="sd">    valid : ndarray of bool</span>
+<span class="sd">        True where the ID was found.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">id_table</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">id_table</span><span class="p">)</span>
+    <span class="n">pos</span>   <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">id_table</span><span class="p">[</span><span class="n">order</span><span class="p">],</span><span class="n">ids</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">id_table</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">cix</span>   <span class="o">=</span> <span class="n">order</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">valid</span> <span class="o">=</span> <span class="p">(</span><span class="n">id_table</span><span class="p">[</span><span class="n">cix</span><span class="p">]</span> <span class="o">==</span> <span class="n">ids</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cix</span><span class="p">,</span><span class="n">valid</span>
+
 <div class="viewcode-block" id="Tomograms">
 <a class="viewcode-back" href="../../../api/susan.data.Tomograms.html#susan.data.Tomograms">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Tomograms</span><span class="p">:</span>
@@ -512,7 +538,64 @@
     
     <span class="n">n_tomos</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_n_tomos</span><span class="p">)</span>
     <span class="n">n_projs</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_n_projs</span><span class="p">)</span>
-    
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_cix_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">lookup_cix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Map tomogram IDs to their index in this ``Tomograms`` container.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tomo_id : int or array_like of uint32</span>
+<span class="sd">            Tomogram ID, or array of IDs (e.g. ``Particles.tomo_id``).</span>
+<span class="sd">        strict : bool, optional</span>
+<span class="sd">            When True (default), raise if any ID is not present.  When False,</span>
+<span class="sd">            missing IDs map to -1.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        int or ndarray, int64</span>
+<span class="sd">            Index into the tomogram arrays, matching the shape of the input.</span>
+<span class="sd">            Scalar input gives a scalar result.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If *strict* and one or more IDs are not in this container.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cix</span><span class="p">,</span><span class="n">valid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cix_lookup</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+                <span class="n">missing</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)[</span><span class="o">~</span><span class="n">valid</span><span class="p">])</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;tomo_id not found in the tomograms: &#39;</span>
+                                 <span class="o">+</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">missing</span><span class="p">))</span>
+            <span class="n">cix</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">valid</span><span class="p">,</span><span class="n">cix</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cix</span> <span class="k">if</span> <span class="n">cix</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">cix</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_tomo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check which tomogram IDs are present in this container.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tomo_id : int or array_like of uint32</span>
+<span class="sd">            Tomogram ID, or array of IDs (e.g. ``Particles.tomo_id``).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool or ndarray of bool</span>
+<span class="sd">            True where the ID exists in this container.  Scalar input gives a</span>
+<span class="sd">            scalar result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cix_lookup</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">valid</span> <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">bool</span><span class="p">(</span><span class="n">valid</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_unique_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">uniq</span><span class="p">,</span><span class="n">count</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Repeated tomo_id in the tomograms: &#39;</span>
+                             <span class="o">+</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">uniq</span><span class="p">[</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">]))</span>
+
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;tomostxt&#39;</span><span class="p">):</span>
@@ -616,7 +699,9 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">nominal_tilt_angles</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">15</span><span class="p">]</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">16</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">ctf_scale_factor</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">16</span><span class="p">]</span>
-    
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_unique_ids</span><span class="p">()</span>
+
 <div class="viewcode-block" id="Tomograms.save">
 <a class="viewcode-back" href="../../../api/susan.data.Tomograms.html#susan.data.Tomograms.save">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
@@ -626,9 +711,16 @@
 <span class="sd">        ----------</span>
 <span class="sd">        filename : str</span>
 <span class="sd">            Output path; must have a ``.tomostxt`` extension.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If ``tomo_id`` is not unique: the IDs are the key particles are</span>
+<span class="sd">            matched against, so duplicates cannot be resolved.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">Tomograms</span><span class="o">.</span><span class="n">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-        
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_unique_ids</span><span class="p">()</span>
+
         <span class="n">fp</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;w&#39;</span><span class="p">)</span>
         <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;num_tomos&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">))</span>
         <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;num_projs&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_projs</span><span class="p">))</span>

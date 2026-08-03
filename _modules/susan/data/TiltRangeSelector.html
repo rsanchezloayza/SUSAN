@@ -323,6 +323,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.io.mrc</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_mrc</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.data.Tomograms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tomograms</span> <span class="k">as</span> <span class="n">_Tomograms</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">susan.data.Tomograms</span><span class="w"> </span><span class="kn">import</span> <span class="n">lookup_cix</span> <span class="k">as</span> <span class="n">_lookup_cix</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.data.Particles</span><span class="w"> </span><span class="kn">import</span> <span class="n">Particles</span> <span class="k">as</span> <span class="n">_Particles</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">euZYZ_rotm</span> <span class="k">as</span> <span class="n">_euZYZ_rotm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">rotm_euZYZ</span> <span class="k">as</span> <span class="n">_rotm_euZYZ</span>
@@ -511,11 +512,11 @@
                 <span class="s1">&#39;Particles has n_proj=</span><span class="si">%d</span><span class="s1">, smaller than source n_projs=</span><span class="si">%d</span><span class="s1">.&#39;</span>
                 <span class="o">%</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_proj</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_src_n_projs</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">n_ptcl</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">mx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_cix</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
-            <span class="k">if</span> <span class="n">mx</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n_tomos</span><span class="p">:</span>
+            <span class="n">missing</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="o">~</span><span class="n">_lookup_cix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tomo_ids</span><span class="p">,</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">)[</span><span class="mi">1</span><span class="p">]])</span>
+            <span class="k">if</span> <span class="n">missing</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s1">&#39;Particle tomo_cix=</span><span class="si">%d</span><span class="s1"> is out of range for </span><span class="si">%d</span><span class="s1"> tomograms.&#39;</span>
-                    <span class="o">%</span> <span class="p">(</span><span class="n">mx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n_tomos</span><span class="p">))</span>
+                    <span class="s1">&#39;Particle tomo_id=</span><span class="si">%s</span><span class="s1"> is not in the source tomograms.&#39;</span>
+                    <span class="o">%</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">missing</span><span class="p">))</span>
 
 <div class="viewcode-block" id="TiltRangeSelector.to_tomograms">
 <a class="viewcode-back" href="../../../api/susan.data.TiltRangeSelector.html#susan.data.TiltRangeSelector.to_tomograms">[docs]</a>
@@ -634,7 +635,7 @@
 
 <span class="sd">        Slices ``prj_eu``, ``prj_t``, ``prj_cc``, ``prj_w`` and the per-</span>
 <span class="sd">        particle defocus arrays along the per-projection axis, using each</span>
-<span class="sd">        particle&#39;s ``tomo_cix`` to look up the matching kept-index list.</span>
+<span class="sd">        particle&#39;s ``tomo_id`` to look up the matching kept-index list.</span>
 <span class="sd">        Non-projection fields (positions, alignments, identifiers,</span>
 <span class="sd">        half-sets) are copied verbatim.</span>
 
@@ -670,7 +671,7 @@
 
         <span class="n">out</span><span class="o">.</span><span class="n">ptcl_id</span> <span class="p">[:]</span>    <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ptcl_id</span>
         <span class="n">out</span><span class="o">.</span><span class="n">tomo_id</span> <span class="p">[:]</span>    <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span>
-        <span class="n">out</span><span class="o">.</span><span class="n">tomo_cix</span><span class="p">[:]</span>    <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_cix</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">tomo_cix</span><span class="p">[:]</span>    <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_cix</span> <span class="c1"># deprecated: kept as loaded</span>
         <span class="n">out</span><span class="o">.</span><span class="n">position</span><span class="p">[:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">position</span>
         <span class="n">out</span><span class="o">.</span><span class="n">ref_cix</span> <span class="p">[:]</span>    <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ref_cix</span>
         <span class="n">out</span><span class="o">.</span><span class="n">half_id</span> <span class="p">[:]</span>    <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">half_id</span>
@@ -682,8 +683,9 @@
         <span class="n">out</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[:,</span> <span class="p">:]</span>    <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span>
         <span class="n">out</span><span class="o">.</span><span class="n">ali_w</span> <span class="p">[:,</span> <span class="p">:]</span>    <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_w</span>
 
+        <span class="n">cix</span> <span class="o">=</span> <span class="n">_lookup_cix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tomo_ids</span><span class="p">,</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">):</span>
-            <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_cix</span><span class="p">[</span><span class="n">m</span><span class="p">])</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cix</span><span class="p">[</span><span class="n">m</span><span class="p">])</span>
             <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kept</span><span class="p">[</span><span class="n">t</span><span class="p">]</span>
             <span class="n">K</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">K</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
