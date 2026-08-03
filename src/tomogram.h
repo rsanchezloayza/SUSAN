@@ -164,6 +164,22 @@ public:
         }
     }
     
+    /// If stk_name is a relative path that cannot be found from the current
+    /// working directory, try to resolve it relative to base_dir (the location
+    /// of the tomostxt file). Absolute paths are left untouched.
+    void resolve_stack_path(const char*base_dir) {
+        if( stk_name[0] == '/'      ) return;
+        if( IO::exists( stk_name  ) ) return;
+
+        char buffer[ SUSAN_FILENAME_LENGTH ];
+        int n = snprintf(buffer,SUSAN_FILENAME_LENGTH,"%s/%s",base_dir,stk_name);
+
+        if( n > 0 && n < SUSAN_FILENAME_LENGTH ) {
+            if( IO::exists(buffer) )
+                strcpy(stk_name,buffer);
+        }
+    }
+
     bool check() {
         bool rslt = check_exists();
 
@@ -205,7 +221,7 @@ protected:
     }
     
     bool check_exists() {
-        if( ~IO::exists(stk_name) ) {
+        if( !IO::exists(stk_name) ) {
             fprintf(stderr,"File %s not found or cannot be read.\n",stk_name);
             return false;
         }
@@ -315,6 +331,9 @@ public:
     Tomograms(const char*filename) {
         tomos = NULL;
 
+        char base_dir[ SUSAN_FILENAME_LENGTH ];
+        IO::get_dirname(base_dir,filename);
+
         IO::TxtParser parser(filename,"tomostxt");
         parser.parse_args();
         parser.args_get_val(num_tomo,"num_tomos");
@@ -322,8 +341,10 @@ public:
 
         tomos = new Tomogram[num_tomo];
 
-        for(int i=0;i<num_tomo;i++)
+        for(int i=0;i<num_tomo;i++) {
             tomos[i].read(parser);
+            tomos[i].resolve_stack_path(base_dir);
+        }
 
     }
 

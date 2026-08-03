@@ -259,6 +259,7 @@ class TiltRangeSelector:
 
         new.tomo_id[:]    = tomos.tomo_id
         new.tomo_size[:]  = tomos.tomo_size
+        new.tomo_position[:] = tomos.tomo_position
         new.pix_size[:]   = tomos.pix_size
         new.voltage[:]    = tomos.voltage
         new.sph_aber[:]   = tomos.sph_aber

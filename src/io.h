@@ -67,6 +67,19 @@ void delete_dir(const char*filename) {
         nftw(filename, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
 }
 
+void get_dirname(char*out,const char*path) {
+    const char*sep = strrchr(path,'/');
+    if( sep == NULL ) {
+        strcpy(out,".");
+    }
+    else {
+        size_t n = sep - path;
+        if( n == 0 ) n = 1; /// path was "/file", keep the root slash
+        memcpy(out,path,n);
+        out[n] = 0;
+    }
+}
+
 bool check_file_extension(const char*filename,const char*extension) {
 
     int fn_len  = strlen(filename);
@@ -324,8 +337,10 @@ protected:
                 if( buf_len > 0 ) {
                     if( buffer[0] != '#' ) {
                         read_next_line = false;
-                        if( buffer[buf_len-1] == '\n' )
-                            buffer[buf_len-1] = 0;
+                        while( buf_len > 0 && (buffer[buf_len-1] == '\n' || buffer[buf_len-1] == '\r') ) {
+                            buf_len--;
+                            buffer[buf_len] = 0;
+                        }
                     }
                 }
             }
@@ -340,8 +355,10 @@ protected:
         char*rslt = buffer;
         int tag_len = strlen(tag);
         get_line();
-        if( strncmp( buffer, tag, tag_len ) == 0 ) {
+        if( strncmp( buffer, tag, tag_len ) == 0 && buffer[tag_len] == ':' ) {
             rslt = buffer+tag_len+1;
+            while( rslt[0] == ' ' || rslt[0] == '\t' ) /// optional space after the ':'
+                rslt++;
         }
         else {
             fprintf(stderr,"Requested tag %s, buffer: %s\n",tag,buffer);

@@ -271,9 +271,10 @@ class STA:
         """
         if box_size is None:
             fp = open(prj_name+"/info.prjtxt","r")
-            self.prj_name = _prsr.read(fp,'name')
-            self.box_size = int(_prsr.read(fp,'box_size'))
+            args = _prsr.parse_args(fp)
             fp.close()
+            self.prj_name = args['name']
+            self.box_size = int(args['box_size'])
         else:
             if not _file_exists(prj_name):
                 _mkdir(prj_name)

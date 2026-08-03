@@ -324,17 +324,16 @@ class SubtomoAvgBase:
     def __init__(self, prj_name, box_size=None):
         if box_size is None:
             fp = open(prj_name + '/info.prjtxt', 'r')
-            self.prj_name = _prsr.read(fp, 'name')
-            self.box_size = int(_prsr.read(fp, 'box_size'))
-            # Optional fields — present in files written by SubtomoAvg,
-            # absent in files written by the legacy STA class.
-            tomofile  = _prsr.read(fp, 'tomogram_file')
-            initref   = _prsr.read(fp, 'initial_reference')
-            initptcls = _prsr.read(fp, 'initial_particles')
+            args = _prsr.parse_args(fp)
             fp.close()
+            self.prj_name = args['name']
+            self.box_size = int(args['box_size'])
+            # Optional fields: present in files written by SubtomoAvg,
+            # absent in files written by the legacy STA class.
+            tomofile  = args.get('tomogram_file')
             self.tomogram_file     = ''
-            self.initial_reference = initref   if initref   is not None else ''
-            self.initial_particles = initptcls if initptcls is not None else ''
+            self.initial_reference = args.get('initial_reference','')
+            self.initial_particles = args.get('initial_particles','')
             if tomofile is not None:
                 self.tomogram_file = tomofile
                 self.pix_size = float(_ssa_data.Tomograms(tomofile).pix_size[0])

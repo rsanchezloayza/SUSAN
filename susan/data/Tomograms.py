@@ -54,6 +54,13 @@ class Tomograms:
 
        Tomogram dimensions (X, Y, Z) in pixels.
 
+    .. attribute:: tomo_position
+       :type: ndarray, float32, shape (N, 3)
+
+       Origin offset (X, Y, Z) of the tomogram in Ångströms, subtracted from
+       the particle position before projecting.  Same units as
+       :attr:`Particles.position`.  Defaults to (0, 0, 0), which is a no-op.
+
     .. attribute:: stack_file
        :type: list of str, length N
 
@@ -213,6 +220,7 @@ class Tomograms:
     def _alloc(self,n_tomos,n_projs):
         self.tomo_id    = _np.zeros( n_tomos   ,dtype=_np.uint32 )
         self.tomo_size  = _np.zeros((n_tomos,3),dtype=_np.uint32 )
+        self.tomo_position = _np.zeros((n_tomos,3),dtype=_np.float32) # in Angstroms
         self.stack_file = []
         self.stack_size = _np.zeros((n_tomos,3),dtype=_np.uint32 )
         self.num_proj   = _np.zeros( n_tomos   ,dtype=_np.uint32 )
@@ -247,25 +255,43 @@ class Tomograms:
         for i in range(n_tomos):
             self.stack_file.append('')
 
+    @staticmethod
+    def _resolve_stack_path(stack_file,base_dir):
+        # If stack_file is a relative path that cannot be found from the current
+        # working directory, try to resolve it relative to base_dir (the location
+        # of the tomostxt file). Absolute paths are left untouched.
+        if _os.path.isabs(stack_file) or _os.path.exists(stack_file):
+            return stack_file
+        candidate = _os.path.join(base_dir,stack_file)
+        if _os.path.exists(candidate):
+            return candidate
+        return stack_file
+
     def _load(self,filename):
         Tomograms._check_filename(filename)
-        
+
+        base_dir = _os.path.dirname(filename) or '.'
+
         fp = open(filename,"rb")
-        n_tomos = int(_prsr.read(fp,'num_tomos'))
-        n_projs = int(_prsr.read(fp,'num_projs'))
+        header  = _prsr.parse_args(fp)
+        n_tomos = int(header['num_tomos'])
+        n_projs = int(header['num_projs'])
         self._alloc(n_tomos,n_projs)
         for i in range(n_tomos):
-            self.tomo_id[i]      = _np.uint32((_prsr.read(fp,'tomo_id')))
-            self.tomo_size[i,:]  = _np.fromstring(_prsr.read(fp,'tomo_size'),_np.uint32,sep=',')
-            self.stack_file[i]   = _prsr.read(fp,'stack_file')
-            self.stack_size[i,:] = _np.fromstring(_prsr.read(fp,'stack_size'),_np.uint32,sep=',')
-            self.pix_size[i]     = _np.float32((_prsr.read(fp,'pix_size')))
-            self.voltage[i]      = _np.float32((_prsr.read(fp,'kv')))
-            self.sph_aber[i]     = _np.float32((_prsr.read(fp,'cs')))
-            self.amp_cont[i]     = _np.float32((_prsr.read(fp,'ac')))
-            self.handedness[i]   = _np.float32(_prsr.read(fp, 'handedness') or self.handedness[i])
-            self.num_proj[i]     = _np.uint32((_prsr.read(fp,'num_proj')))
-            
+            args = _prsr.parse_args(fp)
+            self.tomo_id[i]      = _np.uint32(args['tomo_id'])
+            self.tomo_size[i,:]  = _np.fromstring(args['tomo_size'],_np.uint32,sep=',')
+            if 'tomo_pos' in args:
+                self.tomo_position[i,:] = _np.fromstring(args['tomo_pos'],_np.float32,sep=',')
+            self.stack_file[i]   = Tomograms._resolve_stack_path(args['stack_file'],base_dir)
+            self.stack_size[i,:] = _np.fromstring(args['stack_size'],_np.uint32,sep=',')
+            self.pix_size[i]     = _np.float32(args['pix_size'])
+            self.voltage[i]      = _np.float32(args['kv'])
+            self.sph_aber[i]     = _np.float32(args['cs'])
+            self.amp_cont[i]     = _np.float32(args['ac'])
+            self.handedness[i]   = _np.float32(args.get('handedness',self.handedness[i]))
+            self.num_proj[i]     = _np.uint32(args['num_proj'])
+
             P = self.num_proj[i]
             for p in range(P):
                 buffer = _np.fromstring(_prsr.read_line(fp),dtype=_np.float32,sep=' ')
@@ -304,6 +330,7 @@ class Tomograms:
             fp.write('## Tomogram/Stack '+str(i+1)+'\n')
             _prsr.write(fp,'tomo_id'   , str(self.tomo_id[i]))
             _prsr.write(fp,'tomo_size' , '%d,%d,%d'%(self.tomo_size[i,0],self.tomo_size[i,1],self.tomo_size[i,2]))
+            _prsr.write(fp,'tomo_pos'  , '%f,%f,%f'%(self.tomo_position[i,0],self.tomo_position[i,1],self.tomo_position[i,2]))
             _prsr.write(fp,'stack_file', str(self.stack_file[i] ))
             _prsr.write(fp,'stack_size','%d,%d,%d'%(self.stack_size[i,0],self.stack_size[i,1],self.stack_size[i,2]))
             _prsr.write(fp,'pix_size'  , str(self.pix_size[i]))
@@ -530,6 +557,7 @@ class Tomograms:
         new = Tomograms(n_tomo=self.n_tomos, n_proj=self.n_projs)
 
         new.tomo_id[:]              = self.tomo_id
+        new.tomo_position[:]        = self.tomo_position # in Angstroms: scale invariant
         new.num_proj[:]             = self.num_proj
         new.pix_size[:]             = self.pix_size * float(scale)
         new.voltage[:]              = self.voltage

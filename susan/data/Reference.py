@@ -66,12 +66,13 @@ class Reference:
         
         if isinstance(filename,str):
             fp = open(filename,"rb")
-            num_refs = int(_prsr.read(fp,'num_ref'))
+            num_refs = int(_prsr.parse_args(fp)['num_ref'])
             for i in range(num_refs):
-                self.ref.append(_prsr.read(fp,'map'))
-                self.msk.append(_prsr.read(fp,'mask'))
-                self.h1.append(_prsr.read(fp,'h1'))
-                self.h2.append(_prsr.read(fp,'h2'))
+                args = _prsr.parse_args(fp)
+                self.ref.append(args['map' ])
+                self.msk.append(args['mask'])
+                self.h1.append( args['h1'  ])
+                self.h2.append( args['h2'  ])
         elif( n_refs>0 ):
             for i in range(n_refs):
                 self.ref.append('')
