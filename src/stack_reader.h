@@ -113,9 +113,22 @@ protected:
         return (long)X*Y*Z;
     }
 
+    /// Index of tomo_id in the tomograms. The particles' tomo_cix field is
+    /// deprecated and not read: it is a cached index that goes stale when a
+    /// particle set is paired with a different tomostxt.
+    uint32 get_tomo_cix(const uint32 tomo_id) {
+        int cix = tomos->get_cix(tomo_id);
+        if( cix < 0 ) {
+            fprintf(stderr,"Particle with tomo_id %d: not found in the tomograms.\n",tomo_id);
+            exit(1);
+        }
+        return (uint32)cix;
+    }
+
     void parse_ptcls() {
         int ptcls_ix = 0;
         int i = 0;
+        uint32 cur_tomo_id = 0;
         ptcls_count[ptcls_ix] = 0;
         ptcls_tomoid[ptcls_ix] = 0;
         ptcls_offset[ptcls_ix] = 0;
@@ -123,18 +136,20 @@ protected:
 
         if( ptcls->n_ptcl > ptcls_ix ) {
             ptcls->get(cur_ptcl,i);
-            ptcls_tomoid[ptcls_ix] = cur_ptcl.tomo_cix();
+            cur_tomo_id = cur_ptcl.tomo_id();
+            ptcls_tomoid[ptcls_ix] = get_tomo_cix(cur_tomo_id);
             ptcls_count[ptcls_ix]++;
             i++;
 
             while( ptcls->get(cur_ptcl,i) ) {
-                if( cur_ptcl.tomo_cix() != ptcls_tomoid[ptcls_ix] ) {
+                if( cur_ptcl.tomo_id() != cur_tomo_id ) {
                     ptcls_ix++;
                     if( ptcls_ix >= tomos->num_tomo ) {
                         fprintf(stderr,"Error parsing tomogram info from particles.\n");
                         exit(1);
                     }
-                    ptcls_tomoid[ptcls_ix] = cur_ptcl.tomo_cix();
+                    cur_tomo_id = cur_ptcl.tomo_id();
+                    ptcls_tomoid[ptcls_ix] = get_tomo_cix(cur_tomo_id);
                     ptcls_offset[ptcls_ix] = i;
                 }
                 ptcls_count[ptcls_ix]++;

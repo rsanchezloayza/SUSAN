@@ -90,10 +90,6 @@ public:
         return info->tomo_id;
     }
 
-    uint32& tomo_cix() {
-        return info->tomo_cix;
-    }
-
     Vec3&   pos() {
         return info->pos;
     }
@@ -116,7 +112,7 @@ public:
 
     void print() {
         printf("  ID:         %d\n" ,ptcl_id());
-        printf("  Tomo ID:    %d (%d)\n",tomo_id(),tomo_cix());
+        printf("  Tomo ID:    %d\n",tomo_id());
         printf("  Position:   %.1f,%.1f,%.1f\n",pos().x,pos().y,pos().z);
         printf("  Ref. idx:   %d\n",ref_cix());
         printf("  Half ID:    %d\n",half_id());

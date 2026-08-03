@@ -58,7 +58,15 @@ class Particles:
     .. attribute:: tomo_cix
        :type: ndarray, uint32, shape (M,)
 
-       Contiguous index into the Tomograms array for fast look-up.
+       Contiguous index into the Tomograms array.
+
+       .. deprecated::
+          Not read by SUSAN anymore.  The index is derived from
+          :attr:`tomo_id` through :meth:`Tomograms.get_cix`, so it cannot go
+          stale when a particle set is paired with a different
+          ``Tomograms``.  The field is still stored in the ``.ptclsraw``
+          file for older SUSAN versions; refresh it with
+          :meth:`update_tomo_cix` before saving.
 
     .. attribute:: ref_cix
        :type: ndarray, uint32, shape (M,)
@@ -357,6 +365,30 @@ class Particles:
             idx = _np.arange(*idx.indices(self.n_ptcl))
         return self.select(idx)
     
+    def update_tomo_cix(self, tomograms):
+        """Refresh the deprecated ``tomo_cix`` field from ``tomo_id``.
+
+        ``tomo_cix`` is no longer read by SUSAN: the index of a particle's
+        tomogram is derived from ``tomo_id`` through
+        :meth:`Tomograms.get_cix` wherever it is needed.  The field is still
+        written to the ``.ptclsraw`` file so that older SUSAN versions, which
+        do read it, keep working.  Call this whenever a particle set is
+        created or paired with a different ``Tomograms``, so the stored value
+        does not go stale.
+
+        Parameters
+        ----------
+        tomograms : Tomograms
+            Tomograms this particle set refers to.  Every ``tomo_id`` must be
+            present in it.
+
+        Raises
+        ------
+        ValueError
+            If a ``tomo_id`` is not in *tomograms*.
+        """
+        self.tomo_cix[:] = tomograms.get_cix(self.tomo_id).astype(_np.uint32)
+
     def select(self, idx):
         """Return a new Particles containing only the selected entries.
 
@@ -571,9 +603,10 @@ class Particles:
                 _euZYZ_rotm(R_arr[t,p],_np.deg2rad(tomos_info.proj_eZYZ[t,p]))
         
         # Update defocus
+        cix = tomos_info.get_cix(self.tomo_id)
         for k in range(self.n_ptcl):
-            tid = self.tomo_cix[k]
-            
+            tid = cix[k]
+
             self.prj_w   [k,:] = tomos_info.proj_wgt[tid,:]
             self.def_ang [k,:] = tomos_info.def_ang [tid,:]
             self.def_phas[k,:] = tomos_info.def_phas[tid,:]
@@ -683,7 +716,6 @@ class Particles:
         _euZYZ_rotm(R,_np.deg2rad(_np.array((0,angle_deg_Y,0), dtype=_np.float32)))
         
         pts = _np.zeros((0,3),dtype=_np.float32)
-        tcx = _np.zeros((0),dtype=_np.uint32)
         tid = _np.zeros((0),dtype=_np.uint32)
         for i in range( tomograms.n_tomos ):
             tomo_range = Particles._get_tomo_limit_angstroms(tomograms.tomo_size[i],tomograms.pix_size[i],brdr)
@@ -695,14 +727,13 @@ class Particles:
             pos = _np.stack( (x.flatten(),y.flatten(),z.flatten()), ).transpose()
             pos = pos@R
             pts = _np.concatenate( (pts,pos) )
-            tcx = _np.concatenate( (tcx,_np.repeat(_np.uint32(i),pos.shape[0])) )
             tid = _np.concatenate( (tid,_np.repeat(tomograms.tomo_id[i],pos.shape[0])) )
         
         ptcls = Particles(n_ptcl=pts.shape[0],n_proj=tomograms.n_projs,n_refs=1)
         ptcls.ptcl_id[:]    = _np.arange(1,pts.shape[0]+1,dtype=_np.uint32)
         ptcls.position[:,:] = pts
-        ptcls.tomo_cix[:]   = tcx
         ptcls.tomo_id [:]   = tid
+        ptcls.update_tomo_cix(tomograms)
         ptcls.ali_w[:] 	    = 1
         ptcls.update_defocus(tomograms)
         return ptcls
@@ -736,7 +767,6 @@ class Particles:
         brdr = Particles._get_border_pixels(skip_border_pixels)
         
         pts = _np.zeros((0,3),dtype=_np.float32)
-        tcx = _np.zeros((0),dtype=_np.uint32)
         tid = _np.zeros((0),dtype=_np.uint32)
         for i in range( tomograms.n_tomos ):
             tomo_range = Particles._get_tomo_limit_angstroms(tomograms.tomo_size[i],tomograms.pix_size[i],brdr)
@@ -749,14 +779,13 @@ class Particles:
             x,y,z = _np.float32(_np.meshgrid(t_x,t_y,t_z))
             pos = _np.stack( (x.flatten(),y.flatten(),z.flatten()), ).transpose()
             pts = _np.concatenate( (pts,pos) )
-            tcx = _np.concatenate( (tcx,_np.repeat(_np.uint32(i),pos.shape[0])) )
             tid = _np.concatenate( (tid,_np.repeat(tomograms.tomo_id[i],pos.shape[0])) )
         
         ptcls = Particles(n_ptcl=pts.shape[0],n_proj=tomograms.n_projs,n_refs=1)
         ptcls.ptcl_id[:]    = _np.arange(1,pts.shape[0]+1,dtype=_np.uint32)
         ptcls.position[:,:] = pts
-        ptcls.tomo_cix[:]   = tcx
         ptcls.tomo_id [:]   = tid
+        ptcls.update_tomo_cix(tomograms)
         ptcls.ali_w[:]      = 1
         ptcls.halfsets_even_odd()
         ptcls.update_defocus(tomograms)
@@ -773,14 +802,6 @@ class Particles:
             raise ValueError('Number of entries in tomos_id do not match position')
         return N
         
-    @staticmethod
-    def _calc_tomo_cix(tomo_cix,tomograms,tomos_id):
-        LUT = {}
-        for tid in range(tomograms.n_tomos):
-            LUT[ int(tomograms.tomo_id[tid]) ] = tid
-        for i in range(tomos_id.shape[0]):
-            tomo_cix[i] = LUT[int(tomos_id[i])]
-    
     @staticmethod
     def _calc_position(p_out,p_in,tomograms,tomos_cix,apix):
         for i in range(p_in.shape[0]):
@@ -822,8 +843,8 @@ class Particles:
         ptcls.ptcl_id[:]    = ptcls_id
         ptcls.tomo_id [:]   = tomos_id
         ptcls.ali_w[:]      = 1
-        Particles._calc_tomo_cix(ptcls.tomo_cix,tomograms,tomos_id)
-        Particles._calc_position(ptcls.position,position,tomograms,ptcls.tomo_cix,apix)
+        ptcls.update_tomo_cix(tomograms)
+        Particles._calc_position(ptcls.position,position,tomograms,tomograms.get_cix(tomos_id),apix)
         ptcls.halfsets_even_odd()
         ptcls.sort()
         ptcls.update_defocus(tomograms)
@@ -854,11 +875,12 @@ class Particles:
             Positions in pixels, relative to the tomogram corner.
         """
         apix = Particles._validate_tomogram(tomograms)
+        cix = tomograms.get_cix(self.tomo_id)
         pos = _np.zeros_like(self.pos(ref_cix))
         for i in range(pos.shape[0]):
             tmp = self.position[i,:] + self.ali_t[ref_cix,i,:]
             tmp = tmp/apix
-            pos[i,:] = tmp + tomograms.tomo_size[self.tomo_cix[i]]/2
+            pos[i,:] = tmp + tomograms.tomo_size[cix[i]]/2
         return pos
 
 

@@ -84,7 +84,11 @@ typedef struct {
 typedef struct {
 	uint32  ptcl_id;
     uint32  tomo_id;
-    uint32  tomo_cix;
+    uint32  tomo_cix_deprecated; /// Cached index of tomo_id in the tomograms.
+                                /// Not read anymore (it goes stale when the
+                                /// particles are paired with another tomostxt):
+                                /// use Tomograms::get_cix(tomo_id). Kept to
+                                /// preserve the ptclsraw record layout.
     Vec3    pos;      /// Angstroms
     uint32  ref_cix;
     uint32  half_id;

@@ -707,7 +707,7 @@ class STA:
             pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_cix == tcix
+                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 if idx.sum() < 4:
                     continue
 
@@ -728,7 +728,7 @@ class STA:
             pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_cix == tcix
+                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 n_ptcl_tomo = idx.sum()
                 if n_ptcl_tomo < 2:
                     continue
@@ -748,7 +748,7 @@ class STA:
             pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_cix == tcix
+                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 if idx.sum() < 4:
                     continue
 
@@ -771,7 +771,7 @@ class STA:
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             min_n = 4 if method == 'tps' else 2
             for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_cix == tcix
+                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 n_ptcl_tomo = idx.sum()
                 if n_ptcl_tomo < min_n:
                     continue

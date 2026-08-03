@@ -346,6 +346,7 @@ public:
             tomos[i].resolve_stack_path(base_dir);
         }
 
+        check_unique_ids(filename);
     }
 
     ~Tomograms() {
@@ -358,6 +359,16 @@ public:
             exit(0);
         }
         return tomos[ix];
+    }
+
+    /// Index of tomo_id in this container, -1 if not present. The particles
+    /// only store tomo_id; the index is always resolved through here.
+    int get_cix(const uint32 tomo_id) const {
+        for(uint32 i=0;i<num_tomo;i++) {
+            if( tomos[i].tomo_id == tomo_id )
+                return (int)i;
+        }
+        return -1;
     }
 
     Tomogram& at(int ix) {
@@ -383,6 +394,20 @@ public:
             rslt &= tomos[i].check();
         }
         return rslt;
+    }
+
+protected:
+    /// The tomo_id is the key the particles are matched against, so it must
+    /// identify a single tomogram.
+    void check_unique_ids(const char*filename) {
+        for(uint32 i=0;i<num_tomo;i++) {
+            for(uint32 j=i+1;j<num_tomo;j++) {
+                if( tomos[i].tomo_id == tomos[j].tomo_id ) {
+                    fprintf(stderr,"File %s: repeated tomo_id %d.\n",filename,tomos[i].tomo_id);
+                    exit(1);
+                }
+            }
+        }
     }
 
 };

@@ -208,7 +208,7 @@ class PtclsGeom:
 
     @staticmethod
     def _enable_by_tilt_nominal(ptcls, tomos, tilt_deg_min, tilt_deg_max, signed):
-        cix    = ptcls.tomo_cix
+        cix    = tomos.get_cix(ptcls.tomo_id)
         n_proj = ptcls.prj_w.shape[1]
         tilts  = tomos.nominal_tilt_angles[cix, :n_proj]
         wgts   = tomos.proj_wgt[cix, :n_proj]
@@ -246,7 +246,8 @@ class PtclsGeom:
         if use_nominal:
             PtclsGeom._enable_by_tilt_nominal(ptcls, tomos, tilt_min, tilt_max, signed=False)
         else:
-            PtclsGeom._enable_by_tilt(ptcls.prj_w,ptcls.tomo_cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
+            cix = tomos.get_cix(ptcls.tomo_id).astype(_np.uint32)
+            PtclsGeom._enable_by_tilt(ptcls.prj_w,cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
 
     _enable_by_tilt_range = staticmethod(_enable_by_tilt_range)
 
@@ -293,7 +294,8 @@ class PtclsGeom:
         else:
             tilt_min = _np.float32(_np.deg2rad(tilt_deg_min))
             tilt_max = _np.float32(_np.deg2rad(tilt_deg_max))
-            PtclsGeom._enable_by_tilt_range(ptcls.prj_w,ptcls.tomo_cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
+            cix = tomos.get_cix(ptcls.tomo_id).astype(_np.uint32)
+            PtclsGeom._enable_by_tilt_range(ptcls.prj_w,cix,tomos.proj_eZYZ,tomos.proj_wgt,tilt_min,tilt_max)
 
 ###############################################################################
     _disable_closer = staticmethod(_disable_closer)
@@ -321,15 +323,15 @@ class PtclsGeom:
         -------
         Particles
         """
-        t_id = _np.unique( ptcls.tomo_cix )
-        mask = _np.ones(ptcls.tomo_cix.shape,bool)
+        t_id = _np.unique( ptcls.tomo_id )
+        mask = _np.ones(ptcls.tomo_id.shape,bool)
         dist = min_dist_angs*min_dist_angs
         
         if verbose:
             print('%d particles in %d tomograms. Processing:'%(ptcls.n_ptcl,t_id.size))
             
         for tid in t_id:
-            t_mask  = ptcls.tomo_cix == tid
+            t_mask  = ptcls.tomo_id == tid
             cur_cc  = ptcls.ali_cc[ref_idx,t_mask]
             sort_ix = _np.ascontiguousarray(_np.argsort(cur_cc)[::-1])
             pos     = ptcls.position[t_mask] + ptcls.ali_t[ref_idx,t_mask]
@@ -452,11 +454,11 @@ class PtclsGeom:
         ndarray, float32, shape (M,)
             Nearest-neighbour distance in Ångströms for each particle.
         """
-        t_id = _np.unique( ptcls.tomo_cix )
-        dist = _np.zeros(ptcls.tomo_cix.shape,_np.float32)
+        t_id = _np.unique( ptcls.tomo_id )
+        dist = _np.zeros(ptcls.tomo_id.shape,_np.float32)
         
         for tid in t_id:
-            t_mask  = ptcls.tomo_cix == tid
+            t_mask  = ptcls.tomo_id == tid
             pos     = ptcls.position[t_mask] + ptcls.ali_t[ref_idx,t_mask]
             d_mask  = dist[t_mask]
             PtclsGeom._get_min_dist(d_mask,pos)

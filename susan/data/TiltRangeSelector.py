@@ -21,6 +21,7 @@ import numpy as _np
 
 import susan.io.mrc as _mrc
 from susan.data.Tomograms import Tomograms as _Tomograms
+from susan.data.Tomograms import lookup_cix as _lookup_cix
 from susan.data.Particles import Particles as _Particles
 from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.utils import rotm_euZYZ as _rotm_euZYZ
@@ -207,11 +208,11 @@ class TiltRangeSelector:
                 'Particles has n_proj=%d, smaller than source n_projs=%d.'
                 % (int(ptcls.n_proj), self._src_n_projs))
         if ptcls.n_ptcl > 0:
-            mx = int(ptcls.tomo_cix.max())
-            if mx >= self._n_tomos:
+            missing = _np.unique(ptcls.tomo_id[~_lookup_cix(self._tomo_ids, ptcls.tomo_id)[1]])
+            if missing.size > 0:
                 raise ValueError(
-                    'Particle tomo_cix=%d is out of range for %d tomograms.'
-                    % (mx, self._n_tomos))
+                    'Particle tomo_id=%s is not in the source tomograms.'
+                    % ','.join(str(m) for m in missing))
 
     def to_tomograms(self, tomograms, write_stacks=True, in_subfolder=True,
                      filename=None):
@@ -325,7 +326,7 @@ class TiltRangeSelector:
 
         Slices ``prj_eu``, ``prj_t``, ``prj_cc``, ``prj_w`` and the per-
         particle defocus arrays along the per-projection axis, using each
-        particle's ``tomo_cix`` to look up the matching kept-index list.
+        particle's ``tomo_id`` to look up the matching kept-index list.
         Non-projection fields (positions, alignments, identifiers,
         half-sets) are copied verbatim.
 
@@ -361,7 +362,7 @@ class TiltRangeSelector:
 
         out.ptcl_id [:]    = ptcls.ptcl_id
         out.tomo_id [:]    = ptcls.tomo_id
-        out.tomo_cix[:]    = ptcls.tomo_cix
+        out.tomo_cix[:]    = ptcls.tomo_cix # deprecated: kept as loaded
         out.position[:, :] = ptcls.position
         out.ref_cix [:]    = ptcls.ref_cix
         out.half_id [:]    = ptcls.half_id
@@ -373,8 +374,9 @@ class TiltRangeSelector:
         out.ali_cc[:, :]    = ptcls.ali_cc
         out.ali_w [:, :]    = ptcls.ali_w
 
+        cix = _lookup_cix(self._tomo_ids, ptcls.tomo_id)[0]
         for m in range(ptcls.n_ptcl):
-            t = int(ptcls.tomo_cix[m])
+            t = int(cix[m])
             k = self._kept[t]
             K = int(k.size)
             if K == 0:

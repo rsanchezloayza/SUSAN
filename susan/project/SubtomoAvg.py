@@ -1364,7 +1364,7 @@ class SubtomoAvg(SubtomoAvgCore):
         verbose = self.verbosity > 1
 
         for tcix in range(tomos.n_tomos):
-            idx = ptcls_in.tomo_cix == tcix
+            idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
             n_t = int(idx.sum())
             if n_t < n_min:
                 if n_t > 0:
@@ -1553,7 +1553,7 @@ class SubtomoAvg(SubtomoAvgCore):
             pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_cix == tcix
+                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 if idx.sum() < 4:
                     continue
                 for i in range(tomos.num_proj[tcix]):
@@ -1571,7 +1571,7 @@ class SubtomoAvg(SubtomoAvgCore):
             pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_cix == tcix
+                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 n_t = idx.sum()
                 if n_t < 2:
                     continue
@@ -1603,7 +1603,7 @@ class SubtomoAvg(SubtomoAvgCore):
             pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_cix == tcix
+                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 if idx.sum() < 4:
                     continue
                 for i in range(tomos.num_proj[tcix]):
@@ -1625,7 +1625,7 @@ class SubtomoAvg(SubtomoAvgCore):
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             min_n = 4 if method == 'tps' else 2
             for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_cix == tcix
+                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 n_t = idx.sum()
                 if n_t < min_n:
                     continue

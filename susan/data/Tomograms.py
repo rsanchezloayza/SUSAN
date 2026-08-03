@@ -32,6 +32,32 @@ from susan.utils import rotm_euZYZ as _rotm_euZYZ
 from susan.utils import bin_frame as _bin_frame
 from susan.utils import bin_frame_shape as _bin_frame_shape
 
+def lookup_cix(id_table,tomo_id):
+    """Map tomogram IDs onto their index in ``id_table``.
+
+    Parameters
+    ----------
+    id_table : ndarray, uint32, shape (N,)
+        Tomogram IDs, in container order.  Need not be sorted.
+    tomo_id : int or array_like of uint32
+        IDs to look up.
+
+    Returns
+    -------
+    cix : ndarray, int64
+        Index into ``id_table``.  Undefined where *valid* is False.
+    valid : ndarray of bool
+        True where the ID was found.
+    """
+    ids = _np.asarray(tomo_id,dtype=_np.uint32)
+    if id_table.shape[0] == 0:
+        return _np.full(ids.shape,-1,dtype=_np.int64),_np.zeros(ids.shape,dtype=bool)
+    order = _np.argsort(id_table)
+    pos   = _np.searchsorted(id_table[order],ids).clip(0,id_table.shape[0]-1)
+    cix   = order[pos].astype(_np.int64)
+    valid = (id_table[cix] == ids)
+    return cix,valid
+
 class Tomograms:
     """Per-tomogram metadata container for SUSAN workflows.
 
@@ -208,7 +234,64 @@ class Tomograms:
     
     n_tomos = property(get_n_tomos)
     n_projs = property(get_n_projs)
-    
+
+    def _cix_lookup(self,tomo_id):
+        return lookup_cix(self.tomo_id,tomo_id)
+
+    def get_cix(self,tomo_id,strict=True):
+        """Map tomogram IDs to their index in this ``Tomograms`` container.
+
+        Parameters
+        ----------
+        tomo_id : int or array_like of uint32
+            Tomogram ID, or array of IDs (e.g. ``Particles.tomo_id``).
+        strict : bool, optional
+            When True (default), raise if any ID is not present.  When False,
+            missing IDs map to -1.
+
+        Returns
+        -------
+        int or ndarray, int64
+            Index into the tomogram arrays, matching the shape of the input.
+            Scalar input gives a scalar result.
+
+        Raises
+        ------
+        ValueError
+            If *strict* and one or more IDs are not in this container.
+        """
+        cix,valid = self._cix_lookup(tomo_id)
+        if not valid.all():
+            if strict:
+                missing = _np.unique(_np.asarray(tomo_id,dtype=_np.uint32)[~valid])
+                raise ValueError('tomo_id not found in the tomograms: '
+                                 + ','.join(str(m) for m in missing))
+            cix = _np.where(valid,cix,-1)
+        return cix if cix.ndim > 0 else int(cix)
+
+    def has_tomo(self,tomo_id):
+        """Check which tomogram IDs are present in this container.
+
+        Parameters
+        ----------
+        tomo_id : int or array_like of uint32
+            Tomogram ID, or array of IDs (e.g. ``Particles.tomo_id``).
+
+        Returns
+        -------
+        bool or ndarray of bool
+            True where the ID exists in this container.  Scalar input gives a
+            scalar result.
+        """
+        valid = self._cix_lookup(tomo_id)[1]
+        return valid if valid.ndim > 0 else bool(valid)
+
+    def _check_unique_ids(self):
+        uniq,count = _np.unique(self.tomo_id,return_counts=True)
+        if _np.any(count > 1):
+            raise ValueError('Repeated tomo_id in the tomograms: '
+                             + ','.join(str(u) for u in uniq[count > 1]))
+
     @staticmethod
     def _check_filename(filename):
         if not _is_ext(filename,'tomostxt'):
@@ -312,7 +395,9 @@ class Tomograms:
                     self.nominal_tilt_angles[i,p] = buffer[15]
                 if len(buffer) > 16:
                     self.ctf_scale_factor[i,p] = buffer[16]
-    
+
+        self._check_unique_ids()
+
     def save(self, filename):
         """Save to a ``.tomostxt`` file.
 
@@ -320,9 +405,16 @@ class Tomograms:
         ----------
         filename : str
             Output path; must have a ``.tomostxt`` extension.
+
+        Raises
+        ------
+        ValueError
+            If ``tomo_id`` is not unique: the IDs are the key particles are
+            matched against, so duplicates cannot be resolved.
         """
         Tomograms._check_filename(filename)
-        
+        self._check_unique_ids()
+
         fp=open(filename,'w')
         _prsr.write(fp,'num_tomos',str(self.n_tomos))
         _prsr.write(fp,'num_projs',str(self.n_projs))
