@@ -169,7 +169,7 @@ public:
     dim3 blk_splat;
     dim3 grd_splat;
 
-    void alloc(const int x,const int y,const int z) {
+    void alloc(const int x,const int y,const int z,const bool with_splat=true) {
         MP = x;
         NP = y;
         maxK = z;
@@ -184,12 +184,15 @@ public:
         grd_2D = GPU::calc_grid_size(blk,MP,NP,maxK);
         grd_3D = GPU::calc_grid_size(blk,MP,NP,NP);
 
-        splat_geom.alloc(MP*NP*maxK);
-        splat_inorm.alloc(MP*NP*maxK);
+        if( with_splat ) {
+            splat_geom.alloc(MP*NP*maxK);
+            splat_inorm.alloc(MP*NP*maxK);
+        }
 
         /// One warp per source pixel: x is the lane, y indexes the warps in the block.
         blk_splat = dim3(SUSAN_CUDA_WARP,SPLAT_WARPS,1);
         grd_splat = dim3((unsigned int)GPU::div_round_up(MP,SPLAT_WARPS),NP,maxK);
+
     }
 
     void clear() {
@@ -291,7 +294,7 @@ protected:
             float work_std = 2*inv_gstd*inv_gstd;
             float acc = 0;
             uint32 tmp;
-            Vec3*c_filt = PointsProvider::circle(tmp,2,2,1);
+            Vec3*c_filt = PointsProvider::sphere(tmp,2,1);
             n_krnl = tmp;
             float4 *c_krnl = new float4[n_krnl];
             for(int i=0;i<n_krnl;i++) {

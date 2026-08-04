@@ -512,7 +512,7 @@ class Averager:
         Default: ``'wiener'``.
     gridding_type : str
         Fourier-space gridding method: ``'linear'`` or ``'kb'``
-        (Kaiser–Bessel).  Default: ``'linear'``.
+        (Kaiser–Bessel).  Default: ``'kb'``.
     splat_gain : float
         *Experimental.*  Angular-spread splatting.  When greater than 0, the
         bandpass lowpass and the per-projection ``def_mres`` stop acting as a
@@ -558,8 +558,9 @@ class Averager:
         Ad-hoc SSNR model for Wiener filter denominator.
         Default: ``ssnr(1, 0.01)``.
     inversion : :class:`~susan.utils.datatypes.inversion_params`
-        Parameters for iterative sampling-function inversion.
-        Default: ``inversion_params(10, 0.75)``.
+        Parameters for iterative sampling-function inversion.  A ``std`` of
+        ``0`` or less selects it from the gridding method.
+        Default: ``inversion_params(10, -1)``.
     mpi : :class:`~susan.utils.datatypes.mpi_params`
         MPI launcher configuration used by :meth:`reconstruct_mpi`.
         Default: ``mpi_params('srun -n %d ', 1)``.
@@ -584,11 +585,11 @@ class Averager:
         self.normalize_type    = 'zero_mean_one_std'
         self.weighting_type    = 'none'
         self.ctf_correction    = 'wiener'
-        self.gridding_type     = 'linear'
+        self.gridding_type     = 'kb'
         self.splat_gain        = 0
         self.symmetry          = 'c1'
         self.ssnr              = _dt.ssnr(1,0.01)
-        self.inversion         = _dt.inversion_params(10,0.75)
+        self.inversion         = _dt.inversion_params(10,-1)
         self.mpi               = _dt.mpi_params('srun -n %d ',1)
         self.verbosity         = 1
         self.normalize_output  = True
@@ -754,8 +755,9 @@ class SubtomoRec:
         Ad-hoc SSNR model for Wiener filter denominator.
         Default: ``ssnr(1, 0.01)``.
     inversion : :class:`~susan.utils.datatypes.inversion_params`
-        Parameters for iterative sampling-function inversion.
-        Default: ``inversion_params(0, 0.75)`` (inversion disabled).
+        Parameters for iterative sampling-function inversion.  A ``std`` of
+        ``0`` or less selects it from the gridding method.
+        Default: ``inversion_params(0, -1)`` (inversion disabled).
     use_align : bool
         Apply stored 3-D alignment offsets during reconstruction.
         Default: ``False``.
@@ -782,7 +784,7 @@ class SubtomoRec:
         self.ctf_correction    = 'phase_flip'
         self.format            = 'mrc'
         self.ssnr              = _dt.ssnr(1,0.01)
-        self.inversion         = _dt.inversion_params(0,0.75)
+        self.inversion         = _dt.inversion_params(0,-1)
         self.use_align         = False
         self.relion_ctf        = False
         self.invert_contrast   = False

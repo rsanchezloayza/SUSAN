@@ -187,6 +187,10 @@ typedef enum {
     CC_STATS_SIGMA
 } CcStatsType_t;
 
+#define W_INV_STD_LINEAR 0.41f
+#define W_INV_STD_KB     0.69f
+#define W_INV_STD_SPLAT  0.74f
+
 typedef enum {
     GRIDDING_LINEAR_FWD=0,
     GRIDDING_KAISER_BESSEL_FWD,

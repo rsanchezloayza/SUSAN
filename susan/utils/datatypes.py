@@ -246,8 +246,10 @@ class inversion_params:
     ite : int
         Number of iterations.  Default: 10.
     std : float
-        Standard deviation of the Gaussian used to approximate the sampling
-        function.  Default: 0.75.
+        Standard deviation of the Gaussian used to approximate the gridding
+        kernel.  Values of ``0`` or less select it from the gridding method:
+        ``0.41`` for linear, ``0.69`` for Kaiser-Bessel, ``0.74`` when
+        splatting.  Default: ``-1`` (automatic).
     """
     ite: int
     std: float

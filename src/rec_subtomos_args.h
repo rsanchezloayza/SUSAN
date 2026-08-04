@@ -95,7 +95,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.norm_type   = NO_NORM;
     info.out_fmt     = CROP_MRC;
     info.w_inv_ite   = 10;
-    info.w_inv_std   = 0.75;
+    info.w_inv_std   = -1;
     info.use_ali     = false;
     info.relion_ctf  = false;
     info.norm_output = true;
@@ -232,6 +232,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
         } /// switch
     } /// while(c)
+
+    if( info.w_inv_std <= 0 )
+        info.w_inv_std = W_INV_STD_LINEAR;
 
     return validate(info);
 }

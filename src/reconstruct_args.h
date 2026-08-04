@@ -111,7 +111,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.grid_type   = GRIDDING_LINEAR_FWD;
     info.splat_gain  = 0;
     info.w_inv_ite   = 10;
-    info.w_inv_std   = 0.75;
+    info.w_inv_std   = -1;
     info.ssnr_F      = 0;
     info.ssnr_S      = 1;
     info.rec_halves  = false;
@@ -264,6 +264,15 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
         } /// switch
     } /// while(c)
+
+    if( info.w_inv_std <= 0 ) {
+        if( info.splat_gain > 0 )
+            info.w_inv_std = W_INV_STD_SPLAT;
+        else if( info.grid_type == GRIDDING_KAISER_BESSEL_FWD )
+            info.w_inv_std = W_INV_STD_KB;
+        else
+            info.w_inv_std = W_INV_STD_LINEAR;
+    }
 
     return validate(info);
 }

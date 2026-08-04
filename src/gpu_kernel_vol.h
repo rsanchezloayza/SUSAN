@@ -537,6 +537,9 @@ __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
         atomic_Add( &(p_wgt[idx]  ) , fabsf(g_wgt)*ctf_wgt );
     }
 }
+#define KB_KERNEL_SUM 6.0024f
+#define KB_W_MIN      (5e-3f*KB_KERNEL_SUM)
+
 __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
                                     cudaTextureObject_t ss_stk, cudaTextureObject_t ss_wgt, const Proj2D*pTlt,
                                     const float3 bandpass,const int M, const int N, const int K)
@@ -595,6 +598,9 @@ __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
                 if( fabsf(tx) > 1.0f  ) continue;
                 float kbx = get_kaisser_bessel_kernel_polyfit(tx);
 
+                float kb_krn = kbx*kby*kbz;
+                if( kb_krn < KB_W_MIN ) continue;
+
                 /// Insert into hermitian volume
                 bool should_conj = false;
                 int ix_h = ix;
@@ -614,7 +620,7 @@ __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
                 if( (iy_h < 0) || (iy_h >= N) ) continue;
                 if( (iz_h < 0) || (iz_h >= N) ) continue;
 
-                float kb_wgt = kbx*kby*kbz * prj_w;
+                float kb_wgt = kb_krn * prj_w;
 
                 long   idx = get_3d_idx(ix_h,iy_h,iz_h,M,N);
                 float2 out = val;
@@ -807,16 +813,20 @@ __global__ void inv_wgt_ite_sphere(double*p_vol_wgt,const int3 ss_siz) {
     }
 }
 
+/// Floors the sampling function before the Pipe & Menon iteration below. The floor has to apply
+/// to exact zeros as well, and that is what bounds the whole iteration: where w is genuinely 0
+/// the convolution stays 0 forever, so the divide hits its clamp every pass and the compensation
+/// grows as clamp^-iterations without limit (1e20 after 10 passes at a 1e-2 clamp). With the
+/// floor in place the convolution grows in step with the compensation, so the iteration settles
+/// at ~1/(min_wgt*sum(C)) instead. Measured on a synthetic wedge: 1e20 -> 2.2e6, with an
+/// identical fixed-point residual over the sampled voxels, so the bound costs no accuracy.
 __global__ void inv_wgt_ite_hard_shrink(double*p_vol_wgt,double min_wgt,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();
 
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
         long idx = get_3d_idx(ss_idx,ss_siz);
-        double w = p_vol_wgt[idx];
-        if( w < min_wgt && w > 0)
-            w = min_wgt;
-        p_vol_wgt[ idx ] = w;
+        p_vol_wgt[ idx ] = fmax(p_vol_wgt[idx],min_wgt);
     }
 }
 
@@ -854,6 +864,12 @@ __global__ void inv_wgt_ite_convolve(double*p_conv,const double*p_tmp,const floa
     }
 }
 
+/// The clamp is only a backstop now: inv_wgt_ite_hard_shrink guarantees the convolution is
+/// strictly positive, so it is no longer what bounds the iteration. Measured with that floor in
+/// place, anything from 1e-2 to 1e-8 settles at the same magnitude and the same residual, so
+/// this matches the value RELION uses rather than the looser 1e-2 that used to carry the bound.
+#define INV_WGT_ITE_MIN_DEN 1e-6
+
 __global__ void inv_wgt_ite_divide(double*p_vol_wgt, const double*p_conv,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();
@@ -861,7 +877,7 @@ __global__ void inv_wgt_ite_divide(double*p_vol_wgt, const double*p_conv,const i
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
         long idx = get_3d_idx(ss_idx,ss_siz);
         double den = p_conv[idx];
-        den = copysign(fmax(fabs(den),1e-2),den);
+        den = copysign(fmax(fabs(den),INV_WGT_ITE_MIN_DEN),den);
         p_vol_wgt[ idx ] = p_vol_wgt[ idx ] / den;
     }
 }

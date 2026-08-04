@@ -117,7 +117,7 @@ protected:
         std::vector<RecAcc> vols_vec(R);
         RecAcc* vols = vols_vec.data();
         for(int r=0;r<R;r++)
-            vols[r].alloc(MP,NP,max_K);
+            vols[r].alloc(MP,NP,max_K,splat_gain>0);
 
         while( (current_cmd = worker_cmd->read_command()) >= 0 ) {
             switch(current_cmd) {

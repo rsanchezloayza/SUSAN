@@ -163,7 +163,7 @@ protected:
         RecInvWgt inv_wgt(NP,MP,w_inv_ite,w_inv_std);
         RecInvVol inv_vol(N,P);
         RecAcc vol;
-        vol.alloc(MP,NP,max_K);
+        vol.alloc(MP,NP,max_K,false);
 
         GPU::GArrSingle p_vol;
         p_vol.alloc(N*N*N);
