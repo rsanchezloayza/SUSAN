@@ -416,8 +416,9 @@ Default: <code class="docutils literal notranslate"><span class="pre">ssnr(1,</s
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.SubtomoRec.inversion">
 <span class="sig-name descname"><span class="pre">inversion</span></span><a class="headerlink" href="#susan.modules.SubtomoRec.inversion" title="Link to this definition">¶</a></dt>
-<dd><p>Parameters for iterative sampling-function inversion.
-Default: <code class="docutils literal notranslate"><span class="pre">inversion_params(0,</span> <span class="pre">0.75)</span></code> (inversion disabled).</p>
+<dd><p>Parameters for iterative sampling-function inversion.  A <code class="docutils literal notranslate"><span class="pre">std</span></code> of
+<code class="docutils literal notranslate"><span class="pre">0</span></code> or less selects it from the gridding method.
+Default: <code class="docutils literal notranslate"><span class="pre">inversion_params(0,</span> <span class="pre">-1)</span></code> (inversion disabled).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.inversion_params" title="susan.utils.datatypes.inversion_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">inversion_params</span></code></a></p>

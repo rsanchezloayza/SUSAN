@@ -652,8 +652,10 @@ See <a class="reference external" href="https://onlinelibrary.wiley.com/doi/10.1
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.utils.datatypes.inversion_params.std">
 <span class="sig-name descname"><span class="pre">std</span></span><a class="headerlink" href="#susan.utils.datatypes.inversion_params.std" title="Link to this definition">¶</a></dt>
-<dd><p>Standard deviation of the Gaussian used to approximate the sampling
-function.  Default: 0.75.</p>
+<dd><p>Standard deviation of the Gaussian used to approximate the gridding
+kernel.  Values of <code class="docutils literal notranslate"><span class="pre">0</span></code> or less select it from the gridding method:
+<code class="docutils literal notranslate"><span class="pre">0.41</span></code> for linear, <code class="docutils literal notranslate"><span class="pre">0.69</span></code> for Kaiser-Bessel, <code class="docutils literal notranslate"><span class="pre">0.74</span></code> when
+splatting.  Default: <code class="docutils literal notranslate"><span class="pre">-1</span></code> (automatic).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>

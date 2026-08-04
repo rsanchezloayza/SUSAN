@@ -834,7 +834,7 @@
 <span class="sd">        Default: ``&#39;wiener&#39;``.</span>
 <span class="sd">    gridding_type : str</span>
 <span class="sd">        Fourier-space gridding method: ``&#39;linear&#39;`` or ``&#39;kb&#39;``</span>
-<span class="sd">        (Kaiser–Bessel).  Default: ``&#39;linear&#39;``.</span>
+<span class="sd">        (Kaiser–Bessel).  Default: ``&#39;kb&#39;``.</span>
 <span class="sd">    splat_gain : float</span>
 <span class="sd">        *Experimental.*  Angular-spread splatting.  When greater than 0, the</span>
 <span class="sd">        bandpass lowpass and the per-projection ``def_mres`` stop acting as a</span>
@@ -880,8 +880,9 @@
 <span class="sd">        Ad-hoc SSNR model for Wiener filter denominator.</span>
 <span class="sd">        Default: ``ssnr(1, 0.01)``.</span>
 <span class="sd">    inversion : :class:`~susan.utils.datatypes.inversion_params`</span>
-<span class="sd">        Parameters for iterative sampling-function inversion.</span>
-<span class="sd">        Default: ``inversion_params(10, 0.75)``.</span>
+<span class="sd">        Parameters for iterative sampling-function inversion.  A ``std`` of</span>
+<span class="sd">        ``0`` or less selects it from the gridding method.</span>
+<span class="sd">        Default: ``inversion_params(10, -1)``.</span>
 <span class="sd">    mpi : :class:`~susan.utils.datatypes.mpi_params`</span>
 <span class="sd">        MPI launcher configuration used by :meth:`reconstruct_mpi`.</span>
 <span class="sd">        Default: ``mpi_params(&#39;srun -n %d &#39;, 1)``.</span>
@@ -906,11 +907,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>    <span class="o">=</span> <span class="s1">&#39;zero_mean_one_std&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weighting_type</span>    <span class="o">=</span> <span class="s1">&#39;none&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">&#39;wiener&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">gridding_type</span>     <span class="o">=</span> <span class="s1">&#39;linear&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gridding_type</span>     <span class="o">=</span> <span class="s1">&#39;kb&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">splat_gain</span>        <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span>          <span class="o">=</span> <span class="s1">&#39;c1&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span>              <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mf">0.01</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">inversion</span>         <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">inversion_params</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mf">0.75</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inversion</span>         <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">inversion_params</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span>               <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">mpi_params</span><span class="p">(</span><span class="s1">&#39;srun -n </span><span class="si">%d</span><span class="s1"> &#39;</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">normalize_output</span>  <span class="o">=</span> <span class="kc">True</span>
@@ -1088,8 +1089,9 @@
 <span class="sd">        Ad-hoc SSNR model for Wiener filter denominator.</span>
 <span class="sd">        Default: ``ssnr(1, 0.01)``.</span>
 <span class="sd">    inversion : :class:`~susan.utils.datatypes.inversion_params`</span>
-<span class="sd">        Parameters for iterative sampling-function inversion.</span>
-<span class="sd">        Default: ``inversion_params(0, 0.75)`` (inversion disabled).</span>
+<span class="sd">        Parameters for iterative sampling-function inversion.  A ``std`` of</span>
+<span class="sd">        ``0`` or less selects it from the gridding method.</span>
+<span class="sd">        Default: ``inversion_params(0, -1)`` (inversion disabled).</span>
 <span class="sd">    use_align : bool</span>
 <span class="sd">        Apply stored 3-D alignment offsets during reconstruction.</span>
 <span class="sd">        Default: ``False``.</span>
@@ -1116,7 +1118,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">&#39;phase_flip&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">format</span>            <span class="o">=</span> <span class="s1">&#39;mrc&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span>              <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mf">0.01</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">inversion</span>         <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">inversion_params</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mf">0.75</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inversion</span>         <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">inversion_params</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">use_align</span>         <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relion_ctf</span>        <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">invert_contrast</span>   <span class="o">=</span> <span class="kc">False</span>

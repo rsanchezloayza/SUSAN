@@ -577,8 +577,10 @@
 <span class="sd">    ite : int</span>
 <span class="sd">        Number of iterations.  Default: 10.</span>
 <span class="sd">    std : float</span>
-<span class="sd">        Standard deviation of the Gaussian used to approximate the sampling</span>
-<span class="sd">        function.  Default: 0.75.</span>
+<span class="sd">        Standard deviation of the Gaussian used to approximate the gridding</span>
+<span class="sd">        kernel.  Values of ``0`` or less select it from the gridding method:</span>
+<span class="sd">        ``0.41`` for linear, ``0.69`` for Kaiser-Bessel, ``0.74`` when</span>
+<span class="sd">        splatting.  Default: ``-1`` (automatic).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">ite</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">std</span><span class="p">:</span> <span class="nb">float</span></div>
