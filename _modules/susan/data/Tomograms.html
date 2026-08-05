@@ -900,6 +900,13 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">def_ExFl</span>  <span class="p">[</span><span class="n">idx</span><span class="p">,:</span><span class="n">P</span><span class="p">]</span>   <span class="o">=</span> <span class="n">buffer</span><span class="p">[:,</span><span class="mi">5</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">def_mres</span>  <span class="p">[</span><span class="n">idx</span><span class="p">,:</span><span class="n">P</span><span class="p">]</span>   <span class="o">=</span> <span class="n">buffer</span><span class="p">[:,</span><span class="mi">6</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">def_scor</span>  <span class="p">[</span><span class="n">idx</span><span class="p">,:</span><span class="n">P</span><span class="p">]</span>   <span class="o">=</span> <span class="n">buffer</span><span class="p">[:,</span><span class="mi">7</span><span class="p">]</span>
+            <span class="c1"># Optional ninth column: the initial per-projection weight from the</span>
+            <span class="c1"># Thon ring modulation depth (CtfEstimator.est_initial_snr).  It is</span>
+            <span class="c1"># proportional to the SSNR of the projection, which is how prj_w</span>
+            <span class="c1"># enters the reconstruction.  Files written before this column</span>
+            <span class="c1"># existed simply keep the current proj_wgt.</span>
+            <span class="k">if</span> <span class="n">buffer</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">8</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">proj_wgt</span><span class="p">[</span><span class="n">idx</span><span class="p">,:</span><span class="n">P</span><span class="p">]</span> <span class="o">=</span> <span class="n">buffer</span><span class="p">[:,</span><span class="mi">8</span><span class="p">]</span>
             <span class="c1"># Disable empty projections: the CTF estimator zeroes def_U/def_V</span>
             <span class="c1"># (and def_ang, max_res, score) for blank frames in the stack, see</span>
             <span class="c1"># mark_empty_projections in src/ctf_linearizer.h.  Mirror that here</span>

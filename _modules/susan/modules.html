@@ -430,7 +430,7 @@
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation applied before correlation.  One of</span>
 <span class="sd">        ``&#39;none&#39;``, ``&#39;zero_mean&#39;``, ``&#39;zero_mean_one_std&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``, ``&#39;poisson_raw&#39;``,</span>
+<span class="sd">        ``&#39;zero_mean_unit_var&#39;``, ``&#39;poisson_raw&#39;``,</span>
 <span class="sd">        ``&#39;poisson_normal&#39;``.  Default: ``&#39;zero_mean_one_std&#39;``.</span>
 <span class="sd">    ctf_correction : str</span>
 <span class="sd">        CTF correction strategy.  One of ``&#39;none&#39;``, ``&#39;phase_flip&#39;``,</span>
@@ -630,8 +630,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;zero&#39;</span><span class="p">,</span><span class="s1">&#39;noise&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid padding type. Only &quot;zero&quot; or &quot;noise&quot; are valid&#39;</span><span class="p">)</span>
         
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_raw&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_normal&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot;, &quot;zero_mean_proj_weight&quot;, &quot;poisson_raw&quot; or &quot;poisson_normal&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_raw&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_normal&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot;, &quot;poisson_raw&quot; or &quot;poisson_normal&quot; are valid&#39;</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;phase_flip&#39;</span><span class="p">,</span><span class="s1">&#39;on_reference&#39;</span><span class="p">,</span><span class="s1">&#39;on_substack&#39;</span><span class="p">,</span><span class="s1">&#39;wiener_ssnr&#39;</span><span class="p">,</span><span class="s1">&#39;cfsc&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid ctf correction type. Only &quot;none&quot;, &quot;phase_flip&quot;, &quot;on_reference&quot;, &quot;on_substack&quot;, &quot;wiener_ssnr&quot; or &quot;cfsc&quot; are valid&#39;</span><span class="p">)</span>
@@ -822,7 +822,7 @@
 <span class="sd">        Default: ``&#39;zero&#39;``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``&#39;none&#39;``, ``&#39;zero_mean&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
+<span class="sd">        ``&#39;zero_mean_one_std&#39;`` and ``&#39;zero_mean_unit_var&#39;``.</span>
 <span class="sd">        Default: ``&#39;zero_mean_one_std&#39;``.</span>
 <span class="sd">    weighting_type : str</span>
 <span class="sd">        Particle weighting scheme.  One of ``&#39;none&#39;``, ``&#39;particle&#39;``,</span>
@@ -928,8 +928,8 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">splat_gain</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid splat gain. Must be 0 (disabled) or positive&#39;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot; or &quot;zero_mean_unit_var&quot; are valid&#39;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">weighting_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;particle&#39;</span><span class="p">,</span><span class="s1">&#39;projection&#39;</span><span class="p">,</span><span class="s1">&#39;3DCC&#39;</span><span class="p">,</span><span class="s1">&#39;2DCC&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid weighting type. Only &quot;none&quot;, &quot;particle&quot;, &quot;projection&quot;, &quot;3DCC&quot; or &quot;2DCC&quot; are valid&#39;</span><span class="p">)</span>
@@ -1077,7 +1077,7 @@
 <span class="sd">        Default: ``&#39;zero&#39;``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``&#39;none&#39;``, ``&#39;zero_mean&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
+<span class="sd">        ``&#39;zero_mean_one_std&#39;`` and ``&#39;zero_mean_unit_var&#39;``.</span>
 <span class="sd">        Default: ``&#39;none&#39;``.</span>
 <span class="sd">    ctf_correction : str</span>
 <span class="sd">        CTF correction applied during back-projection.  One of ``&#39;none&#39;``,</span>
@@ -1130,8 +1130,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;zero&#39;</span><span class="p">,</span><span class="s1">&#39;noise&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid padding type. Only &quot;zero&quot; or &quot;noise&quot; are valid&#39;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot; or &quot;zero_mean_unit_var&quot; are valid&#39;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;phase_flip&#39;</span><span class="p">,</span><span class="s1">&#39;wiener&#39;</span><span class="p">,</span><span class="s1">&#39;wiener_ssnr&#39;</span><span class="p">,</span> <span class="s1">&#39;pre_wiener&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid ctf correction type. Only &quot;none&quot;, &quot;phase_flip&quot;, &quot;wiener&quot;, &quot;pre_wiener&quot; or &quot;wiener_ssnr&quot; are valid&#39;</span><span class="p">)</span>
@@ -1237,7 +1237,7 @@
 <span class="sd">        Number of CPU threads to use.  Default: ``1``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-patch normalisation.  One of ``&#39;none&#39;``, ``&#39;zero_mean&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``.</span>
+<span class="sd">        ``&#39;zero_mean_one_std&#39;`` and ``&#39;zero_mean_unit_var&#39;``.</span>
 <span class="sd">        Default: ``&#39;zero_mean_one_std&#39;``.</span>
 <span class="sd">    invert_contrast : bool</span>
 <span class="sd">        Invert the sign of the cropped projections.  Default: ``False``.</span>
@@ -1249,8 +1249,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">invert_contrast</span>   <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot; or &quot;zero_mean_proj_weight&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot; or &quot;zero_mean_unit_var&quot; are valid&#39;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="CropProjection.get_args">
 <a class="viewcode-back" href="../../api/susan.modules.CropProjection.html#susan.modules.CropProjection.get_args">[docs]</a>
@@ -1331,26 +1331,22 @@
 <span class="sd">    ----------</span>
 <span class="sd">    list_gpus_ids : list of int</span>
 <span class="sd">        GPU device IDs to use.  Default: ``[0]``.</span>
-<span class="sd">    binning : int</span>
-<span class="sd">        Binning factor applied to the patches before estimation.  ``0`` means</span>
-<span class="sd">        no binning.  Default: ``0``.</span>
-<span class="sd">    resolution_angs : :class:`~susan.utils.datatypes.range_params`</span>
-<span class="sd">        Resolution range (min, max) in Ångströms used for CTF fitting.</span>
-<span class="sd">        Default: ``range_params(40, 7)``.</span>
+<span class="sd">    resolution_max : float</span>
+<span class="sd">        Highest resolution, in Ångströms, included in the CTF fit.  It sets the</span>
+<span class="sd">        target sampling of the linearization (``new_apix = resolution_max/2``)</span>
+<span class="sd">        and so the outer edge of every spectrum the estimator works on.</span>
+<span class="sd">        Rarely needs changing.  Default: ``7``.</span>
 <span class="sd">    defocus_angstroms : :class:`~susan.utils.datatypes.range_params`</span>
-<span class="sd">        Defocus search range (min, max) in Ångströms.</span>
-<span class="sd">        Default: ``range_params(10000, 90000)``.</span>
-<span class="sd">    tilt_search : float</span>
-<span class="sd">        Tilt-specific defocus search range in Ångströms.  Default: ``3000``.</span>
-<span class="sd">    refine_defocus : :class:`~susan.utils.datatypes.search_params`</span>
-<span class="sd">        Fine defocus refinement range and step in Ångströms.</span>
-<span class="sd">        Default: ``search_params(2000, 100)``.</span>
-<span class="sd">    max_bfactor : float</span>
-<span class="sd">        Maximum B-factor used in the amplitude spectrum weighting.</span>
-<span class="sd">        Default: ``600``.</span>
+<span class="sd">        Defocus search range (min, max) in Ångströms.  Bounds the peak search</span>
+<span class="sd">        in the linearized power spectrum, where defocus maps linearly onto the</span>
+<span class="sd">        bin index.  It also frames the ellipse fit report.</span>
+<span class="sd">        Default: ``range_params(10000, 65000)``.</span>
 <span class="sd">    resolution_thres : float</span>
-<span class="sd">        CTF quality threshold; fits below this score are discarded.</span>
-<span class="sd">        Default: ``0.75``.</span>
+<span class="sd">        Correlation threshold that sets ``Defocus.max_res``.  The fitted CTF is</span>
+<span class="sd">        correlated against the astigmatism-compensated radial average in</span>
+<span class="sd">        sliding windows; the resolution limit is the highest frequency where</span>
+<span class="sd">        that correlation stays above this value.  Lower values report a more</span>
+<span class="sd">        optimistic limit.  Default: ``0.75``.</span>
 <span class="sd">    overfocus : bool</span>
 <span class="sd">        If ``True``, the signal is assumed to be overfocus and the estimated</span>
 <span class="sd">        defocus is returned as a negative value; if ``False``, it is assumed</span>
@@ -1362,34 +1358,41 @@
 <span class="sd">        to ``Defocus.ph_shft``.  If ``False``, the phase-shift search is</span>
 <span class="sd">        skipped and ``ph_shft`` is forced to ``0`` for every projection;</span>
 <span class="sd">        defocus refinement still runs normally.  Default: ``True``.</span>
-<span class="sd">    verbose : int</span>
-<span class="sd">        Verbosity level passed to the binary.  Default: ``0``.</span>
+<span class="sd">    est_initial_snr : bool</span>
+<span class="sd">        If ``True``, an initial per-projection weight is estimated from the</span>
+<span class="sd">        depth of the Thon ring modulation and written as a ninth column of</span>
+<span class="sd">        ``defocus.txt``, which :meth:`susan.data.Tomograms.set_defocus` loads</span>
+<span class="sd">        into ``proj_wgt`` (and ``update_defocus`` then copies into the</span>
+<span class="sd">        per-particle ``prj_w``).  The weight is proportional to the SSNR of</span>
+<span class="sd">        the projection and normalised so the best tilt of each stack is</span>
+<span class="sd">        ``1``; empty projections get ``0``.  If ``False``, the column is</span>
+<span class="sd">        written as ``1`` for every projection, preserving the previous</span>
+<span class="sd">        behaviour of uniform weights.  Default: ``False``.</span>
+<span class="sd">    verbosity : int</span>
+<span class="sd">        Amount of progress information printed to the console, as in every</span>
+<span class="sd">        other module: ``0`` silent, ``1`` basic, ``2`` full.  Default: ``1``.</span>
+<span class="sd">    log_level : int</span>
+<span class="sd">        Amount of debug data written to *out_dir*.  ``0`` writes only</span>
+<span class="sd">        ``defocus.txt``; ``1`` adds the per-projection SVG reports and the</span>
+<span class="sd">        main diagnostic volumes; ``2`` adds every intermediate power spectrum.</span>
+<span class="sd">        This is what ``verbose`` used to control.  Default: ``0``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">binning</span>           <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">resolution_angs</span>   <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">range_params</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span><span class="mi">7</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span> <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">range_params</span><span class="p">(</span><span class="mi">10000</span><span class="p">,</span><span class="mi">90000</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">tilt_search</span>       <span class="o">=</span> <span class="mi">3000</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">refine_defocus</span>    <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">search_params</span><span class="p">(</span><span class="mi">2000</span><span class="p">,</span><span class="mi">100</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">max_bfactor</span>       <span class="o">=</span> <span class="mi">600</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resolution_max</span>    <span class="o">=</span> <span class="mi">7</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span> <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">range_params</span><span class="p">(</span><span class="mi">10000</span><span class="p">,</span><span class="mi">65000</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">resolution_thres</span>  <span class="o">=</span> <span class="mf">0.75</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">overfocus</span>         <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">est_phase_shift</span>   <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">est_initial_snr</span>   <span class="o">=</span> <span class="kc">True</span>
         <span class="c1">#self.mpi               = _dt.mpi_params(&#39;srun -n %d &#39;,1)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span>           <span class="o">=</span> <span class="mi">0</span>
-        <span class="c1">#self.verbosity         = 0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_level</span>         <span class="o">=</span> <span class="mi">0</span>
         
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">refine_defocus</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The steps values must be larger than 0&#39;</span><span class="p">)</span>
-        
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refine_defocus</span><span class="o">.</span><span class="n">span</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">refine_defocus</span><span class="o">.</span><span class="n">step</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Refine Defocus: Step cannot be larger than Range/Span&#39;</span><span class="p">)</span>
-
-        <span class="c1">#if self.resolution_angs.max_val &lt; self.resolution_angs.min_val:</span>
-        <span class="c1">#    raise ValueError(&#39;Resolution (angstroms): min is larger than max&#39;)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolution_max</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Resolution (angstroms): must be larger than 0&#39;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">max_val</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">min_val</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Defocus (angstroms): min is larger than max&#39;</span><span class="p">)</span>
@@ -1428,17 +1431,14 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -n_threads </span><span class="si">%d</span><span class="s1">&#39;</span>     <span class="o">%</span> <span class="n">n_threads</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -gpu_list &#39;</span>        <span class="o">+</span> <span class="n">gpu_str</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -box_size </span><span class="si">%d</span><span class="s1">&#39;</span>      <span class="o">%</span> <span class="n">box_size</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -res_range </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">&#39;</span>  <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">resolution_angs</span><span class="o">.</span><span class="n">min_val</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">resolution_angs</span><span class="o">.</span><span class="n">max_val</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -res_max </span><span class="si">%f</span><span class="s1">&#39;</span>       <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolution_max</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -res_thres </span><span class="si">%f</span><span class="s1">&#39;</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolution_thres</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -def_range </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">&#39;</span>  <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">min_val</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">max_val</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -tilt_search </span><span class="si">%f</span><span class="s1">&#39;</span>   <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">tilt_search</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -refine_def </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">refine_defocus</span><span class="o">.</span><span class="n">span</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">refine_defocus</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -binning </span><span class="si">%d</span><span class="s1">&#39;</span>       <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">binning</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -bfactor_max </span><span class="si">%f</span><span class="s1">&#39;</span>   <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_bfactor</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -overfocus </span><span class="si">%d</span><span class="s1">&#39;</span>     <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overfocus</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -est_phase_shift </span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">est_phase_shift</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -verbose </span><span class="si">%d</span><span class="s1">&#39;</span>       <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span>
-        <span class="c1">#args = args + &#39; -verbosity %d&#39;     % self.verbosity</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -est_initial_snr </span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">est_initial_snr</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -verbosity </span><span class="si">%d</span><span class="s1">&#39;</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">&#39; -log_level </span><span class="si">%d</span><span class="s1">&#39;</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_level</span>
         <span class="k">return</span> <span class="n">args</span></div>
 
     
@@ -1524,7 +1524,7 @@
 <span class="sd">        Default: ``&#39;zero&#39;``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``&#39;none&#39;``, ``&#39;zero_mean&#39;``,</span>
-<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``, ``&#39;zero_mean_proj_weight&#39;``,</span>
+<span class="sd">        ``&#39;zero_mean_one_std&#39;``, ``&#39;zero_mean_unit_var&#39;``,</span>
 <span class="sd">        ``&#39;poisson_raw&#39;``, ``&#39;poisson_normal&#39;``.</span>
 <span class="sd">        Default: ``&#39;zero_mean_one_std&#39;``.</span>
 <span class="sd">    halfsets_independ : bool</span>
@@ -1643,8 +1643,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;zero&#39;</span><span class="p">,</span><span class="s1">&#39;noise&#39;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid padding type. Only &quot;zero&quot; or &quot;noise&quot; are valid&#39;</span><span class="p">)</span>
         
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_proj_weight&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_raw&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_normal&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot;, &quot;zero_mean_proj_weight&quot;, &quot;poisson_raw&quot; or &quot;poisson_normal&quot; are valid&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_one_std&#39;</span><span class="p">,</span><span class="s1">&#39;zero_mean_unit_var&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_raw&#39;</span><span class="p">,</span><span class="s1">&#39;poisson_normal&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid normalization type. Only &quot;none&quot;, &quot;zero_mean&quot;, &quot;zero_mean_one_std&quot;, &quot;zero_mean_unit_var&quot;, &quot;poisson_raw&quot; or &quot;poisson_normal&quot; are valid&#39;</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">angles</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_shift_deg</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The steps values must be larger than 0&#39;</span><span class="p">)</span>

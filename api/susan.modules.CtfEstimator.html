@@ -329,25 +329,15 @@ then call <a class="reference internal" href="#susan.modules.CtfEstimator.estima
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.CtfEstimator.binning">
-<span class="sig-name descname"><span class="pre">binning</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.binning" title="Link to this definition">¶</a></dt>
-<dd><p>Binning factor applied to the patches before estimation.  <code class="docutils literal notranslate"><span class="pre">0</span></code> means
-no binning.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dt class="sig sig-object py" id="susan.modules.CtfEstimator.resolution_max">
+<span class="sig-name descname"><span class="pre">resolution_max</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.resolution_max" title="Link to this definition">¶</a></dt>
+<dd><p>Highest resolution, in Ångströms, included in the CTF fit.  It sets the
+target sampling of the linearization (<code class="docutils literal notranslate"><span class="pre">new_apix</span> <span class="pre">=</span> <span class="pre">resolution_max/2</span></code>)
+and so the outer edge of every spectrum the estimator works on.
+Rarely needs changing.  Default: <code class="docutils literal notranslate"><span class="pre">7</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.CtfEstimator.resolution_angs">
-<span class="sig-name descname"><span class="pre">resolution_angs</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.resolution_angs" title="Link to this definition">¶</a></dt>
-<dd><p>Resolution range (min, max) in Ångströms used for CTF fitting.
-Default: <code class="docutils literal notranslate"><span class="pre">range_params(40,</span> <span class="pre">7)</span></code>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.range_params" title="susan.utils.datatypes.range_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">range_params</span></code></a></p>
+<dd class="field-odd"><p>float</p>
 </dd>
 </dl>
 </dd></dl>
@@ -355,8 +345,10 @@ Default: <code class="docutils literal notranslate"><span class="pre">range_para
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfEstimator.defocus_angstroms">
 <span class="sig-name descname"><span class="pre">defocus_angstroms</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.defocus_angstroms" title="Link to this definition">¶</a></dt>
-<dd><p>Defocus search range (min, max) in Ångströms.
-Default: <code class="docutils literal notranslate"><span class="pre">range_params(10000,</span> <span class="pre">90000)</span></code>.</p>
+<dd><p>Defocus search range (min, max) in Ångströms.  Bounds the peak search
+in the linearized power spectrum, where defocus maps linearly onto the
+bin index.  It also frames the ellipse fit report.
+Default: <code class="docutils literal notranslate"><span class="pre">range_params(10000,</span> <span class="pre">65000)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.range_params" title="susan.utils.datatypes.range_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">range_params</span></code></a></p>
@@ -365,45 +357,13 @@ Default: <code class="docutils literal notranslate"><span class="pre">range_para
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.CtfEstimator.tilt_search">
-<span class="sig-name descname"><span class="pre">tilt_search</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.tilt_search" title="Link to this definition">¶</a></dt>
-<dd><p>Tilt-specific defocus search range in Ångströms.  Default: <code class="docutils literal notranslate"><span class="pre">3000</span></code>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.CtfEstimator.refine_defocus">
-<span class="sig-name descname"><span class="pre">refine_defocus</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.refine_defocus" title="Link to this definition">¶</a></dt>
-<dd><p>Fine defocus refinement range and step in Ångströms.
-Default: <code class="docutils literal notranslate"><span class="pre">search_params(2000,</span> <span class="pre">100)</span></code>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.search_params" title="susan.utils.datatypes.search_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">search_params</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.CtfEstimator.max_bfactor">
-<span class="sig-name descname"><span class="pre">max_bfactor</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.max_bfactor" title="Link to this definition">¶</a></dt>
-<dd><p>Maximum B-factor used in the amplitude spectrum weighting.
-Default: <code class="docutils literal notranslate"><span class="pre">600</span></code>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfEstimator.resolution_thres">
 <span class="sig-name descname"><span class="pre">resolution_thres</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.resolution_thres" title="Link to this definition">¶</a></dt>
-<dd><p>CTF quality threshold; fits below this score are discarded.
-Default: <code class="docutils literal notranslate"><span class="pre">0.75</span></code>.</p>
+<dd><p>Correlation threshold that sets <code class="docutils literal notranslate"><span class="pre">Defocus.max_res</span></code>.  The fitted CTF is
+correlated against the astigmatism-compensated radial average in
+sliding windows; the resolution limit is the highest frequency where
+that correlation stays above this value.  Lower values report a more
+optimistic limit.  Default: <code class="docutils literal notranslate"><span class="pre">0.75</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -441,9 +401,43 @@ defocus refinement still runs normally.  Default: <code class="docutils literal 
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.CtfEstimator.verbose">
-<span class="sig-name descname"><span class="pre">verbose</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.verbose" title="Link to this definition">¶</a></dt>
-<dd><p>Verbosity level passed to the binary.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dt class="sig sig-object py" id="susan.modules.CtfEstimator.est_initial_snr">
+<span class="sig-name descname"><span class="pre">est_initial_snr</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.est_initial_snr" title="Link to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, an initial per-projection weight is estimated from the
+depth of the Thon ring modulation and written as a ninth column of
+<code class="docutils literal notranslate"><span class="pre">defocus.txt</span></code>, which <a class="reference internal" href="susan.data.Tomograms.html#susan.data.Tomograms.set_defocus" title="susan.data.Tomograms.set_defocus"><code class="xref py py-meth docutils literal notranslate"><span class="pre">susan.data.Tomograms.set_defocus()</span></code></a> loads
+into <code class="docutils literal notranslate"><span class="pre">proj_wgt</span></code> (and <code class="docutils literal notranslate"><span class="pre">update_defocus</span></code> then copies into the
+per-particle <code class="docutils literal notranslate"><span class="pre">prj_w</span></code>).  The weight is proportional to the SSNR of
+the projection and normalised so the best tilt of each stack is
+<code class="docutils literal notranslate"><span class="pre">1</span></code>; empty projections get <code class="docutils literal notranslate"><span class="pre">0</span></code>.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the column is
+written as <code class="docutils literal notranslate"><span class="pre">1</span></code> for every projection, preserving the previous
+behaviour of uniform weights.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.CtfEstimator.verbosity">
+<span class="sig-name descname"><span class="pre">verbosity</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.verbosity" title="Link to this definition">¶</a></dt>
+<dd><p>Amount of progress information printed to the console, as in every
+other module: <code class="docutils literal notranslate"><span class="pre">0</span></code> silent, <code class="docutils literal notranslate"><span class="pre">1</span></code> basic, <code class="docutils literal notranslate"><span class="pre">2</span></code> full.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.CtfEstimator.log_level">
+<span class="sig-name descname"><span class="pre">log_level</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.log_level" title="Link to this definition">¶</a></dt>
+<dd><p>Amount of debug data written to <em>out_dir</em>.  <code class="docutils literal notranslate"><span class="pre">0</span></code> writes only
+<code class="docutils literal notranslate"><span class="pre">defocus.txt</span></code>; <code class="docutils literal notranslate"><span class="pre">1</span></code> adds the per-projection SVG reports and the
+main diagnostic volumes; <code class="docutils literal notranslate"><span class="pre">2</span></code> adds every intermediate power spectrum.
+This is what <code class="docutils literal notranslate"><span class="pre">verbose</span></code> used to control.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>int</p>
@@ -570,16 +564,14 @@ defocus values applied for every tomogram.</p>
 <li><a class="reference internal" href="#">susan.modules.CtfEstimator</a><ul>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator"><code class="docutils literal notranslate"><span class="pre">CtfEstimator</span></code></a><ul>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.list_gpus_ids"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.list_gpus_ids</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.CtfEstimator.binning"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.binning</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.CtfEstimator.resolution_angs"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.resolution_angs</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfEstimator.resolution_max"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.resolution_max</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.defocus_angstroms"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.defocus_angstroms</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.CtfEstimator.tilt_search"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.tilt_search</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.CtfEstimator.refine_defocus"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.refine_defocus</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.CtfEstimator.max_bfactor"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.max_bfactor</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.resolution_thres"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.resolution_thres</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.overfocus"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.overfocus</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.est_phase_shift"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.est_phase_shift</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.CtfEstimator.verbose"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.verbose</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfEstimator.est_initial_snr"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.est_initial_snr</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfEstimator.verbosity"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.verbosity</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfEstimator.log_level"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.log_level</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.get_args"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.get_args()</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.estimate"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.estimate()</span></code></a></li>
 </ul>
