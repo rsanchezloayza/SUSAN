@@ -16,6 +16,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+from __future__ import annotations
+
 import numpy as _np
 from susan.data._particles_core import _load_all, _save_all, _update_new_defocus
 from susan.data  import Tomograms       as _tomodef
@@ -230,9 +232,9 @@ class Particles:
             else:
                 raise ValueError('Invalid input')
 
-    def get_n_ptcl(self): return self.ptcl_id.shape[0]
-    def get_n_refs(self): return self.ali_eu.shape[0]
-    def get_n_proj(self): return self.prj_eu.shape[1]
+    def get_n_ptcl(self) -> int: return self.ptcl_id.shape[0]
+    def get_n_refs(self) -> int: return self.ali_eu.shape[0]
+    def get_n_proj(self) -> int: return self.prj_eu.shape[1]
     
     n_ptcl = property(get_n_ptcl)
     n_refs = property(get_n_refs)
@@ -281,7 +283,7 @@ class Particles:
             raise ValueError("Invalid File signature")
         return _np.frombuffer(buffer[8:],_np.uint32)
     
-    def sort(self):
+    def sort(self) -> None:
         """Sort particles in-place by (tomo_id, ptcl_id)."""
         idx = _np.lexsort((self.ptcl_id,self.tomo_id))
         self.ptcl_id  = self.ptcl_id [idx]
@@ -326,7 +328,7 @@ class Particles:
                   self.def_U,   self.def_V,   self.def_ang,  self.def_phas,
                   self.def_Bfct,self.def_ExFl,self.def_mres, self.def_scor)
 
-    def save(self, filename):
+    def save(self, filename) -> None:
         """Save to a ``.ptclsraw`` binary file.
 
         Parameters
@@ -347,7 +349,7 @@ class Particles:
                   _c32(self.def_U),   _c32(self.def_V),   _c32(self.def_ang),  _c32(self.def_phas),
                   _c32(self.def_Bfct),_c32(self.def_ExFl),_c32(self.def_mres), _c32(self.def_scor))
     
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Particles:
         """Select particles by index, boolean mask, or slice.
 
         Parameters
@@ -365,7 +367,7 @@ class Particles:
             idx = _np.arange(*idx.indices(self.n_ptcl))
         return self.select(idx)
     
-    def update_tomo_cix(self, tomograms):
+    def update_tomo_cix(self, tomograms) -> None:
         """Refresh the deprecated ``tomo_cix`` field from ``tomo_id``.
 
         ``tomo_cix`` is no longer read by SUSAN: the index of a particle's
@@ -389,7 +391,7 @@ class Particles:
         """
         self.tomo_cix[:] = tomograms.get_cix(self.tomo_id).astype(_np.uint32)
 
-    def select(self, idx):
+    def select(self, idx) -> Particles:
         """Return a new Particles containing only the selected entries.
 
         Parameters
@@ -438,7 +440,7 @@ class Particles:
             ptcls_out.sort()
         return ptcls_out
 
-    def copy(self):
+    def copy(self) -> Particles:
         """Return a deep copy of this Particles object.
 
         All numpy arrays are copied (no shared memory with the original).
@@ -478,7 +480,7 @@ class Particles:
         ptcls_out.def_scor = self.def_scor.copy()
         return ptcls_out
 
-    def append_ptcls(self, ptcls):
+    def append_ptcls(self, ptcls) -> None:
         """Append another Particles object to this one in-place.
 
         Both objects must have the same ``n_proj`` and ``n_refs``.
@@ -518,7 +520,7 @@ class Particles:
         # Sort
         self.sort()
 
-    def set_weights(self, in_wgt):
+    def set_weights(self, in_wgt) -> None:
         """Set per-projection weights, preserving already-excluded projections.
 
         Multiplies ``in_wgt`` by the existing ``prj_w > 0`` mask so that
@@ -531,7 +533,7 @@ class Particles:
         """
         self.prj_w[:,:] = (self.prj_w > 0) * in_wgt
         
-    def halfsets_by_Y(self):
+    def halfsets_by_Y(self) -> None:
         """Assign half-sets by splitting each tomogram at its Y-median.
 
         Particles above the median Y coordinate get half_id=2; those at
@@ -633,19 +635,19 @@ class Particles:
                 tomos_info.def_V[tid]
             )
 
-    def x(self, ref_idx=0):
+    def x(self, ref_idx=0) -> _np.ndarray:
         """Absolute X coordinate: position[:,0] + ali_t[ref_idx,:,0] (Ångströms)."""
         return self.position[:,0] + self.ali_t[ref_idx,:,0]
 
-    def y(self, ref_idx=0):
+    def y(self, ref_idx=0) -> _np.ndarray:
         """Absolute Y coordinate: position[:,1] + ali_t[ref_idx,:,1] (Ångströms)."""
         return self.position[:,1] + self.ali_t[ref_idx,:,1]
 
-    def z(self, ref_idx=0):
+    def z(self, ref_idx=0) -> _np.ndarray:
         """Absolute Z coordinate: position[:,2] + ali_t[ref_idx,:,2] (Ångströms)."""
         return self.position[:,2] + self.ali_t[ref_idx,:,2]
 
-    def pos(self, ref_idx=0):
+    def pos(self, ref_idx=0) -> _np.ndarray:
         """Absolute (X, Y, Z) positions: position + ali_t[ref_idx], shape (M, 3), Ångströms."""
         return self.position + self.ali_t[ref_idx]
 
@@ -685,7 +687,7 @@ class Particles:
 
     @staticmethod
     def grid_2d(tomograms, step_angstroms=None, step_pixels=None,
-                skip_border_pixels=0, angle_deg_Y=0):
+                skip_border_pixels=0, angle_deg_Y=0) -> Particles:
         """Create a 2-D regular grid of particles at Z=0 across all tomograms.
 
         Positions are placed on an XY grid centred at the tomogram origin.
@@ -740,7 +742,7 @@ class Particles:
     
     @staticmethod
     def grid_3d(tomograms, step_angstroms=None, step_pixels=None,
-                skip_border_pixels=0):
+                skip_border_pixels=0) -> Particles:
         """Create a 3-D regular grid of particles across all tomograms.
 
         Positions fill the full XYZ volume of each tomogram.  Half-sets are
@@ -810,7 +812,7 @@ class Particles:
             
     @staticmethod
     def import_data(tomograms, position, tomos_id, ptcls_id=None,
-                    randomize_angles=False):
+                    randomize_angles=False) -> Particles:
         """Create a Particles object from external coordinate data.
 
         Converts pixel-space coordinates (relative to tomogram corner) to
@@ -855,7 +857,7 @@ class Particles:
             ptcls.ali_eu[:,:,2] = _np.random.uniform(0, 2*_np.pi, (n_refs,n_ptcl))
         return ptcls
     
-    def export_positions(self, tomograms, ref_cix=0):
+    def export_positions(self, tomograms, ref_cix=0) -> _np.ndarray:
         """Convert particle positions back to pixel coordinates relative to the tomogram corner.
 
         Inverse of the conversion done by ``import_data``.  Useful for

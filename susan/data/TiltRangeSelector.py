@@ -16,6 +16,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+from __future__ import annotations
+
 import os as _os
 import numpy as _np
 
@@ -167,19 +169,19 @@ class TiltRangeSelector:
         return float(_np.rad2deg(b))
 
     @property
-    def kept_indices(self):
+    def kept_indices(self) -> list[_np.ndarray]:
         """List of length ``n_tomos``; each entry holds the original
         projection indices kept for that tomogram, as ``int32`` arrays."""
         return self._kept
 
     @property
-    def kept_count(self):
+    def kept_count(self) -> _np.ndarray:
         """``uint32`` array of length ``n_tomos`` with the per-tomogram
         kept-projection count."""
         return self._kept_count
 
     @property
-    def tag(self):
+    def tag(self) -> str:
         return 'tlt_%s%s' % (TiltRangeSelector._fmt_angle(self.tilt_deg_min),
                              TiltRangeSelector._fmt_angle(self.tilt_deg_max))
 
@@ -215,7 +217,7 @@ class TiltRangeSelector:
                     % ','.join(str(m) for m in missing))
 
     def to_tomograms(self, tomograms, write_stacks=True, in_subfolder=True,
-                     filename=None):
+                     filename=None) -> _Tomograms:
         """Emit a reduced :class:`Tomograms` on the kept projections.
 
         The selector's kept-index list is applied to ``tomograms`` —
@@ -321,7 +323,7 @@ class TiltRangeSelector:
 
         return new
 
-    def to_particles(self, particles, filename=None):
+    def to_particles(self, particles, filename=None) -> _Particles:
         """Emit a reduced :class:`Particles` on the kept projections.
 
         Slices ``prj_eu``, ``prj_t``, ``prj_cc``, ``prj_w`` and the per-

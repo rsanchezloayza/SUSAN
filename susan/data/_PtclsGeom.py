@@ -16,6 +16,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING as _TYPE_CHECKING
+
 import numpy as _np
 from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.data._ptclsgeom_core import (
@@ -28,6 +32,9 @@ from susan.data._ptclsgeom_core import (
     _disable_closer,
     _get_min_dist,
 )
+
+if _TYPE_CHECKING:
+    from .Particles import Particles
 
 class PtclsGeom:
     """Geometry operations on Particles alignment data.
@@ -73,7 +80,7 @@ class PtclsGeom:
     _inplace_rot_shift = staticmethod(_inplace_rot_shift)
     
     @staticmethod
-    def rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0):
+    def rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0) -> None:
         """Apply a single rotation and/or translation to all particles in-place.
 
         Modifies ``ali_eu[ref_idx]`` and ``ali_t[ref_idx]`` directly.
@@ -164,7 +171,7 @@ class PtclsGeom:
     _outplace_rot_shift = staticmethod(_outplace_rot_shift)
 
     @staticmethod
-    def expand_by_rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0):
+    def expand_by_rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0) -> Particles:
         """Expand a particle list by applying multiple rotations/translations.
 
         For each particle, produces one output copy per supplied
@@ -220,7 +227,7 @@ class PtclsGeom:
             ptcls.prj_w[:, n_proj:] = 0.0
 
     @staticmethod
-    def enable_by_tilt(ptcls, tomos, tilt_deg_max, tilt_deg_min=0, use_nominal=False):
+    def enable_by_tilt(ptcls, tomos, tilt_deg_max, tilt_deg_min=0, use_nominal=False) -> None:
         """Set per-projection weights based on tilt angle range.
 
         Projections whose absolute tilt angle falls within
@@ -252,7 +259,7 @@ class PtclsGeom:
     _enable_by_tilt_range = staticmethod(_enable_by_tilt_range)
 
     @staticmethod
-    def enable_by_tilt_range(ptcls, tomos, tilt_deg_min, tilt_deg_max, use_nominal=False):
+    def enable_by_tilt_range(ptcls, tomos, tilt_deg_min, tilt_deg_max, use_nominal=False) -> None:
         """Set per-projection weights based on a signed tilt-angle range.
 
         The tilt angle is derived from the full ZYZ rotation matrix of each
@@ -301,7 +308,7 @@ class PtclsGeom:
     _disable_closer = staticmethod(_disable_closer)
         
     @staticmethod
-    def discard_closer(ptcls, min_dist_angs, ref_idx=0, verbose=False):
+    def discard_closer(ptcls, min_dist_angs, ref_idx=0, verbose=False) -> Particles:
         """Remove duplicate/overlapping particles closer than a minimum distance.
 
         Within each tomogram, particles are sorted by descending ``ali_cc``
@@ -349,7 +356,7 @@ class PtclsGeom:
 ###############################################################################
     @staticmethod
     def discard_oversampled_views(ptcls, bin_size_deg=5.0, k_per_bin=1,
-                                  ref_idx=0, weight_mask=True, verbose=False):
+                                  ref_idx=0, weight_mask=True, verbose=False) -> Particles:
         """Flatten preferential orientation by keeping the best particles per view bin.
 
         Particles are binned by view direction on an equal-area "ring" grid:
@@ -437,7 +444,7 @@ class PtclsGeom:
     _get_min_dist = staticmethod(_get_min_dist)
     
     @staticmethod
-    def get_min_distance(ptcls, ref_idx=0):
+    def get_min_distance(ptcls, ref_idx=0) -> _np.ndarray:
         """Return the distance to the nearest neighbour for every particle.
 
         Computed per tomogram using effective positions

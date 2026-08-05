@@ -16,6 +16,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+from __future__ import annotations
+
 import numpy as _np
 import warnings as _warnings
 
@@ -350,7 +352,7 @@ class SubtomoAvgBase:
     # Resolution conversions
     # ------------------------------------------------------------------
 
-    def A2fpix(self, angstroms):
+    def A2fpix(self, angstroms) -> float:
         """Convert a resolution in angstroms to Fourier pixels.
 
         Uses :attr:`box_size` and :attr:`pix_size`.  A Fourier pixel *k*
@@ -369,7 +371,7 @@ class SubtomoAvgBase:
         """
         return self.box_size * self.pix_size / angstroms
 
-    def fpix2A(self, fpix):
+    def fpix2A(self, fpix) -> float:
         """Convert a radius in Fourier pixels to a resolution in angstroms.
 
         Uses :attr:`box_size` and :attr:`pix_size`.  Inverse of
@@ -391,7 +393,7 @@ class SubtomoAvgBase:
     # Path helpers
     # ------------------------------------------------------------------
 
-    def iteration_dir(self, ite):
+    def iteration_dir(self, ite) -> str:
         """Return the directory path for iteration *ite*.
 
         Parameters
@@ -405,7 +407,7 @@ class SubtomoAvgBase:
         """
         return self.prj_name + '/ite_%04d/' % ite
 
-    def iteration_files(self, ite):
+    def iteration_files(self, ite) -> _IterationFiles:
         """Return the standard file-path bundle for iteration *ite*.
 
         Parameters
@@ -429,7 +431,7 @@ class SubtomoAvgBase:
             rslt.ite_dir   = base
         return rslt
 
-    def path_map(self, ite, ref=1):
+    def path_map(self, ite, ref=1) -> str:
         """Path to the full reference map for iteration *ite*.
 
         Parameters
@@ -447,7 +449,7 @@ class SubtomoAvgBase:
             return info.ref[ref - 1]
         return self.iteration_dir(ite) + 'map_class%03d.mrc' % ref
 
-    def path_halfmap(self, ite, ref=1):
+    def path_halfmap(self, ite, ref=1) -> tuple[str, str]:
         """Paths to the two half-maps for iteration *ite*.
 
         Returns
@@ -462,7 +464,7 @@ class SubtomoAvgBase:
         return (d + 'map_class%03d_half1.mrc' % ref,
                 d + 'map_class%03d_half2.mrc' % ref)
 
-    def path_mask(self, ite, ref=1):
+    def path_mask(self, ite, ref=1) -> str:
         """Path to the soft mask for iteration *ite*.
 
         Returns
@@ -475,7 +477,7 @@ class SubtomoAvgBase:
         info = _ssa_data.Reference(self.iteration_dir(ite) + 'reference.refstxt')
         return info.msk[ref - 1]
 
-    def path_refstxt(self, ite):
+    def path_refstxt(self, ite) -> str:
         """Path to the ``.refstxt`` file for iteration *ite*.
 
         Returns
@@ -484,7 +486,7 @@ class SubtomoAvgBase:
         """
         return self.iteration_files(ite).reference
 
-    def path_ptcls(self, ite):
+    def path_ptcls(self, ite) -> str:
         """Path to the ``.ptclsraw`` file for iteration *ite*.
 
         Returns
@@ -493,7 +495,7 @@ class SubtomoAvgBase:
         """
         return self.iteration_files(ite).ptcl_rslt
 
-    def path_map_rec(self, ite):
+    def path_map_rec(self, ite) -> str:
         """Base path prefix used by the averager when reconstructing iteration *ite*.
 
         The averager appends ``_classNNN.mrc``, ``_classNNN_half1.mrc``, etc.
@@ -510,7 +512,7 @@ class SubtomoAvgBase:
     # Convenience loaders
     # ------------------------------------------------------------------
 
-    def get_map(self, ite, ref=1):
+    def get_map(self, ite, ref=1) -> _np.ndarray:
         """Load and return the reference map for iteration *ite*.
 
         Returns
@@ -520,7 +522,7 @@ class SubtomoAvgBase:
         v, _ = _mrc_read(self.path_map(ite, ref))
         return v
 
-    def get_mask(self, ite, ref=1):
+    def get_mask(self, ite, ref=1) -> _np.ndarray:
         """Load and return the soft mask for iteration *ite*.
 
         Returns
@@ -530,7 +532,7 @@ class SubtomoAvgBase:
         v, _ = _mrc_read(self.path_mask(ite, ref))
         return v
 
-    def get_ptcls(self, ite):
+    def get_ptcls(self, ite) -> _ssa_data.Particles:
         """Load and return the particles for iteration *ite*.
 
         Returns
@@ -539,7 +541,7 @@ class SubtomoAvgBase:
         """
         return _ssa_data.Particles(self.path_ptcls(ite))
 
-    def get_cc(self, ite, ref=1):
+    def get_cc(self, ite, ref=1) -> _np.ndarray:
         """Per-particle CC scores for iteration *ite*, reference *ref*.
 
         Returns
@@ -548,7 +550,7 @@ class SubtomoAvgBase:
         """
         return self.get_ptcls(ite).ali_cc[ref - 1]
 
-    def get_fsc(self, ite, ref=1):
+    def get_fsc(self, ite, ref=1) -> _np.ndarray:
         """Compute the FSC curve for iteration *ite*, reference *ref*.
 
         Returns
@@ -559,7 +561,7 @@ class SubtomoAvgBase:
         refs = _ssa_data.Reference(self.path_refstxt(ite))
         return _ssa_utils.fsc_get(refs.h1[i], refs.h2[i], refs.msk[i])
 
-    def map_change(self, ite, ref=1):
+    def map_change(self, ite, ref=1) -> float:
         """L2 norm of the voxel-wise difference between iterations *ite* and *ite-1*.
 
         Useful as a convergence monitor: a decreasing value indicates the
@@ -622,7 +624,7 @@ class SubtomoAvgCore(SubtomoAvgBase):
     # Setup
     # ------------------------------------------------------------------
 
-    def setup_iteration(self, ite):
+    def setup_iteration(self, ite) -> tuple[_IterationFiles, _IterationFiles]:
         """Create the iteration directory and validate previous outputs.
 
         Parameters
@@ -680,7 +682,7 @@ class SubtomoAvgCore(SubtomoAvgBase):
         """
         raise NotImplementedError
 
-    def run_postprocessing(self, cur, prv):
+    def run_postprocessing(self, cur, prv) -> float | _np.ndarray:
         """Compute resolution estimates and apply post-reconstruction filtering.
 
         Parameters
@@ -694,7 +696,7 @@ class SubtomoAvgCore(SubtomoAvgBase):
         """
         raise NotImplementedError
 
-    def run_iteration(self, ite):
+    def run_iteration(self, ite) -> float | _np.ndarray:
         """Run a complete STA iteration.
 
         Parameters
@@ -1046,7 +1048,7 @@ class SubtomoAvg(SubtomoAvgCore):
         fp.close()
 
     @property
-    def tomogram_file(self):
+    def tomogram_file(self) -> str:
         return self._tomogram_file
 
     @tomogram_file.setter
@@ -1057,7 +1059,7 @@ class SubtomoAvg(SubtomoAvgCore):
         self._save_prjtxt()
 
     @property
-    def initial_reference(self):
+    def initial_reference(self) -> str:
         return self._initial_reference
 
     @initial_reference.setter
@@ -1066,7 +1068,7 @@ class SubtomoAvg(SubtomoAvgCore):
         self._save_prjtxt()
 
     @property
-    def initial_particles(self):
+    def initial_particles(self) -> str:
         return self._initial_particles
 
     @initial_particles.setter
@@ -1716,7 +1718,7 @@ class SubtomoAvg(SubtomoAvgCore):
     # Iteration orchestration
     # ------------------------------------------------------------------
 
-    def run_iteration(self, ite):
+    def run_iteration(self, ite) -> float | _np.ndarray:
         """Run a complete STA iteration, or skip the seed iteration.
 
         For ``ite >= 1`` this defers to
@@ -1756,7 +1758,7 @@ class SubtomoAvg(SubtomoAvgCore):
 
         return super().run_iteration(ite)
 
-    def execute_iteration(self, ite):
+    def execute_iteration(self, ite) -> float | _np.ndarray:
         """Alias of :meth:`run_iteration`, for backward compatibility with
         :class:`~susan.project.STA.STA`."""
         return self.run_iteration(ite)
@@ -1862,7 +1864,7 @@ class SubtomoAvg(SubtomoAvgCore):
             refs.h2[i]  = h1 if self.cross_halfmaps else h2
         refs.save(cur.reference)
 
-    def run_postprocessing(self, cur, prv):
+    def run_postprocessing(self, cur, prv) -> float | _np.ndarray:
         """Compute FSC-based resolution estimates and apply post-reconstruction
         filtering (classical or MACE consensus).
 

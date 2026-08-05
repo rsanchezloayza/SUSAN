@@ -16,9 +16,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING as _TYPE_CHECKING
+
 import numpy as _np
 from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.utils import rotm_euZYZ as _rotm_euZYZ
+
+if _TYPE_CHECKING:
+    from .Particles import Particles
 
 class PtclsMRA:
     """Multi-reference alignment helpers for Particles.
@@ -28,7 +35,7 @@ class PtclsMRA:
     """
     
     @staticmethod
-    def duplicate(ptcls, ref_idx=0):
+    def duplicate(ptcls, ref_idx=0) -> None:
         """Append a copy of one or more reference slots to the alignment arrays.
 
         Adds a new reference entry (or entries) to ``ali_eu``, ``ali_t``,
@@ -56,7 +63,7 @@ class PtclsMRA:
             ptcls.ali_w  = _np.concatenate((ptcls.ali_w ,ptcls.ali_w [ref_idx,:]))
     
     @staticmethod
-    def select_ref(ptcls, ref_idx):
+    def select_ref(ptcls, ref_idx) -> Particles:
         """Select particles assigned to specific reference(s) and keep only those slots.
 
         Filters ``ptcls`` to particles whose ``ref_cix`` matches ``ref_idx``

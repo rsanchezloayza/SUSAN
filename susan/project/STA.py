@@ -16,6 +16,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+from __future__ import annotations
+
 import numpy as _np
 import warnings as _warnings
 
@@ -321,7 +323,7 @@ class STA:
         self.averager.bandpass.highpass = 0
         self.averager.bandpass.lowpass  = -1
     
-    def get_iteration_dir(self, ite):
+    def get_iteration_dir(self, ite) -> str:
         """Return the directory path for iteration *ite*.
 
         Parameters
@@ -336,7 +338,7 @@ class STA:
         """
         return self.prj_name + '/ite_%04d/' % ite
     
-    def get_iteration_files(self, ite):
+    def get_iteration_files(self, ite) -> _iteration_files:
         """Return the standard file paths for iteration *ite*.
 
         For ``ite < 1`` the initial files (:attr:`initial_particles` and
@@ -365,7 +367,7 @@ class STA:
             rslt.ite_dir   = base_dir
         return rslt
 
-    def get_names_map(self, ite, ref=1):
+    def get_names_map(self, ite, ref=1) -> str:
         """Return the path to the full reference map for iteration *ite*.
 
         Parameters
@@ -389,7 +391,7 @@ class STA:
             map_name = ite_dir + 'map_class%03d.mrc' % ref
         return map_name
 
-    def get_names_mask(self, ite, ref=1):
+    def get_names_mask(self, ite, ref=1) -> str:
         """Return the path to the soft mask for iteration *ite*.
 
         Parameters
@@ -412,7 +414,7 @@ class STA:
             mask_name = refs_info.msk[ref-1]
         return mask_name
 
-    def get_names_halfmaps(self, ite, ref=1):
+    def get_names_halfmaps(self, ite, ref=1) -> tuple[str, str]:
         """Return the paths to the two half-maps for iteration *ite*.
 
         Parameters
@@ -437,7 +439,7 @@ class STA:
             h2_name = ite_dir + 'map_class%03d_half2.mrc' % ref
         return (h1_name,h2_name)
 
-    def get_name_refstxt(self, ite):
+    def get_name_refstxt(self, ite) -> str:
         """Return the path to the ``.refstxt`` file for iteration *ite*.
 
         Parameters
@@ -453,7 +455,7 @@ class STA:
         files = self.get_iteration_files(ite)
         return files.reference
 
-    def get_name_ptcls(self, ite):
+    def get_name_ptcls(self, ite) -> str:
         """Return the path to the ``.ptclsraw`` file for iteration *ite*.
 
         Parameters
@@ -469,7 +471,7 @@ class STA:
         files = self.get_iteration_files(ite)
         return files.ptcl_rslt
 
-    def get_map(self, ite, ref=1):
+    def get_map(self, ite, ref=1) -> _np.ndarray:
         """Load and return the reference map for iteration *ite*.
 
         Parameters
@@ -487,7 +489,7 @@ class STA:
         v,_ = _mrc_read(self.get_names_map(ite,ref))
         return v
 
-    def get_ptcls(self, ite):
+    def get_ptcls(self, ite) -> _ssa_data.Particles:
         """Load and return the particles for iteration *ite*.
 
         Parameters
@@ -503,7 +505,7 @@ class STA:
         files = self.get_iteration_files(ite)
         return _ssa_data.Particles(files.ptcl_rslt)
 
-    def get_cc(self, ite, ref=1):
+    def get_cc(self, ite, ref=1) -> _np.ndarray:
         """Return the per-particle cross-correlation scores for iteration *ite*.
 
         Parameters
@@ -521,7 +523,7 @@ class STA:
         ptcls = self.get_ptcls(ite)
         return ptcls.ali_cc[ref-1]
 
-    def get_fsc(self, ite, ref=1):
+    def get_fsc(self, ite, ref=1) -> _np.ndarray:
         """Compute and return the FSC curve for iteration *ite*.
 
         Parameters
@@ -540,7 +542,7 @@ class STA:
         refs = _ssa_data.Reference(self.get_name_refstxt(ite))
         return _ssa_utils.fsc_get(refs.h1[i],refs.h2[i],refs.msk[i])
 
-    def setup_iteration(self, ite):
+    def setup_iteration(self, ite) -> tuple[_iteration_files, _iteration_files]:
         """Prepare the directory and file-path objects for iteration *ite*.
 
         Creates the iteration directory if needed and validates that the
@@ -924,7 +926,7 @@ class STA:
             refs.h2[i]  = '%s/map_class%03d_half2.mrc' % (cur.ite_dir,i+1)
         refs.save(cur.reference)
     
-    def exec_postprocessing(self, cur):
+    def exec_postprocessing(self, cur) -> float | _np.ndarray:
         """Compute FSC-based resolution estimates for all references.
 
         Parameters
@@ -958,7 +960,7 @@ class STA:
         else:
             return rslt
     
-    def execute_iteration(self, ite):
+    def execute_iteration(self, ite) -> float | _np.ndarray:
         """Run a complete STA iteration.
 
         Executes :meth:`setup_iteration`, :meth:`exec_estimation`,

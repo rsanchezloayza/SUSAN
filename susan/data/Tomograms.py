@@ -16,6 +16,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+from __future__ import annotations
+
 import os as _os
 import susan.utils.txt_parser as _prsr
 import numpy as _np
@@ -32,7 +34,7 @@ from susan.utils import rotm_euZYZ as _rotm_euZYZ
 from susan.utils import bin_frame as _bin_frame
 from susan.utils import bin_frame_shape as _bin_frame_shape
 
-def lookup_cix(id_table,tomo_id):
+def lookup_cix(id_table,tomo_id) -> tuple[_np.ndarray, _np.ndarray]:
     """Map tomogram IDs onto their index in ``id_table``.
 
     Parameters
@@ -224,11 +226,11 @@ class Tomograms:
             else:
                 raise NameError('Invalid input')
     
-    def get_n_tomos(self):
+    def get_n_tomos(self) -> int:
         """Return the number of tomograms stored."""
         return self.tomo_id.shape[0]
 
-    def get_n_projs(self):
+    def get_n_projs(self) -> int:
         """Return the maximum number of projections per tomogram."""
         return self.proj_eZYZ.shape[1]
     
@@ -238,7 +240,7 @@ class Tomograms:
     def _cix_lookup(self,tomo_id):
         return lookup_cix(self.tomo_id,tomo_id)
 
-    def get_cix(self,tomo_id,strict=True):
+    def get_cix(self,tomo_id,strict=True) -> _np.ndarray | int:
         """Map tomogram IDs to their index in this ``Tomograms`` container.
 
         Parameters
@@ -269,7 +271,7 @@ class Tomograms:
             cix = _np.where(valid,cix,-1)
         return cix if cix.ndim > 0 else int(cix)
 
-    def has_tomo(self,tomo_id):
+    def has_tomo(self,tomo_id) -> _np.ndarray | bool:
         """Check which tomogram IDs are present in this container.
 
         Parameters
@@ -286,7 +288,7 @@ class Tomograms:
         valid = self._cix_lookup(tomo_id)[1]
         return valid if valid.ndim > 0 else bool(valid)
 
-    def get_is_set(self):
+    def get_is_set(self) -> _np.ndarray:
         """Return a boolean mask of the populated entries.
 
         An entry is considered *set* once it has a ``stack_file``: that is the
@@ -302,11 +304,11 @@ class Tomograms:
         """
         return _np.array([len(str(s)) > 0 for s in self.stack_file],dtype=bool)
 
-    def get_n_set(self):
+    def get_n_set(self) -> int:
         """Return the number of populated entries.  See :meth:`get_is_set`."""
         return int(self.get_is_set().sum())
 
-    def get_next_free_idx(self):
+    def get_next_free_idx(self) -> int:
         """Return the index of the first unset entry, or -1 if there is none.
 
         Intended to fill a preallocated object without tracking indices::
@@ -511,7 +513,7 @@ class Tomograms:
                             'nominal_tilt_angles','ctf_scale_factor')
 
     @staticmethod
-    def merge_tomos(tomos_list, absolute_paths=False):
+    def merge_tomos(tomos_list, absolute_paths=False) -> Tomograms:
         """Merge several tomogram sets into a new one.
 
         The per-projection arrays of the inputs are padded to the largest
@@ -727,7 +729,7 @@ class Tomograms:
         return tomos
 
     @staticmethod
-    def relativize_paths(tomo_file, out_file=None):
+    def relativize_paths(tomo_file, out_file=None) -> Tomograms:
         """Rewrite the ``stack_file`` entries of a ``.tomostxt`` as relative paths.
 
         The paths are made relative to the directory of the *saved* file, which
@@ -755,7 +757,7 @@ class Tomograms:
         return Tomograms._rewrite_paths(tomo_file,out_file,absolute=False)
 
     @staticmethod
-    def absolutize_paths(tomo_file, out_file=None):
+    def absolutize_paths(tomo_file, out_file=None) -> Tomograms:
         """Rewrite the ``stack_file`` entries of a ``.tomostxt`` as absolute paths.
 
         Useful when the tomostxt is going to be used from a different working
@@ -934,7 +936,7 @@ class Tomograms:
         else:
             raise NameError('Invalid filename')
 
-    def bin(self, scale, in_subfolder=True, filename=None):
+    def bin(self, scale, in_subfolder=True, filename=None) -> Tomograms:
         """Downsample every tilt-series stack and return a binned ``Tomograms``.
 
         Each MRC stack referenced in ``stack_file`` is read, every projection
