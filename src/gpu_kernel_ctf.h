@@ -240,7 +240,7 @@ __global__ void ctf_radial_normalize_and_avg(float*p_avg,float*p_wgt,const float
         float def_ref = (p_def[ss_idx.z].U+p_def[ss_idx.z].V)/2;
         float def_ang = calc_def(x,y,p_def[ss_idx.z].U,p_def[ss_idx.z].V,p_def[ss_idx.z].angle);
 
-        r = r*def_ang/def_ref;
+        r = r*sqrtf(def_ang/def_ref);
 
         float val = p_in[get_3d_idx(ss_idx,ss_siz)];
         float w0 = 1.0f - (r - floorf(r));
