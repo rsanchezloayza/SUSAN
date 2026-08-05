@@ -318,6 +318,8 @@
 <span class="c1"># along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span>
 <span class="c1">###########################################################################</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 
@@ -471,19 +473,19 @@
         <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">rad2deg</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">kept_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kept_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;List of length ``n_tomos``; each entry holds the original</span>
 <span class="sd">        projection indices kept for that tomogram, as ``int32`` arrays.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kept</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">kept_count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kept_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;``uint32`` array of length ``n_tomos`` with the per-tomogram</span>
 <span class="sd">        kept-projection count.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kept_count</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">tag</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s1">&#39;tlt_</span><span class="si">%s%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">TiltRangeSelector</span><span class="o">.</span><span class="n">_fmt_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tilt_deg_min</span><span class="p">),</span>
                              <span class="n">TiltRangeSelector</span><span class="o">.</span><span class="n">_fmt_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tilt_deg_max</span><span class="p">))</span>
 
@@ -521,7 +523,7 @@
 <div class="viewcode-block" id="TiltRangeSelector.to_tomograms">
 <a class="viewcode-back" href="../../../api/susan.data.TiltRangeSelector.html#susan.data.TiltRangeSelector.to_tomograms">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">to_tomograms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">,</span> <span class="n">write_stacks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">in_subfolder</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                     <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                     <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Tomograms</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit a reduced :class:`Tomograms` on the kept projections.</span>
 
 <span class="sd">        The selector&#39;s kept-index list is applied to ``tomograms`` —</span>
@@ -630,7 +632,7 @@
 
 <div class="viewcode-block" id="TiltRangeSelector.to_particles">
 <a class="viewcode-back" href="../../../api/susan.data.TiltRangeSelector.html#susan.data.TiltRangeSelector.to_particles">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">to_particles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particles</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_particles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particles</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit a reduced :class:`Particles` on the kept projections.</span>
 
 <span class="sd">        Slices ``prj_eu``, ``prj_t``, ``prj_cc``, ``prj_w`` and the per-</span>

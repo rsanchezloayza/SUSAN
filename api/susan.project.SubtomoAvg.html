@@ -692,7 +692,7 @@ loaded from the previous iteration to form the denoiser input
 <p class="rubric">Iteration Execution</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.run_iteration">
-<span class="sig-name descname"><span class="pre">run_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.run_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.run_iteration" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">run_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.run_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.run_iteration" title="Link to this definition">¶</a></dt>
 <dd><p>Run a complete STA iteration, or skip the seed iteration.</p>
 <p>For <code class="docutils literal notranslate"><span class="pre">ite</span> <span class="pre">&gt;=</span> <span class="pre">1</span></code> this defers to
 <a class="reference internal" href="susan.project.SubtomoAvgCore.html#susan.project.SubtomoAvg.SubtomoAvgCore.run_iteration" title="susan.project.SubtomoAvg.SubtomoAvgCore.run_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SubtomoAvgCore.run_iteration()</span></code></a>.  Iteration <code class="docutils literal notranslate"><span class="pre">0</span></code> is the project
@@ -716,7 +716,7 @@ result; otherwise a scalar <code class="docutils literal notranslate"><span clas
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.execute_iteration">
-<span class="sig-name descname"><span class="pre">execute_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.execute_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.execute_iteration" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">execute_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.execute_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.execute_iteration" title="Link to this definition">¶</a></dt>
 <dd><p>Alias of <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.run_iteration" title="susan.project.SubtomoAvg.SubtomoAvg.run_iteration"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run_iteration()</span></code></a>, for backward compatibility with
 <a class="reference internal" href="susan.project.Manager.html#susan.project.STA.STA" title="susan.project.STA.STA"><code class="xref py py-class docutils literal notranslate"><span class="pre">STA</span></code></a>.</p>
 </dd></dl>
@@ -728,7 +728,7 @@ for backward compatibility with <a class="reference internal" href="susan.projec
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.setup_iteration">
-<span class="sig-name descname"><span class="pre">setup_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.setup_iteration" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">setup_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">_IterationFiles</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">_IterationFiles</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.setup_iteration" title="Link to this definition">¶</a></dt>
 <dd><p>Create the iteration directory and validate previous outputs.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -791,7 +791,7 @@ previous iteration.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.run_postprocessing">
-<span class="sig-name descname"><span class="pre">run_postprocessing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cur</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.run_postprocessing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.run_postprocessing" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">run_postprocessing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cur</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prv</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.run_postprocessing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.run_postprocessing" title="Link to this definition">¶</a></dt>
 <dd><p>Compute FSC-based resolution estimates and apply post-reconstruction
 filtering (classical or MACE consensus).</p>
 <dl class="field-list simple">
@@ -813,7 +813,7 @@ filtering (classical or MACE consensus).</p>
 <p class="rubric">Path Helpers</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.iteration_dir">
-<span class="sig-name descname"><span class="pre">iteration_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_dir" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">iteration_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_dir" title="Link to this definition">¶</a></dt>
 <dd><p>Return the directory path for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -830,7 +830,7 @@ filtering (classical or MACE consensus).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.iteration_files">
-<span class="sig-name descname"><span class="pre">iteration_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_files" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">iteration_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">_IterationFiles</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.iteration_files" title="Link to this definition">¶</a></dt>
 <dd><p>Return the standard file-path bundle for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -844,7 +844,7 @@ filtering (classical or MACE consensus).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_map">
-<span class="sig-name descname"><span class="pre">path_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_map" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_map" title="Link to this definition">¶</a></dt>
 <dd><p>Path to the full reference map for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -861,7 +861,7 @@ filtering (classical or MACE consensus).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_halfmap">
-<span class="sig-name descname"><span class="pre">path_halfmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_halfmap" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path_halfmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_halfmap" title="Link to this definition">¶</a></dt>
 <dd><p>Paths to the two half-maps for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -875,7 +875,7 @@ filtering (classical or MACE consensus).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_mask">
-<span class="sig-name descname"><span class="pre">path_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_mask" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_mask" title="Link to this definition">¶</a></dt>
 <dd><p>Path to the soft mask for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -886,7 +886,7 @@ filtering (classical or MACE consensus).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_refstxt">
-<span class="sig-name descname"><span class="pre">path_refstxt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_refstxt" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path_refstxt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_refstxt" title="Link to this definition">¶</a></dt>
 <dd><p>Path to the <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> file for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -897,7 +897,7 @@ filtering (classical or MACE consensus).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_ptcls">
-<span class="sig-name descname"><span class="pre">path_ptcls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_ptcls" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path_ptcls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_ptcls" title="Link to this definition">¶</a></dt>
 <dd><p>Path to the <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -908,7 +908,7 @@ filtering (classical or MACE consensus).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.path_map_rec">
-<span class="sig-name descname"><span class="pre">path_map_rec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_map_rec" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">path_map_rec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.path_map_rec" title="Link to this definition">¶</a></dt>
 <dd><p>Base path prefix used by the averager when reconstructing iteration <em>ite</em>.</p>
 <p>The averager appends <code class="docutils literal notranslate"><span class="pre">_classNNN.mrc</span></code>, <code class="docutils literal notranslate"><span class="pre">_classNNN_half1.mrc</span></code>, etc.
 to this prefix.</p>
@@ -925,7 +925,7 @@ to this prefix.</p>
 <p class="rubric">Data Access</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.get_map">
-<span class="sig-name descname"><span class="pre">get_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_map" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_map" title="Link to this definition">¶</a></dt>
 <dd><p>Load and return the reference map for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -936,7 +936,7 @@ to this prefix.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.get_ptcls">
-<span class="sig-name descname"><span class="pre">get_ptcls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_ptcls" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_ptcls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="susan.data.Particles.html#susan.data.Particles" title="susan.data.Particles.Particles"><span class="pre">Particles</span></a></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_ptcls" title="Link to this definition">¶</a></dt>
 <dd><p>Load and return the particles for iteration <em>ite</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -947,7 +947,7 @@ to this prefix.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.get_cc">
-<span class="sig-name descname"><span class="pre">get_cc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_cc" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_cc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_cc" title="Link to this definition">¶</a></dt>
 <dd><p>Per-particle CC scores for iteration <em>ite</em>, reference <em>ref</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -958,7 +958,7 @@ to this prefix.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.get_fsc">
-<span class="sig-name descname"><span class="pre">get_fsc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_fsc" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_fsc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.get_fsc" title="Link to this definition">¶</a></dt>
 <dd><p>Compute the FSC curve for iteration <em>ite</em>, reference <em>ref</em>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -969,7 +969,7 @@ to this prefix.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.map_change">
-<span class="sig-name descname"><span class="pre">map_change</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.map_change" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">map_change</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.map_change" title="Link to this definition">¶</a></dt>
 <dd><p>L2 norm of the voxel-wise difference between iterations <em>ite</em> and <em>ite-1</em>.</p>
 <p>Useful as a convergence monitor: a decreasing value indicates the
 reference is stabilising.</p>

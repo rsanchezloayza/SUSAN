@@ -318,6 +318,8 @@
 <span class="c1"># along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span>
 <span class="c1">###########################################################################</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.utils.txt_parser</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_prsr</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
@@ -334,7 +336,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">bin_frame</span> <span class="k">as</span> <span class="n">_bin_frame</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">bin_frame_shape</span> <span class="k">as</span> <span class="n">_bin_frame_shape</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">lookup_cix</span><span class="p">(</span><span class="n">id_table</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">lookup_cix</span><span class="p">(</span><span class="n">id_table</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Map tomogram IDs onto their index in ``id_table``.</span>
 
 <span class="sd">    Parameters</span>
@@ -528,11 +530,11 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;Invalid input&#39;</span><span class="p">)</span>
     
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_tomos</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_tomos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of tomograms stored.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_projs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_projs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the maximum number of projections per tomogram.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">proj_eZYZ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     
@@ -542,7 +544,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_cix_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">lookup_cix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_cix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Map tomogram IDs to their index in this ``Tomograms`` container.</span>
 
 <span class="sd">        Parameters</span>
@@ -573,7 +575,7 @@
             <span class="n">cix</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">valid</span><span class="p">,</span><span class="n">cix</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">cix</span> <span class="k">if</span> <span class="n">cix</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">cix</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">has_tomo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_tomo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check which tomogram IDs are present in this container.</span>
 
 <span class="sd">        Parameters</span>
@@ -590,7 +592,7 @@
         <span class="n">valid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cix_lookup</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">valid</span> <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">bool</span><span class="p">(</span><span class="n">valid</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_is_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_is_set</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a boolean mask of the populated entries.</span>
 
 <span class="sd">        An entry is considered *set* once it has a ``stack_file``: that is the</span>
@@ -606,11 +608,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack_file</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_set</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of populated entries.  See :meth:`get_is_set`.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_is_set</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_next_free_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_next_free_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the index of the first unset entry, or -1 if there is none.</span>
 
 <span class="sd">        Intended to fill a preallocated object without tracking indices::</span>
@@ -818,7 +820,7 @@
                             <span class="s1">&#39;nominal_tilt_angles&#39;</span><span class="p">,</span><span class="s1">&#39;ctf_scale_factor&#39;</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">merge_tomos</span><span class="p">(</span><span class="n">tomos_list</span><span class="p">,</span> <span class="n">absolute_paths</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">merge_tomos</span><span class="p">(</span><span class="n">tomos_list</span><span class="p">,</span> <span class="n">absolute_paths</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tomograms</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Merge several tomogram sets into a new one.</span>
 
 <span class="sd">        The per-projection arrays of the inputs are padded to the largest</span>
@@ -1034,7 +1036,7 @@
         <span class="k">return</span> <span class="n">tomos</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">relativize_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span> <span class="n">out_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">relativize_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span> <span class="n">out_file</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tomograms</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Rewrite the ``stack_file`` entries of a ``.tomostxt`` as relative paths.</span>
 
 <span class="sd">        The paths are made relative to the directory of the *saved* file, which</span>
@@ -1062,7 +1064,7 @@
         <span class="k">return</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_rewrite_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span><span class="n">out_file</span><span class="p">,</span><span class="n">absolute</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">absolutize_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span> <span class="n">out_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">absolutize_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span> <span class="n">out_file</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tomograms</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Rewrite the ``stack_file`` entries of a ``.tomostxt`` as absolute paths.</span>
 
 <span class="sd">        Useful when the tomostxt is going to be used from a different working</span>
@@ -1250,7 +1252,7 @@
             <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;Invalid filename&#39;</span><span class="p">)</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">bin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">in_subfolder</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">in_subfolder</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tomograms</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Downsample every tilt-series stack and return a binned ``Tomograms``.</span>
 
 <span class="sd">        Each MRC stack referenced in ``stack_file`` is read, every projection</span>

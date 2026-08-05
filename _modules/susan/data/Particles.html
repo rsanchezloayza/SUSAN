@@ -318,6 +318,8 @@
 <span class="c1"># along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span>
 <span class="c1">###########################################################################</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.data._particles_core</span><span class="w"> </span><span class="kn">import</span> <span class="n">_load_all</span><span class="p">,</span> <span class="n">_save_all</span><span class="p">,</span> <span class="n">_update_new_defocus</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.data</span><span class="w">  </span><span class="kn">import</span> <span class="n">Tomograms</span>       <span class="k">as</span> <span class="n">_tomodef</span>
@@ -534,9 +536,9 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid input&#39;</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_ptcl</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_refs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_proj</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prj_eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_ptcl</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_refs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_proj</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prj_eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     
     <span class="n">n_ptcl</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_n_ptcl</span><span class="p">)</span>
     <span class="n">n_refs</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_n_refs</span><span class="p">)</span>
@@ -587,7 +589,7 @@
     
 <div class="viewcode-block" id="Particles.sort">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.sort">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">sort</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sort</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sort particles in-place by (tomo_id, ptcl_id).&quot;&quot;&quot;</span>
         <span class="n">idx</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">lexsort</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span> <span class="p">[</span><span class="n">idx</span><span class="p">]</span>
@@ -635,7 +637,7 @@
 
 <div class="viewcode-block" id="Particles.save">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.save">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Save to a ``.ptclsraw`` binary file.</span>
 
 <span class="sd">        Parameters</span>
@@ -657,7 +659,7 @@
                   <span class="n">_c32</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">def_Bfct</span><span class="p">),</span><span class="n">_c32</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">def_ExFl</span><span class="p">),</span><span class="n">_c32</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">def_mres</span><span class="p">),</span> <span class="n">_c32</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">def_scor</span><span class="p">))</span></div>
 
     
-    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Select particles by index, boolean mask, or slice.</span>
 
 <span class="sd">        Parameters</span>
@@ -675,7 +677,7 @@
             <span class="n">idx</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">*</span><span class="n">idx</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
     
-    <span class="k">def</span><span class="w"> </span><span class="nf">update_tomo_cix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_tomo_cix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Refresh the deprecated ``tomo_cix`` field from ``tomo_id``.</span>
 
 <span class="sd">        ``tomo_cix`` is no longer read by SUSAN: the index of a particle&#39;s</span>
@@ -701,7 +703,7 @@
 
 <div class="viewcode-block" id="Particles.select">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.select">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a new Particles containing only the selected entries.</span>
 
 <span class="sd">        Parameters</span>
@@ -751,7 +753,7 @@
         <span class="k">return</span> <span class="n">ptcls_out</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a deep copy of this Particles object.</span>
 
 <span class="sd">        All numpy arrays are copied (no shared memory with the original).</span>
@@ -793,7 +795,7 @@
 
 <div class="viewcode-block" id="Particles.append_ptcls">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.append_ptcls">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">append_ptcls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">append_ptcls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Append another Particles object to this one in-place.</span>
 
 <span class="sd">        Both objects must have the same ``n_proj`` and ``n_refs``.</span>
@@ -836,7 +838,7 @@
 
 <div class="viewcode-block" id="Particles.set_weights">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.set_weights">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_wgt</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_wgt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set per-projection weights, preserving already-excluded projections.</span>
 
 <span class="sd">        Multiplies ``in_wgt`` by the existing ``prj_w &gt; 0`` mask so that</span>
@@ -852,7 +854,7 @@
         
 <div class="viewcode-block" id="Particles.halfsets_by_Y">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.halfsets_by_Y">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">halfsets_by_Y</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">halfsets_by_Y</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign half-sets by splitting each tomogram at its Y-median.</span>
 
 <span class="sd">        Particles above the median Y coordinate get half_id=2; those at</span>
@@ -969,28 +971,28 @@
 
 <div class="viewcode-block" id="Particles.x">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.x">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Absolute X coordinate: position[:,0] + ali_t[ref_idx,:,0] (Ångströms).&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:,</span><span class="mi">0</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="Particles.y">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.y">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Absolute Y coordinate: position[:,1] + ali_t[ref_idx,:,1] (Ångströms).&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:,</span><span class="mi">1</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="Particles.z">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.z">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Absolute Z coordinate: position[:,2] + ali_t[ref_idx,:,2] (Ångströms).&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">[:,</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:,</span><span class="mi">2</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="Particles.pos">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.pos">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">pos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Absolute (X, Y, Z) positions: position + ali_t[ref_idx], shape (M, 3), Ångströms.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">]</span></div>
 
@@ -1033,7 +1035,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.grid_2d">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">grid_2d</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="n">step_angstroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">step_pixels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">skip_border_pixels</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">angle_deg_Y</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+                <span class="n">skip_border_pixels</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">angle_deg_Y</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a 2-D regular grid of particles at Z=0 across all tomograms.</span>
 
 <span class="sd">        Positions are placed on an XY grid centred at the tomogram origin.</span>
@@ -1091,7 +1093,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.grid_3d">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">grid_3d</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="n">step_angstroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">step_pixels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">skip_border_pixels</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+                <span class="n">skip_border_pixels</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a 3-D regular grid of particles across all tomograms.</span>
 
 <span class="sd">        Positions fill the full XYZ volume of each tomogram.  Half-sets are</span>
@@ -1164,7 +1166,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.import_data">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">import_data</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">tomos_id</span><span class="p">,</span> <span class="n">ptcls_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">randomize_angles</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                    <span class="n">randomize_angles</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a Particles object from external coordinate data.</span>
 
 <span class="sd">        Converts pixel-space coordinates (relative to tomogram corner) to</span>
@@ -1212,7 +1214,7 @@
     
 <div class="viewcode-block" id="Particles.export_positions">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.export_positions">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">export_positions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">export_positions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert particle positions back to pixel coordinates relative to the tomogram corner.</span>
 
 <span class="sd">        Inverse of the conversion done by ``import_data``.  Useful for</span>
