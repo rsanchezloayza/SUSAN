@@ -286,8 +286,48 @@ class Tomograms:
         valid = self._cix_lookup(tomo_id)[1]
         return valid if valid.ndim > 0 else bool(valid)
 
+    def get_is_set(self):
+        """Return a boolean mask of the populated entries.
+
+        An entry is considered *set* once it has a ``stack_file``: that is the
+        only field :meth:`__init__` leaves empty, and every way of populating a
+        tomogram (:meth:`set_stack`, :meth:`_load`, :meth:`merge_tomos`) fills
+        it.  Unset entries are the slots reserved by
+        :meth:`add_empty_tomogram_entries` (or by ``Tomograms(n_tomo=...)``)
+        that have not been used yet; they are skipped by :meth:`save`.
+
+        Returns
+        -------
+        ndarray, bool, shape (N,)
+        """
+        return _np.array([len(str(s)) > 0 for s in self.stack_file],dtype=bool)
+
+    def get_n_set(self):
+        """Return the number of populated entries.  See :meth:`get_is_set`."""
+        return int(self.get_is_set().sum())
+
+    def get_next_free_idx(self):
+        """Return the index of the first unset entry, or -1 if there is none.
+
+        Intended to fill a preallocated object without tracking indices::
+
+            i = tomos.next_free_idx
+            tomos.set_stack(i,'tomo_001.ali')
+        """
+        is_set = self.get_is_set()
+        if is_set.all():
+            return -1
+        return int(_np.argmin(is_set))
+
+    is_set        = property(get_is_set)
+    n_set         = property(get_n_set)
+    next_free_idx = property(get_next_free_idx)
+
     def _check_unique_ids(self):
-        uniq,count = _np.unique(self.tomo_id,return_counts=True)
+        # Unset entries all carry tomo_id=0; they are not saved, so they must
+        # not trigger a false collision.
+        tomo_id = self.tomo_id[self.get_is_set()]
+        uniq,count = _np.unique(tomo_id,return_counts=True)
         if _np.any(count > 1):
             raise ValueError('Repeated tomo_id in the tomograms: '
                              + ','.join(str(u) for u in uniq[count > 1]))
@@ -406,6 +446,11 @@ class Tomograms:
         filename : str
             Output path; must have a ``.tomostxt`` extension.
 
+        Notes
+        -----
+        Unset entries (see :meth:`get_is_set`) are skipped, so a preallocated
+        object can be over-dimensioned and only partially filled.
+
         Raises
         ------
         ValueError
@@ -415,11 +460,16 @@ class Tomograms:
         Tomograms._check_filename(filename)
         self._check_unique_ids()
 
+        idx_set = _np.nonzero(self.get_is_set())[0]
+        n_skip  = self.n_tomos - idx_set.size
+        if n_skip > 0:
+            print('[Tomograms.save] %d unset entries skipped (%d saved).'%(n_skip,idx_set.size))
+
         fp=open(filename,'w')
-        _prsr.write(fp,'num_tomos',str(self.n_tomos))
+        _prsr.write(fp,'num_tomos',str(idx_set.size))
         _prsr.write(fp,'num_projs',str(self.n_projs))
-        for i in range(self.n_tomos):
-            fp.write('## Tomogram/Stack '+str(i+1)+'\n')
+        for n,i in enumerate(idx_set):
+            fp.write('## Tomogram/Stack '+str(n+1)+'\n')
             _prsr.write(fp,'tomo_id'   , str(self.tomo_id[i]))
             _prsr.write(fp,'tomo_size' , '%d,%d,%d'%(self.tomo_size[i,0],self.tomo_size[i,1],self.tomo_size[i,2]))
             _prsr.write(fp,'tomo_pos'  , '%f,%f,%f'%(self.tomo_position[i,0],self.tomo_position[i,1],self.tomo_position[i,2]))
@@ -450,7 +500,286 @@ class Tomograms:
                 fp.write('%8.8f '             % (self.ctf_scale_factor[i,p]))                        # CTF Scale Factor
                 fp.write('\n')
         fp.close()
-    
+
+    # Fields copied verbatim, grouped by shape:
+    _FIELDS_TOMO   = ('tomo_id','num_proj','pix_size','voltage','sph_aber',
+                            'amp_cont','handedness')
+    _FIELDS_TOMO_3 = ('tomo_size','tomo_position','stack_size')
+    _FIELDS_PROJ_N = ('proj_eZYZ','proj_shift')
+    _FIELDS_PROJ_1 = ('proj_wgt','def_U','def_V','def_ang','def_phas','def_Bfct',
+                            'def_ExFl','def_mres','def_scor','doses',
+                            'nominal_tilt_angles','ctf_scale_factor')
+
+    @staticmethod
+    def merge_tomos(tomos_list, absolute_paths=False):
+        """Merge several tomogram sets into a new one.
+
+        The per-projection arrays of the inputs are padded to the largest
+        ``num_proj`` found, and the tomograms are stored in the order given.
+        The ``tomo_id`` values are preserved, so the particles of each input
+        remain valid; this requires the IDs to be unique across all inputs.
+
+        Parameters
+        ----------
+        tomos_list : sequence of Tomograms or str
+            Tomogram sets to merge, either already loaded or as paths to
+            ``.tomostxt`` files.  The two forms can be mixed.
+        absolute_paths : bool
+            If True, store ``stack_file`` as absolute paths.  By default the
+            paths are kept as they are resolved (relative when the input was
+            relative), which keeps the merged file portable as long as it is
+            saved next to the inputs.
+
+        Returns
+        -------
+        Tomograms
+            A new object holding all the input tomograms.
+
+        Raises
+        ------
+        ValueError
+            If a ``tomo_id`` appears in more than one input (renumber the
+            tomograms and their particles before merging), or if a
+            ``stack_file`` cannot be found.
+
+        Examples
+        --------
+        >>> tomos = susan.data.Tomograms.merge_tomos(['setA.tomostxt',
+        ...                                           'setB.tomostxt'])
+        >>> tomos.save('merged.tomostxt')
+        """
+        if isinstance(tomos_list,(str,Tomograms)):
+            tomos_list = [tomos_list]
+
+        tomos_in = []
+        for entry in tomos_list:
+            if isinstance(entry,str):
+                tomos_in.append(Tomograms(entry))
+            elif isinstance(entry,Tomograms):
+                tomos_in.append(entry)
+            else:
+                raise ValueError('Invalid input: expected a Tomograms object or '
+                                 'the path to a .tomostxt file, got '+type(entry).__name__)
+
+        if len(tomos_in) == 0:
+            raise ValueError('Empty list of tomograms')
+
+        # Unset entries are ignored: they hold no data and would all collide
+        # on tomo_id=0.
+        idx_set = [ _np.nonzero(t.get_is_set())[0] for t in tomos_in ]
+
+        # Colliding tomo_ids cannot be resolved here: the particles refer to
+        # them, and they are not available at this point.
+        all_ids = _np.concatenate( [t.tomo_id[ix] for t,ix in zip(tomos_in,idx_set)] )
+        uniq,count = _np.unique(all_ids,return_counts=True)
+        if (count>1).any():
+            raise ValueError('Repeated tomo_id across the input tomograms: '
+                             + str(uniq[count>1])
+                             + '. Renumber them (and their particles) before merging.')
+
+        # All the stacks must exist: a merged set pointing to a missing stack
+        # only fails much later, inside the GPU modules.
+        missing = []
+        for t,ix in zip(tomos_in,idx_set):
+            for i in ix:
+                if not _os.path.exists(t.stack_file[i]):
+                    missing.append(t.stack_file[i])
+        if len(missing) > 0:
+            raise ValueError('Stack file(s) not found: ' + ', '.join(missing))
+
+        n_tomos = sum( ix.size    for ix in idx_set )
+        n_projs = max( t.n_projs for t in tomos_in )
+        tomos_out = Tomograms(n_tomo=n_tomos,n_proj=n_projs)
+
+        k = 0
+        for t,ix in zip(tomos_in,idx_set):
+            for i in ix:
+                P = int(t.num_proj[i])
+                for f in Tomograms._FIELDS_TOMO:
+                    getattr(tomos_out,f)[k] = getattr(t,f)[i]
+                for f in Tomograms._FIELDS_TOMO_3:
+                    getattr(tomos_out,f)[k,:] = getattr(t,f)[i,:]
+                for f in Tomograms._FIELDS_PROJ_N:
+                    getattr(tomos_out,f)[k,:P,:] = getattr(t,f)[i,:P,:]
+                for f in Tomograms._FIELDS_PROJ_1:
+                    getattr(tomos_out,f)[k,:P] = getattr(t,f)[i,:P]
+                if absolute_paths:
+                    tomos_out.stack_file[k] = _os.path.abspath(t.stack_file[i])
+                else:
+                    tomos_out.stack_file[k] = t.stack_file[i]
+                k += 1
+
+        print('[Tomograms.merge_tomos] %d tomograms merged (%d projections max).'%(n_tomos,n_projs))
+        print('  Remember to merge the corresponding particles '
+              '(Particles.append_ptcls) and to update them with '
+              'update_tomo_cix(tomos) before saving.')
+
+        return tomos_out
+
+    def remove_tomograms(self, tid_list):
+        """Remove tomograms by ``tomo_id``, in-place.
+
+        The entries matching *tid_list* are dropped from every field.  The
+        projection dimension (:attr:`n_projs`) is left untouched, even if the
+        widest tomogram was removed.  Unset entries (see :meth:`get_is_set`)
+        are never matched, so removing ``0`` does not discard the free slots.
+
+        Parameters
+        ----------
+        tid_list : int or array_like of uint32
+            Tomogram ID, or any sequence of IDs (list, tuple, ndarray).  IDs
+            that are not present are reported and ignored.
+
+        Examples
+        --------
+        >>> tomos.remove_tomograms([3,7])
+        >>> tomos.remove_tomograms(12)
+        """
+        tids = _np.unique(_np.asarray(tid_list,dtype=_np.uint32).reshape(-1))
+        if tids.size == 0:
+            return
+
+        is_set  = self.get_is_set()
+        present = _np.isin(tids,self.tomo_id[is_set])
+        if not present.all():
+            print('[Tomograms.remove_tomograms] tomo_id not found (ignored): '
+                  + ','.join(str(t) for t in tids[~present]))
+        if not present.any():
+            return
+
+        keep = ~( _np.isin(self.tomo_id,tids[present]) & is_set )
+        for f in Tomograms._FIELDS_TOMO + Tomograms._FIELDS_TOMO_3 \
+               + Tomograms._FIELDS_PROJ_N + Tomograms._FIELDS_PROJ_1:
+            setattr(self,f,getattr(self,f)[keep])
+        self.stack_file = [ s for s,k in zip(self.stack_file,keep) if k ]
+
+        print('[Tomograms.remove_tomograms] %d tomograms removed, %d remaining.'
+              %(int((~keep).sum()),self.n_tomos))
+
+    def add_empty_tomogram_entries(self, num_entries, n_proj=0):
+        """Reserve *num_entries* new (unset) tomogram slots, in-place.
+
+        The new entries are appended at the end and carry the same defaults as
+        a freshly allocated object (300 kV, Cs 2.7 mm, 7% amplitude contrast,
+        handedness -1) with an empty ``stack_file``, so they are reported as
+        unset by :meth:`get_is_set` and skipped by :meth:`save` until they are
+        populated (see :meth:`set_stack` and :attr:`next_free_idx`).
+
+        Parameters
+        ----------
+        num_entries : int
+            Number of slots to add.
+        n_proj : int, optional
+            Minimum number of projections the buffers must hold.  If larger
+            than the current :attr:`n_projs`, all the per-projection arrays are
+            padded with zeros to that width; the existing data is preserved.
+
+        Examples
+        --------
+        >>> tomos.add_empty_tomogram_entries(4,n_proj=61)
+        >>> tomos.set_stack(tomos.next_free_idx,'tomo_008.ali')
+        """
+        num_entries = int(num_entries)
+        if num_entries < 0:
+            raise ValueError('num_entries must be positive')
+
+        n_projs_new = max(self.n_projs,int(n_proj))
+        if n_projs_new > self.n_projs:
+            pad = n_projs_new - self.n_projs
+            for f in Tomograms._FIELDS_PROJ_N:
+                arr = getattr(self,f)
+                setattr(self,f,_np.pad(arr,((0,0),(0,pad),(0,0))))
+            for f in Tomograms._FIELDS_PROJ_1:
+                setattr(self,f,_np.pad(getattr(self,f),((0,0),(0,pad))))
+
+        if num_entries == 0:
+            return
+
+        # The defaults live in _alloc: build the new entries there and append.
+        blank = Tomograms(n_tomo=num_entries,n_proj=n_projs_new)
+        for f in Tomograms._FIELDS_TOMO + Tomograms._FIELDS_TOMO_3 \
+               + Tomograms._FIELDS_PROJ_N + Tomograms._FIELDS_PROJ_1:
+            setattr(self,f,_np.concatenate((getattr(self,f),getattr(blank,f)),axis=0))
+        self.stack_file = self.stack_file + blank.stack_file
+
+    @staticmethod
+    def _rewrite_paths(tomo_file, out_file, absolute):
+        Tomograms._check_filename(tomo_file)
+        if out_file is None:
+            out_file = tomo_file
+        Tomograms._check_filename(out_file)
+
+        tomos   = Tomograms(tomo_file)
+        base    = _os.path.abspath(_os.path.dirname(out_file) or '.')
+        idx_set = _np.nonzero(tomos.get_is_set())[0]
+
+        missing = []
+        for i in idx_set:
+            stack = tomos.stack_file[i]
+            if not _os.path.exists(stack):
+                missing.append(stack)
+            stack = _os.path.abspath(stack)
+            tomos.stack_file[i] = stack if absolute else _os.path.relpath(stack,base)
+        if len(missing) > 0:
+            print('[Tomograms] warning, stack file(s) not found: ' + ', '.join(missing))
+
+        tomos.save(out_file)
+        return tomos
+
+    @staticmethod
+    def relativize_paths(tomo_file, out_file=None):
+        """Rewrite the ``stack_file`` entries of a ``.tomostxt`` as relative paths.
+
+        The paths are made relative to the directory of the *saved* file, which
+        is what :meth:`_load` falls back to when a stack cannot be found from
+        the current working directory.  The tomostxt and its stacks can then be
+        moved together to another machine.
+
+        Parameters
+        ----------
+        tomo_file : str
+            Path to the ``.tomostxt`` file to rewrite.
+        out_file : str, optional
+            Where to save the result.  Defaults to *tomo_file* (in-place).
+
+        Returns
+        -------
+        Tomograms
+            The rewritten object, already saved.
+
+        Notes
+        -----
+        Missing stacks are reported but do not stop the rewrite: the operation
+        is purely textual.
+        """
+        return Tomograms._rewrite_paths(tomo_file,out_file,absolute=False)
+
+    @staticmethod
+    def absolutize_paths(tomo_file, out_file=None):
+        """Rewrite the ``stack_file`` entries of a ``.tomostxt`` as absolute paths.
+
+        Useful when the tomostxt is going to be used from a different working
+        directory than the one it was created in.
+
+        Parameters
+        ----------
+        tomo_file : str
+            Path to the ``.tomostxt`` file to rewrite.
+        out_file : str, optional
+            Where to save the result.  Defaults to *tomo_file* (in-place).
+
+        Returns
+        -------
+        Tomograms
+            The rewritten object, already saved.
+
+        Notes
+        -----
+        Missing stacks are reported but do not stop the rewrite: the operation
+        is purely textual.
+        """
+        return Tomograms._rewrite_paths(tomo_file,out_file,absolute=True)
+
     def set_stack(self, idx, stk_name):
         """Populate tomogram entry from a tilt-series stack file.
 
