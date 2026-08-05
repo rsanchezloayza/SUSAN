@@ -562,8 +562,13 @@ stored maximum-resolution limit is ignored during processing.</p></li>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>filename</strong> (<em>str</em>) – Output path; must have a <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code> extension.</p>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>ValueError</strong> – If <code class="docutils literal notranslate"><span class="pre">tomo_id</span></code> is not unique: the IDs are the key particles are
+</dl>
+<p class="rubric">Notes</p>
+<p>Unset entries (see <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_is_set()</span></code>) are skipped, so a preallocated
+object can be over-dimensioned and only partially filled.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – If <code class="docutils literal notranslate"><span class="pre">tomo_id</span></code> is not unique: the IDs are the key particles are
     matched against, so duplicates cannot be resolved.</p>
 </dd>
 </dl>

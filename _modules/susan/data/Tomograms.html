@@ -590,8 +590,48 @@
         <span class="n">valid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cix_lookup</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">valid</span> <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">bool</span><span class="p">(</span><span class="n">valid</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_is_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a boolean mask of the populated entries.</span>
+
+<span class="sd">        An entry is considered *set* once it has a ``stack_file``: that is the</span>
+<span class="sd">        only field :meth:`__init__` leaves empty, and every way of populating a</span>
+<span class="sd">        tomogram (:meth:`set_stack`, :meth:`_load`, :meth:`merge_tomos`) fills</span>
+<span class="sd">        it.  Unset entries are the slots reserved by</span>
+<span class="sd">        :meth:`add_empty_tomogram_entries` (or by ``Tomograms(n_tomo=...)``)</span>
+<span class="sd">        that have not been used yet; they are skipped by :meth:`save`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray, bool, shape (N,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack_file</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of populated entries.  See :meth:`get_is_set`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_is_set</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_next_free_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the index of the first unset entry, or -1 if there is none.</span>
+
+<span class="sd">        Intended to fill a preallocated object without tracking indices::</span>
+
+<span class="sd">            i = tomos.next_free_idx</span>
+<span class="sd">            tomos.set_stack(i,&#39;tomo_001.ali&#39;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">is_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_is_set</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">is_set</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">is_set</span><span class="p">))</span>
+
+    <span class="n">is_set</span>        <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_is_set</span><span class="p">)</span>
+    <span class="n">n_set</span>         <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_n_set</span><span class="p">)</span>
+    <span class="n">next_free_idx</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_next_free_idx</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_unique_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">uniq</span><span class="p">,</span><span class="n">count</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Unset entries all carry tomo_id=0; they are not saved, so they must</span>
+        <span class="c1"># not trigger a false collision.</span>
+        <span class="n">tomo_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">get_is_set</span><span class="p">()]</span>
+        <span class="n">uniq</span><span class="p">,</span><span class="n">count</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Repeated tomo_id in the tomograms: &#39;</span>
                              <span class="o">+</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">uniq</span><span class="p">[</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">]))</span>
@@ -712,6 +752,11 @@
 <span class="sd">        filename : str</span>
 <span class="sd">            Output path; must have a ``.tomostxt`` extension.</span>
 
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Unset entries (see :meth:`get_is_set`) are skipped, so a preallocated</span>
+<span class="sd">        object can be over-dimensioned and only partially filled.</span>
+
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
@@ -721,11 +766,16 @@
         <span class="n">Tomograms</span><span class="o">.</span><span class="n">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_unique_ids</span><span class="p">()</span>
 
+        <span class="n">idx_set</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_is_set</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">n_skip</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_tomos</span> <span class="o">-</span> <span class="n">idx_set</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">if</span> <span class="n">n_skip</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Tomograms.save] </span><span class="si">%d</span><span class="s1"> unset entries skipped (</span><span class="si">%d</span><span class="s1"> saved).&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">n_skip</span><span class="p">,</span><span class="n">idx_set</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+
         <span class="n">fp</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;w&#39;</span><span class="p">)</span>
-        <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;num_tomos&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">))</span>
+        <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;num_tomos&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">idx_set</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
         <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;num_projs&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_projs</span><span class="p">))</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">):</span>
-            <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;## Tomogram/Stack &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">n</span><span class="p">,</span><span class="n">i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">idx_set</span><span class="p">):</span>
+            <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;## Tomogram/Stack &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">n</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
             <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;tomo_id&#39;</span>   <span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
             <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;tomo_size&#39;</span> <span class="p">,</span> <span class="s1">&#39;</span><span class="si">%d</span><span class="s1">,</span><span class="si">%d</span><span class="s1">,</span><span class="si">%d</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_size</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_size</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_size</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">]))</span>
             <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;tomo_pos&#39;</span>  <span class="p">,</span> <span class="s1">&#39;</span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_position</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_position</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_position</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">]))</span>
@@ -757,7 +807,286 @@
                 <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="n">fp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
-    
+
+    <span class="c1"># Fields copied verbatim, grouped by shape:</span>
+    <span class="n">_FIELDS_TOMO</span>   <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;tomo_id&#39;</span><span class="p">,</span><span class="s1">&#39;num_proj&#39;</span><span class="p">,</span><span class="s1">&#39;pix_size&#39;</span><span class="p">,</span><span class="s1">&#39;voltage&#39;</span><span class="p">,</span><span class="s1">&#39;sph_aber&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;amp_cont&#39;</span><span class="p">,</span><span class="s1">&#39;handedness&#39;</span><span class="p">)</span>
+    <span class="n">_FIELDS_TOMO_3</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;tomo_size&#39;</span><span class="p">,</span><span class="s1">&#39;tomo_position&#39;</span><span class="p">,</span><span class="s1">&#39;stack_size&#39;</span><span class="p">)</span>
+    <span class="n">_FIELDS_PROJ_N</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;proj_eZYZ&#39;</span><span class="p">,</span><span class="s1">&#39;proj_shift&#39;</span><span class="p">)</span>
+    <span class="n">_FIELDS_PROJ_1</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;proj_wgt&#39;</span><span class="p">,</span><span class="s1">&#39;def_U&#39;</span><span class="p">,</span><span class="s1">&#39;def_V&#39;</span><span class="p">,</span><span class="s1">&#39;def_ang&#39;</span><span class="p">,</span><span class="s1">&#39;def_phas&#39;</span><span class="p">,</span><span class="s1">&#39;def_Bfct&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;def_ExFl&#39;</span><span class="p">,</span><span class="s1">&#39;def_mres&#39;</span><span class="p">,</span><span class="s1">&#39;def_scor&#39;</span><span class="p">,</span><span class="s1">&#39;doses&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;nominal_tilt_angles&#39;</span><span class="p">,</span><span class="s1">&#39;ctf_scale_factor&#39;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">merge_tomos</span><span class="p">(</span><span class="n">tomos_list</span><span class="p">,</span> <span class="n">absolute_paths</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Merge several tomogram sets into a new one.</span>
+
+<span class="sd">        The per-projection arrays of the inputs are padded to the largest</span>
+<span class="sd">        ``num_proj`` found, and the tomograms are stored in the order given.</span>
+<span class="sd">        The ``tomo_id`` values are preserved, so the particles of each input</span>
+<span class="sd">        remain valid; this requires the IDs to be unique across all inputs.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tomos_list : sequence of Tomograms or str</span>
+<span class="sd">            Tomogram sets to merge, either already loaded or as paths to</span>
+<span class="sd">            ``.tomostxt`` files.  The two forms can be mixed.</span>
+<span class="sd">        absolute_paths : bool</span>
+<span class="sd">            If True, store ``stack_file`` as absolute paths.  By default the</span>
+<span class="sd">            paths are kept as they are resolved (relative when the input was</span>
+<span class="sd">            relative), which keeps the merged file portable as long as it is</span>
+<span class="sd">            saved next to the inputs.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Tomograms</span>
+<span class="sd">            A new object holding all the input tomograms.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If a ``tomo_id`` appears in more than one input (renumber the</span>
+<span class="sd">            tomograms and their particles before merging), or if a</span>
+<span class="sd">            ``stack_file`` cannot be found.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tomos = susan.data.Tomograms.merge_tomos([&#39;setA.tomostxt&#39;,</span>
+<span class="sd">        ...                                           &#39;setB.tomostxt&#39;])</span>
+<span class="sd">        &gt;&gt;&gt; tomos.save(&#39;merged.tomostxt&#39;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomos_list</span><span class="p">,(</span><span class="nb">str</span><span class="p">,</span><span class="n">Tomograms</span><span class="p">)):</span>
+            <span class="n">tomos_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">tomos_list</span><span class="p">]</span>
+
+        <span class="n">tomos_in</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">tomos_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span><span class="nb">str</span><span class="p">):</span>
+                <span class="n">tomos_in</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Tomograms</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span><span class="n">Tomograms</span><span class="p">):</span>
+                <span class="n">tomos_in</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid input: expected a Tomograms object or &#39;</span>
+                                 <span class="s1">&#39;the path to a .tomostxt file, got &#39;</span><span class="o">+</span><span class="nb">type</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tomos_in</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Empty list of tomograms&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Unset entries are ignored: they hold no data and would all collide</span>
+        <span class="c1"># on tomo_id=0.</span>
+        <span class="n">idx_set</span> <span class="o">=</span> <span class="p">[</span> <span class="n">_np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">get_is_set</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tomos_in</span> <span class="p">]</span>
+
+        <span class="c1"># Colliding tomo_ids cannot be resolved here: the particles refer to</span>
+        <span class="c1"># them, and they are not available at this point.</span>
+        <span class="n">all_ids</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span><span class="n">ix</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tomos_in</span><span class="p">,</span><span class="n">idx_set</span><span class="p">)]</span> <span class="p">)</span>
+        <span class="n">uniq</span><span class="p">,</span><span class="n">count</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">all_ids</span><span class="p">,</span><span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">count</span><span class="o">&gt;</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Repeated tomo_id across the input tomograms: &#39;</span>
+                             <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">uniq</span><span class="p">[</span><span class="n">count</span><span class="o">&gt;</span><span class="mi">1</span><span class="p">])</span>
+                             <span class="o">+</span> <span class="s1">&#39;. Renumber them (and their particles) before merging.&#39;</span><span class="p">)</span>
+
+        <span class="c1"># All the stacks must exist: a merged set pointing to a missing stack</span>
+        <span class="c1"># only fails much later, inside the GPU modules.</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">t</span><span class="p">,</span><span class="n">ix</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tomos_in</span><span class="p">,</span><span class="n">idx_set</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ix</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">stack_file</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                    <span class="n">missing</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">stack_file</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Stack file(s) not found: &#39;</span> <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">))</span>
+
+        <span class="n">n_tomos</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span> <span class="n">ix</span><span class="o">.</span><span class="n">size</span>    <span class="k">for</span> <span class="n">ix</span> <span class="ow">in</span> <span class="n">idx_set</span> <span class="p">)</span>
+        <span class="n">n_projs</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span> <span class="n">t</span><span class="o">.</span><span class="n">n_projs</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tomos_in</span> <span class="p">)</span>
+        <span class="n">tomos_out</span> <span class="o">=</span> <span class="n">Tomograms</span><span class="p">(</span><span class="n">n_tomo</span><span class="o">=</span><span class="n">n_tomos</span><span class="p">,</span><span class="n">n_proj</span><span class="o">=</span><span class="n">n_projs</span><span class="p">)</span>
+
+        <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">t</span><span class="p">,</span><span class="n">ix</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tomos_in</span><span class="p">,</span><span class="n">idx_set</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ix</span><span class="p">:</span>
+                <span class="n">P</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">num_proj</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_TOMO</span><span class="p">:</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">tomos_out</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_TOMO_3</span><span class="p">:</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">tomos_out</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">k</span><span class="p">,:]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">i</span><span class="p">,:]</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_PROJ_N</span><span class="p">:</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">tomos_out</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">k</span><span class="p">,:</span><span class="n">P</span><span class="p">,:]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">i</span><span class="p">,:</span><span class="n">P</span><span class="p">,:]</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_PROJ_1</span><span class="p">:</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">tomos_out</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">k</span><span class="p">,:</span><span class="n">P</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">i</span><span class="p">,:</span><span class="n">P</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">absolute_paths</span><span class="p">:</span>
+                    <span class="n">tomos_out</span><span class="o">.</span><span class="n">stack_file</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">stack_file</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">tomos_out</span><span class="o">.</span><span class="n">stack_file</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">stack_file</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Tomograms.merge_tomos] </span><span class="si">%d</span><span class="s1"> tomograms merged (</span><span class="si">%d</span><span class="s1"> projections max).&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">n_tomos</span><span class="p">,</span><span class="n">n_projs</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;  Remember to merge the corresponding particles &#39;</span>
+              <span class="s1">&#39;(Particles.append_ptcls) and to update them with &#39;</span>
+              <span class="s1">&#39;update_tomo_cix(tomos) before saving.&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">tomos_out</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_tomograms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tid_list</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove tomograms by ``tomo_id``, in-place.</span>
+
+<span class="sd">        The entries matching *tid_list* are dropped from every field.  The</span>
+<span class="sd">        projection dimension (:attr:`n_projs`) is left untouched, even if the</span>
+<span class="sd">        widest tomogram was removed.  Unset entries (see :meth:`get_is_set`)</span>
+<span class="sd">        are never matched, so removing ``0`` does not discard the free slots.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tid_list : int or array_like of uint32</span>
+<span class="sd">            Tomogram ID, or any sequence of IDs (list, tuple, ndarray).  IDs</span>
+<span class="sd">            that are not present are reported and ignored.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tomos.remove_tomograms([3,7])</span>
+<span class="sd">        &gt;&gt;&gt; tomos.remove_tomograms(12)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tids</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tid_list</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">tids</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">is_set</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_is_set</span><span class="p">()</span>
+        <span class="n">present</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">tids</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="n">is_set</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">present</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Tomograms.remove_tomograms] tomo_id not found (ignored): &#39;</span>
+                  <span class="o">+</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tids</span><span class="p">[</span><span class="o">~</span><span class="n">present</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">present</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">return</span>
+
+        <span class="n">keep</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span> <span class="n">_np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">tids</span><span class="p">[</span><span class="n">present</span><span class="p">])</span> <span class="o">&amp;</span> <span class="n">is_set</span> <span class="p">)</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_TOMO</span> <span class="o">+</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_TOMO_3</span> \
+               <span class="o">+</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_PROJ_N</span> <span class="o">+</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_PROJ_1</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">f</span><span class="p">)[</span><span class="n">keep</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stack_file</span> <span class="o">=</span> <span class="p">[</span> <span class="n">s</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span><span class="n">k</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stack_file</span><span class="p">,</span><span class="n">keep</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span> <span class="p">]</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Tomograms.remove_tomograms] </span><span class="si">%d</span><span class="s1"> tomograms removed, </span><span class="si">%d</span><span class="s1"> remaining.&#39;</span>
+              <span class="o">%</span><span class="p">(</span><span class="nb">int</span><span class="p">((</span><span class="o">~</span><span class="n">keep</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span><span class="bp">self</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_empty_tomogram_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_entries</span><span class="p">,</span> <span class="n">n_proj</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reserve *num_entries* new (unset) tomogram slots, in-place.</span>
+
+<span class="sd">        The new entries are appended at the end and carry the same defaults as</span>
+<span class="sd">        a freshly allocated object (300 kV, Cs 2.7 mm, 7% amplitude contrast,</span>
+<span class="sd">        handedness -1) with an empty ``stack_file``, so they are reported as</span>
+<span class="sd">        unset by :meth:`get_is_set` and skipped by :meth:`save` until they are</span>
+<span class="sd">        populated (see :meth:`set_stack` and :attr:`next_free_idx`).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        num_entries : int</span>
+<span class="sd">            Number of slots to add.</span>
+<span class="sd">        n_proj : int, optional</span>
+<span class="sd">            Minimum number of projections the buffers must hold.  If larger</span>
+<span class="sd">            than the current :attr:`n_projs`, all the per-projection arrays are</span>
+<span class="sd">            padded with zeros to that width; the existing data is preserved.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tomos.add_empty_tomogram_entries(4,n_proj=61)</span>
+<span class="sd">        &gt;&gt;&gt; tomos.set_stack(tomos.next_free_idx,&#39;tomo_008.ali&#39;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">num_entries</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_entries</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_entries</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;num_entries must be positive&#39;</span><span class="p">)</span>
+
+        <span class="n">n_projs_new</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_projs</span><span class="p">,</span><span class="nb">int</span><span class="p">(</span><span class="n">n_proj</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">n_projs_new</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_projs</span><span class="p">:</span>
+            <span class="n">pad</span> <span class="o">=</span> <span class="n">n_projs_new</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_projs</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_PROJ_N</span><span class="p">:</span>
+                <span class="n">arr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">f</span><span class="p">)</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">arr</span><span class="p">,((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="n">pad</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">))))</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_PROJ_1</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">f</span><span class="p">),((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="n">pad</span><span class="p">))))</span>
+
+        <span class="k">if</span> <span class="n">num_entries</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># The defaults live in _alloc: build the new entries there and append.</span>
+        <span class="n">blank</span> <span class="o">=</span> <span class="n">Tomograms</span><span class="p">(</span><span class="n">n_tomo</span><span class="o">=</span><span class="n">num_entries</span><span class="p">,</span><span class="n">n_proj</span><span class="o">=</span><span class="n">n_projs_new</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_TOMO</span> <span class="o">+</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_TOMO_3</span> \
+               <span class="o">+</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_PROJ_N</span> <span class="o">+</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_FIELDS_PROJ_1</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">f</span><span class="p">),</span><span class="nb">getattr</span><span class="p">(</span><span class="n">blank</span><span class="p">,</span><span class="n">f</span><span class="p">)),</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stack_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack_file</span> <span class="o">+</span> <span class="n">blank</span><span class="o">.</span><span class="n">stack_file</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rewrite_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span> <span class="n">out_file</span><span class="p">,</span> <span class="n">absolute</span><span class="p">):</span>
+        <span class="n">Tomograms</span><span class="o">.</span><span class="n">_check_filename</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">out_file</span> <span class="o">=</span> <span class="n">tomo_file</span>
+        <span class="n">Tomograms</span><span class="o">.</span><span class="n">_check_filename</span><span class="p">(</span><span class="n">out_file</span><span class="p">)</span>
+
+        <span class="n">tomos</span>   <span class="o">=</span> <span class="n">Tomograms</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">)</span>
+        <span class="n">base</span>    <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">out_file</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span>
+        <span class="n">idx_set</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">get_is_set</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idx_set</span><span class="p">:</span>
+            <span class="n">stack</span> <span class="o">=</span> <span class="n">tomos</span><span class="o">.</span><span class="n">stack_file</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">stack</span><span class="p">):</span>
+                <span class="n">missing</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+            <span class="n">stack</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+            <span class="n">tomos</span><span class="o">.</span><span class="n">stack_file</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">stack</span> <span class="k">if</span> <span class="n">absolute</span> <span class="k">else</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">stack</span><span class="p">,</span><span class="n">base</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Tomograms] warning, stack file(s) not found: &#39;</span> <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">))</span>
+
+        <span class="n">tomos</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">out_file</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tomos</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">relativize_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span> <span class="n">out_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rewrite the ``stack_file`` entries of a ``.tomostxt`` as relative paths.</span>
+
+<span class="sd">        The paths are made relative to the directory of the *saved* file, which</span>
+<span class="sd">        is what :meth:`_load` falls back to when a stack cannot be found from</span>
+<span class="sd">        the current working directory.  The tomostxt and its stacks can then be</span>
+<span class="sd">        moved together to another machine.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tomo_file : str</span>
+<span class="sd">            Path to the ``.tomostxt`` file to rewrite.</span>
+<span class="sd">        out_file : str, optional</span>
+<span class="sd">            Where to save the result.  Defaults to *tomo_file* (in-place).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Tomograms</span>
+<span class="sd">            The rewritten object, already saved.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Missing stacks are reported but do not stop the rewrite: the operation</span>
+<span class="sd">        is purely textual.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_rewrite_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span><span class="n">out_file</span><span class="p">,</span><span class="n">absolute</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">absolutize_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span> <span class="n">out_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rewrite the ``stack_file`` entries of a ``.tomostxt`` as absolute paths.</span>
+
+<span class="sd">        Useful when the tomostxt is going to be used from a different working</span>
+<span class="sd">        directory than the one it was created in.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tomo_file : str</span>
+<span class="sd">            Path to the ``.tomostxt`` file to rewrite.</span>
+<span class="sd">        out_file : str, optional</span>
+<span class="sd">            Where to save the result.  Defaults to *tomo_file* (in-place).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Tomograms</span>
+<span class="sd">            The rewritten object, already saved.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Missing stacks are reported but do not stop the rewrite: the operation</span>
+<span class="sd">        is purely textual.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Tomograms</span><span class="o">.</span><span class="n">_rewrite_paths</span><span class="p">(</span><span class="n">tomo_file</span><span class="p">,</span><span class="n">out_file</span><span class="p">,</span><span class="n">absolute</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
 <div class="viewcode-block" id="Tomograms.set_stack">
 <a class="viewcode-back" href="../../../api/susan.data.Tomograms.html#susan.data.Tomograms.set_stack">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_stack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">stk_name</span><span class="p">):</span>
