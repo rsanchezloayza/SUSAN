@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include "io.h"
+#include "data_info.h"
 #include "aligner.h"
 #include "particles.h"
 #include "tomogram.h"
@@ -30,17 +31,6 @@
 #include "aligner_args.h"
 #include "datatypes.h"
 
-void print_data_info(Particles&ptcls,Tomograms&tomos,ArgsAli::Info&info) {
-    if(info.verbosity==VERBOSITY_FULL) {
-        printf("\t\tAvailable particles:  %d.\n",ptcls.n_ptcl);
-        printf("\t\tNumber of classes:    %d.\n",ptcls.n_refs);
-        printf("\t\tTomograms available:  %d.\n",tomos.num_tomo);
-        printf("\t\tAvailable projections: %d (max).\n",tomos.num_proj);
-    }
-    else {
-       printf("    - %d Particles (%d classes) in %d tomograms with max %d projections.\n",ptcls.n_ptcl,ptcls.n_refs,tomos.num_tomo,tomos.num_proj);
-    }
-}
 
 int main(int ac, char** av) {
 
@@ -49,10 +39,12 @@ int main(int ac, char** av) {
     if( ArgsAli::parse_args(info,ac,av) ) {
         ArgsAli::print(info);
         PBarrier barrier(2);
+        DataInfo::print_loading(info.verbosity);
         ParticlesRW ptcls(info.ptcls_in);
         References refs(info.refs_file);
         Tomograms tomos(info.tomo_file);
-        print_data_info(ptcls,tomos,info);
+        DataInfo::print_loaded(info.verbosity);
+        DataInfo::print_data_info(ptcls,tomos,info.verbosity);
         StackReader stkrdr(&ptcls,&tomos,&barrier);
         AliPool pool(&info,&refs,tomos.num_proj,ptcls.n_ptcl,stkrdr,info.n_threads);
 
@@ -65,8 +57,7 @@ int main(int ac, char** av) {
         ptcls.save(info.ptcls_out);
     }
     else {
-        fprintf(stderr,"Error parsing input arguments.\n");
-        exit(1);
+        DataInfo::exit_bad_args();
     }
 
     return 0;

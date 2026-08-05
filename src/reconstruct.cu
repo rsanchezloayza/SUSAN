@@ -23,23 +23,13 @@
 #include <unistd.h>
 
 #include "io.h"
+#include "data_info.h"
 #include "reconstruct.h"
 #include "particles.h"
 #include "tomogram.h"
 #include "reconstruct_args.h"
 #include "datatypes.h"
 
-void print_data_info(Particles&ptcls,Tomograms&tomos,ArgsRec::Info&info) {
-    if(info.verbosity==VERBOSITY_FULL) {
-        printf("\t\tAvailable particles:  %d.\n",ptcls.n_ptcl);
-        printf("\t\tNumber of classes:    %d.\n",ptcls.n_refs);
-    	printf("\t\tTomograms available:  %d.\n",tomos.num_tomo);
-    	printf("\t\tAvailable projections: %d (max).\n",tomos.num_proj);
-    }
-    else {
-        printf("    - %d Particles (%d classes) in %d tomograms with max %d projections.\n",ptcls.n_ptcl,ptcls.n_refs,tomos.num_tomo,tomos.num_proj);
-    }
-}
 
 int main(int ac, char** av) {
 
@@ -51,15 +41,12 @@ int main(int ac, char** av) {
 
         PBarrier barrier(2);
 
-        if( info.verbosity != VERBOSITY_MINIMAL ) {
-            printf("\tLoading data files..."); fflush(stdout);}
+        DataInfo::print_loading(info.verbosity);
         ParticlesRW ptcls(info.ptcls_in);
         Tomograms tomos(info.tomos_in);
-        if( info.verbosity != VERBOSITY_MINIMAL ) {
-            printf(" Done\n"); fflush(stdout);
-        }
+        DataInfo::print_loaded(info.verbosity);
 
-        print_data_info(ptcls,tomos,info);
+        DataInfo::print_data_info(ptcls,tomos,info.verbosity);
 
         StackReader stkrdr(&ptcls,&tomos,&barrier);
         RecPool pool(&info,ptcls.n_refs,tomos.num_proj,ptcls.n_ptcl,stkrdr,info.n_threads);
@@ -71,8 +58,7 @@ int main(int ac, char** av) {
         pool.wait();
     }
     else {
-        fprintf(stderr,"Error parsing input arguments.\n");
-        exit(1);
+        DataInfo::exit_bad_args();
     }
 
     return 0;

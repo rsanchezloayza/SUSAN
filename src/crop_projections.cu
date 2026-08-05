@@ -23,17 +23,12 @@
 #include <unistd.h>
 
 #include "io.h"
+#include "data_info.h"
 #include "crop_projections.h"
 #include "particles.h"
 #include "tomogram.h"
 #include "crop_projections_args.h"
 
-void print_data_info(Particles&ptcls,Tomograms&tomos) {
-    printf("\t\tAvailable particles:  %d.\n",ptcls.n_ptcl);
-    printf("\t\tNumber of classes:    %d.\n",ptcls.n_refs);
-    printf("\t\tTomograms available:  %d.\n",tomos.num_tomo);
-    printf("\t\tAvailabe projections: %d (max).\n",tomos.num_proj);
-}
 
 int main(int ac, char** av) {
 
@@ -42,9 +37,11 @@ int main(int ac, char** av) {
     if( ArgsCropProjections::parse_args(info,ac,av) ) {
         ArgsCropProjections::print(info);
         PBarrier barrier(2);
+        DataInfo::print_loading(VERBOSITY_BASIC);
         ParticlesRW ptcls(info.ptcls_in);
         Tomograms tomos(info.tomos_in);
-        print_data_info(ptcls,tomos);
+        DataInfo::print_loaded(VERBOSITY_BASIC);
+        DataInfo::print_data_info(ptcls,tomos,VERBOSITY_BASIC);
         StackReader stkrdr(&ptcls,&tomos,&barrier);
         CropProjectionsPool pool(&info,tomos.num_proj,ptcls.n_ptcl,stkrdr,info.n_threads);
 
@@ -55,8 +52,7 @@ int main(int ac, char** av) {
         pool.wait();
     }
     else {
-        fprintf(stderr,"Error parsing input arguments.\n");
-        exit(1);
+        DataInfo::exit_bad_args();
     }
 
     return 0;

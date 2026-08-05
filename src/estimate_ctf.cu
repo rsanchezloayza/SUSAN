@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include "io.h"
+#include "data_info.h"
 #include "estimate_ctf.h"
 #include "estimate_ctf_args.h"
 
@@ -33,8 +34,11 @@ int main(int ac, char** av) {
     if( ArgsCTF::parse_args(info,ac,av) ) {
         ArgsCTF::print(info);
         PBarrier barrier(2);
+        DataInfo::print_loading(info.verbosity);
         ParticlesRW ptcls(info.ptcls_in);
         Tomograms tomos(info.tomos_in);
+        DataInfo::print_loaded(info.verbosity);
+        DataInfo::print_data_info(ptcls,tomos,info.verbosity);
         StackReader stkrdr(&ptcls,&tomos,&barrier);
         CtfEstimatePool pool(&info,tomos.num_proj,stkrdr,info.n_threads);
 
