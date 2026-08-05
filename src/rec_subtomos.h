@@ -249,14 +249,14 @@ protected:
         ptr.ctf_vals.LambdaPi = M_PI*lambda;
         ptr.ctf_vals.CsLambda3PiH = lambda*lambda*lambda*(p_tomo->CS*1e7)*M_PI/2;
 
+        memcpy( (void*)(ptr.c_def.ptr), (const void*)(ptr.ptcl.def), sizeof(Defocus)*ptr.K  );
+
         for(int k=0;k<ptr.K;k++) {
-            if( ptr.ptcl.def[k].max_res > 0 ) {
-                ptr.ptcl.def[k].max_res = ((float)NP)*p_tomo->pix_size/ptr.ptcl.def[k].max_res;
-                ptr.ptcl.def[k].max_res = min(ptr.ptcl.def[k].max_res+bp_pad,(float)NP/2);
+            if( ptr.c_def.ptr[k].max_res > 0 ) {
+                ptr.c_def.ptr[k].max_res = ((float)NP)*p_tomo->pix_size/ptr.c_def.ptr[k].max_res;
+                ptr.c_def.ptr[k].max_res = min(ptr.c_def.ptr[k].max_res+bp_pad,(float)NP/2);
             }
         }
-
-        memcpy( (void**)(ptr.c_def.ptr), (const void**)(ptr.ptcl.def), sizeof(Defocus)*ptr.K  );
     }
 
     void crop_substack(RecBuffer&ptr) {
