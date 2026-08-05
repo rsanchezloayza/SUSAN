@@ -222,15 +222,41 @@ void array_to_viridis_cmap(uint8_t* p_out,const float* p_in,int W,int H,float vm
     }
 }
 
-void ctf_ellipse_fit_to_svg(const char*fname,const float*p_in,int N,float vmin,float vmax,float apix,float U,float V,float ang) {
+/// Ellipse fit report.  U, V and ang are the fitted axes in periodogram bins;
+/// angs_per_bin converts a bin into Angstroms of defocus.
+///
+/// The full periodogram reaches ~16 um at 300 kV, far beyond any realistic
+/// cryo-ET defocus, which would leave the ellipse as a small blob in an empty
+/// field.  disp_max_angs crops the frame to that defocus and scales the crop
+/// back up to the full canvas, so the SVG keeps its size and shape.  Pass 0 to
+/// show the whole frame.
+void ctf_ellipse_fit_to_svg(const char*fname,const float*p_in,int N,float vmin,float vmax,float angs_per_bin,float U,float V,float ang,float disp_max_angs=0) {
 
-    std::vector<uint8_t> rgb(N*N*3);
-    //array_to_turbo_cmap(rgb.data(),p_in,N,N,vmin,vmax);
-    array_to_viridis_cmap(rgb.data(),p_in,N,N,vmin,vmax);
-    //array_to_cividis_cmap(rgb.data(),p_in,N,N,vmin,vmax);
+    int half = N/2;
+    int h    = half;
+
+    if( disp_max_angs > 0 ) {
+        h = (int)ceilf(disp_max_angs/angs_per_bin);
+        if( h < 8    ) h = 8;
+        if( h > half ) h = half;
+    }
+
+    int   crop = 2*h;
+    float zoom = float(N)/float(crop);
+
+    /// Centred crop, colour-mapped at its own size and scaled up by <image>.
+    std::vector<float> cropped(crop*crop);
+    for(int j=0;j<crop;j++) {
+        const float*src = p_in + (long)(half-h+j)*N + (half-h);
+        for(int i=0;i<crop;i++)
+            cropped[j*crop+i] = src[i];
+    }
+
+    std::vector<uint8_t> rgb(crop*crop*3);
+    array_to_viridis_cmap(rgb.data(),cropped.data(),crop,crop,vmin,vmax);
 
     std::vector<uint8_t> png_data;
-    unsigned error = lodepng::encode(png_data,rgb,N,N,LCT_RGB);
+    unsigned error = lodepng::encode(png_data,rgb,crop,crop,LCT_RGB);
     if(error)
         throw std::runtime_error("PNG encoding failed");
 
@@ -239,9 +265,10 @@ void ctf_ellipse_fit_to_svg(const char*fname,const float*p_in,int N,float vmin,f
     float cx = N/2.0f+0.5f;
     float cy = N/2.0f+0.5f;
 
-    float theta= ang*RAD2DEG;
+    float theta = ang*RAD2DEG;
 
-    float umstep = 2.0f*1e4f/apix;
+    /// One ring every 2 um, as many as fit inside the frame.
+    float ring = 2.0f*(1e4f/angs_per_bin)*zoom;
 
     std::ostringstream svg;
 
@@ -272,7 +299,7 @@ void ctf_ellipse_fit_to_svg(const char*fname,const float*p_in,int N,float vmin,f
         << "\" y2=\"" << N
         << "\" style=\"stroke:#333333;stroke-width:0.5\" />\n";
 
-    for(float r=umstep;r<N/2.0f;r+=umstep) {
+    for(float r=ring;r<N/2.0f;r+=ring) {
         svg << "<circle r=\"" << r
             << "\" cx=\"" << cx
             << "\" cy=\"" << cy
@@ -282,18 +309,17 @@ void ctf_ellipse_fit_to_svg(const char*fname,const float*p_in,int N,float vmin,f
     // Defocus fitting
     svg << "<ellipse cx=\"" << cx
         << "\" cy=\"" << cy
-        << "\" rx=\"" << U
-        << "\" ry=\"" << V
+        << "\" rx=\"" << U*zoom
+        << "\" ry=\"" << V*zoom
         << "\" fill=\"none\" stroke=\"#e64343\" stroke-width=\"0.8\" "
         << "transform=\"rotate(" << theta
         << "," << cx << "," << cy << ")\" />\n";
 
     svg << "</g>\n";
 
-    // Add grid markers
-    for(int k=2;k<11;k+=2) {
-        //<text x="5" y="30" fill="pink" stroke="blue" font-size="35">I love SVG!</text>
-        float r = k*umstep/2;
+    // One marker per ring
+    int k = 2;
+    for(float r=ring;r<N/2.0f;r+=ring,k+=2) {
         svg << "<text x=\"" << (cx+r+1)
             << "\" y=\"" << (cy+6)
             << "\" fill=\"#333333\" stroke=\"none\" font-size=\"8\">" << k
@@ -307,9 +333,6 @@ void ctf_ellipse_fit_to_svg(const char*fname,const float*p_in,int N,float vmin,f
         throw std::runtime_error("Cannot open SVG file");
 
     file << svg.str();
-
-
-
 }
 
 class SvgCtf {
@@ -322,6 +345,7 @@ public:
         has_avg = false;
         has_est = false;
         has_fit = false;
+        has_corr = false;
     }
 
     ~SvgCtf() {
@@ -418,17 +442,32 @@ public:
         has_est = true;
     }
 
+    /// Correlation between the estimated CTF and the data, per frequency.
+    /// max_res is the highest frequency where it stays above thres, so the
+    /// curve and the line together show why the cutoff landed where it did.
+    void add_corr(const float*ptr,const float M,const float thres) {
+        add_signal(ptr,M,SUSAN_SVG_FG_D);
+        float y = (1-thres)*400 + 40;
+        fprintf(fp,"  <g style=\"stroke:" SUSAN_SVG_FG_D ";stroke-width:1;stroke-dasharray:6,4\">\n");
+        fprintf(fp,"    <line x1=\"60\" y1=\"%.2f\" x2=\"780\" y2=\"%.2f\"/>\n",y,y);
+        fprintf(fp,"  </g>\n");
+        has_corr = true;
+    }
+
     void create_legend() {
         fprintf(fp,"  <g>\n");
         fprintf(fp,"    <rect x=\"60\" y=\"495\" width=\"720\" height=\"25\"/>\n");
         if( has_avg ) {
-            create_legend_entry("Radial Average",SUSAN_SVG_FG_A,60+15);
+            create_legend_entry("Radial Average",SUSAN_SVG_FG_A,60+5);
         }
         if( has_fit ) {
-            create_legend_entry("Estimated CTF",SUSAN_SVG_FG_B,60+15+220);
+            create_legend_entry("Estimated CTF",SUSAN_SVG_FG_B,60+5+175);
         }
         if( has_est ) {
-            create_legend_entry("Phase matching coefficient",SUSAN_SVG_FG_C,60+15+220+220);
+            create_legend_entry("Phase matching",SUSAN_SVG_FG_C,60+5+350);
+        }
+        if( has_corr ) {
+            create_legend_entry("CTF/data correlation",SUSAN_SVG_FG_D,60+5+525);
         }
         fprintf(fp,"  </g>\n");
     }
@@ -440,6 +479,7 @@ protected:
     bool has_avg;
     bool has_fit;
     bool has_est;
+    bool has_corr;
 
     void add_signal(const float*ptr,const float M,const char*color,bool do_square=false) {
         fprintf(fp,"  <g style=\"stroke:%s;fill:none\">\n",color);

@@ -52,11 +52,8 @@ public:
     GPU::GArrSingle   ss_ctf_ps;
     GPU::GArrSingle   ss_bufferA;
     GPU::GArrSingle   ss_bufferB;
-    GPU::GArrSingle   ss_acc_avg;
-    GPU::GArrSingle   ss_acc_std;
     GPU::GArrSingle2  ss_fourier;
     GpuFFT::FFT2D     fft2;
-    GPU::GTex2DSingle ss_ps;
 
     CtfNormalizer(int N,int K) {
         stream.configure();
@@ -67,7 +64,6 @@ public:
         grd     = GPU::calc_grid_size(blk,ss_siz.x,ss_siz.y,ss_siz.z);
         grd_buf = GPU::calc_grid_size(blk,ss_buf.x,ss_buf.y,ss_buf.z);
 
-        ss_ps.alloc(ss_siz.x,ss_siz.y,ss_siz.z);
         ss_acc.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
         ss_wgt.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
         ss_norm.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
@@ -75,8 +71,6 @@ public:
         ss_ctf_ps.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
         ss_bufferA.alloc(ss_buf.x*ss_buf.y*ss_buf.z);
         ss_bufferB.alloc(ss_buf.x*ss_buf.y*ss_buf.z);
-        ss_acc_avg.alloc(ss_siz.z);
-        ss_acc_std.alloc(ss_siz.z);
         ss_fourier.alloc(ss_siz.x*ss_siz.y*ss_siz.z);
 
         dim3 grd2D = GPU::calc_grid_size(blk,ss_siz.x,ss_siz.y,1);
@@ -127,18 +121,6 @@ protected:
     void exec_fft2(float*p_data) {
         fft2.exec(ss_fourier.ptr,p_data);
         GpuKernels::fftshift2D<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,ss_siz);
-    }
-
-    void load_ps() {
-        GpuKernels::load_surf_abs<<<grd,blk,0,stream.strm>>>(ss_ps.surface,ss_fourier.ptr,ss_siz);
-    }
-
-    void bin(float bin_factor) {
-        ss_acc_avg.clear(stream.strm);
-        ss_acc_std.clear(stream.strm);
-        GpuKernelsCtf::ctf_bin<<<grd,blk,0,stream.strm>>>(ss_ctf_ps.ptr,ss_ps.texture,bin_factor,ss_siz);
-        GpuKernels::get_avg_std<<<grd,blk,0,stream.strm>>>(ss_acc_std.ptr,ss_acc_avg.ptr,ss_ctf_ps.ptr,ss_siz);
-        GpuKernels::zero_avg_one_std<<<grd,blk,0,stream.strm>>>(ss_ctf_ps.ptr,ss_acc_std.ptr,ss_acc_avg.ptr,ss_siz);
     }
 
     void normalize(float2*p_factor) {

@@ -585,6 +585,13 @@ class Tomograms:
             self.def_ExFl  [idx,:P]   = buffer[:,5]
             self.def_mres  [idx,:P]   = buffer[:,6]
             self.def_scor  [idx,:P]   = buffer[:,7]
+            # Optional ninth column: the initial per-projection weight from the
+            # Thon ring modulation depth (CtfEstimator.est_initial_snr).  It is
+            # proportional to the SSNR of the projection, which is how prj_w
+            # enters the reconstruction.  Files written before this column
+            # existed simply keep the current proj_wgt.
+            if buffer.shape[1] > 8:
+                self.proj_wgt[idx,:P] = buffer[:,8]
             # Disable empty projections: the CTF estimator zeroes def_U/def_V
             # (and def_ang, max_res, score) for blank frames in the stack, see
             # mark_empty_projections in src/ctf_linearizer.h.  Mirror that here

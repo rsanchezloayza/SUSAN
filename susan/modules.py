@@ -979,26 +979,22 @@ class CtfEstimator:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    binning : int
-        Binning factor applied to the patches before estimation.  ``0`` means
-        no binning.  Default: ``0``.
-    resolution_angs : :class:`~susan.utils.datatypes.range_params`
-        Resolution range (min, max) in Ångströms used for CTF fitting.
-        Default: ``range_params(40, 7)``.
+    resolution_max : float
+        Highest resolution, in Ångströms, included in the CTF fit.  It sets the
+        target sampling of the linearization (``new_apix = resolution_max/2``)
+        and so the outer edge of every spectrum the estimator works on.
+        Rarely needs changing.  Default: ``7``.
     defocus_angstroms : :class:`~susan.utils.datatypes.range_params`
-        Defocus search range (min, max) in Ångströms.
-        Default: ``range_params(10000, 90000)``.
-    tilt_search : float
-        Tilt-specific defocus search range in Ångströms.  Default: ``3000``.
-    refine_defocus : :class:`~susan.utils.datatypes.search_params`
-        Fine defocus refinement range and step in Ångströms.
-        Default: ``search_params(2000, 100)``.
-    max_bfactor : float
-        Maximum B-factor used in the amplitude spectrum weighting.
-        Default: ``600``.
+        Defocus search range (min, max) in Ångströms.  Bounds the peak search
+        in the linearized power spectrum, where defocus maps linearly onto the
+        bin index.  It also frames the ellipse fit report.
+        Default: ``range_params(10000, 65000)``.
     resolution_thres : float
-        CTF quality threshold; fits below this score are discarded.
-        Default: ``0.75``.
+        Correlation threshold that sets ``Defocus.max_res``.  The fitted CTF is
+        correlated against the astigmatism-compensated radial average in
+        sliding windows; the resolution limit is the highest frequency where
+        that correlation stays above this value.  Lower values report a more
+        optimistic limit.  Default: ``0.75``.
     overfocus : bool
         If ``True``, the signal is assumed to be overfocus and the estimated
         defocus is returned as a negative value; if ``False``, it is assumed
@@ -1010,34 +1006,41 @@ class CtfEstimator:
         to ``Defocus.ph_shft``.  If ``False``, the phase-shift search is
         skipped and ``ph_shft`` is forced to ``0`` for every projection;
         defocus refinement still runs normally.  Default: ``True``.
-    verbose : int
-        Verbosity level passed to the binary.  Default: ``0``.
+    est_initial_snr : bool
+        If ``True``, an initial per-projection weight is estimated from the
+        depth of the Thon ring modulation and written as a ninth column of
+        ``defocus.txt``, which :meth:`susan.data.Tomograms.set_defocus` loads
+        into ``proj_wgt`` (and ``update_defocus`` then copies into the
+        per-particle ``prj_w``).  The weight is proportional to the SSNR of
+        the projection and normalised so the best tilt of each stack is
+        ``1``; empty projections get ``0``.  If ``False``, the column is
+        written as ``1`` for every projection, preserving the previous
+        behaviour of uniform weights.  Default: ``False``.
+    verbosity : int
+        Amount of progress information printed to the console, as in every
+        other module: ``0`` silent, ``1`` basic, ``2`` full.  Default: ``1``.
+    log_level : int
+        Amount of debug data written to *out_dir*.  ``0`` writes only
+        ``defocus.txt``; ``1`` adds the per-projection SVG reports and the
+        main diagnostic volumes; ``2`` adds every intermediate power spectrum.
+        This is what ``verbose`` used to control.  Default: ``0``.
     """
 
     def __init__(self):
         self.list_gpus_ids     = [0]
-        self.binning           = 0
-        self.resolution_angs   = _dt.range_params(40,7)
-        self.defocus_angstroms = _dt.range_params(10000,90000)
-        self.tilt_search       = 3000
-        self.refine_defocus    = _dt.search_params(2000,100)
-        self.max_bfactor       = 600
+        self.resolution_max    = 7
+        self.defocus_angstroms = _dt.range_params(10000,65000)
         self.resolution_thres  = 0.75
         self.overfocus         = False
         self.est_phase_shift   = False
+        self.est_initial_snr   = True
         #self.mpi               = _dt.mpi_params('srun -n %d ',1)
-        self.verbose           = 0
-        #self.verbosity         = 0
+        self.verbosity         = 1
+        self.log_level         = 0
         
     def _validate(self):
-        if not self.refine_defocus.step > 0:
-            raise ValueError('The steps values must be larger than 0')
-        
-        if self.refine_defocus.span < self.refine_defocus.step:
-            raise ValueError('Refine Defocus: Step cannot be larger than Range/Span')
-
-        #if self.resolution_angs.max_val < self.resolution_angs.min_val:
-        #    raise ValueError('Resolution (angstroms): min is larger than max')
+        if not self.resolution_max > 0:
+            raise ValueError('Resolution (angstroms): must be larger than 0')
 
         if self.defocus_angstroms.max_val < self.defocus_angstroms.min_val:
             raise ValueError('Defocus (angstroms): min is larger than max')
@@ -1074,17 +1077,14 @@ class CtfEstimator:
         args = args + ' -n_threads %d'     % n_threads
         args = args + ' -gpu_list '        + gpu_str
         args = args + ' -box_size %d'      % box_size
-        args = args + ' -res_range %f,%f'  % (self.resolution_angs.min_val,self.resolution_angs.max_val)
+        args = args + ' -res_max %f'       % self.resolution_max
         args = args + ' -res_thres %f'     % self.resolution_thres
         args = args + ' -def_range %f,%f'  % (self.defocus_angstroms.min_val,self.defocus_angstroms.max_val)
-        args = args + ' -tilt_search %f'   % self.tilt_search
-        args = args + ' -refine_def %f,%f' % (self.refine_defocus.span,self.refine_defocus.step)
-        args = args + ' -binning %d'       % self.binning
-        args = args + ' -bfactor_max %f'   % self.max_bfactor
         args = args + ' -overfocus %d'     % (1 if self.overfocus else 0)
         args = args + ' -est_phase_shift %d' % (1 if self.est_phase_shift else 0)
-        args = args + ' -verbose %d'       % self.verbose
-        #args = args + ' -verbosity %d'     % self.verbosity
+        args = args + ' -est_initial_snr %d' % (1 if self.est_initial_snr else 0)
+        args = args + ' -verbosity %d'     % self.verbosity
+        args = args + ' -log_level %d'     % self.log_level
         return args
     
     def estimate(self, out_dir, tomos_file, ptcls_in, box_size, tomos_out=None):

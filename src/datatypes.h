@@ -51,6 +51,7 @@ typedef float    single;
 #define SUSAN_SVG_FG_B "#6EA6CD"
 //#define SUSAN_SVG_FG_C "#EAECCC"
 #define SUSAN_SVG_FG_C "#CFD48A"
+#define SUSAN_SVG_FG_D "#B8578F"
 
 typedef struct {
     float x;

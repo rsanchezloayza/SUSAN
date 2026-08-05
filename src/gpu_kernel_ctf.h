@@ -263,6 +263,49 @@ __global__ void ctf_radial_normalize_and_avg(float*p_avg,float*p_wgt,const float
     }
 }
 
+__global__ void radial_ps_avg_linearized_astig(float*p_avg,float*p_wgt,const float*p_in,const Defocus*p_def,const float max_res,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        int N  = ss_siz.y;
+        int Nh = N/2;
+        float x = ss_idx.x;
+        float y = ss_idx.y - Nh;
+        float s = l2_distance(x,y)/(Nh*max_res);
+
+        if(s<1.0) {
+            float def_ref = (p_def[ss_idx.z].U+p_def[ss_idx.z].V)/2;
+            float u = s*s*Nh;
+
+            if( def_ref > SUSAN_FLOAT_TOL ) {
+                float def_ang = calc_def(x,y,p_def[ss_idx.z].U,p_def[ss_idx.z].V,p_def[ss_idx.z].angle);
+                u *= def_ang/def_ref;
+            }
+
+            float val = p_in[get_3d_idx(ss_idx,ss_siz)];
+            float w0 = 1.0f - (u - floorf(u));
+            float w1 = u - floorf(u);
+
+            #pragma unroll
+            for(int b=0;b<2;b++) {
+                int bin = (int)floorf(u) + b;
+                float w = (b==0)? w0 : w1;
+
+                #pragma unroll
+                for(int sym=0;sym<2;sym++) {
+                    int idx = (sym==0) ? (Nh+bin) : (Nh-bin);
+                    if( idx>=0 && idx<N) {
+                        atomicAdd(p_avg+idx+ss_idx.z*N, w*val);
+                        atomicAdd(p_wgt+idx+ss_idx.z*N, w);
+                    }
+                }
+            }
+        }
+    }
+}
+
 __global__ void accumulate( double*p_acc, double*p_wgt, const float*p_in, const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();

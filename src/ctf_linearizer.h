@@ -41,6 +41,27 @@
 
 #include "Eigen/Dense"
 
+/// Consecutive windows below the correlation threshold before the resolution
+/// limit is declared: one dip is noise, a run of them is the real cutoff.
+#define SNR_MAX_RES_RUN 3
+
+/// The per-projection SNR is measured over the first CTF peak, from this
+/// fraction of the first zero out to the zero itself.  Anchoring to the zero
+/// keeps projections comparable when the defocus changes between them.
+#define SNR_BAND_INNER_FRAC 0.5f
+
+/// Margin applied to the requested maximum defocus when framing the ellipse
+/// fit report, so the outermost fit is not drawn hard against the edge.
+#define SVG_DEF_MARGIN 1.2f
+
+/// Upper bound on the fitted basis: CTF^2, its slope, and the background.
+#define SNR_FIT_MAX_TERMS (SNR_BAND_BG_ORDER+3)
+
+/// Order of the polynomial that absorbs the background inside that band.
+/// Order 0 leaves the background slope in the CTF term and inverts the sign;
+/// order 4 starts absorbing the CTF peak itself.
+#define SNR_BAND_BG_ORDER 2
+
 class CtfLinearizer1D{
 
 public:
@@ -66,13 +87,16 @@ public:
     float max_nyquist;
     float lin_fpix_to_defocus;
 
-    int   verbose;
+    int   log_level;
 
     char filename[SUSAN_FILENAME_LENGTH];
 
     float u0;
     float s0;
     int   k0;
+
+    int   def_ix_min;
+    int   def_ix_max;
 
     CtfLinearizer1D(int gpu_ix, int n, int k, float w_target_apix=3.5f) {
 
@@ -108,11 +132,22 @@ public:
 
         float lambda = Math::get_lambda(p_tomo->KV);
 
-        verbose   = info->verbose;
+        log_level   = info->log_level;
 
         apix = p_tomo->pix_size;
         max_nyquist = apix/new_apix;
         lin_fpix_to_defocus = 2.0f*new_apix*new_apix/lambda;
+
+        set_defocus_search_range(info->def_min,info->def_max);
+    }
+
+    /// The defocus maps linearly onto the periodogram bin, so def_range bounds
+    /// the peak search directly.  An unset range falls back to every bin.
+    void set_defocus_search_range(float def_min,float def_max) {
+        def_ix_min = int( floorf( def_min/lin_fpix_to_defocus ) );
+        def_ix_max = int( ceilf ( def_max/lin_fpix_to_defocus ) );
+        if( def_ix_min < 1 ) def_ix_min = 1;
+        if( def_ix_max <= def_ix_min || def_ix_max > int(M)-1 ) def_ix_max = int(M)-1;
     }
 
     float get_rough_estimate(const char*out_dir,float*input) {
@@ -133,7 +168,7 @@ public:
             tmp[m] = 0;
 
         for(int k=0;k<K;k++)
-            for(int m=0;m<M;m++) {
+            for(int m=def_ix_min;m<=def_ix_max;m++) {
                 if( c_linear[m+k*int(M)] > max_val ) {
                     max_val = c_linear[m+k*int(M)];
                     k0 = k;
@@ -142,7 +177,7 @@ public:
             }
 
         max_val = 0;
-        for(int m=0;m<M;m++) {
+        for(int m=def_ix_min;m<=def_ix_max;m++) {
             if( tmp[m] > max_val ) {
                 max_val = tmp[m];
                 u0 = m;
@@ -247,7 +282,7 @@ protected:
 
     void save_gpu_mrc(single*p_cpu,const single*p_gpu,const int m,const int n,const int k,const char*out_dir,const char*name,const int req_verb) {
         cudaMemcpy((void*)p_cpu, (const void*)p_gpu, sizeof(float)*m*n*k, cudaMemcpyDeviceToHost);
-        if( verbose >= req_verb ) {
+        if( log_level >= req_verb ) {
             sprintf(filename,"%s/%s",out_dir,name);
             Mrc::write(p_cpu,m,n,k,filename);
         }
@@ -269,6 +304,7 @@ protected:
         float*buf_m_var;
         float*buf_cum_s1;
         float*buf_cum_s2;
+        float*buf_corr;
 
         float apix;
         float lambda_pi;
@@ -287,6 +323,7 @@ protected:
             buf_m_var  = new float[M];
             buf_cum_s1 = new float[M];
             buf_cum_s2 = new float[M];
+            buf_corr   = new float[M];
 
             AC = ac;
             CA = sqrt(1.0-AC*AC);
@@ -301,6 +338,7 @@ protected:
             delete [] buf_m_var;
             delete [] buf_cum_s1;
             delete [] buf_cum_s2;
+            delete [] buf_corr;
         }
 
         void refine_ctf_hybrid(float&best_score,float&delta_def,float&phase_shift,int&max_fpix,const float*p_data,float init_defocus,bool est_phase=true) {
@@ -353,7 +391,6 @@ protected:
             max_fpix   = last_th;
         }
 
-    protected:
         void ctf_1D(float def_angs,float phase_shift_rad) {
 
             float df = 1.0f/(N*apix);
@@ -369,6 +406,7 @@ protected:
             }
         }
 
+    protected:
         void local_std(int window) {
             int wsize = 2*window+1;
 
@@ -495,6 +533,109 @@ protected:
             return (rss1-rss2)/rss1;
         }
 
+    public:
+        /// First CTF zero, in Fourier pixels: the radius where gamma reaches pi.
+        /// Both the resolution estimate and the SNR band are anchored to it so
+        /// that projections with different defocus are compared at equivalent
+        /// positions of the CTF rather than at fixed spatial frequencies.
+        int ctf_zero_fpix(float def,float phase,int n_zero) {
+            float target = float(n_zero)*(float)M_PI;
+            for(int i=1;i<M;i++) {
+                float s  = float(i)/(float(N)*apix);
+                float s2 = s*s;
+                float g  = lambda_pi*def*s2 - lambda3_Cs_pi_2*s2*s2 + phase;
+                if( g >= target )
+                    return i;
+            }
+            return 0;
+        }
+
+        int first_zero_fpix(float def,float phase) {
+            return ctf_zero_fpix(def,phase,1);
+        }
+
+        /// Highest frequency at which the fitted CTF still explains the data.
+        ///
+        /// Inside a window spanning at least one oscillation the radial average
+        /// is P = A*CTF^2 + background.  Removing a local linear trend from both
+        /// the data and the model leaves only the oscillation, so their
+        /// correlation says whether the rings are really there.  Walking
+        /// outwards from the first zero, the resolution limit is where the
+        /// correlation first falls below thres and stays there.
+        ///
+        /// This measures the model against the data, unlike var_split_index,
+        /// which detects a change of regime in the metric's local variance and
+        /// cannot be tied to a stated criterion.
+        int estimate_max_fpix(const float*p_raw,float def,float phase,float thres) {
+
+            ctf_1D(def,phase);
+
+            int hw = M/12;
+            if( hw < 4 ) hw = 4;
+
+            for(int i=0;i<M;i++)
+                buf_corr[i] = 0.0f;
+
+            for(int i=hw;i<M-hw;i++) {
+
+                int   n  = 2*hw+1;
+                int   i0 = i-hw;
+                float sx=0,sy=0,sz=0,sxx=0,sxy=0,sxz=0;
+
+                for(int j=0;j<n;j++) {
+                    float t = float(j)/float(n-1) - 0.5f;
+                    float a = p_raw[i0+j];
+                    float b = buf_ctf[i0+j]*buf_ctf[i0+j];
+                    sx += t; sy += a; sz += b;
+                    sxx += t*t; sxy += t*a; sxz += t*b;
+                }
+
+                float den_t = sxx - sx*sx/n;
+                if( den_t < SUSAN_FLOAT_TOL ) continue;
+
+                float ma = sy/n, mb = sz/n;
+                float ka = (sxy - sx*sy/n)/den_t;
+                float kb = (sxz - sx*sz/n)/den_t;
+
+                float saa=0,sbb=0,sab=0;
+                for(int j=0;j<n;j++) {
+                    float t = float(j)/float(n-1) - 0.5f;
+                    float a = p_raw[i0+j]                 - (ma + ka*t);
+                    float b = buf_ctf[i0+j]*buf_ctf[i0+j] - (mb + kb*t);
+                    saa += a*a; sbb += b*b; sab += a*b;
+                }
+
+                if( saa < SUSAN_FLOAT_TOL || sbb < SUSAN_FLOAT_TOL ) continue;
+
+                buf_corr[i] = sab/sqrtf(saa*sbb);
+            }
+
+            /// Below the first zero CTF^2 is a single hump: too few oscillations
+            /// inside the window for the correlation to mean anything, so the
+            /// walk starts there.
+            int i_start = first_zero_fpix(def,phase);
+            if( i_start < hw ) i_start = hw;
+
+            int last_pass = 0;
+            int n_fail    = 0;
+
+            for(int i=i_start;i<M-hw;i++) {
+                if( buf_corr[i] > thres ) {
+                    last_pass = i;
+                    n_fail    = 0;
+                }
+                else {
+                    n_fail++;
+                    /// A single dip is noise; a run of them is the limit.
+                    if( n_fail >= SNR_MAX_RES_RUN )
+                        break;
+                }
+            }
+
+            return last_pass;
+        }
+
+    protected:
         float compute_score(float delta_def,float phase,const float*p_data,float init_defocus) {
 
             ctf_1D(init_defocus+delta_def,phase);
@@ -560,10 +701,16 @@ public:
     int def_ix_min;
     int def_ix_max;
 
-    int  verbose;
+    float def_max_angs;
+
+    int  log_level;
     bool est_phase_shift;
+    bool est_initial_snr;
+    float res_thres;
 
     float   *c_ini_idx;
+    float   *c_prj_wgt;
+    bool    *c_wide;
     Defocus *c_estimate;
 
     float lambda_kv;
@@ -590,13 +737,21 @@ public:
         GPU::set_device(gpu_ix);
 
         c_ini_idx  = new float[int(K)];
+        c_prj_wgt  = new float[int(K)];
+        c_wide     = new bool[int(K)];
         c_estimate = new Defocus[int(K)];
         memset((void*)c_estimate,0,sizeof(Defocus)*int(K));
+        for(int k=0;k<int(K);k++) {
+            c_prj_wgt[k] = 1.0f;
+            c_wide[k]    = false;
+        }
     }
 
     ~CtfLinearizer() {
 
         delete [] c_ini_idx;
+        delete [] c_prj_wgt;
+        delete [] c_wide;
         delete [] c_estimate;
     }
 
@@ -605,13 +760,19 @@ public:
         float lambda = Math::get_lambda(p_tomo->KV);
 
         apix = p_tomo->pix_size;
-        verbose = info->verbose;
+        log_level = info->log_level;
         est_phase_shift = info->est_phase_shift;
+        est_initial_snr = info->est_initial_snr;
+        res_thres       = info->res_thres;
         max_nyquist = apix/new_apix;
         lin_fpix_to_defocus = 2.0f*new_apix*new_apix/lambda;
 
+        def_max_angs = info->def_max;
+
         def_ix_min = int( floorf( info->def_min/lin_fpix_to_defocus ) );
         def_ix_max = int( ceilf ( info->def_max/lin_fpix_to_defocus ) );
+        if( def_ix_min < 1 ) def_ix_min = 1;
+        if( def_ix_max <= def_ix_min || def_ix_max > int(M)-1 ) def_ix_max = int(M)-1;
 
         CS = p_tomo->CS;
         AC = p_tomo->AC;
@@ -644,7 +805,7 @@ public:
 
         /// DOWNLOAD TO CPU AND FIND INITIAL PEAKS
         cudaMemcpy( (void*)c_linear, (const void*)g_ps.ptr, sizeof(float)*M*K, cudaMemcpyDeviceToHost);
-        if( verbose > 1 ) {
+        if( log_level > 1 ) {
             sprintf(filename,"%s/ps_lin_norm.mrc",out_dir);
             Mrc::write(c_linear,M,K,1,filename);
             Mrc::set_apix(filename,new_apix,M,K,1);
@@ -700,11 +861,229 @@ public:
         /// FLAG EMPTY PROJECTIONS (blank frames in the stack)
         mark_empty_projections(input,p_tomo);
 
+        /// INITIAL PER-PROJECTION WEIGHT FROM THE FIRST CTF PEAK
+        if( est_initial_snr )
+            estimate_initial_snr(input,out_dir);
+
         /// SAVE RESULTS
         save_fitting(out_dir,c_buffer,g_input);
         save_defocus_result(out_dir);
 
         delete [] c_buffer;
+    }
+
+    /// Initial per-projection weight from the strength of the first CTF peak.
+    ///
+    /// Over the first CTF peak the astigmatism-compensated radial average is
+    ///     P(r) = A*CTF^2(r) + background(r),
+    /// so a least squares fit of that model gives the signal amplitude A and
+    /// the background level, and SSNR = A/background.  prj_w enters the
+    /// reconstruction as an inverse-variance weight, which is proportional to
+    /// SSNR, so the fitted ratio is stored directly.
+    ///
+    /// The band is anchored to the first zero rather than to fixed spatial
+    /// frequencies: the defocus changes from projection to projection, which
+    /// moves the peak and would otherwise change the amount of signal each
+    /// projection is credited with.  Anchoring compares every projection over
+    /// the same stretch of the CTF, and because the result is a ratio it does
+    /// not depend on how many samples the band happens to contain.
+    void estimate_initial_snr(float*input,const char*out_dir) {
+
+        /// The background is a term of the model and the denominator of the
+        /// ratio, so this pass runs on the raw average, not on the
+        /// background-removed one used for the defocus refinement.
+        GPU::GArrSingle  g_raw;
+        GPU::GArrSingle  g_acc;
+        GPU::GArrSingle  g_wgt;
+        GPU::GArrDefocus g_def;
+
+        g_raw.alloc(M*N*K);
+        g_acc.alloc(N*K);
+        g_wgt.alloc(N*K);
+        g_def.alloc(K);
+        g_acc.clear();
+        g_wgt.clear();
+
+        cudaMemcpy((void*)g_raw.ptr,(const void*)input,sizeof(float)*int(M)*int(N)*int(K),cudaMemcpyHostToDevice);
+        cudaMemcpy((void*)g_def.ptr,(const void*)c_estimate,sizeof(Defocus)*int(K),cudaMemcpyHostToDevice);
+
+        dim3 blk = GPU::get_block_size_2D();
+        int3 siz_ps  = make_int3(M,N,K);
+        dim3 grd_ps  = GPU::calc_grid_size(blk,siz_ps);
+        int3 siz_rad = make_int3(N,K,1);
+        dim3 grd_rad = GPU::calc_grid_size(blk,siz_rad);
+
+        GpuKernelsCtf::ctf_radial_normalize_and_avg<<<grd_ps,blk>>>(g_acc.ptr,g_wgt.ptr,g_raw.ptr,g_def.ptr,siz_ps);
+        GpuKernels::divide<<<grd_rad,blk>>>(g_acc.ptr,g_wgt.ptr,siz_rad);
+
+        float*c_prof = new float[int(N)*int(K)];
+        cudaMemcpy((void*)c_prof,(const void*)g_acc.ptr,sizeof(float)*int(N)*int(K),cudaMemcpyDeviceToHost);
+        Math::fftshift_1D_batch(c_prof,int(N),int(K));
+
+        CtfRefiner refiner(int(M),int(N),int(K),apix,lambda_kv,AC,CS);
+
+        for(int k=0;k<int(K);k++) {
+
+            float def = (c_estimate[k].U+c_estimate[k].V)/2;
+
+            if( def < SUSAN_FLOAT_TOL ) {
+                c_prj_wgt[k] = 0.0f;
+                continue;
+            }
+
+            int r1 = refiner.ctf_zero_fpix(def,c_estimate[k].ph_shft,1);
+            int r2 = refiner.ctf_zero_fpix(def,c_estimate[k].ph_shft,2);
+            int r0 = (int)(SNR_BAND_INNER_FRAC*r1);
+
+            if( r1 <= 0 || r1 >= int(M) || (r1-r0) < (SNR_BAND_BG_ORDER+4) ) {
+                c_prj_wgt[k] = 0.0f;
+                continue;
+            }
+
+            /// Two peaks whenever the second zero is inside the profile; the
+            /// oscillation is what separates the signal from the background.
+            /// At low defocus it falls beyond the fitted range, and the fit
+            /// falls back to the first peak alone.
+            c_wide[k] = ( r2 > r1 && r2 < int(M) && (r2-r0) >= (SNR_BAND_BG_ORDER+6) );
+            int r_end = c_wide[k] ? r2 : r1;
+
+            refiner.ctf_1D(def,c_estimate[k].ph_shft);
+            c_prj_wgt[k] = fit_band_ssnr(c_prof+k*int(N),refiner.buf_ctf,r0,r_end,r1,c_wide[k]);
+        }
+
+        normalize_prj_wgt();
+
+        if( log_level > 0 )
+            save_snr_report(out_dir);
+
+        delete [] c_prof;
+    }
+
+    /// Least squares fit of
+    ///     P(r) = (A0 + A1*t)*CTF^2(r) + sum_p b_p*t^p
+    /// over [r0,r_end), with t normalized to [0,1] across that range.
+    ///
+    /// The amplitude slope is used only when the band spans two CTF peaks.  A
+    /// single amplitude cannot match both once the envelope has decayed
+    /// between them, and that mismatch is structured in r, so the background
+    /// polynomial absorbs it and the estimate degrades; the slope removes it.
+    /// Over one peak the slope is collinear with the polynomial and is left
+    /// out.
+    ///
+    /// The ratio is always evaluated over the first peak, [r0,r1): the
+    /// amplitude at the centre of that stretch over the mean background on it.
+    float fit_band_ssnr(const float*p_prof,const float*p_ctf,int r0,int r_end,int r1,bool use_slope) {
+
+        const int n_bg = SNR_BAND_BG_ORDER+1;
+        const int nb   = 1 + (use_slope?1:0) + n_bg;
+        const int i_bg = nb - n_bg;              /// first background column
+
+        int n    = r_end-r0;
+        int n_pk = r1-r0;
+
+        if( n < nb+2 || n_pk < 2 )
+            return 0.0f;
+
+        double AtA[SNR_FIT_MAX_TERMS*SNR_FIT_MAX_TERMS];
+        double Atb[SNR_FIT_MAX_TERMS];
+        double basis[SNR_FIT_MAX_TERMS];
+
+        for(int i=0;i<nb*nb;i++) AtA[i] = 0.0;
+        for(int i=0;i<nb;i++)    Atb[i] = 0.0;
+
+        for(int i=0;i<n;i++) {
+            float  t  = float(i)/float(n-1);
+            double c2 = p_ctf[r0+i]*p_ctf[r0+i];
+
+            basis[0] = c2;
+            if( use_slope ) basis[1] = c2*t;
+
+            double tp = 1.0;
+            for(int q=0;q<n_bg;q++) { basis[i_bg+q] = tp; tp *= t; }
+
+            double y = p_prof[r0+i];
+            for(int a=0;a<nb;a++) {
+                Atb[a] += basis[a]*y;
+                for(int b=0;b<nb;b++)
+                    AtA[a*nb+b] += basis[a]*basis[b];
+            }
+        }
+
+        /// Gauss-Jordan with partial pivoting: the system is at most 5x5.
+        double sol[SNR_FIT_MAX_TERMS];
+        for(int i=0;i<nb;i++) sol[i] = Atb[i];
+        for(int c=0;c<nb;c++) {
+            int piv = c;
+            for(int rr=c+1;rr<nb;rr++)
+                if( fabs(AtA[rr*nb+c]) > fabs(AtA[piv*nb+c]) ) piv = rr;
+            if( fabs(AtA[piv*nb+c]) < 1e-12 ) return 0.0f;
+            if( piv != c ) {
+                for(int j=0;j<nb;j++) std::swap(AtA[c*nb+j],AtA[piv*nb+j]);
+                std::swap(sol[c],sol[piv]);
+            }
+            double d = AtA[c*nb+c];
+            for(int j=0;j<nb;j++) AtA[c*nb+j] /= d;
+            sol[c] /= d;
+            for(int rr=0;rr<nb;rr++) {
+                if( rr==c ) continue;
+                double f = AtA[rr*nb+c];
+                for(int j=0;j<nb;j++) AtA[rr*nb+j] -= f*AtA[c*nb+j];
+                sol[rr] -= f*sol[c];
+            }
+        }
+
+        /// Amplitude at the centre of the first peak, background averaged on it.
+        double t_mid = 0.0;
+        double bg    = 0.0;
+        for(int i=0;i<n_pk;i++) {
+            float  t  = float(i)/float(n-1);
+            double tp = 1.0, v = 0.0;
+            for(int q=0;q<n_bg;q++) { v += sol[i_bg+q]*tp; tp *= t; }
+            bg    += v;
+            t_mid += t;
+        }
+        bg    /= n_pk;
+        t_mid /= n_pk;
+
+        double A = sol[0] + ( use_slope ? sol[1]*t_mid : 0.0 );
+
+        if( bg <= 0.0 || A <= 0.0 )
+            return 0.0f;
+
+        return (float)(A/bg);
+    }
+
+    void normalize_prj_wgt() {
+        float max_wgt = 0;
+        for(int k=0;k<int(K);k++)
+            max_wgt = fmaxf(max_wgt,c_prj_wgt[k]);
+
+        if( max_wgt < SUSAN_FLOAT_TOL ) {
+            /// No usable first peak anywhere: fall back to uniform weights.
+            for(int k=0;k<int(K);k++)
+                c_prj_wgt[k] = 1.0f;
+            return;
+        }
+
+        for(int k=0;k<int(K);k++)
+            c_prj_wgt[k] = c_prj_wgt[k]/max_wgt;
+    }
+
+    void save_snr_report(const char*out_dir) {
+        sprintf(filename,"%s/initial_snr.txt",out_dir);
+        FILE*fp = fopen(filename,"w");
+        fprintf(fp,"# proj   defocus    zero_1  zero_2       band_fpix   mode   max_res     prj_wgt\n");
+        CtfRefiner refiner(int(M),int(N),int(K),apix,lambda_kv,AC,CS);
+        for(int k=0;k<int(K);k++) {
+            float def = (c_estimate[k].U+c_estimate[k].V)/2;
+            int r1 = (def>SUSAN_FLOAT_TOL) ? refiner.ctf_zero_fpix(def,c_estimate[k].ph_shft,1) : 0;
+            int r2 = (def>SUSAN_FLOAT_TOL) ? refiner.ctf_zero_fpix(def,c_estimate[k].ph_shft,2) : 0;
+            int r0 = (int)(SNR_BAND_INNER_FRAC*r1);
+            fprintf(fp,"%6d  %10.1f  %6d  %6d   %6d-%-6d  %6s  %8.2f  %10.6f\n",
+                    k,def,r1,r2,r0,(c_wide[k]?r2:r1),(c_wide[k]?"2peak":"1peak"),
+                    c_estimate[k].max_res,c_prj_wgt[k]);
+        }
+        fclose(fp);
     }
 
     /// A blank frame in the stack yields an all-zero averaged power spectrum
@@ -730,6 +1109,7 @@ public:
                 c_estimate[k].ExpFilt = 0.0f;
                 c_estimate[k].max_res = 0.0f;
                 c_estimate[k].score   = 0.0f;
+                c_prj_wgt[k]          = 0.0f;
             }
         }
     }
@@ -737,7 +1117,7 @@ public:
 
 protected:
     void save_cpu_mrc(single*p_cpu,const int m,const int n,const int k,const char*out_dir,const char*name,const int req_verb) {
-        if( verbose >= req_verb ) {
+        if( log_level >= req_verb ) {
             sprintf(filename,"%s/%s",out_dir,name);
             Mrc::write(p_cpu,m,n,k,filename);
         }
@@ -797,7 +1177,7 @@ protected:
             p_avg[m] = 0;
 
         for(int k=0;k<K;k++)
-            for(int m=0;m<M;m++) {
+            for(int m=def_ix_min;m<=def_ix_max;m++) {
                 if( c_linear[m+k*int(M)] > max_val ) {
                     max_val = c_linear[m+k*int(M)];
                     k0 = k;
@@ -806,7 +1186,7 @@ protected:
             }
 
         max_val = 0;
-        for(int m=0;m<M;m++) {
+        for(int m=def_ix_min;m<=def_ix_max;m++) {
             if( p_avg[m] > max_val ) {
                 max_val = p_avg[m];
                 u0 = m;
@@ -1155,7 +1535,7 @@ protected:
             update_estimate_from_covariance(k,cov);
         }
 
-        if( verbose > 0 ) {
+        if( log_level > 0 ) {
             sprintf(filename,"%s/ctf_ellipse_fit",out_dir);
             IO::create_dir(filename);
             float vmin=0;
@@ -1168,7 +1548,9 @@ protected:
             for(int k=0;k<K;k++) {
                 float*p_frame = p_data + k*n*n;
                 sprintf(filename,"%s/ctf_ellipse_fit/projection_%02d.svg",out_dir,k);
-                ctf_ellipse_fit_to_svg(filename,p_frame,(int)N,min_val,max_val,lin_fpix_to_defocus/scale,c_estimate[k].U,c_estimate[k].V,c_estimate[k].angle);
+                ctf_ellipse_fit_to_svg(filename,p_frame,(int)N,min_val,max_val,lin_fpix_to_defocus/scale,
+                                       c_estimate[k].U,c_estimate[k].V,c_estimate[k].angle,
+                                       def_max_angs*SVG_DEF_MARGIN);
             }
         }
 
@@ -1240,7 +1622,7 @@ protected:
         float delta_def,phase_shift,max_score;
         int   max_fpix;
 
-        if( verbose>0 ) {
+        if( log_level>0 ) {
             sprintf(filename,"%s/ctf_radial_fit",out_dir);
             IO::create_dir(filename);
         }
@@ -1253,10 +1635,15 @@ protected:
             c_estimate[k].V += delta_def;
             c_estimate[k].ph_shft = est_phase_shift ? phase_shift : 0.0f;
             c_estimate[k].score   = max_score;
-            c_estimate[k].max_res = N*apix/max_fpix;
             c_estimate[k].Bfactor = 0.0f;
             c_estimate[k].ExpFilt = 0.0f;
-            if( verbose>0 ) {
+
+            /// Resolution limit from where the CTF stops explaining the data,
+            /// measured on the raw (not amplitude-normalized) radial average.
+            max_fpix = ctf_refiner.estimate_max_fpix(c_ps_raw+k*int(N),ini_def+delta_def,
+                                                     c_estimate[k].ph_shft,res_thres);
+            c_estimate[k].max_res = (max_fpix>0) ? N*apix/max_fpix : 0.0f;
+            if( log_level>0 ) {
                 float p_tmp[int(M)];
                 sprintf(filename,"%s/ctf_radial_fit/projection_%02d.svg",out_dir,k);
                 SvgCtf svg_ctf(filename,apix);
@@ -1266,6 +1653,7 @@ protected:
                 svg_ctf.add_fit(p_tmp,int(M));
                 for(int i=0;i<int(M);i++) p_tmp[i] = fminf( fmaxf(c_ps_raw[i+k*int(N)]+0.5,0),1.0f);
                 svg_ctf.add_avg(p_tmp,int(M));
+                svg_ctf.add_corr(ctf_refiner.buf_corr,int(M),res_thres);
                 svg_ctf.create_legend();
                 svg_ctf.create_title(k,ini_def+delta_def);
             }
@@ -1299,11 +1687,14 @@ protected:
         sprintf(filename,"%s/defocus.txt",out_dir);
         FILE*fp = fopen(filename,"w");
         for(int k=0;k<K;k++) {
-            IO::DefocusIO::write(fp,c_estimate[k]);
+            IO::DefocusIO::write(fp,c_estimate[k],c_prj_wgt[k]);
         }
 
         fclose(fp);
     }
+
+
+
 
 };
 

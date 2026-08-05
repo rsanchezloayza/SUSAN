@@ -76,7 +76,6 @@ public:
     int gpu_ix;
     int N;
     int max_K;
-    float binning;
     DoubleBufferHandler *p_buffer;
     GPU::GHostSingle    *c_rslt;
 
@@ -225,7 +224,6 @@ protected:
         gpu_worker.N          = p_info->box_size;
         gpu_worker.max_K      = max_K;
         gpu_worker.c_rslt     = &c_rslt;
-        gpu_worker.binning    = pow(2.0,p_info->binning);
         gpu_worker.start();
     }
 
@@ -348,8 +346,12 @@ protected:
         sprintf(filename,"%s/Tomo%05d",p_info->out_dir,tomo.tomo_id);
         IO::create_dir(filename);
 
-        printf("        Tomo %3d [%5d particles]: %6.2f%%",tomo.tomo_id,ptcls.n_ptcl,0.0);
-        fflush(stdout);
+        bool show = ( p_info->verbosity != VERBOSITY_MINIMAL );
+
+        if( show ) {
+            printf("        Tomo %3d [%5d particles]: %6.2f%%",tomo.tomo_id,ptcls.n_ptcl,0.0);
+            fflush(stdout);
+        }
 
         w_cmd.presend_sync();
         for(int i=0;i<p_info->n_threads;i++) {
@@ -358,24 +360,29 @@ protected:
         w_cmd.send_command(CtfCmd::CTF_AVG);
 
         while( (count=count_progress()) < ptcls.n_ptcl ) {
-            printf("\r      - Tomo %3d [%5d particles]: %6.2f%%",tomo.tomo_id,ptcls.n_ptcl,100*float(count)/float(ptcls.n_ptcl));
-            fflush(stdout);
+            if( show ) {
+                printf("\r      - Tomo %3d [%5d particles]: %6.2f%%",tomo.tomo_id,ptcls.n_ptcl,100*float(count)/float(ptcls.n_ptcl));
+                fflush(stdout);
+            }
             sleep(2);
         }
-        printf("\r      - Tomo %3d [%5d particles]: %6.2f%%.",tomo.tomo_id,ptcls.n_ptcl,100.0);
-        fflush(stdout);
+        if( show ) {
+            printf("\r      - Tomo %3d [%5d particles]: %6.2f%%.",tomo.tomo_id,ptcls.n_ptcl,100.0);
+            fflush(stdout);
+        }
 
         w_cmd.presend_sync();
         clear_workers();
         reduce_and_bcast(tomo.stk_dim.z);
-        if( p_info->verbose > 1 ) {
+        if( p_info->log_level > 1 ) {
             sprintf(filename,"%s/Tomo%05d/ctf_average_raw.mrc",p_info->out_dir,tomo.tomo_id);
             Mrc::write(workers[0].c_rslt.ptr,(p_info->box_size/2)+1,p_info->box_size,tomo.num_proj,filename);
         }
         sprintf(filename,"%s/Tomo%05d",p_info->out_dir,tomo.tomo_id);
         int k0;
         float tomo_def = initial_estimation(workers[0].base_defocus,k0,filename,workers[0].c_rslt.ptr,tomo);
-        printf(" Initial tomogram Defocus: %8.1f Å\n",tomo_def);
+        if( show )
+            printf(" Initial tomogram Defocus: %8.1f Å\n",tomo_def);
 
         for(int i=0;i<p_info->n_threads;i++) {
             workers[i].k0 = k0;
@@ -388,18 +395,22 @@ protected:
         w_cmd.send_command(CtfCmd::CTF_NORM);
 
         while( (count=count_progress()) < ptcls.n_ptcl ) {
-            printf("\r        Normalizing [%5d particles]: %6.2f%%",ptcls.n_ptcl,100*float(count)/float(ptcls.n_ptcl));
-            fflush(stdout);
+            if( show ) {
+                printf("\r        Normalizing [%5d particles]: %6.2f%%",ptcls.n_ptcl,100*float(count)/float(ptcls.n_ptcl));
+                fflush(stdout);
+            }
             sleep(2);
         }
-        printf("\r        Normalizing [%5d particles]: %6.2f%%.",ptcls.n_ptcl,100.0);
-        fflush(stdout);
-        printf("\n");
+        if( show ) {
+            printf("\r        Normalizing [%5d particles]: %6.2f%%.",ptcls.n_ptcl,100.0);
+            fflush(stdout);
+            printf("\n");
+        }
 
         w_cmd.presend_sync();
         clear_workers();
         reduce_and_bcast(tomo.stk_dim.z);
-        if( p_info->verbose > 1 ) {
+        if( p_info->log_level > 1 ) {
             sprintf(filename,"%s/Tomo%05d/ctf_normalized_raw.mrc",p_info->out_dir,tomo.tomo_id);
             Mrc::write(workers[0].c_rslt.ptr,(p_info->box_size/2)+1,p_info->box_size,tomo.num_proj,filename);
         }
@@ -446,7 +457,7 @@ protected:
     float initial_estimation(single*p_def_rslt,int&k0,const char*out_dir,single*p_data,Tomogram&tomo) {
         float def_sign = (p_info->is_overfocus) ? -1.0f : 1.0f;
 
-        CtfLinearizer1D ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj);
+        CtfLinearizer1D ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj,p_info->res_max/2);
         ctf_lin.load_info(p_info,&tomo);
         float defocus = def_sign*ctf_lin.get_rough_estimate(out_dir,p_data);
         for(int k=0;k<tomo.num_proj;k++)
@@ -456,7 +467,7 @@ protected:
     }
 
     void post_process(const char*out_dir,single*p_data,Tomogram&tomo,int k0) {
-        CtfLinearizer ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj);
+        CtfLinearizer ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj,p_info->res_max/2);
         ctf_lin.load_info(p_info,&tomo);
         ctf_lin.initial_estimation(out_dir,p_data);
         ctf_lin.process(out_dir,p_data,&tomo,k0,p_info->is_overfocus);

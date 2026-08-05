@@ -32,19 +32,15 @@ namespace ArgsCTF {
 typedef struct {
     uint32 n_threads;
     uint32 box_size;
-    uint32 binning;
-    single res_min;
     single res_max;
     single def_min;
     single def_max;
-    single tlt_range;
-    single ref_range;
-    single ref_step;
     single res_thres;
-    single bfac_max;
     bool   is_overfocus;
     bool   est_phase_shift;
-    int    verbose;
+    bool   est_initial_snr;
+    int    verbosity;
+    int    log_level;
     int    n_gpu;
     uint32 p_gpu[SUSAN_MAX_N_GPU];
     char   out_dir[SUSAN_FILENAME_LENGTH];
@@ -54,8 +50,8 @@ typedef struct {
 
 inline bool validate(const Info&info) {
     bool rslt = true;
-    if( info.res_min <= info.res_max ) {
-        fprintf(stderr,"Invalid resolution range: %f - %f.\n",info.res_min,info.res_max);
+    if( info.res_max <= 0 ) {
+        fprintf(stderr,"Invalid maximum resolution: %f.\n",info.res_max);
         rslt = false;
     }
     if( info.def_max <= info.def_min ) {
@@ -87,43 +83,37 @@ inline bool parse_args(Info&info,int ac,char** av) {
     /// Default values:
     info.n_threads = 1;
     info.box_size  = 512;
-    info.binning   = 0;
     info.res_thres = 0.5;
-    info.res_min   = 0;
-    info.res_max   = 0;
+    info.res_max   = 7;
     info.def_min   = 0;
     info.def_max   = 0;
-    info.tlt_range = 2000;
-    info.ref_range = 2000;
-    info.ref_step  = 100;
-    info.bfac_max  = 700;
     info.n_gpu     = 0;
-    info.verbose   = 0;
+    info.verbosity = VERBOSITY_BASIC;
+    info.log_level = 0;
     memset(info.p_gpu   ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.out_dir ,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     memset(info.ptcls_in,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     memset(info.tomos_in,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     info.is_overfocus    = true;
     info.est_phase_shift = true;
+    info.est_initial_snr = false;
 
     /// Parse inputs:
     enum {
         TOMOS_IN,
         DATA_OUT,
-        RES_RANGE,
+        RES_MAX,
         RES_THRES,
         DEF_RANGE,
-        TLT_RANGE,
-        REFINE,
-        BINNING,
         PTCLS_FILE,
         BOX_SIZE,
         N_THREADS,
         GPU_LIST,
-        BFAC_MAX,
         OVERFOCUS,
         EST_PHASE_SHIFT,
-        VERBOSE
+        EST_INITIAL_SNR,
+        VERBOSITY,
+        LOG_LEVEL
     };
 
     int c;
@@ -133,17 +123,15 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"ptcls_file", 1, 0, PTCLS_FILE},
         {"box_size",   1, 0, BOX_SIZE  },
         {"n_threads",  1, 0, N_THREADS },
-        {"res_range",  1, 0, RES_RANGE },
+        {"res_max",    1, 0, RES_MAX   },
         {"res_thres",  1, 0, RES_THRES },
         {"def_range",  1, 0, DEF_RANGE },
-        {"tilt_search",1, 0, TLT_RANGE },
-        {"refine_def" ,1, 0, REFINE    },
-        {"binning",    1, 0, BINNING   },
         {"gpu_list",   1, 0, GPU_LIST  },
-        {"verbose",    1, 0, VERBOSE   },
-        {"bfactor_max",    1, 0, BFAC_MAX        },
+        {"verbosity",  1, 0, VERBOSITY },
+        {"log_level",  1, 0, LOG_LEVEL },
         {"overfocus",      1, 0, OVERFOCUS       },
         {"est_phase_shift",1, 0, EST_PHASE_SHIFT },
+        {"est_initial_snr",1, 0, EST_INITIAL_SNR },
         {0, 0, 0, 0}
     };
     
@@ -166,23 +154,20 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case N_THREADS:
                 info.n_threads = atoi(optarg);
                 break;
-            case TLT_RANGE:
-                info.tlt_range = atof(optarg);
-                break;
-            case BINNING:
-                info.binning = atoi(optarg);
-                break;
             case OVERFOCUS:
                 info.is_overfocus = atoi(optarg)>0;
                 break;
             case EST_PHASE_SHIFT:
                 info.est_phase_shift = atoi(optarg)>0;
                 break;
+            case EST_INITIAL_SNR:
+                info.est_initial_snr = atoi(optarg)>0;
+                break;
             case GPU_LIST:
                 info.n_gpu = ArgParser::get_list_integers(info.p_gpu,optarg);
                 break;
-            case RES_RANGE:
-                ArgParser::get_single_pair(info.res_min,info.res_max,optarg);
+            case RES_MAX:
+                info.res_max = atof(optarg);
                 break;
             case RES_THRES:
                 info.res_thres = atof(optarg);
@@ -190,14 +175,11 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case DEF_RANGE:
                 ArgParser::get_single_pair(info.def_min,info.def_max,optarg);
                 break;
-            case REFINE:
-                ArgParser::get_single_pair(info.ref_range,info.ref_step,optarg);
+            case VERBOSITY:
+                info.verbosity = atoi(optarg);
                 break;
-            case BFAC_MAX:
-                info.bfac_max = atof(optarg);
-                break;
-            case VERBOSE:
-                info.verbose = atoi(optarg);
+            case LOG_LEVEL:
+                info.log_level = atoi(optarg);
                 break;
             default:
                 printf("Unknown parameter %d\n",c);
@@ -216,13 +198,7 @@ inline void print(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"\t\tTomograms file: %s.\n",info.tomos_in);
     fprintf(fp,"\t\tOutput folder: %s.\n",info.out_dir);
 
-    fprintf(fp,"\t\tPatch size: %dx%d, ",info.box_size,info.box_size);
-    if( info.binning > 0 ) {
-        fprintf(fp,"bin level %d.\n",info.binning);
-    }
-    else {
-        fprintf(fp,"no binning.\n");
-    }
+    fprintf(fp,"\t\tPatch size: %dx%d.\n",info.box_size,info.box_size);
 
     if( info.n_gpu > 1 ) {
         fprintf(fp,"\t\tUsing %d GPUs (GPU ids: %d",info.n_gpu,info.p_gpu[0]);
@@ -241,12 +217,12 @@ inline void print(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"and 1 thread.\n");
     }
 
-    fprintf(fp,"\t\tResolution range: %.1f - %.1f Å.\n",info.res_min,info.res_max);
+    fprintf(fp,"\t\tMaximum resolution: %.1f Å.\n",info.res_max);
+    fprintf(fp,"\t\tResolution threshold: %.2f.\n",info.res_thres);
     fprintf(fp,"\t\tDefocus range: %.2f - %.2f Å.\n",info.def_min,info.def_max);
-    fprintf(fp,"\t\tTilt search range: %.1f Å.\n",info.tlt_range);
-    fprintf(fp,"\t\tDefocus refinement range: %.2f Å.\n",info.ref_range);
-    fprintf(fp,"\t\tDefocus refinement step: %.2f Å.\n",info.ref_step);
     fprintf(fp,"\t\tPhase shift estimation: %s.\n",info.est_phase_shift?"enabled":"disabled");
+    fprintf(fp,"\t\tInitial SNR estimation: %s.\n",info.est_initial_snr?"enabled":"disabled");
+    fprintf(fp,"\t\tDebug data log level: %d.\n",info.log_level);
 
 }
 
