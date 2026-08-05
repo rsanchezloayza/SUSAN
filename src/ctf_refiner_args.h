@@ -341,8 +341,6 @@ inline void print_full(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"\t\tSubstack normalization policy: Mean=0.\n");
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(fp,"\t\tSubstack normalization policy: Mean=0, Std=1.\n");
-    if( info.norm_type == ZERO_MEAN_W_STD )
-        fprintf(fp,"\t\tSubstack normalization policy: Mean=0, Std according to projection weight.\n");
 
     fprintf(fp,"\t\tDefocus search range: %.2f.\n",info.def_range);
     fprintf(fp,"\t\tDefocus search step: %.2f.\n",info.def_step);
@@ -408,8 +406,6 @@ inline void print_basic(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"Normalized to Mean=0.\n");
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(fp,"Normalized to Mean=0, Std=1.\n");
-    if( info.norm_type == ZERO_MEAN_W_STD )
-        fprintf(fp,"Normalized to Mean=0, Std=PRJ_W.\n");
 
     fprintf(fp,"    - Defocus search: Range=%.2f, Step=%.2f.",info.def_range,info.def_step);
     fprintf(fp," Angle: Range=%.2f, Step=%.2f.",info.ang_range,info.ang_step);

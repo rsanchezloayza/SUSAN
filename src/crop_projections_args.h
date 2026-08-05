@@ -152,8 +152,6 @@ inline void print(const Info&info,FILE*fp=stdout) {
         fprintf(stdout,"\t\tSubstack normalization policy: Mean=0.\n");
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(stdout,"\t\tSubstack normalization policy: Mean=0, Std=1.\n");
-    if( info.norm_type == ZERO_MEAN_W_STD )
-        fprintf(stdout,"\t\tSubstack normalization policy: Mean=0, Std according to projection weight.\n");
 }
 
 

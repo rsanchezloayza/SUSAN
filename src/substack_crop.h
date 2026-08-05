@@ -95,10 +95,6 @@ public:
         internal_normalize_zero_mean_new_std( substack+k*N*N, 1.0f );
     }
 
-    void normalize_zero_mean_w_std(float*substack,float w,const int k) {
-        internal_normalize_zero_mean_new_std( substack+k*N*N, w );
-    }
-
 
 protected:
 

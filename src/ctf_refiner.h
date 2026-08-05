@@ -685,12 +685,6 @@ protected:
                                 ptr->c_pad.ptr[k].y = 1.0;
                             }
 
-                            if( p_info->norm_type == ZERO_MEAN_W_STD ) {
-                                Math::normalize(ss_ptr,N*N,avg,std/ptr->ptcl.prj_w[k]);
-                                ptr->c_pad.ptr[k].x = 0;
-                                ptr->c_pad.ptr[k].y = ptr->ptcl.prj_w[k];
-                            }
-
                             if( p_info->norm_type == GAT_NORMAL ) {
                                 Math::generalized_anscombe_transform_zero_mean(ss_ptr,N*N);
                                 ptr->c_pad.ptr[k].x = 0;

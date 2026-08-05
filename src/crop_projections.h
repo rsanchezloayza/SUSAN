@@ -176,7 +176,6 @@ protected:
 
             if( p_info->norm_type == NO_NORM )         std = -1.0;
             if( p_info->norm_type == ZERO_MEAN )       std =  1.0;
-            if( p_info->norm_type == ZERO_MEAN_W_STD ) std =  std/ptr.ptcl.prj_w[k];
 
             if( std > 0 )        Math::normalize(ss_ptr,N*N,avg,std);
             if( p_info->invert ) Math::mul(ss_ptr,-1.0f,N*N);

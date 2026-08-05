@@ -149,7 +149,6 @@ typedef enum {
 typedef enum {
     NO_NORM=0,
     ZERO_MEAN,
-    ZERO_MEAN_W_STD,
     ZERO_MEAN_1_STD,
     GAT_RAW,
     GAT_NORMAL

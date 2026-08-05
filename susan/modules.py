@@ -126,7 +126,7 @@ class Aligner:
     normalize_type : str
         Per-substack normalisation applied before correlation.  One of
         ``'none'``, ``'zero_mean'``, ``'zero_mean_one_std'``,
-        ``'zero_mean_unit_var'``, ``'zero_mean_proj_weight'``, ``'poisson_raw'``,
+        ``'zero_mean_unit_var'``, ``'poisson_raw'``,
         ``'poisson_normal'``.  Default: ``'zero_mean_one_std'``.
     ctf_correction : str
         CTF correction strategy.  One of ``'none'``, ``'phase_flip'``,
@@ -320,8 +320,8 @@ class Aligner:
         if not self.padding_type in ['zero','noise']:
             raise ValueError('Invalid padding type. Only "zero" or "noise" are valid')
         
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','zero_mean_proj_weight','poisson_raw','poisson_normal']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "zero_mean_proj_weight", "poisson_raw" or "poisson_normal" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
         
         if not self.ctf_correction in ['none','phase_flip','on_reference','on_substack','wiener_ssnr','cfsc']:
             raise ValueError('Invalid ctf correction type. Only "none", "phase_flip", "on_reference", "on_substack", "wiener_ssnr" or "cfsc" are valid')
@@ -500,7 +500,7 @@ class Averager:
         Default: ``'zero'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
-        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'zero_mean_proj_weight'``.
+        ``'zero_mean_one_std'`` and ``'zero_mean_unit_var'``.
         Default: ``'zero_mean_one_std'``.
     weighting_type : str
         Particle weighting scheme.  One of ``'none'``, ``'particle'``,
@@ -606,8 +606,8 @@ class Averager:
         if self.splat_gain < 0:
             raise ValueError('Invalid splat gain. Must be 0 (disabled) or positive')
 
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','zero_mean_proj_weight']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var" or "zero_mean_proj_weight" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid')
 
         if not self.weighting_type in ['none','particle','projection','3DCC','2DCC']:
             raise ValueError('Invalid weighting type. Only "none", "particle", "projection", "3DCC" or "2DCC" are valid')
@@ -743,7 +743,7 @@ class SubtomoRec:
         Default: ``'zero'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
-        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'zero_mean_proj_weight'``.
+        ``'zero_mean_one_std'`` and ``'zero_mean_unit_var'``.
         Default: ``'none'``.
     ctf_correction : str
         CTF correction applied during back-projection.  One of ``'none'``,
@@ -796,8 +796,8 @@ class SubtomoRec:
         if not self.padding_type in ['zero','noise']:
             raise ValueError('Invalid padding type. Only "zero" or "noise" are valid')
 
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','zero_mean_proj_weight']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var" or "zero_mean_proj_weight" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid')
 
         if not self.ctf_correction in ['none','phase_flip','wiener','wiener_ssnr', 'pre_wiener']:
             raise ValueError('Invalid ctf correction type. Only "none", "phase_flip", "wiener", "pre_wiener" or "wiener_ssnr" are valid')
@@ -894,7 +894,7 @@ class CropProjection:
         Number of CPU threads to use.  Default: ``1``.
     normalize_type : str
         Per-patch normalisation.  One of ``'none'``, ``'zero_mean'``,
-        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'zero_mean_proj_weight'``.
+        ``'zero_mean_one_std'`` and ``'zero_mean_unit_var'``.
         Default: ``'zero_mean_one_std'``.
     invert_contrast : bool
         Invert the sign of the cropped projections.  Default: ``False``.
@@ -906,8 +906,8 @@ class CropProjection:
         self.invert_contrast   = False
 
     def _validate(self):
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','zero_mean_proj_weight']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var" or "zero_mean_proj_weight" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid')
 
     def get_args(self, out_dir, tomos_file, ptcls_in, box_size):
         """Build the command-line argument string for ``susan_crop_projections``.
@@ -1163,7 +1163,7 @@ class CtfRefiner:
         Default: ``'zero'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
-        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'zero_mean_proj_weight'``,
+        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``,
         ``'poisson_raw'``, ``'poisson_normal'``.
         Default: ``'zero_mean_one_std'``.
     halfsets_independ : bool
@@ -1279,8 +1279,8 @@ class CtfRefiner:
         if not self.padding_type in ['zero','noise']:
             raise ValueError('Invalid padding type. Only "zero" or "noise" are valid')
         
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','zero_mean_proj_weight','poisson_raw','poisson_normal']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "zero_mean_proj_weight", "poisson_raw" or "poisson_normal" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
         
         if not self.defocus_angstroms.step > 0 or not self.angles.step > 0 or not self.phase_shift_deg.step > 0:
             raise ValueError('The steps values must be larger than 0')

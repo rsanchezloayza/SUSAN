@@ -345,8 +345,6 @@ inline void print_full(const Info&info,FILE*fp) {
         fprintf(fp,"\t\tSubstack normalization policy: Mean=0.\n");
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(fp,"\t\tSubstack normalization policy: Mean=0, Std=1.\n");
-    if( info.norm_type == ZERO_MEAN_W_STD )
-        fprintf(fp,"\t\tSubstack normalization policy: Mean=0, Std according to projection weight.\n");
 
     fprintf(fp,"\t\tSymmetry type: %s.\n",info.sym);
     if( !info.norm_output )
@@ -423,8 +421,6 @@ inline void print_basic(const Info&info,FILE*fp) {
         fprintf(fp,"Normalization (Mean=0).\n");
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(fp,"Normalization (Mean=0, Std=1).\n");
-    if( info.norm_type == ZERO_MEAN_W_STD )
-        fprintf(fp,"Normalization (Mean=0, Std=PRJ_W).\n");
 
     if( !info.norm_output || info.boost_low_fq_scale > 0 || info.ignore_ref ) {
         fprintf(fp,"    - ");
