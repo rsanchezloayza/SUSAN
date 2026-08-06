@@ -694,7 +694,7 @@ still combined with the base-defocus sign internally.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.data.Particles.export_positions">
-<span class="sig-name descname"><span class="pre">export_positions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tomograms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_cix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/susan/data/Particles.html#Particles.export_positions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Particles.export_positions" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">export_positions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tomograms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_cix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomo_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/susan/data/Particles.html#Particles.export_positions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Particles.export_positions" title="Link to this definition">¶</a></dt>
 <dd><p>Convert particle positions back to pixel coordinates relative to the tomogram corner.</p>
 <p>Inverse of the conversion done by <code class="docutils literal notranslate"><span class="pre">import_data</span></code>.  Useful for
 exporting coordinates to IMOD or other tools that expect pixel-space
@@ -704,10 +704,16 @@ positions.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tomograms</strong> (<a class="reference internal" href="susan.data.Tomograms.html#susan.data.Tomograms" title="susan.data.Tomograms"><em>Tomograms</em></a>) – Provides pixel size and tomogram dimensions.</p></li>
 <li><p><strong>ref_cix</strong> (<em>int</em><em>, </em><em>optional</em>) – Reference index whose translation is included. Default 0.</p></li>
+<li><p><strong>tomo_id</strong> (<em>int</em><em>, </em><em>optional</em>) – Restrict the output to the particles of this tomogram, in their
+stored order.  All the tomograms must share the same pixel size
+when converting the whole set; selecting one tomogram uses its own
+pixel size, so a mixed-binning set can still be exported one
+tomogram at a time.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Positions in pixels, relative to the tomogram corner.</p>
+<dd class="field-even"><p>Positions in pixels, relative to the tomogram corner.  <code class="docutils literal notranslate"><span class="pre">M</span></code> is the
+number of particles of <em>tomo_id</em> when it is given.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>ndarray, float32, shape (M, 3)</p>
