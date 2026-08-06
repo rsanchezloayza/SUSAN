@@ -18,6 +18,9 @@
 
 from __future__ import annotations
 
+import csv as _csv
+import warnings as _warnings
+
 import numpy as _np
 from susan.data._particles_core import _load_all, _save_all, _update_new_defocus
 from susan.data  import Tomograms       as _tomodef
@@ -857,7 +860,7 @@ class Particles:
             ptcls.ali_eu[:,:,2] = _np.random.uniform(0, 2*_np.pi, (n_refs,n_ptcl))
         return ptcls
     
-    def export_positions(self, tomograms, ref_cix=0) -> _np.ndarray:
+    def export_positions(self, tomograms, ref_cix=0, tomo_id=None) -> _np.ndarray:
         """Convert particle positions back to pixel coordinates relative to the tomogram corner.
 
         Inverse of the conversion done by ``import_data``.  Useful for
@@ -870,20 +873,365 @@ class Particles:
             Provides pixel size and tomogram dimensions.
         ref_cix : int, optional
             Reference index whose translation is included. Default 0.
+        tomo_id : int, optional
+            Restrict the output to the particles of this tomogram, in their
+            stored order.  All the tomograms must share the same pixel size
+            when converting the whole set; selecting one tomogram uses its own
+            pixel size, so a mixed-binning set can still be exported one
+            tomogram at a time.
 
         Returns
         -------
         ndarray, float32, shape (M, 3)
-            Positions in pixels, relative to the tomogram corner.
+            Positions in pixels, relative to the tomogram corner.  ``M`` is the
+            number of particles of *tomo_id* when it is given.
         """
-        apix = Particles._validate_tomogram(tomograms)
-        cix = tomograms.get_cix(self.tomo_id)
-        pos = _np.zeros_like(self.pos(ref_cix))
-        for i in range(pos.shape[0]):
-            tmp = self.position[i,:] + self.ali_t[ref_cix,i,:]
-            tmp = tmp/apix
-            pos[i,:] = tmp + tomograms.tomo_size[cix[i]]/2
-        return pos
+        if tomo_id is None:
+            apix = Particles._validate_tomogram(tomograms)
+            mask = _np.ones(self.n_ptcl,bool)
+        else:
+            if not isinstance(tomograms,_tomodef.Tomograms):
+                raise ValueError('Tomograms must be a Tomograms object.')
+            tomo_id = _np.uint32(tomo_id)
+            mask = (self.tomo_id == tomo_id)
+            if not mask.any():
+                raise ValueError('tomo_id %d not found in the particles.'%tomo_id)
+            apix = float(tomograms.pix_size[tomograms.get_cix(tomo_id)])
+
+        cix = tomograms.get_cix(self.tomo_id[mask])
+        pos = (self.position[mask,:] + self.ali_t[ref_cix,mask,:])/apix \
+            + _np.float32(tomograms.tomo_size[cix,:])/2
+        return pos.astype(_np.float32)
+
+    _ARTIAX_FIXED_COLUMNS = ('pos_x','pos_y','pos_z','shift_x','shift_y','shift_z',
+                             'phi','the','psi','cc','half_id','class','tomo_id')
+
+    @staticmethod
+    def _validate_artiax_extra_name(name,other):
+        if not isinstance(name,str) or len(name.strip()) == 0:
+            raise ValueError('The name of an extra column must be a non-empty string.')
+        name = name.strip()
+        if any( c in name for c in '\t\r\n' ):
+            raise ValueError('The name of an extra column cannot contain tabs or '
+                             'line breaks: ' + repr(name))
+        if name in Particles._ARTIAX_FIXED_COLUMNS or name == other:
+            raise ValueError('The extra column cannot be named ' + repr(name)
+                             + ': the name is already in use.')
+        return name
+
+    def export_artiax(self, tomograms, filename, tomo_id=None, ref_cix=0,
+                      save_extra1=False, extra1_name='extra_1',
+                      save_extra2=False, extra2_name='extra_2') -> None:
+        """Export one tomogram's particles as an ArtiaX *Generic Particle List*.
+
+        The file is the tab-separated ``.tsv`` list read by the ArtiaX plugin
+        for ChimeraX (also loadable as a Dynamo table, which uses the same
+        angular convention).  One file describes one tomogram, because the
+        positions are voxel coordinates of that tomogram.
+
+        Angles are converted from SUSAN's ZYZ (``R = Rz(α)·Ry(β)·Rz(γ)``,
+        radians) to ArtiaX's ZXZ (``M = Rz(psi)·Rx(the)·Rz(phi)``, degrees).
+        Using ``Ry(β) = Rz(90°)·Rx(β)·Rz(-90°)`` the conversion is exact::
+
+            phi = degrees(γ) - 90     the = degrees(β)     psi = degrees(α) + 90
+
+        No transpose is involved: ArtiaX's placement matrix is SUSAN's ``R``.
+        (Cross-check: SUSAN's RELION writer emits ``rot,tilt,psi = -γ,-β,-α``
+        and ArtiaX's RELION reader builds ``Rz(-psi)·Ry(-tilt)·Rz(-rot)``,
+        which is exactly ``R`` again.)
+
+        Columns written: the nine required ones (``pos_x pos_y pos_z shift_x
+        shift_y shift_z phi the psi``) plus ``cc`` (``ali_cc``), ``half_id``,
+        ``class`` (``ref_cix + 1``, 1-based as in Dynamo/RELION) and
+        ``tomo_id``, which ArtiaX keeps as per-particle metadata and can colour
+        or filter by.  :meth:`import_artiax` reads them back.
+
+        :attr:`extra_1` and :attr:`extra_2` are written on request, under a name
+        of your choosing (segment IDs, for instance).  ArtiaX parses every
+        column as a float, so there is no integer format to choose: the values
+        are written in the shortest representation that reads back as the same
+        float32, which keeps whole numbers free of decimals and fractions
+        exact.
+
+        The alignment shift is folded into ``pos_*`` (as in
+        :meth:`export_positions`) and the ``shift_*`` columns are zero, so the
+        result does not depend on the *translation* pixel size set in ArtiaX.
+        Set the *origin* pixel size in ArtiaX to the tomogram's pixel size,
+        printed by this method.
+
+        Parameters
+        ----------
+        tomograms : Tomograms or str
+            Tomogram metadata, or the path to a ``.tomostxt`` file.  Provides
+            the pixel size and the tomogram dimensions.
+        filename : str
+            Output path; must have a ``.tsv`` extension.
+        tomo_id : int, optional
+            Tomogram to export.  May be omitted when the particles belong to a
+            single tomogram; otherwise the available IDs are reported.
+        ref_cix : int, optional
+            Reference index whose alignment is exported. Default 0.
+        save_extra1, save_extra2 : bool, optional
+            Write :attr:`extra_1` / :attr:`extra_2` as an additional column.
+            Default False.
+        extra1_name, extra2_name : str, optional
+            Column names for those fields.  Defaults ``'extra_1'`` and
+            ``'extra_2'``, which :meth:`import_artiax` reads without further
+            configuration; pass any other name back to it explicitly.
+
+        Examples
+        --------
+        >>> ptcls.export_artiax('tomos.tomostxt','tomo003.tsv',tomo_id=3)
+        >>> ptcls.export_artiax(tomos,'tomo003.tsv',save_extra1=True,
+        ...                     extra1_name='segment_id')
+        """
+        if isinstance(tomograms,str):
+            tomograms = _tomodef.Tomograms(tomograms)
+        if not isinstance(tomograms,_tomodef.Tomograms):
+            raise ValueError('Tomograms must be a Tomograms object or the path '
+                             'to a .tomostxt file.')
+        if not _is_ext(filename,'tsv'):
+            raise ValueError('Wrong file extension, do you mean '
+                             + _force_ext(filename,'tsv') + '?')
+
+        extra_cols = []
+        if save_extra1:
+            extra1_name = Particles._validate_artiax_extra_name(extra1_name,None)
+            extra_cols.append((extra1_name,self.extra_1))
+        if save_extra2:
+            extra2_name = Particles._validate_artiax_extra_name(extra2_name,
+                                        extra1_name if save_extra1 else None)
+            extra_cols.append((extra2_name,self.extra_2))
+
+        tids = _np.unique(self.tomo_id)
+        if tomo_id is None:
+            if tids.size != 1:
+                raise ValueError('The particles span several tomograms ('
+                                 + ','.join(str(t) for t in tids)
+                                 + '); set tomo_id to select one.')
+            tomo_id = tids[0]
+        tomo_id = _np.uint32(tomo_id)
+        mask = (self.tomo_id == tomo_id)
+        if not mask.any():
+            raise ValueError('tomo_id %d not found in the particles.'%tomo_id)
+
+        apix = float(tomograms.pix_size[tomograms.get_cix(tomo_id)])
+
+        # Angstroms from the tomogram centre -> voxels from its corner.
+        pos = self.export_positions(tomograms,ref_cix,tomo_id)
+
+        eu  = _np.rad2deg(self.ali_eu[ref_cix,mask,:])
+        wrap = lambda a: ((a + 180.0) % 360.0) - 180.0
+        phi = wrap(eu[:,2] - 90.0)
+        the = eu[:,1]
+        psi = wrap(eu[:,0] + 90.0)
+
+        cc      = self.ali_cc[ref_cix,mask]
+        half_id = self.half_id[mask]
+        clss    = self.ref_cix[mask] + 1
+        extras  = [ (name,values[mask]) for name,values in extra_cols ]
+
+        with open(filename,'w') as fp:
+            fp.write('\t'.join(('pos_x','pos_y','pos_z',
+                                'shift_x','shift_y','shift_z',
+                                'phi','the','psi',
+                                'cc','half_id','class','tomo_id')
+                               + tuple(name for name,_ in extras)) + '\n')
+            for i in range(pos.shape[0]):
+                fp.write('%.4f\t%.4f\t%.4f\t'%(pos[i,0],pos[i,1],pos[i,2]))
+                fp.write('0\t0\t0\t')
+                fp.write('%.4f\t%.4f\t%.4f\t'%(phi[i],the[i],psi[i]))
+                fp.write('%.6f\t%d\t%d\t%d'%(cc[i],half_id[i],clss[i],tomo_id))
+                for _,values in extras:
+                    # Shortest representation that reads back as the same
+                    # float32: whole numbers stay clean, fractions stay exact.
+                    fp.write('\t' + _np.format_float_positional(values[i],
+                                        precision=None,unique=True,trim='-'))
+                fp.write('\n')
+
+        print('[Particles.export_artiax] %d particles from tomogram %d saved to %s.'
+              %(pos.shape[0],tomo_id,filename))
+        if len(extras) > 0:
+            print('  Extra columns: ' + ', '.join(name for name,_ in extras) + '.')
+        print('  In ArtiaX, set the origin pixel size to %.3f angstroms.'%apix)
+
+    @staticmethod
+    def import_artiax(tomograms, filename, tomo_id=None,
+                      extra1_name='extra_1', extra2_name='extra_2') -> Particles:
+        """Create a Particles object from an ArtiaX *Generic Particle List*.
+
+        Inverse of :meth:`export_artiax`.  Reads the tab-separated ``.tsv``
+        list (a comma-separated file is also accepted) and rebuilds the
+        particles, seeding the per-particle defocus from *tomograms* at the
+        imported positions, so particles moved or added inside ChimeraX get
+        correct CTF parameters.
+
+        Angles are converted back from ArtiaX's ZXZ to SUSAN's ZYZ::
+
+            α = radians(psi) - π/2    β = radians(the)    γ = radians(phi) + π/2
+
+        and canonicalised into SUSAN's ranges (``β ∈ [0,π]``, ``α,γ ∈ (-π,π]``)
+        using ``(α, β, γ) ≡ (α+π, -β, γ+π)``, so lists produced by other tools
+        are handled too.
+
+        The positions are read as ``pos_* + shift_*``, which assumes the two
+        pixel sizes in ArtiaX were both set to the tomogram's pixel size (the
+        files written by :meth:`export_artiax` carry zero shifts, so this is
+        automatic for a round trip).
+
+        The optional columns ``cc``, ``half_id``, ``class`` and ``tomo_id`` are
+        read when present.  Particles picked inside ArtiaX carry zeros in all
+        of them: their ``tomo_id`` is filled in as described below, their class
+        becomes reference 0, and their half-set is assigned automatically,
+        which is reported through a warning since it does not preserve any
+        earlier half-set split.
+
+        The columns named by *extra1_name* and *extra2_name* are loaded into
+        :attr:`extra_1` and :attr:`extra_2` when present.  They are always
+        parsed as floats: ArtiaX rewrites every column that way, so a value
+        exported as ``7`` comes back as ``7.0``.
+
+        Parameters
+        ----------
+        tomograms : Tomograms or str
+            Tomogram metadata, or the path to a ``.tomostxt`` file.
+        filename : str
+            Path to the particle list.
+        tomo_id : int, optional
+            Tomogram the particles belong to.  Takes precedence over the
+            ``tomo_id`` column, and any disagreement is reported.  Required
+            when the file has no usable ``tomo_id`` column.
+        extra1_name, extra2_name : str, optional
+            Columns to load into :attr:`extra_1` / :attr:`extra_2`.  Default
+            ``'extra_1'`` and ``'extra_2'``, matching :meth:`export_artiax`;
+            pass the names used there if they were customised.  Missing columns
+            are ignored.
+
+        Returns
+        -------
+        Particles
+
+        Examples
+        --------
+        >>> ptcls = susan.data.Particles.import_artiax('tomos.tomostxt',
+        ...                                           'tomo003.tsv')
+        """
+        if isinstance(tomograms,str):
+            tomograms = _tomodef.Tomograms(tomograms)
+        if not isinstance(tomograms,_tomodef.Tomograms):
+            raise ValueError('Tomograms must be a Tomograms object or the path '
+                             'to a .tomostxt file.')
+
+        required = ('pos_x','pos_y','pos_z','shift_x','shift_y','shift_z',
+                    'phi','the','psi')
+        with open(filename,newline='') as fp:
+            header = fp.readline()
+            if   '\t' in header: delimiter = '\t'
+            elif ',' in header:  delimiter = ','
+            else:
+                raise ValueError('Cannot determine the delimiter of '+filename
+                                 +': expected a tab- or comma-separated header.')
+            fp.seek(0)
+            reader = _csv.DictReader(fp,delimiter=delimiter)
+            fields = list(reader.fieldnames or [])
+            missing = [ f for f in required if f not in fields ]
+            if len(missing) > 0:
+                raise ValueError('Missing columns in ' + filename + ': '
+                                 + ', '.join(missing))
+            rows = list(reader)
+
+        N = len(rows)
+        if N == 0:
+            raise ValueError('No particles in ' + filename)
+
+        def column(name,dtype=_np.float32):
+            if name not in fields:
+                return None
+            return _np.array([ float(r[name]) for r in rows ],dtype=dtype)
+
+        # Positions: voxels from the corner (the shift is folded back in).
+        pos = _np.zeros((N,3),_np.float32)
+        for i,c in enumerate('xyz'):
+            pos[:,i] = column('pos_'+c) + column('shift_'+c)
+
+        # Tomogram: the argument wins, the column fills in, zeros are new picks.
+        file_ids = column('tomo_id',_np.uint32)
+        seen = _np.unique(file_ids[file_ids > 0]) if file_ids is not None \
+               else _np.zeros(0,_np.uint32)
+        if tomo_id is None:
+            if seen.size == 0:
+                raise ValueError('No usable tomo_id column in ' + filename
+                                 + '; set tomo_id.')
+            if seen.size > 1:
+                raise ValueError('Several tomo_id values in ' + filename + ' ('
+                                 + ','.join(str(t) for t in seen)
+                                 + '); set tomo_id to select one.')
+            tomo_id = seen[0]
+            print('[Particles.import_artiax] tomo_id %d read from the file.'%tomo_id)
+        else:
+            tomo_id = _np.uint32(tomo_id)
+            if seen.size > 0 and not (seen.size == 1 and seen[0] == tomo_id):
+                print('[Particles.import_artiax] the file reports tomo_id '
+                      + ','.join(str(t) for t in seen)
+                      + ', using %d as requested.'%tomo_id)
+        if not tomograms.has_tomo(tomo_id):
+            raise ValueError('tomo_id %d not found in the tomograms.'%tomo_id)
+        tomos_id = _np.full(N,tomo_id,_np.uint32)
+
+        ptcls = Particles.import_data(tomograms,pos,tomos_id,
+                                      ptcls_id=_np.arange(N))
+
+        # import_data sorts: ptcl_id[i] is the file row of stored particle i.
+        row = ptcls.ptcl_id.astype(_np.int64)
+
+        # ZXZ (degrees) -> ZYZ (radians), then into SUSAN's ranges.
+        wrap = lambda a: ((a + _np.pi) % (2*_np.pi)) - _np.pi
+        alpha = _np.deg2rad(column('psi')[row]) - _np.pi/2
+        beta  = wrap(_np.deg2rad(column('the')[row]))
+        gamma = _np.deg2rad(column('phi')[row]) + _np.pi/2
+        flip  = beta < 0
+        beta [flip] = -beta[flip]
+        alpha[flip] +=  _np.pi
+        gamma[flip] +=  _np.pi
+        ptcls.ali_eu[0,:,0] = wrap(alpha)
+        ptcls.ali_eu[0,:,1] = beta
+        ptcls.ali_eu[0,:,2] = wrap(gamma)
+
+        cc = column('cc')
+        if cc is not None:
+            ptcls.ali_cc[0,:] = cc[row]
+
+        half_id = column('half_id',_np.uint32)
+        if half_id is not None:
+            half_id = half_id[row]
+            valid   = (half_id > 0)
+            ptcls.half_id[valid] = half_id[valid]
+            if not valid.all():
+                _warnings.warn('%d particles without half_id (picked in ArtiaX?): '
+                               'their half-sets were assigned automatically and do '
+                               'not follow any previous split.'%int((~valid).sum()))
+
+        clss = column('class',_np.uint32)
+        if clss is not None:
+            cur = _np.maximum(clss[row],1) - 1
+            for _ in range(int(cur.max())):
+                Particles.MRA.duplicate(ptcls,0)
+            ptcls.ref_cix[:] = cur
+
+        loaded = []
+        for name,field in ((extra1_name,'extra_1'),(extra2_name,'extra_2')):
+            values = column(name)
+            if values is not None:
+                getattr(ptcls,field)[:] = values[row]
+                loaded.append('%s -> %s'%(name,field))
+        if len(loaded) > 0:
+            print('[Particles.import_artiax] extra columns: '
+                  + ', '.join(loaded) + '.')
+
+        print('[Particles.import_artiax] %d particles loaded from %s '
+              '(tomogram %d, %d references).'
+              %(N,filename,tomo_id,ptcls.n_refs))
+        return ptcls
 
 
 
