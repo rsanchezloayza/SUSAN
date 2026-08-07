@@ -88,6 +88,20 @@ pip install .
 ```
 After this step, the module `susan` should be available to be imported.
 
+#### Option 3: Install `susan` without the CUDA modules
+On a machine that only reads SUSAN files and analyses results (a laptop, a
+cluster login node), the GPU executables are not needed and the CUDA toolkit
+may not even be available. Set `SUSAN_NO_CUDA=1` at install time:
+```
+SUSAN_NO_CUDA=1 pip install .
+SUSAN_NO_CUDA=1 pip install git+https://github.com/rsanchezloayza/SUSAN.git
+```
+This still compiles the small Cython cores (only a C compiler and NumPy are
+needed) so file I/O and geometry keep their normal speed, but it skips
+`susan_aligner`, `susan_reconstruct` and the rest. `import susan` then emits a
+warning that the executables are missing; everything except `susan.modules`
+works. Use `susan.has_binaries()` to check at runtime.
+
 ### `Matlab` setup
 `LOCAL_SUSAN_PATH` must be added to path. On the `Matlab` command line, or on a `Matlab` script:
 ```

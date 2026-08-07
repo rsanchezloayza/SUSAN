@@ -98,14 +98,44 @@ def _add_susan_bin_to_path(bin_name='susan_aligner'):
     elif exists(build_file):
         os.environ['PATH'] += ':'+build_dir
     else:
-        message  = 'Add the SUSAN binaries to the PATH or to one of the following folders:\n'
-        message += ' - ' + local_dir + '\n'
-        message += ' - ' + bin_dir + '\n'
-        message += ' - ' + build_dir
-        raise ImportError(message)
+        return False
+    return True
 
-if not _check_susan_bin_in_path():
-    _add_susan_bin_to_path()
+_HAS_BINARIES = _check_susan_bin_in_path() or _add_susan_bin_to_path()
+
+def has_binaries(bin_name='susan_aligner'):
+    """Whether the compiled SUSAN (CUDA) executables are available.
+
+    They are absent when SUSAN was installed without the CUDA modules
+    (``SUSAN_NO_CUDA=1 pip install susan``). Reading files and analysing
+    results works either way; :mod:`susan.modules` does not.
+
+    Returns
+    -------
+    bool
+    """
+    return _check_susan_bin_in_path(bin_name)
+
+def require_binaries(bin_name='susan_aligner'):
+    """Raise :class:`RuntimeError` if the compiled executables are missing."""
+    if not has_binaries(bin_name):
+        raise RuntimeError(
+            "'%s' not found: SUSAN was installed without the CUDA modules, or "
+            "the binaries are not in the PATH. Reinstall on a machine with the "
+            "CUDA toolkit (pip install susan) to enable susan.modules." % bin_name
+        )
+
+if not _HAS_BINARIES:
+    import warnings as _warnings
+    _warnings.warn(
+        "The SUSAN executables were not found: susan.modules (alignment, "
+        "reconstruction, CTF estimation) is unavailable. Reading and analysing "
+        "SUSAN files still works. This is expected if SUSAN was installed with "
+        "SUSAN_NO_CUDA=1; otherwise add the binaries to the PATH.",
+        UserWarning,
+        stacklevel=2,
+    )
+    del _warnings
 
 __all__ = []
-__all__.extend(['read'])
+__all__.extend(['read','has_binaries','require_binaries'])

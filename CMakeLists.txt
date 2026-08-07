@@ -1,18 +1,31 @@
 # Define Project
 
 cmake_minimum_required(VERSION 3.14)
-project(SUSAN LANGUAGES C CXX CUDA)
+project(SUSAN LANGUAGES C CXX)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+# The CUDA executables (susan_aligner, susan_reconstruct, ...) are the only
+# part of SUSAN that needs a GPU and the CUDA toolkit. Turn this OFF to build
+# just the Python package and its Cython cores, which is enough to read and
+# analyse SUSAN files on a machine that will never run a reconstruction.
+option(SUSAN_BUILD_CUDA "Build the CUDA executables" ON)
+
+if(SUSAN_BUILD_CUDA)
+	enable_language(CUDA)
+	set(CMAKE_CUDA_STANDARD 17)
+	set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+else()
+	message(STATUS "CUDA: DISABLED (Python package and Cython cores only)")
+endif()
 
 ########################################################################
 ########################################################################
+
+if(SUSAN_BUILD_CUDA)
 
 # Configure EIGEN
 include(FetchContent)
@@ -145,6 +158,8 @@ add_custom_target(prepare_python
 	COMMAND mkdir -p ${CMAKE_SOURCE_DIR}/susan/bin
 	COMMAND cp -v ${CMAKE_CURRENT_BINARY_DIR}/susan_* ${CMAKE_SOURCE_DIR}/susan/bin/
 )
+
+endif(SUSAN_BUILD_CUDA)
 
 ########################################################################
 ########################################################################
