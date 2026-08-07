@@ -403,17 +403,47 @@
     <span class="k">elif</span> <span class="n">exists</span><span class="p">(</span><span class="n">build_file</span><span class="p">):</span>
         <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">&#39;:&#39;</span><span class="o">+</span><span class="n">build_dir</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">message</span>  <span class="o">=</span> <span class="s1">&#39;Add the SUSAN binaries to the PATH or to one of the following folders:</span><span class="se">\n</span><span class="s1">&#39;</span>
-        <span class="n">message</span> <span class="o">+=</span> <span class="s1">&#39; - &#39;</span> <span class="o">+</span> <span class="n">local_dir</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
-        <span class="n">message</span> <span class="o">+=</span> <span class="s1">&#39; - &#39;</span> <span class="o">+</span> <span class="n">bin_dir</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
-        <span class="n">message</span> <span class="o">+=</span> <span class="s1">&#39; - &#39;</span> <span class="o">+</span> <span class="n">build_dir</span>
-        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span>
 
-<span class="k">if</span> <span class="ow">not</span> <span class="n">_check_susan_bin_in_path</span><span class="p">():</span>
-    <span class="n">_add_susan_bin_to_path</span><span class="p">()</span>
+<span class="n">_HAS_BINARIES</span> <span class="o">=</span> <span class="n">_check_susan_bin_in_path</span><span class="p">()</span> <span class="ow">or</span> <span class="n">_add_susan_bin_to_path</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">has_binaries</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">&#39;susan_aligner&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether the compiled SUSAN (CUDA) executables are available.</span>
+
+<span class="sd">    They are absent when SUSAN was installed without the CUDA modules</span>
+<span class="sd">    (``SUSAN_NO_CUDA=1 pip install susan``). Reading files and analysing</span>
+<span class="sd">    results works either way; :mod:`susan.modules` does not.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_check_susan_bin_in_path</span><span class="p">(</span><span class="n">bin_name</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">require_binaries</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">&#39;susan_aligner&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raise :class:`RuntimeError` if the compiled executables are missing.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_binaries</span><span class="p">(</span><span class="n">bin_name</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39; not found: SUSAN was installed without the CUDA modules, or &quot;</span>
+            <span class="s2">&quot;the binaries are not in the PATH. Reinstall on a machine with the &quot;</span>
+            <span class="s2">&quot;CUDA toolkit (pip install susan) to enable susan.modules.&quot;</span> <span class="o">%</span> <span class="n">bin_name</span>
+        <span class="p">)</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="n">_HAS_BINARIES</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_warnings</span>
+    <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+        <span class="s2">&quot;The SUSAN executables were not found: susan.modules (alignment, &quot;</span>
+        <span class="s2">&quot;reconstruction, CTF estimation) is unavailable. Reading and analysing &quot;</span>
+        <span class="s2">&quot;SUSAN files still works. This is expected if SUSAN was installed with &quot;</span>
+        <span class="s2">&quot;SUSAN_NO_CUDA=1; otherwise add the binaries to the PATH.&quot;</span><span class="p">,</span>
+        <span class="ne">UserWarning</span><span class="p">,</span>
+        <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">del</span> <span class="n">_warnings</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[]</span>
-<span class="n">__all__</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;read&#39;</span><span class="p">])</span>
+<span class="n">__all__</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;read&#39;</span><span class="p">,</span><span class="s1">&#39;has_binaries&#39;</span><span class="p">,</span><span class="s1">&#39;require_binaries&#39;</span><span class="p">])</span>
 </pre></div>
         </article>
       </div>
