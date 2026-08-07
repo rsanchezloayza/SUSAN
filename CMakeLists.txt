@@ -91,21 +91,6 @@ endif()
 string(APPEND CMAKE_CUDA_FLAGS " --expt-relaxed-constexpr")
 string(APPEND CMAKE_CUDA_FLAGS " -Xcudafe --display_error_number")
 
-# EXPERIMENTAL. Treat the exposure filter (def.ExpFilt) as a weight instead of a
-# filter: it is squared into the Wiener denominator, so the reconstruction stops
-# re-applying an attenuation the dose already caused. Maps come out sharper and
-# noisier, and the high-frequency roll-off must then be set explicitly through
-# the ad-hoc SSNR (ssnr.F). On by default; set to OFF to restore the
-# numerator-only (filtering) behaviour. Requires an SSNR-regularised policy:
-# with plain 'wiener' the denominator can approach zero at high frequency.
-option(SUSAN_EXPFILT_WEIGHT "Square the exposure filter into the Wiener denominator" ON)
-if(SUSAN_EXPFILT_WEIGHT)
-	string(APPEND CMAKE_CUDA_FLAGS " -DSUSAN_EXPFILT_WEIGHT")
-	message(STATUS "ExpFilt: WEIGHT (squared into the Wiener denominator) [experimental]")
-else()
-	message(STATUS "ExpFilt: FILTER (numerator only) [default]")
-endif()
-
 ########################################################################
 ########################################################################
 
