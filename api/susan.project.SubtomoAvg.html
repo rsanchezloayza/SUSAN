@@ -633,7 +633,13 @@ Default: <code class="docutils literal notranslate"><span class="pre">1.0</span>
 <p class="admonition-title">Warning</p>
 <p><strong>Experimental.</strong></p>
 </div>
-<p>Multi-reference CC reweighting.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<p>Multi-reference CC reweighting.  <code class="docutils literal notranslate"><span class="pre">False</span></code> keeps the raw CC; <code class="docutils literal notranslate"><span class="pre">True</span></code>
+normalises each particle’s per-class CC to sum to one; a positive number
+is an inverse-temperature <code class="docutils literal notranslate"><span class="pre">beta</span></code> selecting soft ML weights (softmax
+responsibilities scaled by a per-particle evidence gate, so noise fades
+toward a small floor).  Pairs with <code class="docutils literal notranslate"><span class="pre">aligner.ignore_classes</span> <span class="pre">=</span> <span class="pre">True</span></code>,
+<code class="docutils literal notranslate"><span class="pre">averager.ignore_classes</span> <span class="pre">=</span> <span class="pre">True</span></code> and <code class="docutils literal notranslate"><span class="pre">averager.weighting_type</span> <span class="pre">=</span>
+<span class="pre">'3DCC'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
