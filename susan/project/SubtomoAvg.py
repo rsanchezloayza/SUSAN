@@ -290,6 +290,97 @@ def _predict_global_field(B, C, R2):
     return _np.einsum('id,krd->ikr', D, R2)    # (n, n_proj, 2)
 
 
+###########################################################################
+# In-plane rotation (prj_eu) helpers
+###########################################################################
+
+def _prj_eu_to_inplane(eu):
+    """Extract the in-plane angle (rad) from ZYZ ``prj_eu``.
+
+    Robust to the ``beta ~ 0`` gimbal (where the two Z angles are individually
+    ambiguous but their sum is the in-plane rotation): builds the two relevant
+    matrix entries and returns ``atan2(R10, R00)``.  *eu* may be any shape
+    ``(..., 3)``.
+    """
+    eu = _np.asarray(eu, dtype=_np.float64)
+    th, ph, ps = eu[..., 0], eu[..., 1], eu[..., 2]
+    R10 = _np.cos(th) * _np.sin(ps) + _np.cos(ph) * _np.cos(ps) * _np.sin(th)
+    R00 = _np.cos(th) * _np.cos(ph) * _np.cos(ps) - _np.sin(th) * _np.sin(ps)
+    return _np.arctan2(R10, R00)
+
+
+def _inplane_to_prj_eu(psi):
+    """ZYZ ``prj_eu`` for a pure in-plane rotation ``psi`` (rad), cone = 0.
+
+    ``eZYZ([psi, 0, 0]) == Rz(psi)``, so the out-of-plane (cone) component is
+    zero by construction -- the deliberate choice: the per-projection cone is
+    noise and is never propagated.
+    """
+    psi = _np.asarray(psi, dtype=_np.float64)
+    z = _np.zeros_like(psi)
+    return _np.stack([psi, z, z], axis=-1)
+
+
+def _rigid_inplane(xy, shift, w):
+    """Per-tilt rigid in-plane rotation from a shift field (affine antisymmetric).
+
+    Fits ``shift = A @ [x, y, 1]`` (weighted) and returns the scalar
+    ``psi = 0.5 (A_yx - A_xy)`` -- the rotational part of the affine, uniform
+    over the projection.  *xy* is the projected position ``(x', y')``; *shift*
+    is ``(dx', dy')``.
+    """
+    A = _np.column_stack([xy, _np.ones(len(xy))])
+    Aw = A * w[:, None]
+    cx = _np.linalg.lstsq(Aw, shift[:, 0] * w, rcond=None)[0]   # dx' coeffs
+    cy = _np.linalg.lstsq(Aw, shift[:, 1] * w, rcond=None)[0]   # dy' coeffs
+    return 0.5 * (cy[0] - cx[1])
+
+
+def _smooth_inplane(xy, psi, w, grid=(6, 6), lam=1.0):
+    """Regularised per-tilt smoothing of a measured in-plane field ``psi(x', y')``.
+
+    A weighted B-spline over the projected coordinates (reusing the image-warp
+    machinery), so genuine spatial variation is preserved while per-particle
+    noise is averaged out.  Weights should be the per-observation reliability
+    (e.g. ``prj_cc``).
+    """
+    p3 = _np.column_stack([xy, _np.zeros(len(xy))])
+    bbox = (p3.min(0), p3.max(0))
+    B = _bspline_basis_3d(p3, (int(grid[0]), int(grid[1]), 1), bbox)
+    Pen = _grid_penalty((int(grid[0]), int(grid[1]), 1))
+    coef = _solve_penalized(B, psi[:, None], w, Pen, lam)
+    return (B @ coef)[:, 0]
+
+
+###########################################################################
+# Multi-reference classification weights
+###########################################################################
+
+def _ml_class_weights(cc, beta, floor=1e-3):
+    """Soft ML classification weights from per-class CC (``n_refs x n_ptcl``).
+
+    Responsibilities are a softmax at inverse-temperature *beta*; each particle
+    is then scaled by a smooth evidence gate (a logistic on its log-sum-exp
+    over classes) so low-signal particles fade toward *floor* rather than being
+    cut.  Returns the reweighted CC, same shape as *cc*.
+    """
+    if beta <= 0:
+        raise ValueError('reweight_classification (beta) must be > 0')
+    a     = beta * cc
+    m     = a.max(axis=0)
+    e     = _np.exp(a - m)
+    Z     = e.sum(axis=0)
+    gamma = e / Z
+    q     = (m + _np.log(Z)) / beta               # per-particle evidence
+    scale = _np.median(_np.abs(q - _np.median(q)))
+    if scale > 0:
+        x = _np.clip((q - _np.quantile(q, 0.15)) / scale, -30.0, 30.0)
+        s = floor + (1.0 - floor) / (1.0 + _np.exp(-x))
+    else:
+        s = _np.ones_like(q)
+    return gamma * s[_np.newaxis, :]
+
+
 class _IterationFiles:
     """File-path bundle for a single iteration."""
 
@@ -983,7 +1074,13 @@ class SubtomoAvg(SubtomoAvgCore):
 
        .. warning:: **Experimental.**
 
-       Multi-reference CC reweighting.  Default: ``False``.
+       Multi-reference CC reweighting.  ``False`` keeps the raw CC; ``True``
+       normalises each particle's per-class CC to sum to one; a positive number
+       is an inverse-temperature ``beta`` selecting soft ML weights (softmax
+       responsibilities scaled by a per-particle evidence gate, so noise fades
+       toward a small floor).  Pairs with ``aligner.ignore_classes = True``,
+       ``averager.ignore_classes = True`` and ``averager.weighting_type =
+       '3DCC'``.  Default: ``False``.
 
     .. attribute:: cross_halfmaps
        :type: bool
@@ -1104,6 +1201,9 @@ class SubtomoAvg(SubtomoAvgCore):
         self.image_grid                = (4, 4)
         self.image_lambda              = None
         self.image_orthogonalize       = False
+        self.inplane_grid              = (6, 6)
+        self.inplane_lambda            = 1.0
+        self.fit_cc_weight             = True
         self.fitting_from_origin       = True
         self.smooth_ctf                = False
         self.type_ctf_smoothing        = 'gaussian'
@@ -1318,7 +1418,7 @@ class SubtomoAvg(SubtomoAvgCore):
         return pred, lam
 
     def _fit_global_deformation(self, ptcls_in, with_image=False, with_global=True,
-                                use_depth=False):
+                                use_depth=False, with_inplane=False):
         """Fit a global 3-D deformation field per tomogram and rewrite ``prj_t``.
 
         Models the specimen as a single smooth 3-D displacement field
@@ -1360,7 +1460,7 @@ class SubtomoAvg(SubtomoAvgCore):
 
         # Accumulate sums of squares so the summary is a properly pooled RMS
         # rather than an average of per-tomogram RMS values.
-        lams_l1, lams_l2 = [], []
+        lams_l1, lams_l2, lams_inpl = [], [], []
         acc = {'n_tomo': 0, 'n_ptcl': 0, 'w': 0.0,
                'obs': 0.0, 'field': 0.0, 'warp': 0.0, 'res': 0.0}
         verbose = self.verbosity > 1
@@ -1383,7 +1483,16 @@ class SubtomoAvg(SubtomoAvgCore):
 
             pt_t  = pt[idx].astype(_np.float64)
             obs   = ptcls_in.prj_t[idx, :n_proj, :].astype(_np.float64)
-            wgt   = (ptcls_in.prj_w[idx, :n_proj] > 0).astype(_np.float64)
+            valid = ptcls_in.prj_w[idx, :n_proj] > 0
+            if self.fit_cc_weight:
+                # Reliability weighting: down-weight low-CC (e.g. high-tilt)
+                # observations instead of treating every valid one equally.
+                wgt = valid * _np.maximum(
+                    ptcls_in.prj_cc[idx, :n_proj].astype(_np.float64), 0.0)
+                m = wgt[wgt > 0].mean() if _np.any(wgt > 0) else 1.0
+                wgt = wgt / m                       # normalise so lambda stays comparable
+            else:
+                wgt = valid.astype(_np.float64)
             bbox  = (pt_t.min(axis=0), pt_t.max(axis=0))
             B     = _bspline_basis_3d(pt_t, grid, bbox)
             P     = _grid_penalty(grid)
@@ -1456,6 +1565,32 @@ class SubtomoAvg(SubtomoAvgCore):
             prj_new[:, :n_proj, :] = pred.astype(ptcls_in.prj_t.dtype)
             ptcls_in.prj_t[idx] = prj_new
 
+            # ---- in-plane rotation (prj_eu) -----------------------------
+            # prj_eu only rotates the cropped projection; it does NOT move the
+            # crop point (verified in reconstruct.h / crop_projections.h).  So
+            # prj_t is left exactly as written above -- the rotational shift it
+            # carries is the (needed) position correction; prj_eu carries only
+            # the orientation.  No subtraction, no double counting.
+            if with_inplane:
+                psi_meas = _prj_eu_to_inplane(ptcls_in.prj_eu[idx, :n_proj, :])
+                psi_out = _np.zeros((n_t, n_proj))
+                # Case 2 if an angle search has populated prj_eu, else case 1.
+                measured = float(_np.abs(psi_meas)[wgt > 0].max()
+                                 if _np.any(wgt > 0) else 0.0) > _np.deg2rad(0.02)
+                for k in range(n_proj):
+                    xyk = pt_t @ R2[k].T                  # projected (x', y')
+                    if measured:                          # smooth measured angles
+                        psi_out[:, k] = _smooth_inplane(
+                            xyk, psi_meas[:, k], wgt[:, k],
+                            grid=self.inplane_grid, lam=self.inplane_lambda)
+                    else:                                 # rigid psi_k from shifts
+                        psi_out[:, k] = _rigid_inplane(xyk, pred[:, k, :], wgt[:, k])
+                eu_new = ptcls_in.prj_eu[idx]
+                eu_new[:, :n_proj, :] = _inplane_to_prj_eu(psi_out).astype(
+                    ptcls_in.prj_eu.dtype)
+                ptcls_in.prj_eu[idx] = eu_new
+                lams_inpl.append((measured, float(_np.rad2deg(_np.abs(psi_out).max()))))
+
         if acc['n_tomo'] == 0:
             print('    Shift fitting: no tomogram had enough particles.')
             return
@@ -1483,6 +1618,10 @@ class SubtomoAvg(SubtomoAvgCore):
               % (acc['n_tomo'], acc['n_ptcl'], '; '.join(parts)))
         print('      input RMS %.2f A -> unexplained %.2f A (%.0f%% of variance '
               'explained).' % (rms_in, rms_out, expl))
+        if lams_inpl:
+            src = 'smoothed measured' if lams_inpl[0][0] else 'rigid (from shifts)'
+            print('      in-plane (prj_eu): %s, max |psi| %.3f deg.'
+                  % (src, max(v for _, v in lams_inpl)))
 
     def _regularize_2d_parameters(self, ptcls_in, cur, prv):
         """Apply 2-D shift regularisation and/or CTF smoothing in-place.
@@ -1586,18 +1725,24 @@ class SubtomoAvg(SubtomoAvgCore):
                     ptcls_in.prj_t[idx, i] = base + _smooth_deltas(
                         pt0, ptcls_in.prj_t[idx, i] - base, sigma=sigma, k=k_eff)
 
-        elif self.type_2d_shift_fitting.lower() == 'global':
-            self._fit_global_deformation(ptcls_in)
-
-        elif self.type_2d_shift_fitting.lower() in ('global+image', 'global_image'):
-            self._fit_global_deformation(ptcls_in, with_image=True)
-
-        elif self.type_2d_shift_fitting.lower() in ('image', 'local'):
-            self._fit_global_deformation(ptcls_in, with_image=True, with_global=False)
-
-        elif self.type_2d_shift_fitting.lower() in ('local_3d', 'image_3d'):
-            self._fit_global_deformation(ptcls_in, with_image=True,
-                                         with_global=False, use_depth=True)
+        elif (self.type_2d_shift_fitting.lower()
+              .replace('+inplane', '').replace('_inplane', '').rstrip('+_')
+              in ('global', 'global+image', 'global_image', 'global+local',
+                  'global_local', 'image', 'local', 'local_3d', 'image_3d')):
+            # Shift field (global / image / depth), with an optional '+inplane'
+            # suffix that also regularises the in-plane rotation into prj_eu.
+            # 'local' is an accepted alias for 'image' (per-projection warp).
+            m    = self.type_2d_shift_fitting.lower()
+            wi   = 'inplane' in m
+            base = m.replace('+inplane', '').replace('_inplane', '').rstrip('+_')
+            kw   = dict(with_inplane=wi)
+            if base in ('global+image', 'global_image', 'global+local', 'global_local'):
+                kw['with_image'] = True
+            elif base in ('image', 'local'):
+                kw.update(with_image=True, with_global=False)
+            elif base in ('local_3d', 'image_3d'):
+                kw.update(with_image=True, with_global=False, use_depth=True)
+            self._fit_global_deformation(ptcls_in, **kw)
 
         elif self.type_2d_shift_fitting.lower() == 'tps':
             R     = _np.eye(3, dtype=_np.float32)
@@ -1614,6 +1759,13 @@ class SubtomoAvg(SubtomoAvgCore):
                     pt0  = (pt[idx] @ R.T)[:, :2]
                     ptcls_in.prj_t[idx, i] = base + _tps_fit(
                         pt0, ptcls_in.prj_t[idx, i] - base, self.tps_lambda)
+
+        else:
+            raise ValueError(
+                "Unrecognised type_2d_shift_fitting %r.  Accepted: 'none', "
+                "'affine', 'gaussian', 'tps', 'global', 'global+image' (alias "
+                "'global+local'), 'image'/'local', 'local_3d', and their "
+                "'+inplane' variants." % self.type_2d_shift_fitting)
 
         if self.smooth_ctf and self._validate_iteration_type() == 'ctf':
             method = self.type_ctf_smoothing.lower()
@@ -1806,10 +1958,9 @@ class SubtomoAvg(SubtomoAvgCore):
                     total[total == 0] = 1
                     ptcls_in.ali_cc = ptcls_in.ali_cc / total
             elif isinstance(self.reweight_classification, (int, float)):
-                ptcls_in.ali_cc = _np.power(ptcls_in.ali_cc, self.reweight_classification)
-                total = ptcls_in.ali_cc.sum(axis=0)
-                total[total == 0] = 1
-                ptcls_in.ali_cc = ptcls_in.ali_cc / total
+                ptcls_in.ali_cc = _ml_class_weights(
+                    ptcls_in.ali_cc.astype(_np.float64),
+                    float(self.reweight_classification)).astype(ptcls_in.ali_cc.dtype)
             ptcls_in.save(cur.ptcl_rslt)
 
         ptcls_out = self._apply_cc_threshold(ptcls_in)
