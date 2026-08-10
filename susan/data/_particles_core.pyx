@@ -1,7 +1,6 @@
 # cython: boundscheck=False, wraparound=False, cdivision=True, language_level=3
 
 import numpy as np
-cimport numpy as np
 
 from libc.stdio  cimport FILE, fopen, fclose, fread, fwrite, fseek, SEEK_SET
 from libc.stdlib cimport malloc, free

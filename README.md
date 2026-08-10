@@ -63,7 +63,7 @@ We assume that `SUSAN` will be installed in the `LOCAL_SUSAN_PATH` folder (`LOCA
 
 ### `Python` setup
 #### Dependencies
-Besides the standard libraries, the `SUSAN` module for `Python` has only two dependencies: [`NumPy`](https://numpy.org/) and [`Numba`](https://numba.pydata.org/). Install them if needed:
+Besides the standard libraries, the `SUSAN` module for `Python` has only two dependencies: [`NumPy`](https://numpy.org/) and [`Numba`](https://numba.pydata.org/). Either `NumPy` 1.x or 2.x works, and a build made against one runs against the other. Install them if needed:
 - Using [`conda`](https://conda.io) (or equivalent):
   ```
   conda install numpy numba
@@ -74,7 +74,14 @@ Besides the standard libraries, the `SUSAN` module for `Python` has only two dep
   ```
 
 #### Option 1: Using `susan` without installation
-`LOCAL_SUSAN_PATH` must be added to path first and then the `susan` module can be imported. On the `Python` command line, or on a `Python` script:
+The module contains a few `Cython` cores that must be compiled in place first.
+In `LOCAL_SUSAN_PATH`:
+```
+python setup.py build_ext --inplace
+```
+This only needs `Cython` and a C compiler: no `CUDA`, no `cmake`, and no
+`NumPy` headers. Then `LOCAL_SUSAN_PATH` must be added to path and the `susan`
+module can be imported. On the `Python` command line, or on a `Python` script:
 ```
 import sys
 sys.path.insert(1,'LOCAL_SUSAN_PATH')
@@ -96,9 +103,10 @@ may not even be available. Set `SUSAN_NO_CUDA=1` at install time:
 SUSAN_NO_CUDA=1 pip install .
 SUSAN_NO_CUDA=1 pip install git+https://github.com/rsanchezloayza/SUSAN.git
 ```
-This still compiles the small Cython cores (only a C compiler and NumPy are
-needed) so file I/O and geometry keep their normal speed, but it skips
-`susan_aligner`, `susan_reconstruct` and the rest. `import susan` then emits a
+This still compiles the small Cython cores (only a C compiler is needed) so
+file I/O and geometry keep their normal speed, but it skips `susan_aligner`,
+`susan_reconstruct` and the rest. `cmake` is not invoked at all in this mode,
+so neither `cmake` nor the `CUDA` toolkit has to be present. `import susan` then emits a
 warning that the executables are missing; everything except `susan.modules`
 works. Use `susan.has_binaries()` to check at runtime.
 

@@ -8,5 +8,8 @@ build/
 *.mexa64
 # Ignore python supplementary
 susan.egg-info/
+# Ignore in-place Cython build products
+*.so
+susan/**/*.c
 # Ignore Sphinx build output
 doc/_build/
