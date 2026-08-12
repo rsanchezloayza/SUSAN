@@ -128,7 +128,13 @@ inline bool validate(const Info&info) {
         rslt = false;
     }
     if( strcmp(info.tm_type,"none") && strcmp(info.tm_type,"matlab") && strcmp(info.tm_type,"python") && strcmp(info.tm_type,"csv") ) {
-        fprintf(stderr,"Invalid template matching type [tm_type] value: %s. [none,matlab,python,csv].\n",info.tm_type);
+        fprintf(stderr,"Invalid template matching type [tm_type] value: %s. [none,csv] (matlab/python are deprecated aliases of csv).\n",info.tm_type);
+        rslt = false;
+    }
+    /// TM reports one peak per voxel; refinement levels refine only the single
+    /// best angle, which has no per-voxel meaning.
+    if( strcmp(info.tm_type,"none") != 0 && info.refine_level > 0 ) {
+        fprintf(stderr,"Template matching requires refine levels = 0 (got %d).\n",info.refine_level);
         rslt = false;
     }
     return rslt;

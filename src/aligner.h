@@ -50,8 +50,6 @@ typedef enum {
 
 typedef enum {
     TM_NONE=0,
-    TM_PYTHON,
-    TM_MATLAB,
     TM_CSV
 } TEMPLATE_MATCHING_OUTPUT;
 
@@ -116,6 +114,10 @@ class TemplateMatchingReporter {
     float *p_std;
     float *p_cnt;
 
+    /// ZYZ Euler angles (radians) of the orientation that produced c_cc.
+    /// 3D only; left zeroed in 2D.
+    Vec3 *p_eu;
+
     int *p_x;
     int *p_y;
     int *p_z;
@@ -128,6 +130,7 @@ public:
         tm_dim     = dim;
         num_points = n_pts;
         max_K      = K;
+        block_id   = 0;
 
         if(dim==2){       //2D alignment
             n_cc = n_pts * K;
@@ -140,6 +143,7 @@ public:
         p_avg = new float[n_cc];
         p_std = new float[n_cc];
         p_cnt = new float[n_cc];
+        p_eu  = new Vec3 [n_cc];
         sigma = in_sigma;
 
         p_x = new int[n_pts];
@@ -158,6 +162,7 @@ public:
         delete [] p_avg;
         delete [] p_std;
         delete [] p_cnt;
+        delete [] p_eu;
         delete [] p_x;
         delete [] p_y;
         delete [] p_z;
@@ -167,40 +172,36 @@ public:
         if( strcmp(type,"none") == 0 ) {
             tm_type = TM_NONE;
         }
-        else if( strcmp(type,"python") == 0 ) {
-            tm_type = TM_PYTHON;
-        }
-        else if( strcmp(type,"matlab") == 0 ) {
-            tm_type = TM_MATLAB;
-        }
-        else if( strcmp(type,"csv") == 0 ) {
+        else {
+            /// "matlab" and "python" are deprecated aliases: both parse CSV.
+            if( strcmp(type,"csv") != 0 )
+                fprintf(stderr,"Warning: tm_type '%s' is deprecated, writing CSV instead.\n",type);
             tm_type = TM_CSV;
         }
 
-        if( tm_type == TM_PYTHON || tm_type == TM_MATLAB || tm_type == TM_CSV ) {
+        if( tm_type == TM_CSV ) {
             char tm_file[SUSAN_FILENAME_LENGTH];
-            sprintf(tm_file,"%s_worker%02d.txt",prefix,id);
+            sprintf(tm_file,"%s_worker%02d.csv",prefix,id);
             fp = fopen(tm_file,"w");
-            if( tm_type == TM_CSV ) {
-                if (tm_dim == 2){
-                    fprintf(fp,"TID,PartID,RID,ProjID,ProjW,X,Y,CC\n");
-                }
-                else if (tm_dim == 3){
-                    fprintf(fp,"TID,PartID,RID,X,Y,Z,CC,BlockID\n");
-                    block_id = 0;
-                }
+            if (tm_dim == 2){
+                fprintf(fp,"TID,PartID,RID,ProjID,ProjW,X,Y,CC\n");
+            }
+            else if (tm_dim == 3){
+                fprintf(fp,"TID,PartID,RID,X,Y,Z,CC,CC_SIGMA,EU1,EU2,EU3,BlockID\n");
+                block_id = 0;
             }
         }
     }
 
     void finish() {
-        if( tm_type == TM_PYTHON || tm_type == TM_MATLAB || tm_type == TM_CSV ) {
+        if( tm_type == TM_CSV ) {
             fclose(fp);
         }
     }
 
     void clear_cc() {
         memset(c_cc ,0,n_cc*sizeof(float));
+        memset(p_eu ,0,n_cc*sizeof(Vec3 ));
         memset(p_avg,0,n_cc*sizeof(float));
         memset(p_std,0,n_cc*sizeof(float));
         memset(p_cnt,0,n_cc*sizeof(float));
@@ -212,17 +213,31 @@ public:
         memset(p_cnt,0,n_cc*sizeof(float));
     }
 
+    /// 2D entry point: no orientation is tracked.
     void push_cc(const float*p_cc) {
+        push_cc(p_cc,NULL);
+    }
+
+    /// R_abs is the absolute pose of the reference at this iteration, i.e. the
+    /// same composition update_particle_3D() stores into ptcl.ali_eu.
+    void push_cc(const float*p_cc,const M33f*R_abs) {
         if( tm_type == TM_NONE )
             return;
+
+        /// One matrix->Euler conversion per angle, not per point.
+        Vec3 eu = {0,0,0};
+        if( R_abs != NULL )
+            Math::Rmat_eZYZ(eu,*R_abs);
 
         // TODO: Welford online algorithm uses float for p_cnt; exact up to 2^24 iterations.
         //       For very large angle sets consider switching p_cnt to int.
         //       This could be vectorized with SIMD intrinsics for better performance, but currently not a bottleneck.
         for(int cc_index=0;cc_index<n_cc;cc_index++) {
             float cc = p_cc[cc_index];
-            if( cc > c_cc[cc_index] )
+            if( cc > c_cc[cc_index] ) {
                 c_cc[cc_index] = cc;
+                p_eu[cc_index] = eu;
+            }
             p_cnt[cc_index] += 1;
             float delta  = cc - p_avg[cc_index];
             p_avg[cc_index] += delta / p_cnt[cc_index];
@@ -231,60 +246,39 @@ public:
         }
     }
 
-    void save_cc(int tid,int rid,int pid,int tx,int ty,int tz,float *prj_w,bool save_sigma=false) {
+    void save_cc(int tid,int rid,int pid,int tx,int ty,int tz,float *prj_w) {
         if( tm_type == TM_NONE )
             return;
-
-        int x,y,z;
-
-        int proj_id, point_id;
-        float proj_w;
 
         for(int cc_index=0;cc_index<n_cc;cc_index++){
             if( p_cnt[cc_index] == 0 )
                 continue;
 
             if (tm_dim == 2){
-                proj_id  = cc_index / num_points;
-                point_id = cc_index % num_points;
-                proj_w   = prj_w[proj_id];
+                int   point_id = cc_index % num_points;
+                int   proj_id  = cc_index / num_points;
+                float proj_w   = prj_w[proj_id];
+                fprintf(fp,"%d,%d,%d,%d,%f,%d,%d,%.15lf\n", tid, pid, rid, proj_id, proj_w,
+                        p_x[point_id], p_y[point_id], c_cc[cc_index]);
             }
             else if (tm_dim == 3){
-                proj_id  = 0;
-                point_id = cc_index;
+                /// Prominence: peak against this voxel's own distribution over angles.
+                /// Only computable here; the angular spread is lost once c_cc is written.
+                float cc_std   = sqrtf(p_std[cc_index] / p_cnt[cc_index]);
+                float cc_sigma = ( cc_std > SUSAN_FLOAT_TOL )
+                                 ? (c_cc[cc_index]-p_avg[cc_index])/cc_std : 0.0f;
+
+                /// tm_sigma: drop voxels whose peak is not prominent enough. Without
+                /// this the output is one row per searched voxel.
+                if( sigma > 0 && cc_sigma < sigma )
+                    continue;
+
+                fprintf(fp,"%d,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%d\n", tid, pid, rid,
+                        (p_x[cc_index]+tx), (p_y[cc_index]+ty), (p_z[cc_index]+tz),
+                        c_cc[cc_index], cc_sigma,
+                        p_eu[cc_index].x, p_eu[cc_index].y, p_eu[cc_index].z, block_id);
             }
-
-            x = p_x[point_id];
-            y = p_y[point_id];
-            z = p_z[point_id];
-
-            if(save_sigma) {
-                float cc_avg = p_avg[cc_index];
-                float cc_std = sqrtf(p_std[cc_index] / p_cnt[cc_index]);
-                if( cc_std > SUSAN_FLOAT_TOL )
-                    c_cc[cc_index] = (c_cc[cc_index]-cc_avg)/cc_std;
-                else
-                    c_cc[cc_index] = 0.0;
-            }
-
-	    if (tm_dim == 2){
-	        if( tm_type == TM_PYTHON )
-		        fprintf(fp,"cc_tomo%05d_ptcl%d_ref%02d_proj%02d_w%f[%d,%d] = %.15lf\n", tid, pid, rid, proj_id, proj_w, x, y, c_cc[cc_index]);
-	        else if( tm_type == TM_MATLAB )
-		        fprintf(fp,"cc_tomo%05d_ptcl%d_ref%02d_proj%02d_w%.15lf(%d,%d) = %f;\n",tid, pid, rid, proj_id, proj_w, (x+1), (y+1), c_cc[cc_index]);
-	        else if( tm_type == TM_CSV )
-		        fprintf(fp,"%d,%d,%d,%d,%f,%d,%d,%.15lf\n", tid, pid, rid, proj_id, proj_w, x, y, c_cc[cc_index]);
-	    }
-	    else if (tm_dim == 3){
-	        if( tm_type == TM_PYTHON )
-		        fprintf(fp,"cc_tomo%05d_ptcl%d_ref%02d[%d,%d,%d] = %.6f\n", tid, pid, rid, (z+tz),  (y+ty),  (x+tx),  c_cc[cc_index]);
-	        else if( tm_type == TM_MATLAB )
-		        fprintf(fp,"cc_tomo%05d_ptcl%d_ref%02d(%4d,%4d,%4d) = %.6f;\n",tid, pid, rid, (x+tx+1), (y+ty+1), (z+tz+1), c_cc[cc_index]);
-	        else if( tm_type == TM_CSV ) {
-		        fprintf(fp,"%d,%d,%d,%d,%d,%d,%.6f,%d\n",tid, pid, rid, (x+tx), (y+ty), (z+tz), c_cc[cc_index],block_id);
-	        }
-	    }
-	}
+        }
         block_id++;
     }
 
@@ -467,7 +461,7 @@ protected:
                 AliBuffer*ptr = (AliBuffer*)p_buffer->RO_get_buffer();
                 create_ctf(ctf_wgt,ptr,stream);
                 add_data(ss_data,ctf_wgt,ptr,rad_avgr,stream);
-                add_rec_weight(ss_data,ptr,stream);
+                add_rec_weight(ss_data,rad_avgr,ptr,stream);
                 angular_search_3D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,stream);
                 stream.sync();
             }
@@ -568,12 +562,13 @@ protected:
         ss_data .apply_bandpass(ptr->g_def,bandpass,ptr->K,stream);
     }
 
-    void add_rec_weight(AliSubstack&ss_data,AliBuffer*ptr,GPU::Stream&stream) {
+    void add_rec_weight(AliSubstack&ss_data,RadialAverager&rad_avgr,AliBuffer*ptr,GPU::Stream&stream) {
         float w_total=0;
         for(int k=0;k<ptr->K;k++) {
             w_total += ptr->c_ali.ptr[k].w;
         }
         ss_data.apply_radial_wgt(w_total,ptr->crowther_limit,ptr->K,stream);
+        rad_avgr.normalize_stacks(ss_data.ss_fourier,ptr->K,stream);
     }
 
     void print_R(GPU::GArrProj2D&g_ali,int k,GPU::Stream&stream) {
@@ -602,6 +597,8 @@ protected:
         Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
 
         tm_rep.clear_cc();
+
+        int ite = 0;
 
         // Note: for template matching, use levels=0. With multiple refinement levels,
         // sigma statistics are reset per level to avoid mixing coarse and fine angle
@@ -637,8 +634,12 @@ protected:
                         /// - Localized reconstruction of CC.
 
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-                        ali_data.invert_fourier(ptr->K,stream);
 
+                        if( ite++ == 4 )
+                            break;
+
+                        ali_data.invert_fourier(ptr->K,stream);
+                        
                         Rot33 R_spc;
                         if( off_space == REFERENCE_SPACE )
                             Math::set(R_spc,R_tmp);
@@ -658,7 +659,9 @@ protected:
 
                         cc_tracker.push(ali_data.c_cc,ali_data.n_pts,R_cum,weight);
 
-                        tm_rep.push_cc(ali_data.c_cc);
+                        /// Absolute pose, matching what update_particle_3D() writes to ali_eu.
+                        const M33f R_abs = R_cum*R_ali;
+                        tm_rep.push_cc(ali_data.c_cc,&R_abs);
                     } // INPLANE
                 } // CONE
             } // SYMMETRY
@@ -678,7 +681,7 @@ protected:
                 ptr->ptcl.def[i].ExpFilt = dose;
         }
 
-        tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w,cc_stats==CC_STATS_SIGMA);
+        tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w);
     }
 
     void angular_search_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,GPU::Stream&stream) {

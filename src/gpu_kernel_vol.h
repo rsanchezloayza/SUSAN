@@ -1093,7 +1093,8 @@ __global__ void reconstruct_pts(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t
 
     if( ss_idx.x < n_pts && ss_idx.y < 1 && ss_idx.z < 1 ) {
 
-        float cc = 0;
+        float cc  = 0;
+        float wgt = 0;
         Vec3  pt = p_pts[ss_idx.x];
         float rx,ry,rz;
         rot_inv_pt(rx,ry,rz,R,pt);
@@ -1104,12 +1105,14 @@ __global__ void reconstruct_pts(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t
         for(int z=0;z<K;z++) {
             if( pTlt[z].w > SUSAN_FLOAT_TOL  ) {
                 rot_inv_pt_XY(x,y,pTlt[z].R,pt_r);
-                cc += pTlt[z].w*tex2DLayered<float>(ss_cc,x+off,y+off,z);
+                cc  += pTlt[z].w*tex2DLayered<float>(ss_cc,x+off,y+off,z);
+                wgt += pTlt[z].w;
             }
         }
+        
+        if( wgt == 0 ) wgt = 1;
 
-        p_cc[ss_idx.x] = cc;
-
+        p_cc[ss_idx.x] = cc/wgt;
     }
 
 }
