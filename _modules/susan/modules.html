@@ -480,17 +480,30 @@
 <span class="sd">    verbosity : int</span>
 <span class="sd">        Verbosity level passed to the binary (0 = silent).  Default: ``0``.</span>
 <span class="sd">    tm_type : str</span>
-<span class="sd">        Template-matching output mode.  When not ``&#39;none&#39;``, per-particle</span>
+<span class="sd">        Template-matching output mode.  When not ``&#39;none&#39;``, per-voxel</span>
 <span class="sd">        cross-correlation statistics are written to disk for use by</span>
-<span class="sd">        downstream template-matching workflows.  One of ``&#39;none&#39;``,</span>
-<span class="sd">        ``&#39;matlab&#39;``, ``&#39;python&#39;``, ``&#39;csv&#39;``.  Default: ``&#39;none&#39;``.</span>
+<span class="sd">        downstream template-matching workflows.  One of ``&#39;none&#39;`` or</span>
+<span class="sd">        ``&#39;csv&#39;``; ``&#39;matlab&#39;`` and ``&#39;python&#39;`` are deprecated aliases of</span>
+<span class="sd">        ``&#39;csv&#39;``.  Default: ``&#39;none&#39;``.</span>
+
+<span class="sd">        Requires :attr:`refine` levels ``= 0``: the report holds one peak per</span>
+<span class="sd">        voxel, and angular refinement only refines the single best angle.</span>
+
+<span class="sd">        In 3-D the CSV columns are ``TID,PartID,RID,X,Y,Z,CC,CC_SIGMA,EU1,</span>
+<span class="sd">        EU2,EU3,BlockID``.  ``CC`` is the maximum over the angular search,</span>
+<span class="sd">        ``CC_SIGMA`` its z-score against that voxel&#39;s own distribution over</span>
+<span class="sd">        angles, and ``EU1..EU3`` the ZYZ Euler angles (radians, same</span>
+<span class="sd">        convention as :attr:`~susan.data.Particles.ali_eu`) of the winning</span>
+<span class="sd">        orientation.  ``CC_SIGMA`` can only be computed during the search,</span>
+<span class="sd">        as the angular spread is not recoverable from the saved maximum.</span>
 <span class="sd">    tm_prefix : str</span>
 <span class="sd">        Filename prefix for the template-matching output files (only used</span>
 <span class="sd">        when :attr:`tm_type` ≠ ``&#39;none&#39;``).  Default: ``&#39;template_matching&#39;``.</span>
 <span class="sd">    tm_sigma : float</span>
-<span class="sd">        Threshold (in units of σ above the mean) below which CC values are</span>
-<span class="sd">        discarded when saving template-matching output.  ``0`` keeps all</span>
-<span class="sd">        values.  Only used when :attr:`tm_type` ≠ ``&#39;none&#39;``.  Default: ``0``.</span>
+<span class="sd">        Threshold on ``CC_SIGMA`` below which voxels are discarded when</span>
+<span class="sd">        saving template-matching output.  ``0`` keeps all values, which</span>
+<span class="sd">        writes one row per searched voxel and is rarely practical for a full</span>
+<span class="sd">        run.  3-D only.  Default: ``0``.</span>
 <span class="sd">    dilate : int</span>
 <span class="sd">        Dilation parameter for the sparse reconstruction step used during</span>
 <span class="sd">        alignment scoring.  Controls how many neighbouring grid points each</span>

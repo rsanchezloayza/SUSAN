@@ -678,10 +678,20 @@ Default: <code class="docutils literal notranslate"><span class="pre">mpi_params
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.tm_type">
 <span class="sig-name descname"><span class="pre">tm_type</span></span><a class="headerlink" href="#susan.modules.Aligner.tm_type" title="Link to this definition">¶</a></dt>
-<dd><p>Template-matching output mode.  When not <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, per-particle
+<dd><p>Template-matching output mode.  When not <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, per-voxel
 cross-correlation statistics are written to disk for use by
-downstream template-matching workflows.  One of <code class="docutils literal notranslate"><span class="pre">'none'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'matlab'</span></code>, <code class="docutils literal notranslate"><span class="pre">'python'</span></code>, <code class="docutils literal notranslate"><span class="pre">'csv'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+downstream template-matching workflows.  One of <code class="docutils literal notranslate"><span class="pre">'none'</span></code> or
+<code class="docutils literal notranslate"><span class="pre">'csv'</span></code>; <code class="docutils literal notranslate"><span class="pre">'matlab'</span></code> and <code class="docutils literal notranslate"><span class="pre">'python'</span></code> are deprecated aliases of
+<code class="docutils literal notranslate"><span class="pre">'csv'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+<p>Requires <a class="reference internal" href="#susan.modules.Aligner.refine" title="susan.modules.Aligner.refine"><code class="xref py py-attr docutils literal notranslate"><span class="pre">refine</span></code></a> levels <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">0</span></code>: the report holds one peak per
+voxel, and angular refinement only refines the single best angle.</p>
+<p>In 3-D the CSV columns are <code class="docutils literal notranslate"><span class="pre">TID,PartID,RID,X,Y,Z,CC,CC_SIGMA,EU1,</span>
+<span class="pre">EU2,EU3,BlockID</span></code>.  <code class="docutils literal notranslate"><span class="pre">CC</span></code> is the maximum over the angular search,
+<code class="docutils literal notranslate"><span class="pre">CC_SIGMA</span></code> its z-score against that voxel’s own distribution over
+angles, and <code class="docutils literal notranslate"><span class="pre">EU1..EU3</span></code> the ZYZ Euler angles (radians, same
+convention as <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.ali_eu" title="susan.data.Particles.ali_eu"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ali_eu</span></code></a>) of the winning
+orientation.  <code class="docutils literal notranslate"><span class="pre">CC_SIGMA</span></code> can only be computed during the search,
+as the angular spread is not recoverable from the saved maximum.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -704,9 +714,10 @@ when <a class="reference internal" href="#susan.modules.Aligner.tm_type" title="
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.tm_sigma">
 <span class="sig-name descname"><span class="pre">tm_sigma</span></span><a class="headerlink" href="#susan.modules.Aligner.tm_sigma" title="Link to this definition">¶</a></dt>
-<dd><p>Threshold (in units of σ above the mean) below which CC values are
-discarded when saving template-matching output.  <code class="docutils literal notranslate"><span class="pre">0</span></code> keeps all
-values.  Only used when <a class="reference internal" href="#susan.modules.Aligner.tm_type" title="susan.modules.Aligner.tm_type"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tm_type</span></code></a> ≠ <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dd><p>Threshold on <code class="docutils literal notranslate"><span class="pre">CC_SIGMA</span></code> below which voxels are discarded when
+saving template-matching output.  <code class="docutils literal notranslate"><span class="pre">0</span></code> keeps all values, which
+writes one row per searched voxel and is rarely practical for a full
+run.  3-D only.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
