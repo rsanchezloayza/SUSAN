@@ -176,17 +176,30 @@ class Aligner:
     verbosity : int
         Verbosity level passed to the binary (0 = silent).  Default: ``0``.
     tm_type : str
-        Template-matching output mode.  When not ``'none'``, per-particle
+        Template-matching output mode.  When not ``'none'``, per-voxel
         cross-correlation statistics are written to disk for use by
-        downstream template-matching workflows.  One of ``'none'``,
-        ``'matlab'``, ``'python'``, ``'csv'``.  Default: ``'none'``.
+        downstream template-matching workflows.  One of ``'none'`` or
+        ``'csv'``; ``'matlab'`` and ``'python'`` are deprecated aliases of
+        ``'csv'``.  Default: ``'none'``.
+
+        Requires :attr:`refine` levels ``= 0``: the report holds one peak per
+        voxel, and angular refinement only refines the single best angle.
+
+        In 3-D the CSV columns are ``TID,PartID,RID,X,Y,Z,CC,CC_SIGMA,EU1,
+        EU2,EU3,BlockID``.  ``CC`` is the maximum over the angular search,
+        ``CC_SIGMA`` its z-score against that voxel's own distribution over
+        angles, and ``EU1..EU3`` the ZYZ Euler angles (radians, same
+        convention as :attr:`~susan.data.Particles.ali_eu`) of the winning
+        orientation.  ``CC_SIGMA`` can only be computed during the search,
+        as the angular spread is not recoverable from the saved maximum.
     tm_prefix : str
         Filename prefix for the template-matching output files (only used
         when :attr:`tm_type` ≠ ``'none'``).  Default: ``'template_matching'``.
     tm_sigma : float
-        Threshold (in units of σ above the mean) below which CC values are
-        discarded when saving template-matching output.  ``0`` keeps all
-        values.  Only used when :attr:`tm_type` ≠ ``'none'``.  Default: ``0``.
+        Threshold on ``CC_SIGMA`` below which voxels are discarded when
+        saving template-matching output.  ``0`` keeps all values, which
+        writes one row per searched voxel and is rarely practical for a full
+        run.  3-D only.  Default: ``0``.
     dilate : int
         Dilation parameter for the sparse reconstruction step used during
         alignment scoring.  Controls how many neighbouring grid points each
