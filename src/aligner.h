@@ -776,16 +776,22 @@ protected:
 
         single cc_acc=0,wgt_acc=0,cc_cur=0;
         for(int i=0;i<ptr->K;i++) {
-            if( ptr->ptcl.prj_w[i] > 0 ) {
-                cc_cur   = cc_tracker_arr.get_cc(i);
-                cc_acc  += cc_cur;
-                wgt_acc += ptr->ptcl.prj_w[i];
-                Math::set(max_R[i],R_rslt[i]);
-                update_particle_2D(ptr->ptcl,
-                                   max_R[i],cc_tracker_arr.get_vec(i),cc_cur,
-                                   i,ptr->ctf_vals.apix);
-                ptr->ptcl.def[i].ExpFilt = expfilt_gain * cc_tracker_arr.get_dose(i);
+            if( ptr->ptcl.prj_w[i] <= 0 )
+                continue;
+
+            if( ptr->c_ali.ptr[i].w <= 0 ) {
+                ptr->ptcl.prj_cc[i] = 0;
+                continue;
             }
+
+            cc_cur   = cc_tracker_arr.get_cc(i);
+            cc_acc  += cc_cur;
+            wgt_acc += ptr->ptcl.prj_w[i];
+            Math::set(max_R[i],R_rslt[i]);
+            update_particle_2D(ptr->ptcl,
+                               max_R[i],cc_tracker_arr.get_vec(i),cc_cur,
+                               i,ptr->ctf_vals.apix);
+            ptr->ptcl.def[i].ExpFilt = expfilt_gain * cc_tracker_arr.get_dose(i);
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
         tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w);
