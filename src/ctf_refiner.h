@@ -163,6 +163,11 @@ protected:
         MP = (NP/2)+1;
 
         GPU::set_device(gpu_ix);
+
+        /// Lookup table for the Kaiser-Bessel extraction kernel; per-device, so
+        /// it has to follow set_device and precede any extract_stk_kb launch.
+        GpuKernelsVol::init_kb_lut();
+
         int current_cmd;
         GPU::Stream stream;
         stream.configure();
@@ -245,8 +250,10 @@ protected:
 
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,N,N,N);
-
+	dim3 grdP = GPU::calc_grid_size(blk,NP,NP,NP);
+        
         GpuKernels::load_pad<<<grd,blk>>>(g_pad.ptr,g_raw.ptr,pad,ss_raw,ss_pad);
+        GpuKernelsVol::grid_correct_kb_fwd<<<grdP,blk>>>(g_pad.ptr,NP);
     }
 
     void exec_fft3(GPU::GArrSingle2&g_fou,GPU::GArrSingle&g_pad,GpuFFT::FFT3D&fft3) {

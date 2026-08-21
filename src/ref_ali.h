@@ -288,6 +288,14 @@ public:
         GpuKernels::apply_radial_wgt<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,w_total,limit,ss);
     }
 
+    void apply_radial_wgt_sqrt(float w_total,float crowther_limit,int k,GPU::Stream&stream) {
+        int3 ss = make_int3(MP,NP,k);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,MP,NP,k);
+        float limit = fminf(crowther_limit,MP);
+        GpuKernels::apply_radial_wgt_sqrt<<<grd,blk,0,stream.strm>>>(ss_fourier.ptr,w_total,limit,ss);
+    }
+
     void apply_bandpass(GPU::GArrDefocus&p_def,float3 bandpass,int k,GPU::Stream&stream) {
         bool bandpass_squared=true;
         dim3 blk = GPU::get_block_size_2D();
@@ -403,18 +411,23 @@ public:
         GpuKernels::rotate_pre<<<grd,blk,0,stream.strm>>>(g_ali.ptr,R,ali_in.ptr,k);
     }
 
+    /// Uses the Kaiser-Bessel gridding kernel, which pairs with the
+    /// grid_correct_kb pre-compensation applied to the reference in upload_ref.
+    /// The two must stay together: KB extraction without the correction projects
+    /// an apodised reference, and the correction without KB extraction over-
+    /// compensates a kernel that was never applied.
     void project(GPU::GTex3DSingle2&ref,float3 bandpass,int k,GPU::Stream&stream) {
         bool bandpass_squared=true;
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
-        GpuKernelsVol::extract_stk<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ref.texture,g_ali.ptr,bandpass,M,N,k,bandpass_squared);
+        GpuKernelsVol::extract_stk_kb<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ref.texture,g_ali.ptr,bandpass,M,N,k,bandpass_squared);
     }
 
     void project(GPU::GTex3DSingle2&ref,GPU::GArrDefocus&p_def,float3 bandpass,int k,GPU::Stream&stream) {
         bool bandpass_squared=true;
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
-        GpuKernelsVol::extract_stk<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ref.texture,g_ali.ptr,p_def.ptr,bandpass,M,N,k,bandpass_squared);
+        GpuKernelsVol::extract_stk_kb<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ref.texture,g_ali.ptr,p_def.ptr,bandpass,M,N,k,bandpass_squared);
     }
 
     void invert_fourier(int k,GPU::Stream&stream) {
@@ -455,6 +468,14 @@ public:
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
         GpuKernelsCtf::apply_bandpass_fourier<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ctf_const,p_def.ptr,bandpass,M,N,k);
     }
+    
+    void apply_radial_wgt_sqrt(float w_total,float crowther_limit,int k,GPU::Stream&stream) {
+        int3 ss = make_int3(M,N,k);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,M,N,k);
+        float limit = fminf(crowther_limit,(float)M);
+        GpuKernels::apply_radial_wgt_sqrt<<<grd,blk,0,stream.strm>>>(prj_c.ptr,w_total,limit,ss);
+    }
 
     void multiply(GPU::GArrSingle&p_wgt,int k,GPU::Stream&stream) {
         int3 ss = make_int3(M,N,k);
@@ -468,6 +489,13 @@ public:
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
         GpuKernels::multiply<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_data.ptr,ss);
+    }
+
+    void multiplication_2d_cc(GPU::GArrSingle2&p_data,int ref_z,int delta_z,int k,GPU::Stream&stream) {
+        int3 ss = make_int3(M,N,k);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,M,N,k);
+        GpuKernels::intra_multiply_conj<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_data.ptr,ref_z,delta_z,ss);
     }
 
     void dilate_into_surface(int dilate,int k,GPU::Stream&stream) {

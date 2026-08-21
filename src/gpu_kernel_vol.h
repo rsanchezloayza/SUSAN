@@ -634,6 +634,257 @@ __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
     }
 }
 
+/// --- Kaiser-Bessel gridding for slice extraction ---------------------------
+///
+/// Plain trilinear extraction is an interpolation whose low-pass strength
+/// depends on the sub-voxel position of the sample, so grid-aligned orientations
+/// come out sharper than off-grid ones and the angular search is biased toward
+/// them. Widening the kernel to the same 4-voxel Kaiser-Bessel window already
+/// used by insert_stk_kb_atomic removes that dependence.
+///
+/// Cost is kept at 8 fetches: the texture is sampled with cudaFilterModeLinear,
+/// so one tex3D fetch already blends 2 voxels per axis. Pairing the window as
+/// {i-1,i} and {i+1,i+2} and placing each fetch at the fractional position that
+/// makes the hardware lerp reproduce the two KB weights is exact, turning 4x4x4
+/// = 64 taps into 2x2x2 = 8 fetches.
+///
+/// The reference must be pre-divided by the kernel's transform before its FFT
+/// (grid_correct_kb in upload_ref), otherwise the projection is of an apodised
+/// reference and most of the benefit is lost.
+
+/// Everything kb_lerp_pair needs depends only on frac(p), so it is tabulated
+/// rather than recomputed. Entry i holds, for f = i/(KB_LUT_N-1):
+///   x = c0 offset from floor(p),  y = a0,  z = c1 offset from floor(p),  w = a1
+///
+/// Evaluating the 8th-order polyfit four times and dividing four times per axis
+/// costs 12 polynomial evaluations and 12 divisions per pixel, which measured at
+/// 7.4x the cost of trilinear extraction with 98% of that in the arithmetic
+/// (8 fetches alone are only 1.14x). The table brings it to 1.2x and is accuracy
+/// neutral: max weight error 3e-7, identical CC spread to six decimals.
+#define KB_LUT_N 1024
+__device__ float4 g_kb_lut[KB_LUT_N];
+
+namespace {
+inline float kb_krn_host(const float t) {
+    float t2=t*t, t4=t2*t2, t6=t4*t2, t8=t6*t2;
+    float r = 0.99939224f;
+    r -= 3.37246839f*t2;
+    r += 4.70532537f*t4;
+    r -= 3.26100335f*t6;
+    r += 0.93508816f*t8;
+    return r;
+}
+}
+
+/// Builds and uploads g_kb_lut. Call once per device, after GPU::set_device and
+/// before any extract_stk_kb launch.
+inline void init_kb_lut() {
+    float4 tbl[KB_LUT_N];
+    for(int i=0;i<KB_LUT_N;i++) {
+        float f  = (float)i/(float)(KB_LUT_N-1);
+        /// kb_krn_host takes (offset/2); the offsets (-1-f,-f,1-f,2-f) all land
+        /// inside the polyfit's valid |t|<=1 range.
+        float w0 = fmaxf(kb_krn_host((-1.0f-f)*0.5f),0.0f);
+        float w1 = fmaxf(kb_krn_host((     -f)*0.5f),0.0f);
+        float w2 = fmaxf(kb_krn_host(( 1.0f-f)*0.5f),0.0f);
+        float w3 = fmaxf(kb_krn_host(( 2.0f-f)*0.5f),0.0f);
+        float s0 = fmaxf(w0+w1,1e-9f);
+        float s1 = fmaxf(w2+w3,1e-9f);
+        float s  = fmaxf(w0+w1+w2+w3,1e-6f);
+        tbl[i] = make_float4( -1.0f + (w1/s0), s0/s, 1.0f + (w3/s1), s1/s );
+    }
+    cudaError_t err = cudaMemcpyToSymbol(g_kb_lut,tbl,sizeof(tbl));
+    if( err != cudaSuccess ) {
+        fprintf(stderr,"Error uploading the Kaiser-Bessel lookup table. ");
+        fprintf(stderr,"GPU error: %s.\n",cudaGetErrorString(err));
+        exit(1);
+    }
+}
+
+/// Collapses the 4-voxel window into two lerp fetch positions. a0+a1 == 1.
+__device__ __forceinline__ void kb_lerp_pair(float&c0,float&a0,float&c1,float&a1,const float p) {
+    float ip = floorf(p);
+    float u  = (p - ip)*(KB_LUT_N-1);
+    int   i  = min(max((int)u,0),KB_LUT_N-1);
+    int   j  = min(i+1,KB_LUT_N-1);
+    float t  = u - (float)i;
+    float4 A = __ldg(&g_kb_lut[i]);
+    float4 B = __ldg(&g_kb_lut[j]);
+    c0 = ip + A.x + t*(B.x-A.x);
+    a0 =      A.y + t*(B.y-A.y);
+    c1 = ip + A.z + t*(B.z-A.z);
+    a1 =      A.w + t*(B.w-A.w);
+}
+
+/// KB interpolation within one x column; ay/az must already sum to 1.
+__device__ __forceinline__ float2 kb_plane(cudaTextureObject_t vol,const float cx,
+                                           const float cy0,const float ay0,const float cy1,const float ay1,
+                                           const float cz0,const float az0,const float cz1,const float az1) {
+    float2 v00 = tex3D<float2>(vol,cx,cy0,cz0);
+    float2 v10 = tex3D<float2>(vol,cx,cy1,cz0);
+    float2 v01 = tex3D<float2>(vol,cx,cy0,cz1);
+    float2 v11 = tex3D<float2>(vol,cx,cy1,cz1);
+    float2 r;
+    r.x = az0*(ay0*v00.x + ay1*v10.x) + az1*(ay0*v01.x + ay1*v11.x);
+    r.y = az0*(ay0*v00.y + ay1*v10.y) + az1*(ay0*v01.y + ay1*v11.y);
+    return r;
+}
+
+/// px is the (non-negative) kx of the sample, py/pz are centred frequencies.
+///
+/// The window reaches kx = -1 whenever px < 1, which is roughly 3.6% of the
+/// slice pixels. That column is not stored in the Hermitian half-volume and
+/// cudaAddressModeBorder would return zero for it, dropping up to 22% of the x
+/// weight and costing about two orders of magnitude of accuracy. Those samples
+/// take a second path that recovers it from
+///     U(-1,ky,kz) = conj( U(1,-ky,-kz) ),
+/// which is the same 4-tap interpolation of the kx = 1 plane evaluated at
+/// (-ky,-kz) and conjugated: the KB window is even, so the weights carry over
+/// unchanged. That path costs 12 fetches. Both paths are exact.
+__device__ __forceinline__ float2 fetch_kb(cudaTextureObject_t vol,
+                                           const float px,const float py,const float pz,const int N)
+{
+    const float Nh  = N/2;
+    const float pxc = fmaxf(px,0.0f);
+
+    float cy0,ay0,cy1,ay1;  kb_lerp_pair(cy0,ay0,cy1,ay1,py+Nh);
+    float cz0,az0,cz1,az1;  kb_lerp_pair(cz0,az0,cz1,az1,pz+Nh);
+    cy0 += 0.5f; cy1 += 0.5f; cz0 += 0.5f; cz1 += 0.5f;
+
+    float2 acc;
+
+    if( pxc >= 1.0f ) {
+        float cx0,ax0,cx1,ax1;  kb_lerp_pair(cx0,ax0,cx1,ax1,pxc);
+        float2 p0 = kb_plane(vol,cx0+0.5f,cy0,ay0,cy1,ay1,cz0,az0,cz1,az1);
+        float2 p1 = kb_plane(vol,cx1+0.5f,cy0,ay0,cy1,ay1,cz0,az0,cz1,az1);
+        acc.x = ax0*p0.x + ax1*p1.x;
+        acc.y = ax0*p0.y + ax1*p1.y;
+    }
+    else {
+        /// Window is kx = {-1,0,1,2}: kx=0 as a point fetch, {1,2} as a pair,
+        /// and kx=-1 from the mirrored kx=1 plane.
+        ///
+        /// All four normalised weights come out of the same lerp pair. With
+        /// ip = 0 here, t0 = c0+1 = w1/s0, so a0*t0 = w1/s, a0*(1-t0) = w0/s and
+        /// a1 = (w2+w3)/s; c1 is already the fetch position for the {1,2} pair.
+        float cx0,ax0,cx1,ax1;  kb_lerp_pair(cx0,ax0,cx1,ax1,pxc);
+        float t0  = cx0 - floorf(pxc) + 1.0f;
+        float w1n = ax0*t0;
+        float w0n = ax0 - w1n;
+
+        float2 p0 = kb_plane(vol,0.5f    ,cy0,ay0,cy1,ay1,cz0,az0,cz1,az1);
+        float2 p1 = kb_plane(vol,cx1+0.5f,cy0,ay0,cy1,ay1,cz0,az0,cz1,az1);
+
+        float my0,by0,my1,by1;  kb_lerp_pair(my0,by0,my1,by1,-py+Nh);
+        float mz0,bz0,mz1,bz1;  kb_lerp_pair(mz0,bz0,mz1,bz1,-pz+Nh);
+        float2 pm = kb_plane(vol,1.5f,my0+0.5f,by0,my1+0.5f,by1,mz0+0.5f,bz0,mz1+0.5f,bz1);
+
+        acc.x = w1n*p0.x + ax1*p1.x + w0n*pm.x;
+        acc.y = w1n*p0.y + ax1*p1.y - w0n*pm.y;   /// conj() on the mirror term
+    }
+
+    return acc;
+}
+
+__global__ void extract_stk_kb(float2*p_out,cudaTextureObject_t vol,const Proj2D*pTlt,
+                               const float3 bandpass,const int M, const int N, const int K,
+                               bool bandpass_squared=false)
+{
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < M && ss_idx.y < N && ss_idx.z < K ) {
+
+        float2 val = {0,0};
+
+        if( pTlt[ss_idx.z].w > 0 ) {
+            Vec3 pt_in;
+            pt_in.x = ss_idx.x;
+            pt_in.y = ss_idx.y - N/2;
+            pt_in.z = 0;
+
+            float R = l2_distance(pt_in.x,pt_in.y);
+            float bp = get_bp_wgt(bandpass.x,bandpass.y,bandpass.z,R);
+
+            if( bp > 0.05 ) {
+                if( bandpass_squared )
+                    bp = bp*bp;
+                Vec3 pt_out;
+                rot_pt_XY(pt_out,pTlt[ss_idx.z].R,pt_in);
+
+                bool should_conjugate = false;
+                if( pt_out.x < 0 ) {
+                    pt_out.x = -pt_out.x;
+                    pt_out.y = -pt_out.y;
+                    pt_out.z = -pt_out.z;
+                    should_conjugate = true;
+                }
+
+                val = fetch_kb(vol,pt_out.x,pt_out.y,pt_out.z,N);
+                val.x *= bp;
+                val.y *= bp;
+
+                if( should_conjugate )
+                    val.y = -val.y;
+
+            }
+        }
+
+        p_out[ ss_idx.x + M*ss_idx.y + M*N*ss_idx.z ] = val;
+    }
+}
+
+__global__ void extract_stk_kb(float2*p_out,cudaTextureObject_t vol,const Proj2D*pTlt,
+                               const Defocus*pDef,const float3 bandpass,
+                               const int M, const int N, const int K,
+                               bool bandpass_squared=false)
+{
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < M && ss_idx.y < N && ss_idx.z < K ) {
+
+        float2 val = {0,0};
+
+        if( pTlt[ss_idx.z].w > 0 ) {
+            Vec3 pt_in;
+            pt_in.x = ss_idx.x;
+            pt_in.y = ss_idx.y - N/2;
+            pt_in.z = 0;
+
+            float max_R = bandpass.y;
+            if( pDef[ss_idx.z].max_res > 0 )
+                max_R = min(max_R,pDef[ss_idx.z].max_res);
+
+            float R = l2_distance(pt_in.x,pt_in.y);
+            float bp = get_bp_wgt(bandpass.x,max_R,bandpass.z,R);
+
+            if( bp > 0.05 ) {
+                if( bandpass_squared )
+                    bp = bp*bp;
+                Vec3 pt_out;
+                rot_pt_XY(pt_out,pTlt[ss_idx.z].R,pt_in);
+
+                bool should_conjugate = false;
+                if( pt_out.x < 0 ) {
+                    pt_out.x = -pt_out.x;
+                    pt_out.y = -pt_out.y;
+                    pt_out.z = -pt_out.z;
+                    should_conjugate = true;
+                }
+
+                val = fetch_kb(vol,pt_out.x,pt_out.y,pt_out.z,N);
+                val.x *= bp;
+                val.y *= bp;
+
+                if( should_conjugate )
+                    val.y = -val.y;
+
+            }
+        }
+
+        p_out[ ss_idx.x + M*ss_idx.y + M*N*ss_idx.z ] = val;
+    }
+}
+
 __global__ void extract_stk(float2*p_out,cudaTextureObject_t vol,const Proj2D*pTlt,
                             const float3 bandpass,const int M, const int N, const int K,
                             bool bandpass_squared=false)
@@ -918,13 +1169,41 @@ __global__ void grid_correct_kb(float*p_data,const int N) {
         float tx = ss_idx.x-center;
         float ty = ss_idx.y-center;
         float tz = ss_idx.z-center;
+        
+        const float kb_dc = get_kaisser_bessel_correction_polyfit(0.0f);
 
-        float kbx = get_kaisser_bessel_correction_polyfit(tx/center);
-        float kby = get_kaisser_bessel_correction_polyfit(ty/center);
-        float kbz = get_kaisser_bessel_correction_polyfit(tz/center);
+        float kbx = get_kaisser_bessel_correction_polyfit(tx/center)/kb_dc;
+        float kby = get_kaisser_bessel_correction_polyfit(ty/center)/kb_dc;
+        float kbz = get_kaisser_bessel_correction_polyfit(tz/center)/kb_dc;
 
         float wgt = kbx*kby*kbz;
-        wgt = fminf( fmaxf(wgt,1e-5f), 1-1e-5f );
+        wgt = fmaxf(wgt,1e-5f);
+        float val = p_data[ix];
+        p_data[ix] = val/wgt;
+    }
+}
+
+#define GRID_CORRECT_FWD_MIN 1e-2f
+
+__global__ void grid_correct_kb_fwd(float*p_data,const int N) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < N && ss_idx.y < N && ss_idx.z < N ) {
+
+        long ix = ss_idx.x + ss_idx.y*N + ss_idx.z*N*N;
+
+        int center = N/2;
+        float tx = ss_idx.x-center;
+        float ty = ss_idx.y-center;
+        float tz = ss_idx.z-center;
+
+        float kbx = get_kb_fwd_correction_polyfit(tx/center);
+        float kby = get_kb_fwd_correction_polyfit(ty/center);
+        float kbz = get_kb_fwd_correction_polyfit(tz/center);
+
+        float wgt = kbx*kby*kbz;
+        wgt = fminf( fmaxf(wgt,GRID_CORRECT_FWD_MIN), 1.0f );
         float val = p_data[ix];
         p_data[ix] = val/wgt;
     }

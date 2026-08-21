@@ -342,6 +342,11 @@ protected:
         MP = (NP/2)+1;
 
         GPU::set_device(gpu_ix);
+
+        /// Lookup table for the Kaiser-Bessel extraction kernel; per-device, so
+        /// it has to follow set_device and precede any extract_stk_kb launch.
+        GpuKernelsVol::init_kb_lut();
+
         int current_cmd;
         GPU::Stream stream;
         stream.configure();
@@ -436,10 +441,12 @@ protected:
         int3 ss_raw = make_int3(N,N,N);
         int3 ss_pad = make_int3(NP,NP,NP);
 
-        dim3 blk = GPU::get_block_size_2D();
-        dim3 grd = GPU::calc_grid_size(blk,N,N,N);
-
+        dim3 blk  = GPU::get_block_size_2D();
+        dim3 grd  = GPU::calc_grid_size(blk,N,N,N);
+        dim3 grdP = GPU::calc_grid_size(blk,NP,NP,NP);
+        
         GpuKernels::load_pad<<<grd,blk>>>(g_pad.ptr,g_raw.ptr,pad,ss_raw,ss_pad);
+        GpuKernelsVol::grid_correct_kb_fwd<<<grdP,blk>>>(g_pad.ptr,NP);
     }
 
     void exec_fft3(GPU::GArrSingle2&g_fou,GPU::GArrSingle&g_pad,GpuFFT::FFT3D&fft3) {
@@ -460,8 +467,7 @@ protected:
             if( p_buffer->RO_get_status() == READY ) {
                 AliBuffer*ptr = (AliBuffer*)p_buffer->RO_get_buffer();
                 create_ctf(ctf_wgt,ptr,stream);
-                add_data(ss_data,ctf_wgt,ptr,rad_avgr,stream);
-                add_rec_weight(ss_data,rad_avgr,ptr,stream);
+                add_data(ss_data,ctf_wgt,ptr,rad_avgr,true,stream);
                 angular_search_3D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,stream);
                 stream.sync();
             }
@@ -514,7 +520,7 @@ protected:
             if( p_buffer->RO_get_status() == READY ) {
                 AliBuffer*ptr = (AliBuffer*)p_buffer->RO_get_buffer();
                 create_ctf(ctf_wgt,ptr,stream);
-                add_data(ss_data,ctf_wgt,ptr,rad_avgr,stream);
+                add_data(ss_data,ctf_wgt,ptr,rad_avgr,false,stream);
                 angular_search_2D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,stream);
                 stream.sync();
             }
@@ -529,7 +535,14 @@ protected:
         GpuKernelsCtf::create_ctf<<<grd,blk,0,stream.strm>>>(ctf_wgt.ptr,ptr->ctf_vals,ptr->g_def.ptr,false,ss);
     }
 
-    void add_data(AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,RadialAverager&rad_avgr,GPU::Stream&stream) {
+    float total_proj_weight(AliBuffer*ptr) {
+        float w_total=0;
+        for(int k=0;k<ptr->K;k++)
+            w_total += ptr->c_ali.ptr[k].w;
+        return w_total;
+    }
+
+    void add_data(AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,RadialAverager&rad_avgr,bool apply_wbp_ramp,GPU::Stream&stream) {
 
         /// Steps:
         /// - [optional] Pad the substack [gaussian or zero padding].
@@ -537,8 +550,15 @@ protected:
         /// - [optional] Correct CTF [with or without SSNR].
         /// - [optional] Apply spectral weighting [CFSC or CFSC+SSNR].
         /// - Apply dose weighting/exposure filtering.
+        /// - [3D only] Apply the substack half of the WBP ramp, sqrt(w).
         /// - Normalize substacks energy (per projection).
         /// - Apply bandpass.
+        ///
+        /// The normalize/bandpass order is deliberate: normalizing BEFORE the
+        /// bandpass leaves the projection with the norm that survives the band,
+        /// so a narrower bandpass yields a smaller CC. The ramp therefore has to
+        /// go before the normalization too, otherwise it would need a second
+        /// normalization after it and that would undo the bandpass dependence.
 
         if( pad_type == PAD_ZERO     ) ss_data.pad_zero  (stream);
         if( pad_type == PAD_GAUSSIAN ) ss_data.pad_normal(ptr->g_pad,ptr->K,stream);
@@ -558,17 +578,12 @@ protected:
         }
 
         ss_data .apply_exposure_filt(ptr->ctf_vals,ptr->g_def,ptr->K,stream);
+
+        if( apply_wbp_ramp )
+            ss_data.apply_radial_wgt_sqrt(total_proj_weight(ptr),ptr->crowther_limit,ptr->K,stream);
+
         rad_avgr.normalize_stacks(ss_data.ss_fourier,ptr->K,stream);
         ss_data .apply_bandpass(ptr->g_def,bandpass,ptr->K,stream);
-    }
-
-    void add_rec_weight(AliSubstack&ss_data,RadialAverager&rad_avgr,AliBuffer*ptr,GPU::Stream&stream) {
-        float w_total=0;
-        for(int k=0;k<ptr->K;k++) {
-            w_total += ptr->c_ali.ptr[k].w;
-        }
-        ss_data.apply_radial_wgt(w_total,ptr->crowther_limit,ptr->K,stream);
-        rad_avgr.normalize_stacks(ss_data.ss_fourier,ptr->K,stream);
     }
 
     void print_R(GPU::GArrProj2D&g_ali,int k,GPU::Stream&stream) {
@@ -598,7 +613,8 @@ protected:
 
         tm_rep.clear_cc();
 
-        int ite = 0;
+        /// Reference half of the split WBP ramp; constant across orientations.
+        const float w_total = total_proj_weight(ptr);
 
         // Note: for template matching, use levels=0. With multiple refinement levels,
         // sigma statistics are reset per level to avoid mixing coarse and fine angle
@@ -615,6 +631,7 @@ protected:
                         /// - Project the reference.
                         /// - [optional] Apply FRC-based spectral weighting and bandpass.
                         /// - [optional] Apply CTF.
+                        /// - Apply the reference half of the WBP ramp, sqrt(w).
                         /// - Normalize reference projections.
 
                         ang_prov.get_current_R(R_ite);
@@ -627,6 +644,8 @@ protected:
                         if( ctf_type == ALI_CTF_ON_REFERENCE )
                             ali_data.multiply(ctf_wgt,ptr->K,stream);
 
+                        ali_data.apply_radial_wgt_sqrt(w_total,ptr->crowther_limit,ptr->K,stream);
+
                         rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
 
                         /// - Multiply in fourier space.
@@ -634,9 +653,6 @@ protected:
                         /// - Localized reconstruction of CC.
 
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-
-                        if( ite++ == 4 )
-                            break;
 
                         ali_data.invert_fourier(ptr->K,stream);
                         

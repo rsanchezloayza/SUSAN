@@ -131,6 +131,21 @@ __device__ __forceinline__ float get_kaisser_bessel_correction_polyfit(const flo
     return rslt;
 }
 
+__device__ __forceinline__ float get_kb_fwd_correction_polyfit(const float t) {
+    float t2  = t*t;
+    float t4  = t2*t2;
+    float t6  = t4*t2;
+    float t8  = t4*t4;
+    float t10 = t8*t2;
+    float rslt = 0.99999373;
+    rslt -= 2.32381647*t2;
+    rslt += 2.33540443*t4;
+    rslt -= 1.34311306*t6;
+    rslt += 0.46787406*t8;
+    rslt -= 0.08072106*t10;
+    return rslt;
+}
+
 __device__ __forceinline__ float sinc(const float t) {
     if( fabsf(t)<1e-6f ) return 1.0f;
     float pt = M_PI * t;
@@ -1694,6 +1709,31 @@ __global__ void multiply(float2*p_out,const float2*p_in,const int3 ss_siz) {
     }
 }
 
+__global__ void intra_multiply_conj(float2*p_out,const float2*p_in,const int ref_z,const int delta_z,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+        int x = ss_idx.x;
+        int y = ss_idx.y;
+        int z_a = ss_idx.z;
+        int z_b = ss_idx.z;
+        if( z_a < ref_z ) z_b = z_a + delta_z;
+        if( z_a > ref_z ) z_b = z_a - delta_z;
+
+        float2 rslt = {0,0};
+        long idx_a = get_3d_idx(x,y,z_a,ss_siz);
+        long idx_b = get_3d_idx(x,y,z_b,ss_siz);
+        if( (z_b>=0) && (z_b<ss_siz.z) ) {
+            float2 v_a = p_in[ idx_a ];
+            float2 v_b = p_in[ idx_b ];
+            v_b.y = -v_b.y; /// conjugate
+            rslt = cuCmulf(v_a,v_b);
+        }
+        p_out[ idx_a ] = rslt;
+    }
+}
+
 __global__ void print_proj2D(Proj2D*g_tlt,const int in_K) {
 
     int3 ss_idx = get_th_idx();
@@ -1805,6 +1845,28 @@ __global__ void apply_radial_wgt(float2*p_data,const float w_total,float crowthe
 
         val.x = w*val.x/energy;
         val.y = w*val.y/energy;
+
+        p_data[ idx ] = val;
+    }
+}
+
+__global__ void apply_radial_wgt_sqrt(float2*p_data,const float w_total,float crowther_limit,const int3 ss_siz) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
+
+        int idx = get_3d_idx(ss_idx,ss_siz);
+        float2 val = p_data[ idx ];
+
+        float w_off = 1/w_total;
+        float w = ss_idx.x;
+        w = fminf(w/crowther_limit,1.0);
+        w = (1-w_off)*w + w_off;
+        w = sqrtf(w);
+
+        val.x = w*val.x;
+        val.y = w*val.y;
 
         p_data[ idx ] = val;
     }
