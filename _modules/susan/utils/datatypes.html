@@ -324,7 +324,7 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.fsc_info">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">fsc_info</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolution estimate returned by :func:`susan.utils.fsc_analyse`.</span>
+<span class="w">    </span><span class="sd">"""Resolution estimate returned by :func:`susan.utils.fsc_analyse`.</span>
 
 <span class="sd">    .. rubric:: Attributes</span>
 
@@ -335,7 +335,7 @@
 <span class="sd">    res : float</span>
 <span class="sd">        Resolution in Ångstroms.  ``0.0`` if the FSC never drops below the</span>
 <span class="sd">        requested threshold.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">fpix</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">res</span><span class="p">:</span>  <span class="nb">float</span></div>
 
@@ -344,7 +344,7 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.ssnr">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ssnr</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ad-hoc SSNR model used by :class:`susan.modules.Aligner` and</span>
+<span class="w">    </span><span class="sd">"""Ad-hoc SSNR model used by :class:`susan.modules.Aligner` and</span>
 <span class="sd">    :class:`susan.modules.Averager`.</span>
 
 <span class="sd">    The spectral signal-to-noise ratio is modelled as:</span>
@@ -373,7 +373,7 @@
 <span class="sd">        one decade every :math:`0.023/F` 1/Angstrom.  Its value depends on</span>
 <span class="sd">        the noise level of the data.  With ``S = 1``, the Wiener filter</span>
 <span class="sd">        reaches half power at roughly :math:`16 \\cdot F` Angstrom.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># SSNR(s) = (10^(3*S)) * exp( -s * 100*F ),  s in 1/Angstrom</span>
     <span class="n">S</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">F</span><span class="p">:</span> <span class="nb">float</span></div>
@@ -383,7 +383,7 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.bandpass">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">bandpass</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Bandpass filter descriptor with cosine-decay edges.</span>
+<span class="w">    </span><span class="sd">"""Bandpass filter descriptor with cosine-decay edges.</span>
 
 <span class="sd">    The filter is flat between ``highpass`` and ``lowpass`` and uses a</span>
 <span class="sd">    cosine rolloff of width ``rolloff`` at both edges.</span>
@@ -406,7 +406,7 @@
 <span class="sd">        Low-pass cutoff in Fourier pixels.</span>
 <span class="sd">    rolloff : float</span>
 <span class="sd">        Width of the cosine taper at each edge, in Fourier pixels.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">highpass</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">lowpass</span><span class="p">:</span>  <span class="nb">float</span>
     <span class="n">rolloff</span><span class="p">:</span>  <span class="nb">float</span></div>
@@ -416,7 +416,7 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.search_params">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">search_params</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generic angular or offset search range and step.</span>
+<span class="w">    </span><span class="sd">"""Generic angular or offset search range and step.</span>
 
 <span class="sd">    .. rubric:: Attributes</span>
 
@@ -426,7 +426,7 @@
 <span class="sd">        Total search range (half-range is ``span / 2``).</span>
 <span class="sd">    step : float</span>
 <span class="sd">        Step size of the search.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">span</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">step</span><span class="p">:</span> <span class="nb">float</span></div>
 
@@ -435,7 +435,7 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.offset_params">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">offset_params</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Offset (translation) search parameters.</span>
+<span class="w">    </span><span class="sd">"""Offset (translation) search parameters.</span>
 
 <span class="sd">    .. image:: ../images/offsets_def_light.svg</span>
 <span class="sd">        :align: center</span>
@@ -457,9 +457,9 @@
 <span class="sd">        searches it is fixed to 1.</span>
 <span class="sd">    kind : str</span>
 <span class="sd">        Shape of the search volume.  Valid options for 3-D searches:</span>
-<span class="sd">        ``&#39;ellipsoid&#39;`` (default), ``&#39;cylinder&#39;``, ``&#39;cuboid&#39;``.</span>
-<span class="sd">        For 2-D searches only ``&#39;circle&#39;`` is accepted.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        ``'ellipsoid'`` (default), ``'cylinder'``, ``'cuboid'``.</span>
+<span class="sd">        For 2-D searches only ``'circle'`` is accepted.</span>
+<span class="sd">    """</span>
     <span class="n">span</span><span class="p">:</span> <span class="nb">list</span>
     <span class="n">step</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span></div>
@@ -469,9 +469,9 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.refine_params">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">refine_params</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Multi-level angular refinement parameters.</span>
+<span class="w">    </span><span class="sd">"""Multi-level angular refinement parameters.</span>
 
-<span class="sd">    Modelled after `DYNAMO&#39;s angular refinement policy</span>
+<span class="sd">    Modelled after `DYNAMO's angular refinement policy</span>
 <span class="sd">    &lt;https://www.dynamo-em.org/w/index.php?title=Multilevel_refinement&gt;`_.</span>
 
 <span class="sd">    .. rubric:: Attributes</span>
@@ -483,7 +483,7 @@
 <span class="sd">    factor : int</span>
 <span class="sd">        Range multiplier per level.  Given the angular step *ang* at the</span>
 <span class="sd">        current level, the search range is ±``factor`` · *ang*.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">levels</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">factor</span><span class="p">:</span> <span class="nb">int</span></div>
 
@@ -492,7 +492,7 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.range_params">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">range_params</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Integer range descriptor.</span>
+<span class="w">    </span><span class="sd">"""Integer range descriptor.</span>
 
 <span class="sd">    .. rubric:: Attributes</span>
 
@@ -502,7 +502,7 @@
 <span class="sd">        Minimum value (inclusive).</span>
 <span class="sd">    max_val : int</span>
 <span class="sd">        Maximum value (inclusive).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">min_val</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">max_val</span><span class="p">:</span> <span class="nb">int</span></div>
 
@@ -510,11 +510,11 @@
 <div class="viewcode-block" id="mpi_params">
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.mpi_params">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">mpi_params</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for launching MPI-parallel processing modules.</span>
+<span class="w">    </span><span class="sd">"""Configuration for launching MPI-parallel processing modules.</span>
 
 <span class="sd">    The MPI binary is invoked roughly as::</span>
 
-<span class="sd">        cmd = mpi_params.cmd % mpi_params.arg + &#39; susan_aligner_mpi &#39; + aligner.get_args()</span>
+<span class="sd">        cmd = mpi_params.cmd % mpi_params.arg + ' susan_aligner_mpi ' + aligner.get_args()</span>
 <span class="sd">        os.system(cmd)</span>
 
 <span class="sd">    .. rubric:: Attributes</span>
@@ -522,12 +522,12 @@
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    cmd : str or None</span>
-<span class="sd">        Base MPI launch command, e.g. ``&#39;srun -n %d&#39;`` (SLURM) or</span>
-<span class="sd">        ``&#39;mpirun -n %d&#39;`` (generic MPI).  ``None`` disables MPI.</span>
+<span class="sd">        Base MPI launch command, e.g. ``'srun -n %d'`` (SLURM) or</span>
+<span class="sd">        ``'mpirun -n %d'`` (generic MPI).  ``None`` disables MPI.</span>
 <span class="sd">    arg : int or None</span>
 <span class="sd">        Argument substituted into ``cmd`` (typically the number of nodes).</span>
 <span class="sd">        Defaults to ``None`` (no substitution).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">cmd</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">arg</span><span class="p">:</span> <span class="nb">int</span>
@@ -539,7 +539,7 @@
 <div class="viewcode-block" id="mpi_params.gen_cmd">
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.mpi_params.gen_cmd">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">gen_cmd</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the complete MPI prefix string.</span>
+<span class="w">        </span><span class="sd">"""Build the complete MPI prefix string.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -547,12 +547,12 @@
 <span class="sd">            Empty string if ``cmd`` is ``None`` or empty.  ``cmd`` alone if</span>
 <span class="sd">            ``arg`` is ``None``.  Otherwise ``cmd % arg`` followed by a</span>
 <span class="sd">            trailing space.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cmd</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cmd</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">return</span> <span class="s2">""</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg</span><span class="p">:</span>
                 <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cmd</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cmd</span><span class="o">%</span><span class="bp">self</span><span class="o">.</span><span class="n">arg</span> <span class="o">+</span> <span class="s1">&#39; &#39;</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cmd</span><span class="o">%</span><span class="bp">self</span><span class="o">.</span><span class="n">arg</span> <span class="o">+</span> <span class="s1">' '</span></div>
 </div>
 
 
@@ -560,7 +560,7 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.inversion_params">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">inversion_params</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parameters for iterative inversion of the sampling function.</span>
+<span class="w">    </span><span class="sd">"""Parameters for iterative inversion of the sampling function.</span>
 
 <span class="sd">    .. note::</span>
 <span class="sd">        This is an advanced parameter.  The defaults work well in most cases;</span>
@@ -581,7 +581,7 @@
 <span class="sd">        kernel.  Values of ``0`` or less select it from the gridding method:</span>
 <span class="sd">        ``0.41`` for linear, ``0.69`` for Kaiser-Bessel, ``0.74`` when</span>
 <span class="sd">        splatting.  Default: ``-1`` (automatic).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">ite</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">std</span><span class="p">:</span> <span class="nb">float</span></div>
 
@@ -590,7 +590,7 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.boost_lowfreq_params">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">boost_lowfreq_params</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Low-frequency boost for reconstructions with few particles.</span>
+<span class="w">    </span><span class="sd">"""Low-frequency boost for reconstructions with few particles.</span>
 
 <span class="sd">    .. warning::</span>
 <span class="sd">        This is an experimental feature.  Results may change in future versions</span>
@@ -611,7 +611,7 @@
 <span class="sd">    decay : float</span>
 <span class="sd">        Width of the cosine decay that tapers the boost to zero.</span>
 <span class="sd">        Typically 3–6.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">decay</span><span class="p">:</span> <span class="nb">float</span></div>

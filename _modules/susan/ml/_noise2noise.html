@@ -318,7 +318,7 @@
 <span class="c1"># along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span>
 <span class="c1">###########################################################################</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Noise2Noise&#39;</span><span class="p">,</span> <span class="s1">&#39;Noise2NoiseTrainer&#39;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'Noise2Noise'</span><span class="p">,</span> <span class="s1">'Noise2NoiseTrainer'</span><span class="p">]</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span><span class="w">    </span><span class="k">as</span><span class="w"> </span><span class="nn">_torch</span>
@@ -331,7 +331,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_make_convnet</span><span class="p">(</span><span class="n">n_feat</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build ConvNet backbone blocks (single-channel input).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Build ConvNet backbone blocks (single-channel input)."""</span>
     <span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">_nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
         <span class="n">_nn</span><span class="o">.</span><span class="n">Conv3d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_feat</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
         <span class="n">_nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
@@ -345,12 +345,12 @@
     <span class="k">return</span> <span class="n">blocks</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_make_unet</span><span class="p">(</span><span class="n">n_feat</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">levels</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;_UNet3d&#39;</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_make_unet</span><span class="p">(</span><span class="n">n_feat</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">levels</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'_UNet3d'</span><span class="p">:</span>
     <span class="k">return</span> <span class="n">_UNet3d</span><span class="p">(</span><span class="n">n_feat</span><span class="p">,</span> <span class="n">levels</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_UNet3d</span><span class="p">(</span><span class="n">_nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Encoder-decoder with skip connections.  Single-channel input.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Encoder-decoder with skip connections.  Single-channel input."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_feat</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">levels</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
@@ -384,7 +384,7 @@
         <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">levels</span><span class="p">)):</span>
             <span class="n">skip_ch</span> <span class="o">=</span> <span class="n">enc_ch</span><span class="p">[</span><span class="n">l</span><span class="p">]</span>
             <span class="n">out_ch</span>  <span class="o">=</span> <span class="n">n_feat</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="n">l</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">up</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_nn</span><span class="o">.</span><span class="n">Upsample</span><span class="p">(</span><span class="n">scale_factor</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;trilinear&#39;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">up</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_nn</span><span class="o">.</span><span class="n">Upsample</span><span class="p">(</span><span class="n">scale_factor</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'trilinear'</span><span class="p">,</span>
                                         <span class="n">align_corners</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dec</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
                 <span class="n">_nn</span><span class="o">.</span><span class="n">Conv3d</span><span class="p">(</span><span class="n">in_ch</span> <span class="o">+</span> <span class="n">skip_ch</span><span class="p">,</span> <span class="n">out_ch</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
@@ -418,7 +418,7 @@
 <div class="viewcode-block" id="Noise2Noise">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2Noise.html#susan.ml.Noise2Noise">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Noise2Noise</span><span class="p">(</span><span class="n">_nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple Noise2Noise denoiser for 3-D cryo-EM half-map pairs.</span>
+<span class="w">    </span><span class="sd">"""Simple Noise2Noise denoiser for 3-D cryo-EM half-map pairs.</span>
 
 <span class="sd">    .. warning:: **Experimental.**  This class is part of the machine-learning</span>
 <span class="sd">       subpackage and may change or be removed in a future release.</span>
@@ -430,23 +430,23 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    arch : str</span>
-<span class="sd">        Backbone architecture: ``&#39;convnet&#39;`` or ``&#39;unet&#39;``.</span>
-<span class="sd">        Default: ``&#39;convnet&#39;``.</span>
+<span class="sd">        Backbone architecture: ``'convnet'`` or ``'unet'``.</span>
+<span class="sd">        Default: ``'convnet'``.</span>
 <span class="sd">    depth : int</span>
-<span class="sd">        For ``&#39;convnet&#39;``: total number of blocks (≥ 2).</span>
-<span class="sd">        For ``&#39;unet&#39;``: number of encoder/decoder levels (≥ 1).</span>
+<span class="sd">        For ``'convnet'``: total number of blocks (≥ 2).</span>
+<span class="sd">        For ``'unet'``: number of encoder/decoder levels (≥ 1).</span>
 <span class="sd">        Default: ``6``.</span>
 <span class="sd">    n_feat : int</span>
 <span class="sd">        Feature channels (base channels for UNet).  Default: ``32``.</span>
 <span class="sd">    gpus : list of int</span>
 <span class="sd">        CUDA device indices.  Default: ``[0]``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arch</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;convnet&#39;</span><span class="p">,</span> <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arch</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'convnet'</span><span class="p">,</span> <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
                  <span class="n">n_feat</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span><span class="p">,</span> <span class="n">gpus</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
-        <span class="k">assert</span> <span class="n">arch</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;convnet&#39;</span><span class="p">,</span> <span class="s1">&#39;unet&#39;</span><span class="p">),</span> <span class="s2">&quot;arch must be &#39;convnet&#39; or &#39;unet&#39;&quot;</span>
+        <span class="k">assert</span> <span class="n">arch</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'convnet'</span><span class="p">,</span> <span class="s1">'unet'</span><span class="p">),</span> <span class="s2">"arch must be 'convnet' or 'unet'"</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">depth</span><span class="p">,</span>  <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">depth</span>  <span class="o">&gt;=</span> <span class="mi">1</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n_feat</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">n_feat</span>  <span class="o">&gt;</span> <span class="mi">0</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gpus</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">gpus</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span>
@@ -455,9 +455,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">depth</span>  <span class="o">=</span> <span class="n">depth</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_feat</span> <span class="o">=</span> <span class="n">n_feat</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gpus</span>   <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">gpus</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">devices</span> <span class="o">=</span> <span class="p">[</span><span class="n">_torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;cuda:</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gpus</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">devices</span> <span class="o">=</span> <span class="p">[</span><span class="n">_torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="sa">f</span><span class="s1">'cuda:</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gpus</span><span class="p">]</span>
 
-        <span class="k">if</span> <span class="n">arch</span> <span class="o">==</span> <span class="s1">&#39;convnet&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">arch</span> <span class="o">==</span> <span class="s1">'convnet'</span><span class="p">:</span>
             <span class="n">blocks</span>  <span class="o">=</span> <span class="n">_make_convnet</span><span class="p">(</span><span class="n">n_feat</span><span class="p">,</span> <span class="n">depth</span><span class="p">)</span>
             <span class="n">n_blocks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span>
             <span class="n">n_parts</span>  <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">devices</span><span class="p">)</span>
@@ -466,8 +466,8 @@
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_parts</span><span class="p">):</span>
                 <span class="n">part_blocks</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="n">splits</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="n">splits</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span>
                 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">part_blocks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Too many GPUs (</span><span class="si">{</span><span class="n">n_parts</span><span class="si">}</span><span class="s2">) for depth (</span><span class="si">{</span><span class="n">depth</span><span class="si">}</span><span class="s2">); &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;need at most </span><span class="si">{</span><span class="n">n_blocks</span><span class="si">}</span><span class="s2"> GPUs&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Too many GPUs (</span><span class="si">{</span><span class="n">n_parts</span><span class="si">}</span><span class="s2">) for depth (</span><span class="si">{</span><span class="n">depth</span><span class="si">}</span><span class="s2">); "</span>
+                    <span class="sa">f</span><span class="s2">"need at most </span><span class="si">{</span><span class="n">n_blocks</span><span class="si">}</span><span class="s2"> GPUs"</span>
                 <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">part_blocks</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">devices</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
             <span class="n">out_feat</span> <span class="o">=</span> <span class="n">n_feat</span>
@@ -485,14 +485,14 @@
 <div class="viewcode-block" id="Noise2Noise.input_device">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2Noise.html#susan.ml.Noise2Noise.input_device">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">input_device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_torch</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Device expected for network inputs.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Device expected for network inputs."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">devices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="Noise2Noise.output_device">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2Noise.html#susan.ml.Noise2Noise.output_device">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">output_device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_torch</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Device on which the prediction is produced.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Device on which the prediction is produced."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">devices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
 
 
@@ -501,7 +501,7 @@
 <div class="viewcode-block" id="Noise2Noise.forward">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2Noise.html#susan.ml.Noise2Noise.forward">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">_torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass.</span>
+<span class="w">        </span><span class="sd">"""Forward pass.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -512,7 +512,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Predicted denoised volume, same shape, on :meth:`output_device`.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">devices</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unet</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unet</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">devices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
@@ -529,9 +529,9 @@
 <div class="viewcode-block" id="Noise2Noise.reset_weights">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2Noise.html#susan.ml.Noise2Noise.reset_weights">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Re-initialise all learnable parameters.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Re-initialise all learnable parameters."""</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_reset</span><span class="p">(</span><span class="n">m</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;reset_parameters&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s1">'reset_parameters'</span><span class="p">):</span>
                 <span class="n">m</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_reset</span><span class="p">)</span></div>
 
@@ -539,35 +539,35 @@
 <div class="viewcode-block" id="Noise2Noise.n_parameters">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2Noise.html#susan.ml.Noise2Noise.n_parameters">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">n_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Total number of trainable parameters.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Total number of trainable parameters."""</span>
         <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span></div>
 
 
 <div class="viewcode-block" id="Noise2Noise.save">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2Noise.html#susan.ml.Noise2Noise.save">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save architecture hyperparameters and weights.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Save architecture hyperparameters and weights."""</span>
         <span class="n">_torch</span><span class="o">.</span><span class="n">save</span><span class="p">({</span>
-            <span class="s1">&#39;arch&#39;</span><span class="p">:</span>       <span class="bp">self</span><span class="o">.</span><span class="n">arch</span><span class="p">,</span>
-            <span class="s1">&#39;depth&#39;</span><span class="p">:</span>      <span class="bp">self</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span>
-            <span class="s1">&#39;n_feat&#39;</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">n_feat</span><span class="p">,</span>
-            <span class="s1">&#39;state_dict&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+            <span class="s1">'arch'</span><span class="p">:</span>       <span class="bp">self</span><span class="o">.</span><span class="n">arch</span><span class="p">,</span>
+            <span class="s1">'depth'</span><span class="p">:</span>      <span class="bp">self</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span>
+            <span class="s1">'n_feat'</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">n_feat</span><span class="p">,</span>
+            <span class="s1">'state_dict'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
         <span class="p">},</span> <span class="n">path</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Noise2Noise.load">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2Noise.html#susan.ml.Noise2Noise.load">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">gpus</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">&#39;Noise2Noise&#39;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct model from a file saved with :meth:`save`.&quot;&quot;&quot;</span>
-        <span class="n">ckpt</span>  <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">gpus</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">'Noise2Noise'</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Reconstruct model from a file saved with :meth:`save`."""</span>
+        <span class="n">ckpt</span>  <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span>
-            <span class="n">arch</span>   <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">&#39;arch&#39;</span><span class="p">]),</span>
-            <span class="n">depth</span>  <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">&#39;depth&#39;</span><span class="p">]),</span>
-            <span class="n">n_feat</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">&#39;n_feat&#39;</span><span class="p">]),</span>
+            <span class="n">arch</span>   <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">'arch'</span><span class="p">]),</span>
+            <span class="n">depth</span>  <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">'depth'</span><span class="p">]),</span>
+            <span class="n">n_feat</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">'n_feat'</span><span class="p">]),</span>
             <span class="n">gpus</span>   <span class="o">=</span> <span class="n">gpus</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">&#39;state_dict&#39;</span><span class="p">])</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">'state_dict'</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">model</span></div>
 </div>
 
@@ -579,7 +579,7 @@
 <div class="viewcode-block" id="Noise2NoiseTrainer">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2NoiseTrainer.html#susan.ml.Noise2NoiseTrainer">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Noise2NoiseTrainer</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Training and inference wrapper for :class:`Noise2Noise`.</span>
+<span class="w">    </span><span class="sd">"""Training and inference wrapper for :class:`Noise2Noise`.</span>
 
 <span class="sd">    .. warning:: **Experimental.**  This class is part of the machine-learning</span>
 <span class="sd">       subpackage and may change or be removed in a future release.</span>
@@ -594,11 +594,11 @@
 <span class="sd">    model : Noise2Noise</span>
 <span class="sd">        Network to train.</span>
 <span class="sd">    loss : str</span>
-<span class="sd">        ``&#39;l2&#39;`` (MSE) or ``&#39;l1&#39;`` (MAE).  Default: ``&#39;l2&#39;``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        ``'l2'`` (MSE) or ``'l1'`` (MAE).  Default: ``'l2'``.</span>
+<span class="sd">    """</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Noise2Noise</span><span class="p">,</span> <span class="n">loss</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;l2&#39;</span><span class="p">):</span>
-        <span class="k">assert</span> <span class="n">loss</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;l1&#39;</span><span class="p">,</span> <span class="s1">&#39;l2&#39;</span><span class="p">),</span> <span class="s2">&quot;loss must be &#39;l1&#39; or &#39;l2&#39;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Noise2Noise</span><span class="p">,</span> <span class="n">loss</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'l2'</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">loss</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'l1'</span><span class="p">,</span> <span class="s1">'l2'</span><span class="p">),</span> <span class="s2">"loss must be 'l1' or 'l2'"</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loss</span>  <span class="o">=</span> <span class="n">loss</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span> <span class="o">=</span> <span class="kc">None</span>
@@ -613,7 +613,7 @@
     <span class="c1"># ------------------------------------------------------------- loss fn</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_loss_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pred</span><span class="p">:</span> <span class="n">_torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="n">_torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">==</span> <span class="s1">&#39;l2&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">==</span> <span class="s1">'l2'</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_F</span><span class="o">.</span><span class="n">l1_loss</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
 
@@ -624,7 +624,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol_pairs</span><span class="p">,</span> <span class="n">n_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
               <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">print_every</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
               <span class="n">directional</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Train the network using Noise2Noise on half-map pairs.</span>
+<span class="w">        </span><span class="sd">"""Train the network using Noise2Noise on half-map pairs.</span>
 
 <span class="sd">        By default each sample ``(h1, h2)`` from *vol_pairs* contributes two</span>
 <span class="sd">        symmetric terms, ``h1 → h2`` and ``h2 → h1`` — correct for plain</span>
@@ -659,7 +659,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        list of float</span>
 <span class="sd">            Mean loss per epoch.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">opt</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_optimizer</span><span class="p">(</span><span class="n">lr</span><span class="p">)</span>
         <span class="n">dev_in</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">input_device</span><span class="p">()</span>
         <span class="n">dev_out</span><span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">output_device</span><span class="p">()</span>
@@ -703,8 +703,8 @@
             <span class="n">epoch_losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mean_loss</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">print_every</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">(</span><span class="n">epoch</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">print_every</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  epoch </span><span class="si">{</span><span class="n">epoch</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">:</span><span class="s1">&gt;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">n_epochs</span><span class="p">))</span><span class="si">}}</span><span class="s1">/</span><span class="si">{</span><span class="n">n_epochs</span><span class="si">}</span><span class="s1">&#39;</span>
-                      <span class="sa">f</span><span class="s1">&#39;  loss (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="si">}</span><span class="s1">) = </span><span class="si">{</span><span class="n">mean_loss</span><span class="si">:</span><span class="s1">.6f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'  epoch </span><span class="si">{</span><span class="n">epoch</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">:</span><span class="s1">&gt;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">n_epochs</span><span class="p">))</span><span class="si">}}</span><span class="s1">/</span><span class="si">{</span><span class="n">n_epochs</span><span class="si">}</span><span class="s1">'</span>
+                      <span class="sa">f</span><span class="s1">'  loss (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="si">}</span><span class="s1">) = </span><span class="si">{</span><span class="n">mean_loss</span><span class="si">:</span><span class="s1">.6f</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">epoch_losses</span></div>
@@ -715,7 +715,7 @@
 <div class="viewcode-block" id="Noise2NoiseTrainer.predict">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2NoiseTrainer.html#susan.ml.Noise2NoiseTrainer.predict">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Denoise a single volume.</span>
+<span class="w">        </span><span class="sd">"""Denoise a single volume.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -726,7 +726,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        numpy.ndarray</span>
 <span class="sd">            Denoised volume, same shape, float32.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
         <span class="n">dev</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">input_device</span><span class="p">()</span>
         <span class="k">with</span> <span class="n">_torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
@@ -740,7 +740,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">denoise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                 <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                 <span class="n">overlap</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Denoise a volume, optionally with overlapping patches.</span>
+<span class="w">        </span><span class="sd">"""Denoise a volume, optionally with overlapping patches.</span>
 
 <span class="sd">        When *patch_size* is ``None`` the whole volume is processed at once</span>
 <span class="sd">        (same as :meth:`predict`).  Patch mode is useful when GPU memory is</span>
@@ -759,7 +759,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        numpy.ndarray</span>
 <span class="sd">            Denoised volume, same shape, float32.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">patch_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 
@@ -792,7 +792,7 @@
 <div class="viewcode-block" id="Noise2NoiseTrainer.mace_step">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2NoiseTrainer.html#susan.ml.Noise2NoiseTrainer.mace_step">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">mace_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;MACE consensus step: blend input with network prediction.</span>
+<span class="w">        </span><span class="sd">"""MACE consensus step: blend input with network prediction.</span>
 
 <span class="sd">        Returns ``alpha * predict(v) + (1 - alpha) * v``.</span>
 
@@ -808,7 +808,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        numpy.ndarray</span>
 <span class="sd">            Blended volume, float32.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span></div>
 
 
@@ -817,39 +817,39 @@
 <div class="viewcode-block" id="Noise2NoiseTrainer.save">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2NoiseTrainer.html#susan.ml.Noise2NoiseTrainer.save">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save model weights and trainer state.</span>
+<span class="w">        </span><span class="sd">"""Save model weights and trainer state.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
 <span class="sd">            Destination file path.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">_torch</span><span class="o">.</span><span class="n">save</span><span class="p">({</span>
-            <span class="s1">&#39;model_state&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
-            <span class="s1">&#39;model_arch&#39;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">arch</span><span class="p">,</span>
-            <span class="s1">&#39;model_depth&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span>
-            <span class="s1">&#39;model_feat&#39;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">n_feat</span><span class="p">,</span>
-            <span class="s1">&#39;loss&#39;</span><span class="p">:</span>        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span>
-            <span class="s1">&#39;optimizer&#39;</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">'model_state'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+            <span class="s1">'model_arch'</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">arch</span><span class="p">,</span>
+            <span class="s1">'model_depth'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span>
+            <span class="s1">'model_feat'</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">n_feat</span><span class="p">,</span>
+            <span class="s1">'loss'</span><span class="p">:</span>        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span>
+            <span class="s1">'optimizer'</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
         <span class="p">},</span> <span class="n">path</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Noise2NoiseTrainer.load_state">
 <a class="viewcode-back" href="../../../api/susan.ml.Noise2NoiseTrainer.html#susan.ml.Noise2NoiseTrainer.load_state">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore weights and trainer state saved with :meth:`save`.</span>
+<span class="w">        </span><span class="sd">"""Restore weights and trainer state saved with :meth:`save`.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
 <span class="sd">            Path to a file written by :meth:`save`.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ckpt</span> <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">&#39;model_state&#39;</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">&#39;loss&#39;</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">ckpt</span><span class="p">[</span><span class="s1">&#39;optimizer&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<span class="sd">        """</span>
+        <span class="n">ckpt</span> <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">'model_state'</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">'loss'</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">ckpt</span><span class="p">[</span><span class="s1">'optimizer'</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">opt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_optimizer</span><span class="p">(</span><span class="mf">1e-4</span><span class="p">)</span>
-            <span class="n">opt</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">&#39;optimizer&#39;</span><span class="p">])</span></div>
+            <span class="n">opt</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">ckpt</span><span class="p">[</span><span class="s1">'optimizer'</span><span class="p">])</span></div>
 </div>
 
 

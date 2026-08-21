@@ -332,7 +332,7 @@
 <div class="viewcode-block" id="SubtomogramGenerator">
 <a class="viewcode-back" href="../../../api/susan.project.SubtomogramGenerator.html#susan.project.Extractor.SubtomogramGenerator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SubtomogramGenerator</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate subtomograms and export them with RELION-compatible metadata.</span>
+<span class="w">    </span><span class="sd">"""Generate subtomograms and export them with RELION-compatible metadata.</span>
 
 <span class="sd">    .. warning::</span>
 <span class="sd">        This is an experimental class.  The interface and output format may</span>
@@ -354,7 +354,7 @@
 <span class="sd">        Underlying reconstruction module.  Advanced parameters can be</span>
 <span class="sd">        adjusted directly on this object after calling a ``configure_*``</span>
 <span class="sd">        method.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -369,10 +369,10 @@
 <div class="viewcode-block" id="SubtomogramGenerator.configure_relion">
 <a class="viewcode-back" href="../../../api/susan.project.SubtomogramGenerator.html#susan.project.Extractor.SubtomogramGenerator.configure_relion">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">configure_relion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rec_ctf</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">invert_contrast</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure reconstruction settings for RELION.</span>
+<span class="w">        </span><span class="sd">"""Configure reconstruction settings for RELION.</span>
 
 <span class="sd">        Sets normalisation, contrast, and CTF correction parameters on</span>
-<span class="sd">        :attr:`subtomo_rec` to match RELION&#39;s conventions.</span>
+<span class="sd">        :attr:`subtomo_rec` to match RELION's conventions.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -382,37 +382,37 @@
 <span class="sd">            standard Wiener filter and write per-particle defocus columns.</span>
 <span class="sd">        invert_contrast : bool, optional</span>
 <span class="sd">            Invert the contrast of the output subtomograms.  Default: ``True``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">normalize_type</span>   <span class="o">=</span> <span class="s1">&#39;zero_mean_one_std&#39;</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">normalize_type</span>   <span class="o">=</span> <span class="s1">'zero_mean_one_std'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">normalize_output</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">invert_contrast</span>  <span class="o">=</span> <span class="n">invert_contrast</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">boost_lowfreq</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">if</span> <span class="n">rec_ctf</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">ctf_correction</span>   <span class="o">=</span> <span class="s1">&#39;pre_wiener&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">ctf_correction</span>   <span class="o">=</span> <span class="s1">'pre_wiener'</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">relion_ctf</span>       <span class="o">=</span> <span class="kc">True</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">ctf_correction</span>   <span class="o">=</span> <span class="s1">&#39;wiener&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">ctf_correction</span>   <span class="o">=</span> <span class="s1">'wiener'</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">relion_ctf</span>       <span class="o">=</span> <span class="kc">False</span></div>
 
 
 <div class="viewcode-block" id="SubtomogramGenerator.configure_dynamo">
 <a class="viewcode-back" href="../../../api/susan.project.SubtomogramGenerator.html#susan.project.Extractor.SubtomogramGenerator.configure_dynamo">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">configure_dynamo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">invert_contrast</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure reconstruction settings for DYNAMO.</span>
+<span class="w">        </span><span class="sd">"""Configure reconstruction settings for DYNAMO.</span>
 
 <span class="sd">        Sets normalisation, contrast, and CTF correction parameters on</span>
-<span class="sd">        :attr:`subtomo_rec` to match DYNAMO&#39;s conventions (Wiener filter,</span>
+<span class="sd">        :attr:`subtomo_rec` to match DYNAMO's conventions (Wiener filter,</span>
 <span class="sd">        no low-frequency boost).</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        invert_contrast : bool, optional</span>
 <span class="sd">            Invert the contrast of the output subtomograms.  Default: ``False``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">normalize_type</span>   <span class="o">=</span> <span class="s1">&#39;zero_mean_one_std&#39;</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">normalize_type</span>   <span class="o">=</span> <span class="s1">'zero_mean_one_std'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">normalize_output</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">invert_contrast</span>  <span class="o">=</span> <span class="n">invert_contrast</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">ctf_correction</span>   <span class="o">=</span> <span class="s1">&#39;wiener&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">ctf_correction</span>   <span class="o">=</span> <span class="s1">'wiener'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">boost_lowfreq</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="mi">0</span></div>
 
 
@@ -420,7 +420,7 @@
 <div class="viewcode-block" id="SubtomogramGenerator.generate_subtomos">
 <a class="viewcode-back" href="../../../api/susan.project.SubtomogramGenerator.html#susan.project.Extractor.SubtomogramGenerator.generate_subtomos">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">generate_subtomos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata_file</span><span class="p">,</span> <span class="n">subtomos_folder</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct subtomograms and write a RELION STAR metadata file.</span>
+<span class="w">        </span><span class="sd">"""Reconstruct subtomograms and write a RELION STAR metadata file.</span>
 
 <span class="sd">        The subtomogram MRC files are written to *subtomos_folder*.</span>
 <span class="sd">        A RELION 3.1 STAR file is then written to *metadata_file* containing</span>
@@ -440,13 +440,13 @@
 <span class="sd">            Path to the input ``.ptclsraw`` particles file.</span>
 <span class="sd">        box_size : int</span>
 <span class="sd">            Side length of the cubic subtomogram box in pixels.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">out_type</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">get_extension</span><span class="p">(</span><span class="n">metadata_file</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">subtomos_folder</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;/&#39;</span><span class="p">:</span>
-            <span class="n">subtomos_folder</span> <span class="o">+=</span> <span class="s1">&#39;/&#39;</span>
+        <span class="k">if</span> <span class="n">subtomos_folder</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">'/'</span><span class="p">:</span>
+            <span class="n">subtomos_folder</span> <span class="o">+=</span> <span class="s1">'/'</span>
 
-        <span class="k">if</span> <span class="n">out_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;star&#39;</span><span class="p">,]:</span>
+        <span class="k">if</span> <span class="n">out_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'star'</span><span class="p">,]:</span>
 
             <span class="c1"># Step 1: generate subtomograms</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">list_gpus_ids</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>
@@ -460,82 +460,82 @@
             <span class="n">ptcls</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">ptcls_in</span><span class="p">)</span>
             <span class="n">pos</span>   <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">export_positions</span><span class="p">(</span><span class="n">tomos</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">metadata_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">metadata_file</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="c1"># Write optics group</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># version 30001</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;data_optics</span><span class="se">\n\n</span><span class="s1">loop_</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOpticsGroupName     #1</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOpticsGroup         #2</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnImageSize           #3</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnImagePixelSize      #4</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnVoltage             #5</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnSphericalAberration #6</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnAmplitudeContrast   #7</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnImageDimensionality #8</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;opticsGroup1 1 </span><span class="si">{</span><span class="n">box_size</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">tomos</span><span class="o">.</span><span class="n">pix_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">tomos</span><span class="o">.</span><span class="n">voltage</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">tomos</span><span class="o">.</span><span class="n">sph_aber</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">tomos</span><span class="o">.</span><span class="n">amp_cont</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> 3 </span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1"># version 30001</span><span class="se">\n\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'data_optics</span><span class="se">\n\n</span><span class="s1">loop_</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOpticsGroupName     #1</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOpticsGroup         #2</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnImageSize           #3</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnImagePixelSize      #4</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnVoltage             #5</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnSphericalAberration #6</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnAmplitudeContrast   #7</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnImageDimensionality #8</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'opticsGroup1 1 </span><span class="si">{</span><span class="n">box_size</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">tomos</span><span class="o">.</span><span class="n">pix_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">tomos</span><span class="o">.</span><span class="n">voltage</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">tomos</span><span class="o">.</span><span class="n">sph_aber</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">tomos</span><span class="o">.</span><span class="n">amp_cont</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> 3 </span><span class="se">\n\n</span><span class="s1">'</span><span class="p">)</span>
 
                 <span class="c1"># Write particles block</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># version 30001</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;data_particles</span><span class="se">\n\n</span><span class="s1">loop_</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnImageName    #1</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOpticsGroup  #2</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1"># version 30001</span><span class="se">\n\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'data_particles</span><span class="se">\n\n</span><span class="s1">loop_</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnImageName    #1</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOpticsGroup  #2</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnAngleRot     #3</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnAngleTilt    #4</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnAnglePsi     #5</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnAngleRot     #3</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnAngleTilt    #4</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnAnglePsi     #5</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOriginX      #6</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOriginY      #7</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOriginZ      #8</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOriginX      #6</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOriginY      #7</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOriginZ      #8</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnCoordinateX  #9</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnCoordinateY  #10</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnCoordinateZ  #11</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnCoordinateX  #9</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnCoordinateY  #10</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnCoordinateZ  #11</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnRandomSubset #12</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnRandomSubset #12</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">relion_ctf</span><span class="p">:</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnCtfImage         #13</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnCtfImage         #13</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnDefocusU         #13</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnDefocusV         #14</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnDefocusAngle     #15</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnPhaseShift       #16</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnDefocusU         #13</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnDefocusV         #14</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnDefocusAngle     #15</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnPhaseShift       #16</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
                 <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">):</span>
                     <span class="n">p_id</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ptcl_id</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-                    <span class="n">file</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">subtomos_path</span><span class="si">}</span><span class="s1">/particle_</span><span class="si">{</span><span class="n">p_id</span><span class="si">:</span><span class="s1">06d</span><span class="si">}</span><span class="s1">.mrc&#39;</span>
-                    <span class="n">fctf</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">subtomos_path</span><span class="si">}</span><span class="s1">/particle_</span><span class="si">{</span><span class="n">p_id</span><span class="si">:</span><span class="s1">06d</span><span class="si">}</span><span class="s1">.ctf.mrc&#39;</span>
+                    <span class="n">file</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">subtomos_path</span><span class="si">}</span><span class="s1">/particle_</span><span class="si">{</span><span class="n">p_id</span><span class="si">:</span><span class="s1">06d</span><span class="si">}</span><span class="s1">.mrc'</span>
+                    <span class="n">fctf</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">subtomos_path</span><span class="si">}</span><span class="s1">/particle_</span><span class="si">{</span><span class="n">p_id</span><span class="si">:</span><span class="s1">06d</span><span class="si">}</span><span class="s1">.ctf.mrc'</span>
 
                     <span class="n">ang_R</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">rad2deg</span><span class="p">(</span> <span class="o">-</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">idx</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="p">)</span>
                     <span class="n">ang_T</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">rad2deg</span><span class="p">(</span> <span class="o">-</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">idx</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="p">)</span>
                     <span class="n">ang_P</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">rad2deg</span><span class="p">(</span> <span class="o">-</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">idx</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="p">)</span>
 
-                    <span class="k">if</span> <span class="n">_file_exists</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">subtomos_folder</span><span class="si">}</span><span class="s1">/particle_</span><span class="si">{</span><span class="n">p_id</span><span class="si">:</span><span class="s1">06d</span><span class="si">}</span><span class="s1">.mrc&#39;</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">_file_exists</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">subtomos_folder</span><span class="si">}</span><span class="s1">/particle_</span><span class="si">{</span><span class="n">p_id</span><span class="si">:</span><span class="s1">06d</span><span class="si">}</span><span class="s1">.mrc'</span><span class="p">):</span>
                         <span class="c1">#            1   2</span>
-                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s1"> 1 &#39;</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s1"> 1 '</span><span class="p">)</span>
 
                         <span class="c1">#              3           4           5       6   7   8</span>
-                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">ang_R</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">ang_T</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">ang_P</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> 0.0 0.0 0.0 &#39;</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">ang_R</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">ang_T</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">ang_P</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> 0.0 0.0 0.0 '</span><span class="p">)</span>
 
                         <span class="c1">#                    9                10                11</span>
-                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">pos</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">4.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">pos</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">4.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">pos</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s1">4.0f</span><span class="si">}</span><span class="s1"> &#39;</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">pos</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">4.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">pos</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">4.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">pos</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s1">4.0f</span><span class="si">}</span><span class="s1"> '</span><span class="p">)</span>
 
                         <span class="c1">#            12</span>
-                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">ptcls</span><span class="o">.</span><span class="n">half_id</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">:</span><span class="s1">1d</span><span class="si">}</span><span class="s1"> &#39;</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">ptcls</span><span class="o">.</span><span class="n">half_id</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">:</span><span class="s1">1d</span><span class="si">}</span><span class="s1"> '</span><span class="p">)</span>
 
                         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtomo_rec</span><span class="o">.</span><span class="n">relion_ctf</span><span class="p">:</span>
-                            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">fctf</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">fctf</span><span class="si">}</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="n">def_u</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span>   <span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="p">)</span>
                             <span class="n">def_v</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">def_V</span>   <span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="p">)</span>
                             <span class="n">def_a</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">def_ang</span> <span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="p">)</span>
                             <span class="n">ph_sh</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">def_phas</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="p">)</span>
                             <span class="n">ph_sh</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">rad2deg</span><span class="p">(</span> <span class="n">ph_sh</span> <span class="p">)</span>
-                            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">def_u</span><span class="si">:</span><span class="s1">5.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">def_v</span><span class="si">:</span><span class="s1">5.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">def_a</span><span class="si">:</span><span class="s1">5.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">ph_sh</span><span class="si">:</span><span class="s1">5.1f</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">def_u</span><span class="si">:</span><span class="s1">5.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">def_v</span><span class="si">:</span><span class="s1">5.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">def_a</span><span class="si">:</span><span class="s1">5.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">ph_sh</span><span class="si">:</span><span class="s1">5.1f</span><span class="si">}</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error: unsupported output type &#39;</span> <span class="o">+</span> <span class="n">out_type</span><span class="p">)</span></div>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'Error: unsupported output type '</span> <span class="o">+</span> <span class="n">out_type</span><span class="p">)</span></div>
 </div>
 
 
@@ -544,7 +544,7 @@
 <div class="viewcode-block" id="ProjectionExtractor">
 <a class="viewcode-back" href="../../../api/susan.project.ProjectionExtractor.html#susan.project.Extractor.ProjectionExtractor">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ProjectionExtractor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Crop 2-D projection patches and export them with RELION-compatible metadata.</span>
+<span class="w">    </span><span class="sd">"""Crop 2-D projection patches and export them with RELION-compatible metadata.</span>
 
 <span class="sd">    .. warning::</span>
 <span class="sd">        This is an experimental class.  The interface and output format may</span>
@@ -562,15 +562,15 @@
 <span class="sd">        Underlying cropping module.  Parameters (e.g. ``normalize_type``)</span>
 <span class="sd">        can be adjusted directly on this object before calling</span>
 <span class="sd">        :meth:`crop_projections`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_threads</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        num_threads : int, optional</span>
 <span class="sd">            Number of CPU threads for the cropping step.  Default: 1.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">proj_cropper</span> <span class="o">=</span> <span class="n">_ssa_modules</span><span class="o">.</span><span class="n">CropProjection</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">proj_cropper</span><span class="o">.</span><span class="n">num_threads</span> <span class="o">=</span> <span class="n">num_threads</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">proj_cropper</span><span class="o">.</span><span class="n">invert_contrast</span> <span class="o">=</span> <span class="kc">True</span>
@@ -578,7 +578,7 @@
 <div class="viewcode-block" id="ProjectionExtractor.crop_projections">
 <a class="viewcode-back" href="../../../api/susan.project.ProjectionExtractor.html#susan.project.Extractor.ProjectionExtractor.crop_projections">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">crop_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_folder</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Crop projection patches and write a RELION STAR metadata file.</span>
+<span class="w">        </span><span class="sd">"""Crop projection patches and write a RELION STAR metadata file.</span>
 
 <span class="sd">        Projection stacks are written by :attr:`proj_cropper` as</span>
 <span class="sd">        ``stack_NN.txt`` files in *output_folder*.  These are then</span>
@@ -596,7 +596,7 @@
 <span class="sd">            Path to the input ``.ptclsraw`` particles file.</span>
 <span class="sd">        box_size : int</span>
 <span class="sd">            Side length of the 2-D crop box in pixels.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">proj_cropper</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">output_folder</span><span class="p">,</span><span class="n">tomos_file</span><span class="p">,</span><span class="n">ptcls_in</span><span class="p">,</span><span class="n">box_size</span><span class="p">)</span>
 
@@ -606,41 +606,41 @@
         <span class="n">cs</span>         <span class="o">=</span> <span class="n">tomos</span><span class="o">.</span><span class="n">sph_aber</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">ac</span>         <span class="o">=</span> <span class="n">tomos</span><span class="o">.</span><span class="n">amp_cont</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">output_folder</span><span class="si">}</span><span class="s1">/particles.star&#39;</span><span class="p">,</span><span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">data_optics</span><span class="se">\n\n</span><span class="s1">loop_</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOpticsGroupName</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOpticsGroup</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnImageSize</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnImagePixelSize</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnVoltage</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnSphericalAberration</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnAmplitudeContrast</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnImageDimensionality</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;opticsGroup1 1 </span><span class="si">{</span><span class="n">box_size</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">pixel_size</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">voltage</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">cs</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">ac</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> 2</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">output_folder</span><span class="si">}</span><span class="s1">/particles.star'</span><span class="p">,</span><span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1">data_optics</span><span class="se">\n\n</span><span class="s1">loop_</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOpticsGroupName</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOpticsGroup</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnImageSize</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnImagePixelSize</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnVoltage</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnSphericalAberration</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnAmplitudeContrast</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnImageDimensionality</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'opticsGroup1 1 </span><span class="si">{</span><span class="n">box_size</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">pixel_size</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">voltage</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">cs</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">ac</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> 2</span><span class="se">\n\n</span><span class="s1">'</span><span class="p">)</span>
 
             <span class="c1"># Write particles block</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;data_particles</span><span class="se">\n\n</span><span class="s1">loop_</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnImageName        #1</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnCoordinateX      #2</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnCoordinateY      #3</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnCoordinateZ      #4</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnMicrographName   #5</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnDefocusU         #6</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnDefocusV         #7</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnDefocusAngle     #8</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnPhaseShift       #9</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnAngleRot        #10</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnAngleTilt       #11</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnAnglePsi        #12</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOriginX         #13</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOriginY         #14</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnRandomSubset    #15</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;_rlnOpticsGroup     #16</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'data_particles</span><span class="se">\n\n</span><span class="s1">loop_</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnImageName        #1</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnCoordinateX      #2</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnCoordinateY      #3</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnCoordinateZ      #4</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnMicrographName   #5</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnDefocusU         #6</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnDefocusV         #7</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnDefocusAngle     #8</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnPhaseShift       #9</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnAngleRot        #10</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnAngleTilt       #11</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnAnglePsi        #12</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOriginX         #13</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOriginY         #14</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnRandomSubset    #15</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'_rlnOpticsGroup     #16</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">proj_cropper</span><span class="o">.</span><span class="n">num_threads</span><span class="p">):</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">output_folder</span><span class="si">}</span><span class="s1">/stack_</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s1">02d</span><span class="si">}</span><span class="s1">.txt&#39;</span><span class="p">,</span><span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_in</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">output_folder</span><span class="si">}</span><span class="s1">/stack_</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s1">02d</span><span class="si">}</span><span class="s1">.txt'</span><span class="p">,</span><span class="s1">'r'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_in</span><span class="p">:</span>
                     <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f_in</span><span class="p">:</span>
-                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;  1</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span></div>
+                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">+</span> <span class="s1">'  1</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span></div>
 </div>
 
 

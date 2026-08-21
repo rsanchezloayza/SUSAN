@@ -334,7 +334,7 @@
 <div class="viewcode-block" id="TiltRangeSelector">
 <a class="viewcode-back" href="../../../api/susan.data.TiltRangeSelector.html#susan.data.TiltRangeSelector">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TiltRangeSelector</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build per-tomogram projection masks for a signed tilt range and emit</span>
+<span class="w">    </span><span class="sd">"""Build per-tomogram projection masks for a signed tilt range and emit</span>
 <span class="sd">    reduced :class:`~susan.data.Tomograms` / :class:`~susan.data.Particles`</span>
 <span class="sd">    on the surviving projections.</span>
 
@@ -350,7 +350,7 @@
 <span class="sd">    The reduced output uses a single rectangular per-projection axis of</span>
 <span class="sd">    length ``new_n_projs = max_t(kept_count[t])``; tomograms keeping fewer</span>
 <span class="sd">    projections pad the trailing slots with zeros (``proj_wgt = 0``).  Each</span>
-<span class="sd">    rewritten stack MRC contains only that tomogram&#39;s kept slices, so</span>
+<span class="sd">    rewritten stack MRC contains only that tomogram's kept slices, so</span>
 <span class="sd">    ``stack_size[t, 2] = kept_count[t]``.</span>
 
 <span class="sd">    .. rubric:: Tilt convention</span>
@@ -361,9 +361,9 @@
 <span class="sd">    rotation matrix, and switches to the equivalent representation</span>
 <span class="sd">    ``(α∓π, −β, γ∓π)`` whenever ``|α| &gt; π/2``.  This yields a signed tilt</span>
 <span class="sd">    β ∈ [−90°, 90°] with the in-plane component near zero, which is what</span>
-<span class="sd">    one usually thinks of as &quot;the tilt angle&quot;.  The canonicalised angles</span>
+<span class="sd">    one usually thinks of as "the tilt angle".  The canonicalised angles</span>
 <span class="sd">    are used only for the filter test; the emitted ``new.proj_eZYZ`` keeps</span>
-<span class="sd">    SUSAN&#39;s original convention.</span>
+<span class="sd">    SUSAN's original convention.</span>
 
 <span class="sd">    .. note::</span>
 <span class="sd">       For lightweight filtering that does not need on-disk reduction,</span>
@@ -392,14 +392,14 @@
 <span class="sd">    .. attribute:: tag</span>
 <span class="sd">       :type: str</span>
 
-<span class="sd">       Filename tag derived from the bounds, e.g. ``&#39;tlt_m60p60&#39;`` for</span>
-<span class="sd">       ``[-60, 60)`` and ``&#39;tlt_m45d5p45d5&#39;`` for ``[-45.5, 45.5)``.</span>
+<span class="sd">       Filename tag derived from the bounds, e.g. ``'tlt_m60p60'`` for</span>
+<span class="sd">       ``[-60, 60)`` and ``'tlt_m45d5p45d5'`` for ``[-45.5, 45.5)``.</span>
 <span class="sd">       ``m`` / ``p`` mark sign; ``d`` replaces the decimal point.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">,</span> <span class="n">tilt_deg_min</span><span class="p">,</span> <span class="n">tilt_deg_max</span><span class="p">,</span>
-                 <span class="n">angle_source</span><span class="o">=</span><span class="s1">&#39;eZYZ_Y&#39;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the selection masks from a source tomograms object.</span>
+                 <span class="n">angle_source</span><span class="o">=</span><span class="s1">'eZYZ_Y'</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Build the selection masks from a source tomograms object.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -411,23 +411,23 @@
 <span class="sd">            Lower bound of the signed tilt range in degrees (inclusive).</span>
 <span class="sd">        tilt_deg_max : float</span>
 <span class="sd">            Upper bound of the signed tilt range in degrees (exclusive).</span>
-<span class="sd">        angle_source : {&#39;eZYZ_Y&#39;, &#39;nominal&#39;}, optional</span>
-<span class="sd">            * ``&#39;eZYZ_Y&#39;`` (default) — canonicalised Y component of</span>
+<span class="sd">        angle_source : {'eZYZ_Y', 'nominal'}, optional</span>
+<span class="sd">            * ``'eZYZ_Y'`` (default) — canonicalised Y component of</span>
 <span class="sd">              ``proj_eZYZ`` (post-alignment, signed in [-90°, 90°]).</span>
-<span class="sd">            * ``&#39;nominal&#39;`` — ``nominal_tilt_angles`` (stage angle, signed).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            * ``'nominal'`` — ``nominal_tilt_angles`` (stage angle, signed).</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">tilt_deg_min</span> <span class="o">&gt;=</span> <span class="n">tilt_deg_max</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s1">&#39;tilt_deg_min (</span><span class="si">%g</span><span class="s1">) must be less than tilt_deg_max (</span><span class="si">%g</span><span class="s1">).&#39;</span>
+                <span class="s1">'tilt_deg_min (</span><span class="si">%g</span><span class="s1">) must be less than tilt_deg_max (</span><span class="si">%g</span><span class="s1">).'</span>
                 <span class="o">%</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">tilt_deg_min</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">tilt_deg_max</span><span class="p">)))</span>
-        <span class="k">if</span> <span class="n">angle_source</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;eZYZ_Y&#39;</span><span class="p">,</span> <span class="s1">&#39;nominal&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">angle_source</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'eZYZ_Y'</span><span class="p">,</span> <span class="s1">'nominal'</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;angle_source must be &#39;eZYZ_Y&#39; or &#39;nominal&#39; (got </span><span class="si">%r</span><span class="s2">).&quot;</span>
+                <span class="s2">"angle_source must be 'eZYZ_Y' or 'nominal' (got </span><span class="si">%r</span><span class="s2">)."</span>
                 <span class="o">%</span> <span class="p">(</span><span class="n">angle_source</span><span class="p">,))</span>
 
         <span class="n">tomos</span> <span class="o">=</span> <span class="n">_Tomograms</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">tomograms</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomos</span><span class="p">,</span> <span class="n">_Tomograms</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;tomograms must be a Tomograms instance or a filename.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">'tomograms must be a Tomograms instance or a filename.'</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">tilt_deg_min</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tilt_deg_min</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tilt_deg_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tilt_deg_max</span><span class="p">)</span>
@@ -445,7 +445,7 @@
             <span class="k">if</span> <span class="n">P</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_kept</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">int32</span><span class="p">))</span>
                 <span class="k">continue</span>
-            <span class="k">if</span> <span class="n">angle_source</span> <span class="o">==</span> <span class="s1">&#39;nominal&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">angle_source</span> <span class="o">==</span> <span class="s1">'nominal'</span><span class="p">:</span>
                 <span class="n">signed</span> <span class="o">=</span> <span class="n">tomos</span><span class="o">.</span><span class="n">nominal_tilt_angles</span><span class="p">[</span><span class="n">t</span><span class="p">,</span> <span class="p">:</span><span class="n">P</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">signed</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -460,9 +460,9 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_signed_tilt_deg</span><span class="p">(</span><span class="n">eZYZ_deg</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Canonicalised signed tilt β in degrees, with β ∈ [-90, 90] for</span>
+<span class="w">        </span><span class="sd">"""Canonicalised signed tilt β in degrees, with β ∈ [-90, 90] for</span>
 <span class="sd">        physical tilts.  Picks the ZYZ equivalent branch with in-plane</span>
-<span class="sd">        ``|α| ≤ π/2`` so the sign of β reflects the stage rotation.&quot;&quot;&quot;</span>
+<span class="sd">        ``|α| ≤ π/2`` so the sign of β reflects the stage rotation."""</span>
         <span class="n">R</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
         <span class="n">_euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">eZYZ_deg</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
         <span class="n">e</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -474,63 +474,63 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">kept_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of length ``n_tomos``; each entry holds the original</span>
-<span class="sd">        projection indices kept for that tomogram, as ``int32`` arrays.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""List of length ``n_tomos``; each entry holds the original</span>
+<span class="sd">        projection indices kept for that tomogram, as ``int32`` arrays."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kept</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">kept_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;``uint32`` array of length ``n_tomos`` with the per-tomogram</span>
-<span class="sd">        kept-projection count.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""``uint32`` array of length ``n_tomos`` with the per-tomogram</span>
+<span class="sd">        kept-projection count."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kept_count</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">tag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s1">&#39;tlt_</span><span class="si">%s%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">TiltRangeSelector</span><span class="o">.</span><span class="n">_fmt_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tilt_deg_min</span><span class="p">),</span>
+        <span class="k">return</span> <span class="s1">'tlt_</span><span class="si">%s%s</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="n">TiltRangeSelector</span><span class="o">.</span><span class="n">_fmt_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tilt_deg_min</span><span class="p">),</span>
                              <span class="n">TiltRangeSelector</span><span class="o">.</span><span class="n">_fmt_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tilt_deg_max</span><span class="p">))</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_fmt_angle</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="s1">&#39;m&#39;</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">&#39;p&#39;</span>
-        <span class="k">return</span> <span class="n">s</span> <span class="o">+</span> <span class="p">(</span><span class="s1">&#39;</span><span class="si">%g</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="nb">abs</span><span class="p">(</span><span class="n">v</span><span class="p">))</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s1">'m'</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">'p'</span>
+        <span class="k">return</span> <span class="n">s</span> <span class="o">+</span> <span class="p">(</span><span class="s1">'</span><span class="si">%g</span><span class="s1">'</span> <span class="o">%</span> <span class="nb">abs</span><span class="p">(</span><span class="n">v</span><span class="p">))</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">'.'</span><span class="p">,</span> <span class="s1">'d'</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_tomograms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomos</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n_tomos</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s1">&#39;Tomograms has </span><span class="si">%d</span><span class="s1"> entries, selector was built for </span><span class="si">%d</span><span class="s1">.&#39;</span>
+                <span class="s1">'Tomograms has </span><span class="si">%d</span><span class="s1"> entries, selector was built for </span><span class="si">%d</span><span class="s1">.'</span>
                 <span class="o">%</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n_tomos</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">_np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tomo_ids</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s1">&#39;Tomograms tomo_id order does not match the source used to build the selector.&#39;</span><span class="p">)</span>
+                <span class="s1">'Tomograms tomo_id order does not match the source used to build the selector.'</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_n_tomos</span><span class="p">):</span>
             <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">num_proj</span><span class="p">[</span><span class="n">t</span><span class="p">])</span> <span class="o">&lt;</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_src_num_proj</span><span class="p">[</span><span class="n">t</span><span class="p">]):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s1">&#39;Tomogram </span><span class="si">%d</span><span class="s1"> has num_proj=</span><span class="si">%d</span><span class="s1">, smaller than source num_proj=</span><span class="si">%d</span><span class="s1">.&#39;</span>
+                    <span class="s1">'Tomogram </span><span class="si">%d</span><span class="s1"> has num_proj=</span><span class="si">%d</span><span class="s1">, smaller than source num_proj=</span><span class="si">%d</span><span class="s1">.'</span>
                     <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">num_proj</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_src_num_proj</span><span class="p">[</span><span class="n">t</span><span class="p">])))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_particles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_proj</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_src_n_projs</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s1">&#39;Particles has n_proj=</span><span class="si">%d</span><span class="s1">, smaller than source n_projs=</span><span class="si">%d</span><span class="s1">.&#39;</span>
+                <span class="s1">'Particles has n_proj=</span><span class="si">%d</span><span class="s1">, smaller than source n_projs=</span><span class="si">%d</span><span class="s1">.'</span>
                 <span class="o">%</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_proj</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_src_n_projs</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">n_ptcl</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">missing</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="o">~</span><span class="n">_lookup_cix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tomo_ids</span><span class="p">,</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">)[</span><span class="mi">1</span><span class="p">]])</span>
             <span class="k">if</span> <span class="n">missing</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s1">&#39;Particle tomo_id=</span><span class="si">%s</span><span class="s1"> is not in the source tomograms.&#39;</span>
-                    <span class="o">%</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">missing</span><span class="p">))</span>
+                    <span class="s1">'Particle tomo_id=</span><span class="si">%s</span><span class="s1"> is not in the source tomograms.'</span>
+                    <span class="o">%</span> <span class="s1">','</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">missing</span><span class="p">))</span>
 
 <div class="viewcode-block" id="TiltRangeSelector.to_tomograms">
 <a class="viewcode-back" href="../../../api/susan.data.TiltRangeSelector.html#susan.data.TiltRangeSelector.to_tomograms">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">to_tomograms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">,</span> <span class="n">write_stacks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">in_subfolder</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                      <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Tomograms</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit a reduced :class:`Tomograms` on the kept projections.</span>
+<span class="w">        </span><span class="sd">"""Emit a reduced :class:`Tomograms` on the kept projections.</span>
 
-<span class="sd">        The selector&#39;s kept-index list is applied to ``tomograms`` —</span>
+<span class="sd">        The selector's kept-index list is applied to ``tomograms`` —</span>
 <span class="sd">        which may differ from the source used to build the selector, as</span>
 <span class="sd">        long as the projection layout matches (same ``n_tomos``, same</span>
 <span class="sd">        ``tomo_id`` ordering, and ``num_proj[t]`` at least as large as</span>
-<span class="sd">        the source&#39;s).  This lets the same selector reduce a b1 and a b2</span>
+<span class="sd">        the source's).  This lets the same selector reduce a b1 and a b2</span>
 <span class="sd">        :class:`Tomograms` consistently.</span>
 
 <span class="sd">        Parameters</span>
@@ -557,10 +557,10 @@
 <span class="sd">        Tomograms</span>
 <span class="sd">            New :class:`Tomograms` with per-projection arrays of length</span>
 <span class="sd">            ``new_n_projs``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">tomos</span> <span class="o">=</span> <span class="n">_Tomograms</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">tomograms</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomos</span><span class="p">,</span> <span class="n">_Tomograms</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;tomograms must be a Tomograms instance or a filename.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">'tomograms must be a Tomograms instance or a filename.'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_tomograms</span><span class="p">(</span><span class="n">tomos</span><span class="p">)</span>
 
         <span class="n">tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tag</span>
@@ -605,7 +605,7 @@
                 <span class="n">in_dir</span>   <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">in_path</span><span class="p">)</span>
                 <span class="n">in_base</span>  <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">in_path</span><span class="p">)</span>
                 <span class="n">stem</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">in_base</span><span class="p">)</span>
-                <span class="n">out_base</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">_</span><span class="si">%s%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">stem</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">ext</span> <span class="k">if</span> <span class="n">ext</span> <span class="k">else</span> <span class="s1">&#39;.mrc&#39;</span><span class="p">)</span>
+                <span class="n">out_base</span> <span class="o">=</span> <span class="s1">'</span><span class="si">%s</span><span class="s1">_</span><span class="si">%s%s</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="n">stem</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">ext</span> <span class="k">if</span> <span class="n">ext</span> <span class="k">else</span> <span class="s1">'.mrc'</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">in_subfolder</span><span class="p">:</span>
                     <span class="n">out_dir</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">in_dir</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span> <span class="k">if</span> <span class="n">in_dir</span> <span class="k">else</span> <span class="n">tag</span>
                     <span class="n">_os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -633,11 +633,11 @@
 <div class="viewcode-block" id="TiltRangeSelector.to_particles">
 <a class="viewcode-back" href="../../../api/susan.data.TiltRangeSelector.html#susan.data.TiltRangeSelector.to_particles">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">to_particles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particles</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit a reduced :class:`Particles` on the kept projections.</span>
+<span class="w">        </span><span class="sd">"""Emit a reduced :class:`Particles` on the kept projections.</span>
 
 <span class="sd">        Slices ``prj_eu``, ``prj_t``, ``prj_cc``, ``prj_w`` and the per-</span>
 <span class="sd">        particle defocus arrays along the per-projection axis, using each</span>
-<span class="sd">        particle&#39;s ``tomo_id`` to look up the matching kept-index list.</span>
+<span class="sd">        particle's ``tomo_id`` to look up the matching kept-index list.</span>
 <span class="sd">        Non-projection fields (positions, alignments, identifiers,</span>
 <span class="sd">        half-sets) are copied verbatim.</span>
 
@@ -659,10 +659,10 @@
 <span class="sd">        Particles</span>
 <span class="sd">            New :class:`Particles` with per-projection arrays of length</span>
 <span class="sd">            ``new_n_projs``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">ptcls</span> <span class="o">=</span> <span class="n">_Particles</span><span class="p">(</span><span class="n">particles</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">particles</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">particles</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">_Particles</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;particles must be a Particles instance or a filename.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">'particles must be a Particles instance or a filename.'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_particles</span><span class="p">(</span><span class="n">ptcls</span><span class="p">)</span>
 
         <span class="n">out_n_projs</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">new_n_projs</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>

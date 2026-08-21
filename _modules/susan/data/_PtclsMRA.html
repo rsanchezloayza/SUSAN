@@ -332,17 +332,17 @@
 <div class="viewcode-block" id="PtclsMRA">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.MRA.html#susan.data._PtclsMRA.PtclsMRA">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PtclsMRA</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Multi-reference alignment helpers for Particles.</span>
+<span class="w">    </span><span class="sd">"""Multi-reference alignment helpers for Particles.</span>
 
 <span class="sd">    All methods are static and operate on a Particles instance.</span>
 <span class="sd">    Accessible as ``Particles.MRA``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     
 <div class="viewcode-block" id="PtclsMRA.duplicate">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.MRA.html#susan.data._PtclsMRA.PtclsMRA.duplicate">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">duplicate</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Append a copy of one or more reference slots to the alignment arrays.</span>
+<span class="w">        </span><span class="sd">"""Append a copy of one or more reference slots to the alignment arrays.</span>
 
 <span class="sd">        Adds a new reference entry (or entries) to ``ali_eu``, ``ali_t``,</span>
 <span class="sd">        ``ali_cc``, and ``ali_w`` by copying from the specified slot(s).</span>
@@ -355,7 +355,7 @@
 <span class="sd">        ref_idx : int or array-like of int, optional</span>
 <span class="sd">            Index (or indices) of the reference slot(s) to duplicate.</span>
 <span class="sd">            Default 0.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">idx</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ref_idx</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">,</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">][</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,:,:]))</span>
@@ -373,7 +373,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.MRA.html#susan.data._PtclsMRA.PtclsMRA.select_ref">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">select_ref</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">ref_idx</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select particles assigned to specific reference(s) and keep only those slots.</span>
+<span class="w">        </span><span class="sd">"""Select particles assigned to specific reference(s) and keep only those slots.</span>
 
 <span class="sd">        Filters ``ptcls`` to particles whose ``ref_cix`` matches ``ref_idx``</span>
 <span class="sd">        and trims the alignment arrays to only the requested reference(s).</span>
@@ -389,7 +389,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">idx</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ref_idx</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">rslt</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">select</span><span class="p">(</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ref_cix</span> <span class="o">==</span> <span class="n">idx</span> <span class="p">)</span>

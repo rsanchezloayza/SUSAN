@@ -318,30 +318,30 @@
 <span class="c1"># along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span>
 <span class="c1">###########################################################################</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;dose_from_fsc&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;radial_average&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;radial_expansion&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;fsc_get&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;fsc_analyse&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;bandpass&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;apply_FOM&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;fsc_sharpen&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;fsc_sharpen_filter&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;euDYN_rotm&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;euZYZ_rotm&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;rotm_euZYZ&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;get_extension&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;is_extension&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;force_extension&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;time_now&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;create_sphere&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;bin_vol&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;bin_frame&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;bin_frame_shape&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;mask_diameter&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;angular_step_from_fsc&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;is_odd&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;is_even&#39;</span><span class="p">,</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'dose_from_fsc'</span><span class="p">,</span>
+           <span class="s1">'radial_average'</span><span class="p">,</span>
+           <span class="s1">'radial_expansion'</span><span class="p">,</span>
+           <span class="s1">'fsc_get'</span><span class="p">,</span>
+           <span class="s1">'fsc_analyse'</span><span class="p">,</span>
+           <span class="s1">'bandpass'</span><span class="p">,</span>
+           <span class="s1">'apply_FOM'</span><span class="p">,</span>
+           <span class="s1">'fsc_sharpen'</span><span class="p">,</span>
+           <span class="s1">'fsc_sharpen_filter'</span><span class="p">,</span>
+           <span class="s1">'euDYN_rotm'</span><span class="p">,</span>
+           <span class="s1">'euZYZ_rotm'</span><span class="p">,</span>
+           <span class="s1">'rotm_euZYZ'</span><span class="p">,</span>
+           <span class="s1">'get_extension'</span><span class="p">,</span>
+           <span class="s1">'is_extension'</span><span class="p">,</span>
+           <span class="s1">'force_extension'</span><span class="p">,</span>
+           <span class="s1">'time_now'</span><span class="p">,</span>
+           <span class="s1">'create_sphere'</span><span class="p">,</span>
+           <span class="s1">'bin_vol'</span><span class="p">,</span>
+           <span class="s1">'bin_frame'</span><span class="p">,</span>
+           <span class="s1">'bin_frame_shape'</span><span class="p">,</span>
+           <span class="s1">'mask_diameter'</span><span class="p">,</span>
+           <span class="s1">'angular_step_from_fsc'</span><span class="p">,</span>
+           <span class="s1">'is_odd'</span><span class="p">,</span>
+           <span class="s1">'is_even'</span><span class="p">,</span>
           <span class="p">]</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
@@ -366,7 +366,7 @@
 <div class="viewcode-block" id="radial_average">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.radial_average">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">radial_average</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the radial (shell) average of a 3-D volume.</span>
+<span class="w">    </span><span class="sd">"""Compute the radial (shell) average of a 3-D volume.</span>
 
 <span class="sd">    Each output bin k contains the mean of all voxels at radius r ≈ k pixels</span>
 <span class="sd">    from the volume centre.  The output length is set by the largest dimension</span>
@@ -381,8 +381,8 @@
 <span class="sd">    -------</span>
 <span class="sd">    ndarray, shape (N,)</span>
 <span class="sd">        Radially averaged values.  N = max(Z, Y, X) // 2 + 1.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">assert</span> <span class="n">v</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;Volume must be three-dimensional&quot;</span>
+<span class="sd">    """</span>
+    <span class="k">assert</span> <span class="n">v</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"Volume must be three-dimensional"</span>
     <span class="k">return</span> <span class="n">_radial_average_cy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span></div>
 
 
@@ -390,9 +390,9 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_apply_fourier_rad_wgt</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">wgt</span><span class="p">):</span>
-    <span class="n">v_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span><span class="n">norm</span><span class="o">=</span><span class="s1">&#39;ortho&#39;</span><span class="p">),</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+    <span class="n">v_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">),</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
     <span class="n">_core_apply_fourier_rad_wgt</span><span class="p">(</span><span class="n">v_f</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">wgt</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
-    <span class="n">rslt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">irfftn</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">v_f</span><span class="p">,</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span><span class="n">norm</span><span class="o">=</span><span class="s1">&#39;ortho&#39;</span><span class="p">)</span>
+    <span class="n">rslt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">irfftn</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">v_f</span><span class="p">,</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">)</span>
     <span class="n">rslt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">rslt</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">rslt</span>
 
@@ -416,7 +416,7 @@
 <div class="viewcode-block" id="bandpass">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.bandpass">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">bandpass</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">lowpass</span><span class="p">,</span><span class="n">highpass</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">rolloff</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply a bandpass filter to a 3-D volume in Fourier space.</span>
+<span class="w">    </span><span class="sd">"""Apply a bandpass filter to a 3-D volume in Fourier space.</span>
 
 <span class="sd">    Both the low-pass and high-pass edges use a cosine rolloff, giving a</span>
 <span class="sd">    smooth (Hann-like) transition rather than a hard cut.</span>
@@ -438,7 +438,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    ndarray, float32</span>
 <span class="sd">        Filtered volume, same shape as ``v``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">bp</span>  <span class="o">=</span> <span class="n">_gen_bandpass_wgt</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">lowpass</span><span class="p">,</span><span class="n">highpass</span><span class="p">,</span><span class="n">rolloff</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_apply_fourier_rad_wgt</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">bp</span><span class="p">)</span></div>
 
@@ -446,7 +446,7 @@
 <div class="viewcode-block" id="apply_FOM">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.apply_FOM">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_FOM</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">fsc_array</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply a figure-of-merit (FOM) filter derived from an FSC curve.</span>
+<span class="w">    </span><span class="sd">"""Apply a figure-of-merit (FOM) filter derived from an FSC curve.</span>
 
 <span class="sd">    Multiplies each Fourier shell by :math:`\\sqrt{FSC}`:</span>
 
@@ -470,7 +470,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    ndarray, float32</span>
 <span class="sd">        FOM-weighted volume, same shape as ``v``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">wgt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">fsc_array</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">_apply_fourier_rad_wgt</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">wgt</span><span class="p">)</span></div>
 
@@ -478,9 +478,9 @@
 
 <div class="viewcode-block" id="fsc_sharpen">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.fsc_sharpen">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">fsc_sharpen</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">fsc</span><span class="p">,</span> <span class="n">apix</span><span class="p">,</span> <span class="n">bfactor</span><span class="p">,</span> <span class="n">fom</span><span class="o">=</span><span class="s1">&#39;rosenthal&#39;</span><span class="p">,</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fsc_sharpen</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">fsc</span><span class="p">,</span> <span class="n">apix</span><span class="p">,</span> <span class="n">bfactor</span><span class="p">,</span> <span class="n">fom</span><span class="o">=</span><span class="s1">'rosenthal'</span><span class="p">,</span>
                 <span class="n">lowpass</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">thres</span><span class="o">=</span><span class="mf">0.143</span><span class="p">,</span> <span class="n">rolloff</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;FSC-weighted B-factor sharpening of a map from its half-map FSC.</span>
+<span class="w">    </span><span class="sd">"""FSC-weighted B-factor sharpening of a map from its half-map FSC.</span>
 
 <span class="sd">    Builds a single radial Fourier weight combining up to three per-shell</span>
 <span class="sd">    terms and applies it to *v*:</span>
@@ -491,9 +491,9 @@
 <span class="sd">       positive one blurs.</span>
 <span class="sd">    2. **FOM weighting** derived from the FSC, which tapers the amplification</span>
 <span class="sd">       to zero where the half-maps stop correlating, so noise beyond the</span>
-<span class="sd">       resolution limit is not amplified.  ``&#39;rosenthal&#39;`` uses the full-map</span>
+<span class="sd">       resolution limit is not amplified.  ``'rosenthal'`` uses the full-map</span>
 <span class="sd">       figure of merit :math:`\\sqrt{2\\,FSC/(1+FSC)}` (appropriate for the</span>
-<span class="sd">       combined map; Rosenthal &amp; Henderson, 2003); ``&#39;sqrt&#39;`` uses</span>
+<span class="sd">       combined map; Rosenthal &amp; Henderson, 2003); ``'sqrt'`` uses</span>
 <span class="sd">       :math:`\\sqrt{FSC}` (matches :func:`apply_FOM`); ``None`` disables it.</span>
 <span class="sd">    3. **Cosine low-pass** at the FSC resolution (:func:`fsc_analyse` with</span>
 <span class="sd">       *thres*), a safety cut so shells past the resolution are not boosted.</span>
@@ -511,8 +511,8 @@
 <span class="sd">        Pixel size in Angstroms.</span>
 <span class="sd">    bfactor : float</span>
 <span class="sd">        B-factor in Angstrom^2.  Negative sharpens, positive blurs.</span>
-<span class="sd">    fom : {&#39;rosenthal&#39;, &#39;sqrt&#39;, None}, optional</span>
-<span class="sd">        FSC figure-of-merit weighting.  Default ``&#39;rosenthal&#39;``.</span>
+<span class="sd">    fom : {'rosenthal', 'sqrt', None}, optional</span>
+<span class="sd">        FSC figure-of-merit weighting.  Default ``'rosenthal'``.</span>
 <span class="sd">    lowpass : bool, optional</span>
 <span class="sd">        Apply a cosine low-pass at the FSC resolution.  Default ``True``.</span>
 <span class="sd">    thres : float, optional</span>
@@ -530,13 +530,13 @@
 <span class="sd">    apply_FOM : FSC figure-of-merit weighting only (no B-factor).</span>
 <span class="sd">    fsc_sharpen_filter : wrap this as a ``map_filter_fsc`` callable for</span>
 <span class="sd">        :class:`~susan.project.SubtomoAvg.SubtomoAvg`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">apix</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">apix</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">fsc</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="n">N</span>    <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
     <span class="n">k</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">fsc</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">k</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;fsc length (</span><span class="si">%d</span><span class="s1">) does not match box size (expected </span><span class="si">%d</span><span class="s1">)&#39;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'fsc length (</span><span class="si">%d</span><span class="s1">) does not match box size (expected </span><span class="si">%d</span><span class="s1">)'</span>
                          <span class="o">%</span> <span class="p">(</span><span class="n">fsc</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">k</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
 
     <span class="n">s</span>   <span class="o">=</span> <span class="n">k</span> <span class="o">/</span> <span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="n">apix</span><span class="p">)</span>                       <span class="c1"># spatial frequency [1/A]</span>
@@ -544,12 +544,12 @@
 
     <span class="k">if</span> <span class="n">fom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">f</span> <span class="o">=</span> <span class="n">fsc</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">fom</span> <span class="o">==</span> <span class="s1">&#39;rosenthal&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">fom</span> <span class="o">==</span> <span class="s1">'rosenthal'</span><span class="p">:</span>
             <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">f</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">f</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-        <span class="k">elif</span> <span class="n">fom</span> <span class="o">==</span> <span class="s1">&#39;sqrt&#39;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">fom</span> <span class="o">==</span> <span class="s1">'sqrt'</span><span class="p">:</span>
             <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fom must be &#39;rosenthal&#39;, &#39;sqrt&#39;, or None&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"fom must be 'rosenthal', 'sqrt', or None"</span><span class="p">)</span>
         <span class="n">wgt</span> <span class="o">=</span> <span class="n">wgt</span> <span class="o">*</span> <span class="n">c</span>
 
     <span class="k">if</span> <span class="n">lowpass</span><span class="p">:</span>
@@ -563,7 +563,7 @@
 <div class="viewcode-block" id="fsc_sharpen_filter">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.fsc_sharpen_filter">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">fsc_sharpen_filter</span><span class="p">(</span><span class="n">apix</span><span class="p">,</span> <span class="n">bfactor</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a ``map_filter_fsc`` callable that applies :func:`fsc_sharpen`.</span>
+<span class="w">    </span><span class="sd">"""Build a ``map_filter_fsc`` callable that applies :func:`fsc_sharpen`.</span>
 
 <span class="sd">    The returned function has signature ``filter(vol, fsc) -&gt; vol``, matching</span>
 <span class="sd">    :attr:`SubtomoAvg.map_filter_fsc &lt;susan.project.SubtomoAvg.SubtomoAvg&gt;`, so</span>
@@ -588,7 +588,7 @@
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    &gt;&gt;&gt; sta.map_filter_fsc = fsc_sharpen_filter(sta.pix_size, bfactor=-120)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="k">lambda</span> <span class="n">vol</span><span class="p">,</span> <span class="n">fsc</span><span class="p">:</span> <span class="n">fsc_sharpen</span><span class="p">(</span><span class="n">vol</span><span class="p">,</span> <span class="n">fsc</span><span class="p">,</span> <span class="n">apix</span><span class="p">,</span> <span class="n">bfactor</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
@@ -598,7 +598,7 @@
 <div class="viewcode-block" id="fsc_get">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.fsc_get">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">fsc_get</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="n">v2</span><span class="p">,</span><span class="n">msk</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the Fourier Shell Correlation (FSC) between two half-maps.</span>
+<span class="w">    </span><span class="sd">"""Compute the Fourier Shell Correlation (FSC) between two half-maps.</span>
 
 <span class="sd">    .. math::</span>
 <span class="sd">        FSC(r) = \\frac{</span>
@@ -627,7 +627,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    ndarray, shape (N,)</span>
 <span class="sd">        FSC curve.  Shell 0 is set to 1.0; N = v1.shape[2] // 2 + 1.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">apix</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="nb">str</span><span class="p">):</span>
         <span class="n">v1</span><span class="p">,</span><span class="n">apix</span> <span class="o">=</span> <span class="n">mrc</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">v1</span><span class="p">)</span>
@@ -642,8 +642,8 @@
         <span class="n">v1</span> <span class="o">=</span> <span class="n">v1</span><span class="o">*</span><span class="n">msk</span>
         <span class="n">v2</span> <span class="o">=</span> <span class="n">v2</span><span class="o">*</span><span class="n">msk</span>
 
-    <span class="n">V1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">&#39;ortho&#39;</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
-    <span class="n">V2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v2</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">&#39;ortho&#39;</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">V1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">V2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v2</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
     
     <span class="n">num</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">V1</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(</span><span class="n">V2</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
     <span class="n">d_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">V1</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(</span><span class="n">V1</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -657,7 +657,7 @@
 <div class="viewcode-block" id="fsc_analyse">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.fsc_analyse">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">fsc_analyse</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span><span class="n">apix</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span><span class="n">thres</span><span class="o">=</span><span class="mf">0.143</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the resolution where the FSC drops below a threshold.</span>
+<span class="w">    </span><span class="sd">"""Find the resolution where the FSC drops below a threshold.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -676,7 +676,7 @@
 <span class="sd">        * ``fpix``  — resolution in Fourier pixels (int).</span>
 <span class="sd">        * ``res``   — resolution in Angstroms (float).  0.0 if the FSC never</span>
 <span class="sd">          drops below ``thres``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">apix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">apix</span><span class="p">)</span>
     <span class="k">if</span><span class="p">(</span> <span class="n">apix</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="p">):</span>
         <span class="n">apix</span> <span class="o">=</span> <span class="n">apix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -701,7 +701,7 @@
 <div class="viewcode-block" id="get_extension">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.get_extension">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the file extension including the leading dot.</span>
+<span class="w">    </span><span class="sd">"""Return the file extension including the leading dot.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -710,8 +710,8 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    str</span>
-<span class="sd">        Extension, e.g. ``&#39;.mrc&#39;``.  Empty string if there is no extension.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        Extension, e.g. ``'.mrc'``.  Empty string if there is no extension.</span>
+<span class="sd">    """</span>
     <span class="n">_</span><span class="p">,</span><span class="n">ext</span> <span class="o">=</span> <span class="n">split_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">ext</span></div>
 
@@ -719,7 +719,7 @@
 <div class="viewcode-block" id="is_extension">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.is_extension">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">is_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="n">extension</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether ``filename`` has the given extension (case-sensitive).</span>
+<span class="w">    </span><span class="sd">"""Check whether ``filename`` has the given extension (case-sensitive).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -730,18 +730,18 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    bool</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">_</span><span class="p">,</span><span class="n">ext</span> <span class="o">=</span> <span class="n">split_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-    <span class="k">if</span><span class="p">(</span> <span class="n">extension</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;.&#39;</span> <span class="p">):</span>
+    <span class="k">if</span><span class="p">(</span> <span class="n">extension</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'.'</span> <span class="p">):</span>
         <span class="k">return</span> <span class="n">ext</span> <span class="o">==</span> <span class="n">extension</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">ext</span> <span class="o">==</span> <span class="s1">&#39;.&#39;</span><span class="o">+</span><span class="n">extension</span></div>
+        <span class="k">return</span> <span class="n">ext</span> <span class="o">==</span> <span class="s1">'.'</span><span class="o">+</span><span class="n">extension</span></div>
 
 
 <div class="viewcode-block" id="force_extension">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.force_extension">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">force_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="n">extension</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``filename`` with its extension replaced by ``extension``.</span>
+<span class="w">    </span><span class="sd">"""Return ``filename`` with its extension replaced by ``extension``.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -753,11 +753,11 @@
 <span class="sd">    -------</span>
 <span class="sd">    str</span>
 <span class="sd">        Path with the new extension.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">base</span><span class="p">,</span><span class="n">ext</span> <span class="o">=</span> <span class="n">split_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
     <span class="n">new_ext</span> <span class="o">=</span> <span class="n">extension</span>
-    <span class="k">if</span> <span class="n">new_ext</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;.&#39;</span><span class="p">:</span>
-        <span class="n">new_ext</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">extension</span>
+    <span class="k">if</span> <span class="n">new_ext</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">'.'</span><span class="p">:</span>
+        <span class="n">new_ext</span> <span class="o">=</span> <span class="s1">'.'</span> <span class="o">+</span> <span class="n">extension</span>
     <span class="k">return</span> <span class="n">base</span> <span class="o">+</span> <span class="n">new_ext</span></div>
 
 
@@ -766,12 +766,12 @@
 <div class="viewcode-block" id="time_now">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.time_now">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">time_now</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the current local date and time.</span>
+<span class="w">    </span><span class="sd">"""Return the current local date and time.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    datetime.datetime</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span></div>
 
 
@@ -780,7 +780,7 @@
 <div class="viewcode-block" id="create_sphere">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.create_sphere">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">create_sphere</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">N</span><span class="p">,</span><span class="n">center</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a soft spherical mask of radius ``r`` in a cube of side ``N``.</span>
+<span class="w">    </span><span class="sd">"""Create a soft spherical mask of radius ``r`` in a cube of side ``N``.</span>
 
 <span class="sd">    The mask value at each voxel is ``clip(r - radius, 0, 1)``, giving a</span>
 <span class="sd">    smooth 1-pixel-wide transition at the sphere boundary.</span>
@@ -801,14 +801,14 @@
 <span class="sd">    -------</span>
 <span class="sd">    ndarray, shape (N, N, N), float32</span>
 <span class="sd">        Soft spherical mask; 1 inside, 0 outside, linear transition at edge.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">M</span> <span class="o">=</span> <span class="n">N</span><span class="o">//</span><span class="mi">2</span>
     <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">center</span> <span class="o">=</span> <span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">M</span><span class="p">)</span>
     <span class="n">a0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">-</span> <span class="n">center</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">a1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">-</span> <span class="n">center</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     <span class="n">a2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">-</span> <span class="n">center</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
-    <span class="n">x0</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">a0</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+    <span class="n">x0</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">a0</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">'ij'</span><span class="p">)</span>
     <span class="n">rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span> <span class="n">x0</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x2</span><span class="o">**</span><span class="mi">2</span> <span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">((</span><span class="n">r</span><span class="o">-</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span></div>
 
@@ -818,7 +818,7 @@
 <div class="viewcode-block" id="bin_vol">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.bin_vol">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">bin_vol</span><span class="p">(</span><span class="n">vol</span><span class="p">,</span><span class="n">bin_level</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Low-pass filter and downsample a volume by a power of two.</span>
+<span class="w">    </span><span class="sd">"""Low-pass filter and downsample a volume by a power of two.</span>
 
 <span class="sd">    Applies a low-pass filter at the new Nyquist frequency before</span>
 <span class="sd">    downsampling to prevent aliasing.</span>
@@ -835,7 +835,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    ndarray, float32</span>
 <span class="sd">        Downsampled volume of shape (N//s, N//s, N//s) where s = 2**bin_level.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="n">bin_level</span><span class="p">)</span>
     <span class="n">v</span> <span class="o">=</span> <span class="n">bandpass</span><span class="p">(</span><span class="n">vol</span><span class="p">,</span><span class="n">vol</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">//</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">s</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="p">[::</span><span class="n">s</span><span class="p">,::</span><span class="n">s</span><span class="p">,::</span><span class="n">s</span><span class="p">]</span>
@@ -847,18 +847,18 @@
 <div class="viewcode-block" id="bin_frame_shape">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.bin_frame_shape">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">bin_frame_shape</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">scale</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the (H_b, W_b) shape that :func:`bin_frame` would produce.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return the (H_b, W_b) shape that :func:`bin_frame` would produce."""</span>
     <span class="k">return</span> <span class="n">_bin_frame_shape_cy</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">H</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">W</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">scale</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="bin_frame">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.bin_frame">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">bin_frame</span><span class="p">(</span><span class="n">in_frame</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">out_frame</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Area-weighted downsample of a single 2-D frame by a float ``scale``.</span>
+<span class="w">    </span><span class="sd">"""Area-weighted downsample of a single 2-D frame by a float ``scale``.</span>
 
 <span class="sd">    Output dimensions are ``ceil(H/scale)`` and ``ceil(W/scale)``.  The window</span>
 <span class="sd">    offset ``(N - N_b*scale)/2 - (scale-1)/2`` keeps the sampling origin on</span>
-<span class="sd">    SUSAN&#39;s pixel-centre convention (input index ``i`` at coordinate ``i``,</span>
+<span class="sd">    SUSAN's pixel-centre convention (input index ``i`` at coordinate ``i``,</span>
 <span class="sd">    tomogram centre at ``stk_center = N/2``), so the same particle position</span>
 <span class="sd">    projects to the same physical point across binning levels.  Preserving the</span>
 <span class="sd">    geometric box-edge centre instead would shift binned content by</span>
@@ -882,19 +882,19 @@
 <span class="sd">    -------</span>
 <span class="sd">    ndarray, float32, shape (ceil(H/scale), ceil(W/scale))</span>
 <span class="sd">        The downsampled frame.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">scale</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;scale must be &gt; 1.0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"scale must be &gt; 1.0"</span><span class="p">)</span>
     <span class="n">in_frame</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">in_frame</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">in_frame</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;in_frame must be 2-D&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"in_frame must be 2-D"</span><span class="p">)</span>
     <span class="n">H_b</span><span class="p">,</span> <span class="n">W_b</span> <span class="o">=</span> <span class="n">_bin_frame_shape_cy</span><span class="p">(</span><span class="n">in_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">in_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">scale</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">out_frame</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">out_frame</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">H_b</span><span class="p">,</span> <span class="n">W_b</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">out_frame</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">H_b</span><span class="p">,</span> <span class="n">W_b</span><span class="p">)</span> <span class="ow">or</span> <span class="n">out_frame</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span> \
-         <span class="ow">or</span> <span class="ow">not</span> <span class="n">out_frame</span><span class="o">.</span><span class="n">flags</span><span class="p">[</span><span class="s1">&#39;C_CONTIGUOUS&#39;</span><span class="p">]:</span>
+         <span class="ow">or</span> <span class="ow">not</span> <span class="n">out_frame</span><span class="o">.</span><span class="n">flags</span><span class="p">[</span><span class="s1">'C_CONTIGUOUS'</span><span class="p">]:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;out_frame must be C-contiguous float32 of shape (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span>
+            <span class="s2">"out_frame must be C-contiguous float32 of shape (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)"</span>
             <span class="o">%</span> <span class="p">(</span><span class="n">H_b</span><span class="p">,</span> <span class="n">W_b</span><span class="p">)</span>
         <span class="p">)</span>
     <span class="n">_bin_frame_cy</span><span class="p">(</span><span class="n">out_frame</span><span class="p">,</span> <span class="n">in_frame</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">scale</span><span class="p">))</span>
@@ -906,7 +906,7 @@
 <div class="viewcode-block" id="mask_diameter">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.mask_diameter">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">mask_diameter</span><span class="p">(</span><span class="n">mask_file</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate the particle diameter in pixels from a soft mask MRC file.</span>
+<span class="w">    </span><span class="sd">"""Estimate the particle diameter in pixels from a soft mask MRC file.</span>
 
 <span class="sd">    The diameter is that of the sphere whose volume equals the volume of mask</span>
 <span class="sd">    voxels above *threshold*.  Returning pixels (not Angstroms).</span>
@@ -916,14 +916,14 @@
 <span class="sd">    mask_file : str</span>
 <span class="sd">        Path to the mask MRC file.</span>
 <span class="sd">    threshold : float, optional</span>
-<span class="sd">        Voxel values above this level are considered &#39;inside&#39; the mask.</span>
+<span class="sd">        Voxel values above this level are considered 'inside' the mask.</span>
 <span class="sd">        Default 0.5 works for all standard soft masks.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        Equivalent-sphere diameter in pixels.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">mask</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">mrc</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">mask_file</span><span class="p">)</span>
     <span class="n">n_inside</span>    <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">))</span>
     <span class="c1"># V_pix = n_inside voxels  →  D_pix = 2·(3·V/(4π))^(1/3)</span>
@@ -936,7 +936,7 @@
 <div class="viewcode-block" id="angular_step_from_fsc">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.angular_step_from_fsc">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">angular_step_from_fsc</span><span class="p">(</span><span class="n">fsc_fpix</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Angular step from an FSC resolution in Fourier pixels.</span>
+<span class="w">    </span><span class="sd">"""Angular step from an FSC resolution in Fourier pixels.</span>
 
 <span class="sd">    Returns the angle subtended by one Fourier pixel at the resolution shell</span>
 <span class="sd">    ``fsc_fpix``::</span>
@@ -956,9 +956,9 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        Suggested angular step in degrees.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">fsc_fpix</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'inf'</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">fsc_fpix</span><span class="p">))))</span></div>
 
 
@@ -967,7 +967,7 @@
 <div class="viewcode-block" id="dose_from_fsc">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.dose_from_fsc">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">dose_from_fsc</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span> <span class="n">apix</span><span class="p">,</span> <span class="n">freq_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">),</span> <span class="n">fsc_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate effective dose from the Guinier slope of the FSC curve.</span>
+<span class="w">    </span><span class="sd">"""Estimate effective dose from the Guinier slope of the FSC curve.</span>
 
 <span class="sd">    The ExpFilt dose is applied in reconstruction as exp(−s²·dose/4), where s</span>
 <span class="sd">    is in 1/Å.  In the intermediate frequency range the FSC decays as the same</span>
@@ -1000,7 +1000,7 @@
 <span class="sd">    float</span>
 <span class="sd">        Effective dose in Å² consistent with the ExpFilt convention.</span>
 <span class="sd">        Returns NaN if the fit cannot be performed.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">fsc</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="n">n</span>     <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">fsc</span><span class="p">)</span>
     <span class="n">s_nyq</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">apix</span><span class="p">))</span>
@@ -1010,7 +1010,7 @@
     <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">freq_range</span>
     <span class="n">mask</span>   <span class="o">=</span> <span class="p">(</span><span class="n">s</span> <span class="o">&gt;=</span> <span class="n">lo</span> <span class="o">*</span> <span class="n">s_nyq</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">s</span> <span class="o">&lt;=</span> <span class="n">hi</span> <span class="o">*</span> <span class="n">s_nyq</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">fsc</span> <span class="o">&gt;</span> <span class="n">fsc_min</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">)</span>
 
     <span class="n">slope</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span><span class="n">s2</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">fsc</span><span class="p">[</span><span class="n">mask</span><span class="p">]),</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="o">-</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">slope</span>   <span class="c1"># dose = −4 · slope  (matches exp(−s²·dose/4) convention)</span></div>
@@ -1021,7 +1021,7 @@
 <div class="viewcode-block" id="is_odd">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.is_odd">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">is_odd</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether an integer is odd.</span>
+<span class="w">    </span><span class="sd">"""Check whether an integer is odd.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1031,14 +1031,14 @@
 <span class="sd">    -------</span>
 <span class="sd">    bool</span>
 <span class="sd">        True if ``v`` is odd, False otherwise.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span></div>
 
 
 <div class="viewcode-block" id="is_even">
 <a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.is_even">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">is_even</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether an integer is even.</span>
+<span class="w">    </span><span class="sd">"""Check whether an integer is even.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1048,7 +1048,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    bool</span>
 <span class="sd">        True if ``v`` is even, False otherwise.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span></div>
 
 </pre></div>

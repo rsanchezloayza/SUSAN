@@ -341,17 +341,17 @@
 <div class="viewcode-block" id="PtclsGeom">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PtclsGeom</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Geometry operations on Particles alignment data.</span>
+<span class="w">    </span><span class="sd">"""Geometry operations on Particles alignment data.</span>
 
 <span class="sd">    All methods are static and operate on a Particles instance in-place or</span>
 <span class="sd">    return a new one.  Accessible as ``Particles.Geom``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     
 <span class="c1">###############################################################################</span>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_single_rotation</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">R</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">eZYZdeg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Set either eZYZdeg or R, not both.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Set either eZYZdeg or R, not both.'</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="n">eZYZdeg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -360,13 +360,13 @@
         
             <span class="n">eu</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">eu</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;eZYZdeg must be a 3-element array/vector.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'eZYZdeg must be a 3-element array/vector.'</span><span class="p">)</span>
             <span class="n">R</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="n">_euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">,</span><span class="n">eu</span><span class="p">)</span>
         
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">R</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span> <span class="ow">or</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;R must be a 3x3 matrix.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'R must be a 3x3 matrix.'</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
     
@@ -377,7 +377,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">t</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;t must be a 3-element array/vector.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'t must be a 3-element array/vector.'</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">t</span>
     
     <span class="n">_inplace_shift</span>     <span class="o">=</span> <span class="nb">staticmethod</span><span class="p">(</span><span class="n">_inplace_shift</span><span class="p">)</span>
@@ -387,7 +387,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.rot_shift">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">rot_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">eZYZdeg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply a single rotation and/or translation to all particles in-place.</span>
+<span class="w">        </span><span class="sd">"""Apply a single rotation and/or translation to all particles in-place.</span>
 
 <span class="sd">        Modifies ``ali_eu[ref_idx]`` and ``ali_t[ref_idx]`` directly.</span>
 <span class="sd">        Supply either ``eZYZdeg`` or ``R``, not both.</span>
@@ -403,7 +403,7 @@
 <span class="sd">            Translation in Ångströms. Default zeros.</span>
 <span class="sd">        ref_idx : int, optional</span>
 <span class="sd">            Reference alignment slot to modify. Default 0.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">R</span> <span class="o">=</span> <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_validate_single_rotation</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">R</span><span class="p">)</span>
         <span class="n">t</span> <span class="o">=</span> <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_validate_single_translation</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
                 
@@ -417,7 +417,7 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_multiple_rotations</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">R</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">eZYZdeg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Set either eZYZdeg or R, not both.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Set either eZYZdeg or R, not both.'</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="n">eZYZdeg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -433,12 +433,12 @@
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
                     <span class="n">_euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">eu</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;eZYZdeg must be a 3-element array/vector or a stack of them.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'eZYZdeg must be a 3-element array/vector or a stack of them.'</span><span class="p">)</span>
             
         
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">R</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">R</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;R must be a 3-by-3 matrix or a stack of them.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'R must be a 3-by-3 matrix or a stack of them.'</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">R</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">R</span> <span class="o">=</span> <span class="n">R</span><span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,:,:]</span>
 
@@ -451,25 +451,25 @@
             <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,:]</span>
             <span class="k">elif</span> <span class="n">t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;t must be a 1D or 2D matrix.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'t must be a 1D or 2D matrix.'</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">t</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_multiple_inputs</span><span class="p">(</span><span class="n">R</span><span class="p">,</span><span class="n">t</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Set the angles or the shifts...&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Set the angles or the shifts...'</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">t</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">t</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Number of angles do not match the number of shifts.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Number of angles do not match the number of shifts.'</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">t</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;t is not a N-by-3 matrix.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'t is not a N-by-3 matrix.'</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span> <span class="ow">or</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;R is not a N-by-3-by-3 matrix.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'R is not a N-by-3-by-3 matrix.'</span><span class="p">)</span>
             <span class="n">t</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">3</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
         
         <span class="k">return</span> <span class="n">R</span><span class="p">,</span><span class="n">t</span>
@@ -481,7 +481,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.expand_by_rot_shift">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">expand_by_rot_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">eZYZdeg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Expand a particle list by applying multiple rotations/translations.</span>
+<span class="w">        </span><span class="sd">"""Expand a particle list by applying multiple rotations/translations.</span>
 
 <span class="sd">        For each particle, produces one output copy per supplied</span>
 <span class="sd">        rotation/translation, resulting in ``n_ptcl × n_transforms`` particles.</span>
@@ -503,7 +503,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">R</span>   <span class="o">=</span> <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_validate_multiple_rotations</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">R</span><span class="p">)</span>
         <span class="n">t</span>   <span class="o">=</span> <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_validate_multiple_translations</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
         <span class="n">R</span><span class="p">,</span><span class="n">t</span> <span class="o">=</span> <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_validate_multiple_inputs</span><span class="p">(</span><span class="n">R</span><span class="p">,</span><span class="n">t</span><span class="p">)</span>
@@ -540,7 +540,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.enable_by_tilt">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">enable_by_tilt</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">tomos</span><span class="p">,</span> <span class="n">tilt_deg_max</span><span class="p">,</span> <span class="n">tilt_deg_min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">use_nominal</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set per-projection weights based on tilt angle range.</span>
+<span class="w">        </span><span class="sd">"""Set per-projection weights based on tilt angle range.</span>
 
 <span class="sd">        Projections whose absolute tilt angle falls within</span>
 <span class="sd">        [tilt_deg_min, tilt_deg_max) are set to weight 1; all others are</span>
@@ -559,7 +559,7 @@
 <span class="sd">        use_nominal : bool, optional</span>
 <span class="sd">            If True, use ``tomos.nominal_tilt_angles`` instead of the Y</span>
 <span class="sd">            component of ``proj_eZYZ``.  Default False.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">tilt_max</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">tilt_deg_max</span><span class="p">)</span>
         <span class="n">tilt_min</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">tilt_deg_min</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">use_nominal</span><span class="p">:</span>
@@ -575,7 +575,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.enable_by_tilt_range">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">enable_by_tilt_range</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">tomos</span><span class="p">,</span> <span class="n">tilt_deg_min</span><span class="p">,</span> <span class="n">tilt_deg_max</span><span class="p">,</span> <span class="n">use_nominal</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set per-projection weights based on a signed tilt-angle range.</span>
+<span class="w">        </span><span class="sd">"""Set per-projection weights based on a signed tilt-angle range.</span>
 
 <span class="sd">        The tilt angle is derived from the full ZYZ rotation matrix of each</span>
 <span class="sd">        projection (not from ``proj_eZYZ[:,1]`` directly), making it robust</span>
@@ -604,13 +604,13 @@
 <span class="sd">            If True, use ``tomos.nominal_tilt_angles`` directly as the</span>
 <span class="sd">            signed stage tilt instead of deriving it from ``proj_eZYZ``.</span>
 <span class="sd">            Default False.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">tilt_deg_min</span> <span class="o">&gt;=</span> <span class="n">tilt_deg_max</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;tilt_deg_min (</span><span class="si">{</span><span class="n">tilt_deg_min</span><span class="si">}</span><span class="s1">) must be less than tilt_deg_max (</span><span class="si">{</span><span class="n">tilt_deg_max</span><span class="si">}</span><span class="s1">).&#39;</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s1">'tilt_deg_min (</span><span class="si">{</span><span class="n">tilt_deg_min</span><span class="si">}</span><span class="s1">) must be less than tilt_deg_max (</span><span class="si">{</span><span class="n">tilt_deg_max</span><span class="si">}</span><span class="s1">).'</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">tilt_deg_min</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">180.0</span> <span class="ow">or</span> <span class="n">tilt_deg_max</span> <span class="o">&gt;</span> <span class="mf">180.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Tilt range [</span><span class="si">{</span><span class="n">tilt_deg_min</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">tilt_deg_max</span><span class="si">}</span><span class="s1">) exceeds [-180, 180] degrees.&#39;</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s1">'Tilt range [</span><span class="si">{</span><span class="n">tilt_deg_min</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">tilt_deg_max</span><span class="si">}</span><span class="s1">) exceeds [-180, 180] degrees.'</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">use_nominal</span><span class="p">:</span>
             <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_enable_by_tilt_nominal</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">tomos</span><span class="p">,</span> <span class="n">tilt_deg_min</span><span class="p">,</span> <span class="n">tilt_deg_max</span><span class="p">,</span> <span class="n">signed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -627,7 +627,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.discard_closer">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">discard_closer</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">min_dist_angs</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove duplicate/overlapping particles closer than a minimum distance.</span>
+<span class="w">        </span><span class="sd">"""Remove duplicate/overlapping particles closer than a minimum distance.</span>
 
 <span class="sd">        Within each tomogram, particles are sorted by descending ``ali_cc``</span>
 <span class="sd">        and greedily kept; any particle within ``min_dist_angs`` of an already</span>
@@ -647,13 +647,13 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">t_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span> <span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="nb">bool</span><span class="p">)</span>
         <span class="n">dist</span> <span class="o">=</span> <span class="n">min_dist_angs</span><span class="o">*</span><span class="n">min_dist_angs</span>
         
         <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1"> particles in </span><span class="si">%d</span><span class="s1"> tomograms. Processing:&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">,</span><span class="n">t_id</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="si">%d</span><span class="s1"> particles in </span><span class="si">%d</span><span class="s1"> tomograms. Processing:'</span><span class="o">%</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">,</span><span class="n">t_id</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
             
         <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">t_id</span><span class="p">:</span>
             <span class="n">t_mask</span>  <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span> <span class="o">==</span> <span class="n">tid</span>
@@ -664,10 +664,10 @@
             <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_disable_closer</span><span class="p">(</span><span class="n">w_mask</span><span class="p">,</span><span class="n">pos</span><span class="p">,</span><span class="n">sort_ix</span><span class="p">,</span><span class="n">dist</span><span class="p">)</span>
             <span class="n">mask</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">w_mask</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">Tomogram index </span><span class="si">%3d</span><span class="s1">: from </span><span class="si">%7d</span><span class="s1"> to </span><span class="si">%7d</span><span class="s1"> particles.&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span><span class="n">sort_ix</span><span class="o">.</span><span class="n">size</span><span class="p">,</span><span class="n">w_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="se">\t</span><span class="s1">Tomogram index </span><span class="si">%3d</span><span class="s1">: from </span><span class="si">%7d</span><span class="s1"> to </span><span class="si">%7d</span><span class="s1"> particles.'</span><span class="o">%</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span><span class="n">sort_ix</span><span class="o">.</span><span class="n">size</span><span class="p">,</span><span class="n">w_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
         
         <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Remaining particles: </span><span class="si">%d</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'Remaining particles: </span><span class="si">%d</span><span class="s1">'</span><span class="o">%</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
 
         <span class="k">return</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">select</span><span class="p">(</span> <span class="n">mask</span> <span class="p">)</span></div>
 
@@ -676,9 +676,9 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">discard_oversampled_views</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">bin_size_deg</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">k_per_bin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                                   <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weight_mask</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flatten preferential orientation by keeping the best particles per view bin.</span>
+<span class="w">        </span><span class="sd">"""Flatten preferential orientation by keeping the best particles per view bin.</span>
 
-<span class="sd">        Particles are binned by view direction on an equal-area &quot;ring&quot; grid:</span>
+<span class="sd">        Particles are binned by view direction on an equal-area "ring" grid:</span>
 <span class="sd">        180°/bin_size_deg latitude rings, each split into a longitude count</span>
 <span class="sd">        proportional to sin(latitude) so cells stay compact and equal-area</span>
 <span class="sd">        from pole to equator.  Within each bin, up to ``k_per_bin`` particles</span>
@@ -703,11 +703,11 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">bin_size_deg</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;bin_size_deg must be positive.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'bin_size_deg must be positive.'</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">k_per_bin</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;k_per_bin must be &gt;= 1.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'k_per_bin must be &gt;= 1.'</span><span class="p">)</span>
 
         <span class="n">n_rings</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="mf">180.0</span><span class="o">/</span><span class="n">bin_size_deg</span><span class="p">))</span>
 
@@ -725,7 +725,7 @@
         <span class="k">if</span> <span class="n">weight_mask</span><span class="p">:</span>
             <span class="n">cc</span><span class="p">[</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_w</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">_np</span><span class="o">.</span><span class="n">inf</span>
 
-        <span class="c1"># Equal-area &quot;ring&quot; grid: equal-width latitude rings, each split into</span>
+        <span class="c1"># Equal-area "ring" grid: equal-width latitude rings, each split into</span>
         <span class="c1"># a longitude count proportional to sin(theta). Cell area stays ~dtheta^2</span>
         <span class="c1"># and cells stay compact from pole to equator (no polar slivers).</span>
         <span class="n">ring_edges</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="n">n_rings</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
@@ -753,7 +753,7 @@
         <span class="n">mask</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
 
         <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Kept </span><span class="si">%d</span><span class="s1"> / </span><span class="si">%d</span><span class="s1"> particles (</span><span class="si">%d</span><span class="s1"> filled bins of </span><span class="si">%d</span><span class="s1">).&#39;</span><span class="o">%</span><span class="p">(</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'Kept </span><span class="si">%d</span><span class="s1"> / </span><span class="si">%d</span><span class="s1"> particles (</span><span class="si">%d</span><span class="s1"> filled bins of </span><span class="si">%d</span><span class="s1">).'</span><span class="o">%</span><span class="p">(</span>
                 <span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">,</span>
                 <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">cell</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span><span class="o">.</span><span class="n">size</span><span class="p">,</span><span class="nb">int</span><span class="p">(</span><span class="n">ring_offset</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])))</span>
 
@@ -766,7 +766,7 @@
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.get_min_distance">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_min_distance</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the distance to the nearest neighbour for every particle.</span>
+<span class="w">        </span><span class="sd">"""Return the distance to the nearest neighbour for every particle.</span>
 
 <span class="sd">        Computed per tomogram using effective positions</span>
 <span class="sd">        (position + ali_t[ref_idx]).</span>
@@ -781,7 +781,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        ndarray, float32, shape (M,)</span>
 <span class="sd">            Nearest-neighbour distance in Ångströms for each particle.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">t_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span> <span class="p">)</span>
         <span class="n">dist</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
         

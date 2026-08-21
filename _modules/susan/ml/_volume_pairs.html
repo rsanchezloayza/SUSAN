@@ -318,7 +318,7 @@
 <span class="c1"># along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span>
 <span class="c1">###########################################################################</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;VolumePairs&#39;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'VolumePairs'</span><span class="p">]</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span><span class="w">  </span><span class="k">as</span><span class="w"> </span><span class="nn">_torch</span>
@@ -327,7 +327,7 @@
 <span class="c1"># ---------------------------------------------------------------------------</span>
 <span class="c1"># Angular perturbation helpers</span>
 <span class="c1">#</span>
-<span class="c1"># A &quot;proper&quot; angular perturbation is an isotropic small rotation on SO(3):</span>
+<span class="c1"># A "proper" angular perturbation is an isotropic small rotation on SO(3):</span>
 <span class="c1"># a uniformly random axis with a Gaussian-distributed magnitude.  We build it</span>
 <span class="c1"># as a rotation matrix (Rodrigues), compose it with the particle rotation, and</span>
 <span class="c1"># only then convert back to ZYZ Euler angles.  Working through matrices avoids</span>
@@ -339,7 +339,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_euZYZ_to_R</span><span class="p">(</span><span class="n">eu</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Vectorised ZYZ Euler (radians, ``(N, 3)``) to rotation matrices ``(N, 3, 3)``.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Vectorised ZYZ Euler (radians, ``(N, 3)``) to rotation matrices ``(N, 3, 3)``."""</span>
     <span class="n">t</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">eu</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">eu</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">eu</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
     <span class="n">ct</span><span class="p">,</span> <span class="n">cp</span><span class="p">,</span> <span class="n">cs</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
     <span class="n">st</span><span class="p">,</span> <span class="n">sp</span><span class="p">,</span> <span class="n">ss</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">_np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
@@ -357,7 +357,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_R_to_euZYZ</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Vectorised rotation matrices ``(N, 3, 3)`` to ZYZ Euler (radians, ``(N, 3)``).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Vectorised rotation matrices ``(N, 3, 3)`` to ZYZ Euler (radians, ``(N, 3)``)."""</span>
     <span class="n">eu</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="n">r22</span> <span class="o">=</span> <span class="n">R</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
     <span class="n">gimbal</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">r22</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span>
@@ -376,7 +376,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_rotvec_to_R</span><span class="p">(</span><span class="n">rvec</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rodrigues: rotation vectors ``(N, 3)`` (axis*angle, radians) to matrices.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Rodrigues: rotation vectors ``(N, 3)`` (axis*angle, radians) to matrices."""</span>
     <span class="n">theta</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">rvec</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">small</span> <span class="o">=</span> <span class="n">theta</span> <span class="o">&lt;</span> <span class="mf">1e-8</span>
     <span class="n">axis</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">rvec</span><span class="p">)</span>
@@ -399,7 +399,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_perturb_eulers</span><span class="p">(</span><span class="n">eu</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sigma_deg</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply an independent isotropic small rotation to each ZYZ Euler triple.</span>
+<span class="w">    </span><span class="sd">"""Apply an independent isotropic small rotation to each ZYZ Euler triple.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -412,7 +412,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    numpy.ndarray</span>
 <span class="sd">        Perturbed Euler angles, same shape and dtype as *eu*.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">shp</span>   <span class="o">=</span> <span class="n">eu</span><span class="o">.</span><span class="n">shape</span>
     <span class="n">flat</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="n">n</span>     <span class="o">=</span> <span class="n">flat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -425,13 +425,13 @@
 
     <span class="n">dR</span>  <span class="o">=</span> <span class="n">_rotvec_to_R</span><span class="p">(</span><span class="n">rvec</span><span class="p">)</span>
     <span class="n">R</span>   <span class="o">=</span> <span class="n">_euZYZ_to_R</span><span class="p">(</span><span class="n">flat</span><span class="p">)</span>
-    <span class="n">Rp</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;nij,njk-&gt;nik&#39;</span><span class="p">,</span> <span class="n">dR</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
+    <span class="n">Rp</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">'nij,njk-&gt;nik'</span><span class="p">,</span> <span class="n">dR</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">_R_to_euZYZ</span><span class="p">(</span><span class="n">Rp</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shp</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">out</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_sigma_schedule</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a per-entry sequence of perturbation sigmas (degrees).</span>
+<span class="w">    </span><span class="sd">"""Build a per-entry sequence of perturbation sigmas (degrees).</span>
 
 <span class="sd">    Accepts either a fixed scalar (constant schedule) or a ``(lo, hi)`` pair.</span>
 <span class="sd">    For a range the values are spread evenly over ``[lo, hi]`` with</span>
@@ -450,16 +450,16 @@
 <span class="sd">    -------</span>
 <span class="sd">    numpy.ndarray</span>
 <span class="sd">        Length-``n`` array of sigmas in degrees.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">lo</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="k">elif</span> <span class="n">arr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
         <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sigma must be a scalar or a (lo, hi) pair&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"sigma must be a scalar or a (lo, hi) pair"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">lo</span> <span class="o">&lt;</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">hi</span> <span class="o">&lt;</span> <span class="n">lo</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sigma range must satisfy 0 &lt;= lo &lt;= hi&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"sigma range must satisfy 0 &lt;= lo &lt;= hi"</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">lo</span> <span class="o">==</span> <span class="n">hi</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">lo</span><span class="p">)</span>
@@ -473,7 +473,7 @@
 <div class="viewcode-block" id="VolumePairs">
 <a class="viewcode-back" href="../../../api/susan.ml.VolumePairs.html#susan.ml.VolumePairs">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">VolumePairs</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Buffer of independent half-map pairs for Noise2Noise training.</span>
+<span class="w">    </span><span class="sd">"""Buffer of independent half-map pairs for Noise2Noise training.</span>
 
 <span class="sd">    .. warning:: **Experimental.**  This class is part of the machine-learning</span>
 <span class="sd">       subpackage and may change or be removed in a future release.</span>
@@ -499,7 +499,7 @@
 <span class="sd">        ``None`` until :meth:`set_size` or :meth:`set_size_mask` is called.</span>
 <span class="sd">    tmp_base : str</span>
 <span class="sd">        Path prefix used for temporary files written by :meth:`populate`.</span>
-<span class="sd">        Default: ``&#39;vol_pair_tmp&#39;``.</span>
+<span class="sd">        Default: ``'vol_pair_tmp'``.</span>
 <span class="sd">    mask : numpy.ndarray or None</span>
 <span class="sd">        Cropped mask retained by :meth:`set_size_mask`, floored at</span>
 <span class="sd">        :attr:`min_mask_value`.  ``None`` until :meth:`set_size_mask` is</span>
@@ -512,9 +512,9 @@
 <span class="sd">        (``mask = maximum(min_mask_value, input_mask)``).  A non-zero value</span>
 <span class="sd">        attenuates — rather than zeroes — voxels outside the mask.</span>
 <span class="sd">        Default: ``0.0``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmp_base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;vol_pair_tmp&#39;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmp_base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'vol_pair_tmp'</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_vol</span>  <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_vol</span>  <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="mi">0</span>
@@ -546,7 +546,7 @@
 <div class="viewcode-block" id="VolumePairs.set_size">
 <a class="viewcode-back" href="../../../api/susan.ml.VolumePairs.html#susan.ml.VolumePairs.set_size">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_vol</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">padding</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise the buffer with a symmetric fixed-padding crop region.</span>
+<span class="w">        </span><span class="sd">"""Initialise the buffer with a symmetric fixed-padding crop region.</span>
 
 <span class="sd">        Removes *padding* voxels from each face of the cubic volume.  Use</span>
 <span class="sd">        this when a simple isotropic margin is sufficient.</span>
@@ -559,7 +559,7 @@
 <span class="sd">            Number of half-map pairs to allocate space for.</span>
 <span class="sd">        padding : int</span>
 <span class="sd">            Number of voxels to crop from each face.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="n">vol_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">px0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">py0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pz0</span> <span class="o">=</span> <span class="n">padding</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">px1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">py1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pz1</span> <span class="o">=</span> <span class="n">vol_size</span> <span class="o">-</span> <span class="n">padding</span>
@@ -573,7 +573,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">set_size_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_vol</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                       <span class="n">mask</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">extra_pad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
                       <span class="n">apply_mask</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">min_mask_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise the buffer using the tight bounding box of a mask.</span>
+<span class="w">        </span><span class="sd">"""Initialise the buffer using the tight bounding box of a mask.</span>
 
 <span class="sd">        Computes the axis-aligned bounding box of the non-zero voxels in</span>
 <span class="sd">        *mask*, expands it by *extra_pad* voxels on each side, and uses the</span>
@@ -608,9 +608,9 @@
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
 <span class="sd">            If *mask* contains no non-zero voxels.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Mask is empty; cannot determine bounding box&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Mask is empty; cannot determine bounding box"</span><span class="p">)</span>
         <span class="n">pts</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="n">vol_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pz0</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span>         <span class="nb">int</span><span class="p">(</span><span class="n">pts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="o">-</span> <span class="n">extra_pad</span><span class="p">)</span>
@@ -632,13 +632,13 @@
     <span class="c1"># ---------------------------------------------------------------- helpers</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_crop_region</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Slice a volume to the active crop region (no masking).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Slice a volume to the active crop region (no masking)."""</span>
         <span class="k">return</span> <span class="n">vol</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">pz0</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">pz1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">py0</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">py1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">px0</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">px1</span><span class="p">]</span>
 
 <div class="viewcode-block" id="VolumePairs.crop_vol">
 <a class="viewcode-back" href="../../../api/susan.ml.VolumePairs.html#susan.ml.VolumePairs.crop_vol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">crop_vol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Crop a volume to the active region set by :meth:`set_size` or :meth:`set_size_mask`.</span>
+<span class="w">        </span><span class="sd">"""Crop a volume to the active region set by :meth:`set_size` or :meth:`set_size_mask`.</span>
 
 <span class="sd">        When :attr:`apply_mask` is ``True`` and a mask has been stored, the</span>
 <span class="sd">        cropped volume is additionally multiplied by :attr:`mask` (floored at</span>
@@ -654,7 +654,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        numpy.ndarray</span>
 <span class="sd">            Cropped sub-volume, mask-multiplied when :attr:`apply_mask` is set.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crop_region</span><span class="p">(</span><span class="n">vol</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_mask</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">out</span> <span class="o">=</span> <span class="n">out</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span>
@@ -664,7 +664,7 @@
 <div class="viewcode-block" id="VolumePairs.pad_vol">
 <a class="viewcode-back" href="../../../api/susan.ml.VolumePairs.html#susan.ml.VolumePairs.pad_vol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">pad_vol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Zero-pad a cropped volume back to the full box size.</span>
+<span class="w">        </span><span class="sd">"""Zero-pad a cropped volume back to the full box size.</span>
 
 <span class="sd">        Inverse of :meth:`crop_vol`.</span>
 
@@ -678,7 +678,7 @@
 <span class="sd">        numpy.ndarray</span>
 <span class="sd">            Full-size volume with the cropped region placed at the correct</span>
 <span class="sd">            position and zeros elsewhere.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">vol</span><span class="p">,</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pz0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">pz1</span><span class="p">),</span>
                              <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">py0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">py1</span><span class="p">),</span>
                              <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">px0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">px1</span><span class="p">)))</span></div>
@@ -701,12 +701,12 @@
 <div class="viewcode-block" id="VolumePairs.reset">
 <a class="viewcode-back" href="../../../api/susan.ml.VolumePairs.html#susan.ml.VolumePairs.reset">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clear the buffer without reallocating memory.</span>
+<span class="w">        </span><span class="sd">"""Clear the buffer without reallocating memory.</span>
 
 <span class="sd">        Sets :attr:`num_vol` to ``0``, resets the write head to slot 0,</span>
 <span class="sd">        and zeroes the internal tensor.  Subsequent calls to :meth:`push`</span>
 <span class="sd">        or :meth:`populate` will refill from the beginning.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_vol</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_head</span>   <span class="o">=</span> <span class="mi">0</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -714,7 +714,7 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol1</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">vol2</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write one half-map pair into the next circular buffer slot.</span>
+<span class="w">        </span><span class="sd">"""Write one half-map pair into the next circular buffer slot.</span>
 
 <span class="sd">        Overwrites the oldest entry once the buffer is full, so</span>
 <span class="sd">        :attr:`num_vol` never exceeds :attr:`max_vol`.  Use this to</span>
@@ -734,9 +734,9 @@
 <span class="sd">        RuntimeError</span>
 <span class="sd">            If the buffer has not been initialised; call :meth:`set_size`</span>
 <span class="sd">            or :meth:`set_size_mask` first.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Buffer not initialized; call set_size first&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Buffer not initialized; call set_size first"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_head</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crop_vol</span><span class="p">(</span><span class="n">vol1</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_head</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crop_vol</span><span class="p">(</span><span class="n">vol2</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_head</span>   <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_head</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_vol</span>
@@ -747,7 +747,7 @@
 <div class="viewcode-block" id="VolumePairs.init_with_halfmaps">
 <a class="viewcode-back" href="../../../api/susan.ml.VolumePairs.html#susan.ml.VolumePairs.init_with_halfmaps">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">init_with_halfmaps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vol1</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">vol2</span><span class="p">:</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Store a single externally provided half-map pair.</span>
+<span class="w">        </span><span class="sd">"""Store a single externally provided half-map pair.</span>
 
 <span class="sd">        Resets the buffer and stores the cropped pair at index 0.  Use this</span>
 <span class="sd">        when half-maps have been reconstructed outside SUSAN and only a single</span>
@@ -765,37 +765,37 @@
 <span class="sd">        RuntimeError</span>
 <span class="sd">            If the buffer has not been initialised; call :meth:`set_size`</span>
 <span class="sd">            or :meth:`set_size_mask` first.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">vol1</span><span class="p">,</span> <span class="n">vol2</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the buffer and all crop/padding metadata to a single file.</span>
+<span class="w">        </span><span class="sd">"""Save the buffer and all crop/padding metadata to a single file.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
-<span class="sd">            Destination file path (e.g. ``&#39;data.vpairs&#39;``).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            Destination file path (e.g. ``'data.vpairs'``).</span>
+<span class="sd">        """</span>
         <span class="n">_torch</span><span class="o">.</span><span class="n">save</span><span class="p">({</span>
-            <span class="s1">&#39;buffer&#39;</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">,</span>
-            <span class="s1">&#39;num_vol&#39;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">num_vol</span><span class="p">,</span>
-            <span class="s1">&#39;max_vol&#39;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">max_vol</span><span class="p">,</span>
-            <span class="s1">&#39;box_size&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">,</span>
-            <span class="s1">&#39;head&#39;</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">_head</span><span class="p">,</span>
-            <span class="s1">&#39;pz0&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">pz0</span><span class="p">,</span> <span class="s1">&#39;pz1&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">pz1</span><span class="p">,</span>
-            <span class="s1">&#39;py0&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">py0</span><span class="p">,</span> <span class="s1">&#39;py1&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">py1</span><span class="p">,</span>
-            <span class="s1">&#39;px0&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">px0</span><span class="p">,</span> <span class="s1">&#39;px1&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">px1</span><span class="p">,</span>
-            <span class="s1">&#39;mask&#39;</span><span class="p">:</span>           <span class="p">(</span><span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="s1">'buffer'</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">,</span>
+            <span class="s1">'num_vol'</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">num_vol</span><span class="p">,</span>
+            <span class="s1">'max_vol'</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">max_vol</span><span class="p">,</span>
+            <span class="s1">'box_size'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">,</span>
+            <span class="s1">'head'</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">_head</span><span class="p">,</span>
+            <span class="s1">'pz0'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">pz0</span><span class="p">,</span> <span class="s1">'pz1'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">pz1</span><span class="p">,</span>
+            <span class="s1">'py0'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">py0</span><span class="p">,</span> <span class="s1">'py1'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">py1</span><span class="p">,</span>
+            <span class="s1">'px0'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">px0</span><span class="p">,</span> <span class="s1">'px1'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">px1</span><span class="p">,</span>
+            <span class="s1">'mask'</span><span class="p">:</span>           <span class="p">(</span><span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span>
                                <span class="k">else</span> <span class="n">_torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)),</span>
-            <span class="s1">&#39;apply_mask&#39;</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">apply_mask</span><span class="p">,</span>
-            <span class="s1">&#39;min_mask_value&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_mask_value</span><span class="p">,</span>
+            <span class="s1">'apply_mask'</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">apply_mask</span><span class="p">,</span>
+            <span class="s1">'min_mask_value'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_mask_value</span><span class="p">,</span>
         <span class="p">},</span> <span class="n">path</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tmp_base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;vol_pair_tmp&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;VolumePairs&#39;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct a VolumePairs from a file saved with :meth:`save`.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tmp_base</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'vol_pair_tmp'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'VolumePairs'</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Reconstruct a VolumePairs from a file saved with :meth:`save`.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -803,26 +803,26 @@
 <span class="sd">            Path to a file previously written by :meth:`save`.</span>
 <span class="sd">        tmp_base : str, optional</span>
 <span class="sd">            ``tmp_base`` for the reconstructed object.  Default:</span>
-<span class="sd">            ``&#39;vol_pair_tmp&#39;``.</span>
+<span class="sd">            ``'vol_pair_tmp'``.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        VolumePairs</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ck</span>  <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="sd">        """</span>
+        <span class="n">ck</span>  <span class="o">=</span> <span class="n">_torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">obj</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">tmp_base</span><span class="o">=</span><span class="n">tmp_base</span><span class="p">)</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">buffer</span>   <span class="o">=</span> <span class="n">ck</span><span class="p">[</span><span class="s1">&#39;buffer&#39;</span><span class="p">]</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">num_vol</span>  <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;num_vol&#39;</span><span class="p">])</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">max_vol</span>  <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;max_vol&#39;</span><span class="p">])</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;box_size&#39;</span><span class="p">])</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">_head</span>    <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;head&#39;</span><span class="p">])</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">pz0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;pz0&#39;</span><span class="p">]);</span> <span class="n">obj</span><span class="o">.</span><span class="n">pz1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;pz1&#39;</span><span class="p">])</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">py0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;py0&#39;</span><span class="p">]);</span> <span class="n">obj</span><span class="o">.</span><span class="n">py1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;py1&#39;</span><span class="p">])</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">px0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;px0&#39;</span><span class="p">]);</span> <span class="n">obj</span><span class="o">.</span><span class="n">px1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">&#39;px1&#39;</span><span class="p">])</span>
-        <span class="n">m</span> <span class="o">=</span> <span class="n">ck</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mask&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">buffer</span>   <span class="o">=</span> <span class="n">ck</span><span class="p">[</span><span class="s1">'buffer'</span><span class="p">]</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">num_vol</span>  <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'num_vol'</span><span class="p">])</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">max_vol</span>  <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'max_vol'</span><span class="p">])</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'box_size'</span><span class="p">])</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">_head</span>    <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'head'</span><span class="p">])</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">pz0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'pz0'</span><span class="p">]);</span> <span class="n">obj</span><span class="o">.</span><span class="n">pz1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'pz1'</span><span class="p">])</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">py0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'py0'</span><span class="p">]);</span> <span class="n">obj</span><span class="o">.</span><span class="n">py1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'py1'</span><span class="p">])</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">px0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'px0'</span><span class="p">]);</span> <span class="n">obj</span><span class="o">.</span><span class="n">px1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ck</span><span class="p">[</span><span class="s1">'px1'</span><span class="p">])</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">ck</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'mask'</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">obj</span><span class="o">.</span><span class="n">mask</span>           <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">m</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">apply_mask</span>     <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">ck</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;apply_mask&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
-        <span class="n">obj</span><span class="o">.</span><span class="n">min_mask_value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ck</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;min_mask_value&#39;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">apply_mask</span>     <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">ck</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'apply_mask'</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">min_mask_value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ck</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'min_mask_value'</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">obj</span>
 
 <div class="viewcode-block" id="VolumePairs.populate">
@@ -830,7 +830,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">populate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">avgr</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="n">tomo_filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
                  <span class="n">num_entries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">sigma_ang_3D</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma_ang_2D</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma_def</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fill the buffer by re-randomising half-set assignments and running the Averager.</span>
+<span class="w">        </span><span class="sd">"""Fill the buffer by re-randomising half-set assignments and running the Averager.</span>
 
 <span class="sd">        Each iteration re-randomises the ``half_id`` array in *ptcls*, saves</span>
 <span class="sd">        a temporary particles file, runs the Averager to produce a pair of</span>
@@ -846,7 +846,7 @@
 <span class="sd">        ``directional=True`` on such pairs to teach the network to recover from</span>
 <span class="sd">        small alignment errors (slot 0 = input, slot 1 = target).</span>
 
-<span class="sd">        The Averager&#39;s ``verbosity`` and ``rec_halfsets`` attributes, and the</span>
+<span class="sd">        The Averager's ``verbosity`` and ``rec_halfsets`` attributes, and the</span>
 <span class="sd">        original ``half_id``, ``ali_eu`` and ``prj_eu`` arrays, are fully</span>
 <span class="sd">        restored on exit even if an exception is raised.</span>
 
@@ -866,7 +866,7 @@
 <span class="sd">            fills the buffer to capacity.  Default: ``None``.</span>
 <span class="sd">        sigma_ang_3D : float or (float, float), optional</span>
 <span class="sd">            Std. dev. (in degrees) of the isotropic rotation applied to the</span>
-<span class="sd">            half-1 particles&#39; 3-D orientations (``ali_eu``).  Models 3-D</span>
+<span class="sd">            half-1 particles' 3-D orientations (``ali_eu``).  Models 3-D</span>
 <span class="sd">            alignment error.  A scalar uses a fixed sigma for every entry; a</span>
 <span class="sd">            ``(lo, hi)`` pair sweeps the range across the entries generated in</span>
 <span class="sd">            this call (evenly spread and shuffled), which trains the network to</span>
@@ -879,7 +879,7 @@
 <span class="sd">            alignment error.  ``0.0`` disables it.  Default: ``0.0``.</span>
 <span class="sd">        sigma_def : float or (float, float), optional</span>
 <span class="sd">            Std. dev. (in Angstroms) of an additive Gaussian shift applied</span>
-<span class="sd">            independently to each half-1 projection&#39;s defocus.  The same shift</span>
+<span class="sd">            independently to each half-1 projection's defocus.  The same shift</span>
 <span class="sd">            is added to ``def_U`` and ``def_V`` so the mean defocus moves while</span>
 <span class="sd">            the astigmatism is preserved.  Models defocus-estimation error,</span>
 <span class="sd">            which degrades CTF correction.  Scalar or ``(lo, hi)`` range, same</span>
@@ -897,7 +897,7 @@
 
 <span class="sd">        &gt;&gt;&gt; vp = VolumePairs()</span>
 <span class="sd">        &gt;&gt;&gt; vp.set_size_mask(box_size, num_vol=50, mask=mask)</span>
-<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, &#39;tomos.tomostxt&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, 'tomos.tomostxt')</span>
 <span class="sd">        &gt;&gt;&gt; trainer.train(vp, n_epochs=100)          # symmetric, denoising only</span>
 
 <span class="sd">        Misalignment-recovery pairs: perturb the half-1 orientations so slot 0</span>
@@ -905,14 +905,14 @@
 <span class="sd">        directionally (slot 0 -&gt; slot 1) so the network learns to undo the</span>
 <span class="sd">        alignment blur while still denoising:</span>
 
-<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, &#39;tomos.tomostxt&#39;, sigma_ang_3D=3.0)</span>
+<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, 'tomos.tomostxt', sigma_ang_3D=3.0)</span>
 <span class="sd">        &gt;&gt;&gt; trainer.train(vp, n_epochs=100, directional=True)</span>
 
 <span class="sd">        For robustness across blur levels (recommended), pass a ``(lo, hi)``</span>
 <span class="sd">        range including ``0`` instead of a single sigma, so the buffer spans</span>
 <span class="sd">        cleanly-aligned to strongly-misaligned pairs:</span>
 
-<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, &#39;tomos.tomostxt&#39;, sigma_ang_3D=(0.0, 4.0))</span>
+<span class="sd">        &gt;&gt;&gt; vp.populate(avgr, ptcls, 'tomos.tomostxt', sigma_ang_3D=(0.0, 4.0))</span>
 <span class="sd">        &gt;&gt;&gt; trainer.train(vp, n_epochs=100, directional=True)</span>
 
 <span class="sd">        ``sigma_ang_3D`` is the std. dev. of the applied rotation *magnitude* in</span>
@@ -922,9 +922,9 @@
 <span class="sd">        ``sigma_def`` (Angstroms) to perturb the per-projection defocus and model</span>
 <span class="sd">        CTF-correction error.  Enable and validate these one at a time rather</span>
 <span class="sd">        than all at once.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Buffer not initialized; call set_size first&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Buffer not initialized; call set_size first"</span><span class="p">)</span>
 
         <span class="kn">import</span><span class="w"> </span><span class="nn">susan</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_susan</span>
 
@@ -972,11 +972,11 @@
                              <span class="o">*</span> <span class="n">sched_def</span><span class="p">[</span><span class="n">count</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
                         <span class="n">ptcls</span><span class="o">.</span><span class="n">def_U</span><span class="p">[</span><span class="n">sel</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">d</span>
                         <span class="n">ptcls</span><span class="o">.</span><span class="n">def_V</span><span class="p">[</span><span class="n">sel</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">d</span>
-                <span class="n">ptcls</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">.ptclsraw&#39;</span><span class="p">)</span>
+                <span class="n">ptcls</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">.ptclsraw'</span><span class="p">)</span>
                 <span class="n">avgr</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="p">,</span> <span class="n">tomo_filename</span><span class="p">,</span>
-                                 <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">.ptclsraw&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
-                <span class="n">vol1</span> <span class="o">=</span> <span class="o">-</span><span class="n">_susan</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">_class001_half1.mrc&#39;</span><span class="p">)</span>
-                <span class="n">vol2</span> <span class="o">=</span> <span class="o">-</span><span class="n">_susan</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">_class001_half2.mrc&#39;</span><span class="p">)</span>
+                                 <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">.ptclsraw'</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+                <span class="n">vol1</span> <span class="o">=</span> <span class="o">-</span><span class="n">_susan</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">_class001_half1.mrc'</span><span class="p">)</span>
+                <span class="n">vol2</span> <span class="o">=</span> <span class="o">-</span><span class="n">_susan</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tmp_base</span><span class="si">}</span><span class="s1">_class001_half2.mrc'</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">vol1</span><span class="p">,</span> <span class="n">vol2</span><span class="p">)</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="n">ptcls</span><span class="o">.</span><span class="n">half_id</span><span class="p">[:]</span>  <span class="o">=</span> <span class="n">half_id</span>

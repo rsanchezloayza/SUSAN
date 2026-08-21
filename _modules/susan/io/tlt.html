@@ -300,14 +300,14 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for susan.io.tlt</h1><div class="highlight"><pre>
-<span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;read&#39;</span><span class="p">]</span>
+<span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'read'</span><span class="p">]</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 
 <div class="viewcode-block" id="read">
 <a class="viewcode-back" href="../../../api/susan.io.tlt.html#susan.io.tlt.read">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read a IMOD tilt-angle file (.tlt) and return the angles as an array.</span>
+<span class="w">    </span><span class="sd">"""Read a IMOD tilt-angle file (.tlt) and return the angles as an array.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -318,7 +318,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    angles : numpy.ndarray</span>
 <span class="sd">        1-D array of tilt angles in degrees, one entry per projection.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span></div>
 
 </pre></div>

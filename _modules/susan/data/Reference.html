@@ -325,7 +325,7 @@
 <div class="viewcode-block" id="Reference">
 <a class="viewcode-back" href="../../../api/susan.data.Reference.html#susan.data.Reference">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Reference</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Container for one or more reference maps used in STA alignment.</span>
+<span class="w">    </span><span class="sd">"""Container for one or more reference maps used in STA alignment.</span>
 
 <span class="sd">    Each reference entry holds paths to four MRC files: the full map,</span>
 <span class="sd">    a soft mask, and the two independent half-maps.  The half-maps are</span>
@@ -345,7 +345,7 @@
 <span class="sd">        Paths to half-map 1 for each reference.</span>
 <span class="sd">    h2  : list of str</span>
 <span class="sd">        Paths to half-map 2 for each reference.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">ref</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">msk</span> <span class="o">=</span> <span class="p">[]</span>
@@ -353,7 +353,7 @@
     <span class="n">h2</span>  <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_refs</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load from file or allocate an empty container.</span>
+<span class="w">        </span><span class="sd">"""Load from file or allocate an empty container.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -362,47 +362,47 @@
 <span class="sd">        n_refs : int, optional</span>
 <span class="sd">            Number of empty reference slots to allocate (used when</span>
 <span class="sd">            filename is None).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="nb">str</span><span class="p">):</span>
-            <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span>
-            <span class="n">num_refs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_prsr</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">fp</span><span class="p">)[</span><span class="s1">&#39;num_ref&#39;</span><span class="p">])</span>
+            <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s2">"rb"</span><span class="p">)</span>
+            <span class="n">num_refs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_prsr</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">fp</span><span class="p">)[</span><span class="s1">'num_ref'</span><span class="p">])</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_refs</span><span class="p">):</span>
                 <span class="n">args</span> <span class="o">=</span> <span class="n">_prsr</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;map&#39;</span> <span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;mask&#39;</span><span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;h1&#39;</span>  <span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;h2&#39;</span>  <span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'map'</span> <span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'mask'</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">args</span><span class="p">[</span><span class="s1">'h1'</span>  <span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">args</span><span class="p">[</span><span class="s1">'h2'</span>  <span class="p">])</span>
         <span class="k">elif</span><span class="p">(</span> <span class="n">n_refs</span><span class="o">&gt;</span><span class="mi">0</span> <span class="p">):</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_refs</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span>
     
     <span class="k">def</span><span class="w"> </span><span class="nf">get_n_refs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of references stored.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return the number of references stored."""</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="p">)</span>
     
     <span class="n">n_refs</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_n_refs</span><span class="p">)</span>
     
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;refstxt&#39;</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span> <span class="s1">&#39;Wrong file extension, do you mean &#39;</span> <span class="o">+</span> <span class="n">_force_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;refstxt&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;?&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'refstxt'</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span> <span class="s1">'Wrong file extension, do you mean '</span> <span class="o">+</span> <span class="n">_force_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'refstxt'</span><span class="p">)</span> <span class="o">+</span> <span class="s1">'?'</span><span class="p">)</span>
     
     <span class="c1">#def __repr__(self):</span>
-    <span class="c1">#    return &quot;Reference&quot;</span>
+    <span class="c1">#    return "Reference"</span>
     
 <div class="viewcode-block" id="Reference.load">
 <a class="viewcode-back" href="../../../api/susan.data.Reference.html#susan.data.Reference.load">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a Reference from a ``.refstxt`` file.</span>
+<span class="w">        </span><span class="sd">"""Load a Reference from a ``.refstxt`` file.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -412,7 +412,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Reference</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">Reference</span><span class="o">.</span><span class="n">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">Reference</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">result</span></div>
@@ -421,32 +421,32 @@
 <div class="viewcode-block" id="Reference.save">
 <a class="viewcode-back" href="../../../api/susan.data.Reference.html#susan.data.Reference.save">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save to a ``.refstxt`` file.</span>
+<span class="w">        </span><span class="sd">"""Save to a ``.refstxt`` file.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        filename : str</span>
 <span class="sd">            Output path; must have a ``.refstxt`` extension.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">Reference</span><span class="o">.</span><span class="n">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;Reference entries do not match Mask entries&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">'Reference entries do not match Mask entries'</span><span class="p">)</span>
             
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;Reference entries do not match Half1 entries&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">'Reference entries do not match Half1 entries'</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;Reference entries do not match Half2 entries&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">'Reference entries do not match Half2 entries'</span><span class="p">)</span>
         
-        <span class="n">fp</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;w&#39;</span><span class="p">)</span>
-        <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;num_ref&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_refs</span><span class="p">))</span>
+        <span class="n">fp</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'w'</span><span class="p">)</span>
+        <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">'num_ref'</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_refs</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_refs</span><span class="p">):</span>
-            <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;## Reference &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;map&#39;</span> <span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;mask&#39;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;h1&#39;</span>  <span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">)</span>
-            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;h2&#39;</span>  <span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">)</span>
+            <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'## Reference '</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">+</span><span class="s1">'</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">'map'</span> <span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">'mask'</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">'h1'</span>  <span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">)</span>
+            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">'h2'</span>  <span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">)</span>
         <span class="n">fp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 </div>
 

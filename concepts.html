@@ -504,48 +504,48 @@ one tomogram, estimates CTF, and runs five 3D refinement iterations:</p>
 <span class="c1"># --- Build tomogram metadata ---</span>
 <span class="n">tomos</span> <span class="o">=</span> <span class="n">susan</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="n">n_tomo</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_proj</span><span class="o">=</span><span class="mi">61</span><span class="p">)</span>
 <span class="n">tomos</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>   <span class="o">=</span> <span class="mi">1</span>
-<span class="n">tomos</span><span class="o">.</span><span class="n">set_stack</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span>  <span class="s1">&#39;tilt_series.mrc&#39;</span><span class="p">)</span>
-<span class="n">tomos</span><span class="o">.</span><span class="n">set_angles</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;tilt_series.tlt&#39;</span><span class="p">)</span>
+<span class="n">tomos</span><span class="o">.</span><span class="n">set_stack</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span>  <span class="s1">'tilt_series.mrc'</span><span class="p">)</span>
+<span class="n">tomos</span><span class="o">.</span><span class="n">set_angles</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">'tilt_series.tlt'</span><span class="p">)</span>
 <span class="n">tomos</span><span class="o">.</span><span class="n">pix_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="o">=</span> <span class="mf">2.62</span>              <span class="c1"># Å/pixel</span>
 <span class="n">tomos</span><span class="o">.</span><span class="n">tomo_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3710</span><span class="p">,</span> <span class="mi">3710</span><span class="p">,</span> <span class="mi">880</span><span class="p">)</span> <span class="c1"># voxels</span>
-<span class="n">tomos</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;tomos_raw.tomostxt&#39;</span><span class="p">)</span>
+<span class="n">tomos</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">'tomos_raw.tomostxt'</span><span class="p">)</span>
 
 <span class="c1"># --- Estimate CTF ---</span>
 <span class="n">ctf_grid</span> <span class="o">=</span> <span class="n">susan</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Particles</span><span class="o">.</span><span class="n">grid_2d</span><span class="p">(</span><span class="n">tomos</span><span class="p">,</span> <span class="n">step_pixels</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>  <span class="c1"># half-box overlap with box_size=512</span>
-<span class="n">ctf_grid</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;ctf_grid.ptclsraw&#39;</span><span class="p">)</span>
+<span class="n">ctf_grid</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">'ctf_grid.ptclsraw'</span><span class="p">)</span>
 
 <span class="n">ctf_est</span> <span class="o">=</span> <span class="n">susan</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">CtfEstimator</span><span class="p">()</span>
 <span class="n">ctf_est</span><span class="o">.</span><span class="n">list_gpus_ids</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-<span class="n">tomos</span> <span class="o">=</span> <span class="n">ctf_est</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="s1">&#39;data/&#39;</span><span class="p">,</span> <span class="s1">&#39;tomos_raw.tomostxt&#39;</span><span class="p">,</span> <span class="s1">&#39;ctf_grid.ptclsraw&#39;</span><span class="p">,</span>
-                          <span class="n">box_size</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">tomos_out</span><span class="o">=</span><span class="s1">&#39;tomos.tomostxt&#39;</span><span class="p">)</span>
+<span class="n">tomos</span> <span class="o">=</span> <span class="n">ctf_est</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="s1">'data/'</span><span class="p">,</span> <span class="s1">'tomos_raw.tomostxt'</span><span class="p">,</span> <span class="s1">'ctf_grid.ptclsraw'</span><span class="p">,</span>
+                          <span class="n">box_size</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">tomos_out</span><span class="o">=</span><span class="s1">'tomos.tomostxt'</span><span class="p">)</span>
 
 <span class="c1"># --- Import picked particles and create the initial reference ---</span>
-<span class="n">coords</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="s1">&#39;picked_coords.txt&#39;</span><span class="p">)</span>   <span class="c1"># Nx3 array, XYZ positions in voxels at the same binning level as the tomogram</span>
+<span class="n">coords</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="s1">'picked_coords.txt'</span><span class="p">)</span>   <span class="c1"># Nx3 array, XYZ positions in voxels at the same binning level as the tomogram</span>
 <span class="n">tomo_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
 <span class="n">ptcls</span> <span class="o">=</span> <span class="n">susan</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Particles</span><span class="o">.</span><span class="n">import_data</span><span class="p">(</span><span class="n">tomograms</span><span class="o">=</span><span class="n">tomos</span><span class="p">,</span>
                                           <span class="n">position</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span>
                                           <span class="n">tomos_id</span><span class="o">=</span><span class="n">tomo_ids</span><span class="p">,</span>
                                           <span class="n">randomize_angles</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">ptcls</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;particles.ptclsraw&#39;</span><span class="p">)</span>
+<span class="n">ptcls</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">'particles.ptclsraw'</span><span class="p">)</span>
 
 <span class="n">refs</span> <span class="o">=</span> <span class="n">susan</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="n">n_refs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">refs</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;initial_ref.mrc&#39;</span>
-<span class="n">refs</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;mask.mrc&#39;</span>
-<span class="n">refs</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;project.refstxt&#39;</span><span class="p">)</span>
+<span class="n">refs</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'initial_ref.mrc'</span>
+<span class="n">refs</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'mask.mrc'</span>
+<span class="n">refs</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">'project.refstxt'</span><span class="p">)</span>
 
 <span class="c1"># --- Configure and run the StA loop ---</span>
 <span class="c1"># Simplest MACE loop: Aligner then Averager each iteration,</span>
 <span class="c1"># equivalent to classical StA with per-projection CTF correction.</span>
-<span class="n">mngr</span> <span class="o">=</span> <span class="n">susan</span><span class="o">.</span><span class="n">project</span><span class="o">.</span><span class="n">SubtomoAvg</span><span class="p">(</span><span class="s1">&#39;my_project&#39;</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
-<span class="n">mngr</span><span class="o">.</span><span class="n">initial_reference</span> <span class="o">=</span> <span class="s1">&#39;project.refstxt&#39;</span>
-<span class="n">mngr</span><span class="o">.</span><span class="n">initial_particles</span> <span class="o">=</span> <span class="s1">&#39;particles.ptclsraw&#39;</span>
-<span class="n">mngr</span><span class="o">.</span><span class="n">tomogram_file</span>     <span class="o">=</span> <span class="s1">&#39;tomos.tomostxt&#39;</span>
+<span class="n">mngr</span> <span class="o">=</span> <span class="n">susan</span><span class="o">.</span><span class="n">project</span><span class="o">.</span><span class="n">SubtomoAvg</span><span class="p">(</span><span class="s1">'my_project'</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">mngr</span><span class="o">.</span><span class="n">initial_reference</span> <span class="o">=</span> <span class="s1">'project.refstxt'</span>
+<span class="n">mngr</span><span class="o">.</span><span class="n">initial_particles</span> <span class="o">=</span> <span class="s1">'particles.ptclsraw'</span>
+<span class="n">mngr</span><span class="o">.</span><span class="n">tomogram_file</span>     <span class="o">=</span> <span class="s1">'tomos.tomostxt'</span>
 <span class="n">mngr</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
 
 <span class="n">mngr</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="mi">30</span>
 <span class="n">mngr</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">set_angular_search</span><span class="p">(</span><span class="mi">360</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
 <span class="n">mngr</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">set_offset_search</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
-<span class="c1"># Multi-resolution angular refinement, equivalent to Dynamo&#39;s</span>
+<span class="c1"># Multi-resolution angular refinement, equivalent to Dynamo's</span>
 <span class="c1"># high_convergence: each level halves the step over ±factor·step range.</span>
 <span class="n">mngr</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">refine</span><span class="o">.</span><span class="n">levels</span> <span class="o">=</span> <span class="mi">4</span>
 <span class="n">mngr</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">refine</span><span class="o">.</span><span class="n">factor</span> <span class="o">=</span> <span class="mi">2</span>

@@ -341,21 +341,21 @@
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_iteration_files</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_temp</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ite_dir</span>   <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">=</span> <span class="s1">''</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_temp</span> <span class="o">=</span> <span class="s1">''</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="s1">''</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ite_dir</span>   <span class="o">=</span> <span class="s1">''</span>
         
     <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">_file_exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;File &#39;</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">+</span> <span class="s1">&#39; does not exist&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">'File '</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">+</span> <span class="s1">' does not exist'</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">_file_exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reference</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">&#39;File &#39;</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">reference</span> <span class="o">+</span> <span class="s1">&#39; does not exist&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">'File '</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">reference</span> <span class="o">+</span> <span class="s1">' does not exist'</span><span class="p">)</span>
 
 <div class="viewcode-block" id="STA">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">STA</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Subtomogram averaging project manager.</span>
+<span class="w">    </span><span class="sd">"""Subtomogram averaging project manager.</span>
 
 <span class="sd">    Manages an STA project stored on disk.  If *box_size* is provided the</span>
 <span class="sd">    project directory *prj_name* is created (or reused) and a metadata file</span>
@@ -412,9 +412,9 @@
 <span class="sd">       ==================  ===========================</span>
 <span class="sd">       Value               Step</span>
 <span class="sd">       ==================  ===========================</span>
-<span class="sd">       ``3`` / ``&#39;3D&#39;``    3-D angular + offset search</span>
-<span class="sd">       ``2`` / ``&#39;2D&#39;``    2-D in-plane alignment</span>
-<span class="sd">       ``&#39;ctf&#39;``           CTF refinement</span>
+<span class="sd">       ``3`` / ``'3D'``    3-D angular + offset search</span>
+<span class="sd">       ``2`` / ``'2D'``    2-D in-plane alignment</span>
+<span class="sd">       ``'ctf'``           CTF refinement</span>
 <span class="sd">       ==================  ===========================</span>
 
 <span class="sd">       Default: ``3``.</span>
@@ -455,7 +455,7 @@
 <span class="sd">       :type: :class:`~susan.utils.datatypes.mpi_params`</span>
 
 <span class="sd">       MPI launcher forwarded to child modules when ``mpi.arg &gt; 1``.</span>
-<span class="sd">       Default: ``mpi_params(&#39;srun -n %d &#39;, 1)``.</span>
+<span class="sd">       Default: ``mpi_params('srun -n %d ', 1)``.</span>
 
 <span class="sd">    .. attribute:: verbosity</span>
 <span class="sd">       :type: int</span>
@@ -487,12 +487,12 @@
 <span class="sd">       .. warning:: **Experimental.** This feature may change or be removed</span>
 <span class="sd">          in a future release.</span>
 
-<span class="sd">       Post-alignment 2-D shift regularisation: ``&#39;none&#39;``,</span>
-<span class="sd">       ``&#39;affine&#39;``, ``&#39;gaussian&#39;``, or ``&#39;tps&#39;``.  Default: ``&#39;none&#39;``.</span>
+<span class="sd">       Post-alignment 2-D shift regularisation: ``'none'``,</span>
+<span class="sd">       ``'affine'``, ``'gaussian'``, or ``'tps'``.  Default: ``'none'``.</span>
 
-<span class="sd">       ``&#39;tps&#39;`` fits a regularised thin-plate spline to the per-tilt 2-D</span>
-<span class="sd">       shift field: a globally smooth warp sitting between ``&#39;affine&#39;``</span>
-<span class="sd">       (globally rigid) and ``&#39;gaussian&#39;`` (purely local), with stiffness</span>
+<span class="sd">       ``'tps'`` fits a regularised thin-plate spline to the per-tilt 2-D</span>
+<span class="sd">       shift field: a globally smooth warp sitting between ``'affine'``</span>
+<span class="sd">       (globally rigid) and ``'gaussian'`` (purely local), with stiffness</span>
 <span class="sd">       controlled by :attr:`tps_lambda`.</span>
 
 <span class="sd">    .. attribute:: tps_lambda</span>
@@ -501,7 +501,7 @@
 <span class="sd">       .. warning:: **Experimental.** This feature may change or be removed</span>
 <span class="sd">          in a future release.</span>
 
-<span class="sd">       Stiffness of the ``&#39;tps&#39;`` shift warp (dimensionless; coordinates are</span>
+<span class="sd">       Stiffness of the ``'tps'`` shift warp (dimensionless; coordinates are</span>
 <span class="sd">       normalised per tomogram so the value is comparable across datasets).</span>
 <span class="sd">       ``0`` interpolates every shift (overfits noise), large values converge</span>
 <span class="sd">       to the pure affine fit.  Default: ``1.0``.</span>
@@ -512,7 +512,7 @@
 <span class="sd">       .. warning:: **Experimental.** This feature may change or be removed</span>
 <span class="sd">          in a future release.</span>
 
-<span class="sd">       Controls what the ``&#39;affine&#39;``/``&#39;gaussian&#39;``/``&#39;tps&#39;`` shift</span>
+<span class="sd">       Controls what the ``'affine'``/``'gaussian'``/``'tps'`` shift</span>
 <span class="sd">       regularisers fit.  If ``True`` (default) they fit the absolute current</span>
 <span class="sd">       ``prj_t`` (measured from origin).  If ``False`` they fit only the</span>
 <span class="sd">       incremental ``prj_t`` (the delta versus the previous iteration) and</span>
@@ -536,10 +536,10 @@
 <span class="sd">       .. warning:: **Experimental.** This feature may change or be removed</span>
 <span class="sd">          in a future release.</span>
 
-<span class="sd">       Smoother used when :attr:`smooth_ctf` is enabled: ``&#39;gaussian&#39;``</span>
+<span class="sd">       Smoother used when :attr:`smooth_ctf` is enabled: ``'gaussian'``</span>
 <span class="sd">       (local kNN average, same kernel as ``type_2d_shift_fitting =</span>
-<span class="sd">       &#39;gaussian&#39;``) or ``&#39;tps&#39;`` (regularised thin-plate spline warp).</span>
-<span class="sd">       Default: ``&#39;gaussian&#39;``.</span>
+<span class="sd">       'gaussian'``) or ``'tps'`` (regularised thin-plate spline warp).</span>
+<span class="sd">       Default: ``'gaussian'``.</span>
 
 <span class="sd">    .. attribute:: ctf_tps_lambda</span>
 <span class="sd">       :type: float</span>
@@ -547,7 +547,7 @@
 <span class="sd">       .. warning:: **Experimental.** This feature may change or be removed</span>
 <span class="sd">          in a future release.</span>
 
-<span class="sd">       Stiffness of the ``&#39;tps&#39;`` defocus warp, analogous to</span>
+<span class="sd">       Stiffness of the ``'tps'`` defocus warp, analogous to</span>
 <span class="sd">       :attr:`tps_lambda` but applied independently to the CTF deltas.</span>
 <span class="sd">       Default: ``1.0``.</span>
 
@@ -561,10 +561,10 @@
 <span class="sd">       raw CC scores; ``True`` normalises them to sum to 1; a float *p*</span>
 <span class="sd">       raises them to the power *p* before normalising.</span>
 <span class="sd">       Default: ``False``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prj_name</span><span class="p">,</span> <span class="n">box_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load an existing project or create a new one.</span>
+<span class="w">        </span><span class="sd">"""Load an existing project or create a new one.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -574,26 +574,26 @@
 <span class="sd">        box_size : int, optional</span>
 <span class="sd">            Subvolume box size in pixels.  When given, initialises a new</span>
 <span class="sd">            project.  When omitted, reads ``prj_name/info.prjtxt``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">box_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">prj_name</span><span class="o">+</span><span class="s2">&quot;/info.prjtxt&quot;</span><span class="p">,</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+            <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">prj_name</span><span class="o">+</span><span class="s2">"/info.prjtxt"</span><span class="p">,</span><span class="s2">"r"</span><span class="p">)</span>
             <span class="n">args</span> <span class="o">=</span> <span class="n">_prsr</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
             <span class="n">fp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;box_size&#39;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">'name'</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'box_size'</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">_file_exists</span><span class="p">(</span><span class="n">prj_name</span><span class="p">):</span>
                 <span class="n">_mkdir</span><span class="p">(</span><span class="n">prj_name</span><span class="p">)</span>
-            <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">prj_name</span><span class="o">+</span><span class="s2">&quot;/info.prjtxt&quot;</span><span class="p">,</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
-            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;name&#39;</span><span class="p">,</span><span class="n">prj_name</span><span class="p">)</span>
-            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">&#39;box_size&#39;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">box_size</span><span class="p">))</span>
+            <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">prj_name</span><span class="o">+</span><span class="s2">"/info.prjtxt"</span><span class="p">,</span><span class="s2">"w"</span><span class="p">)</span>
+            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">'name'</span><span class="p">,</span><span class="n">prj_name</span><span class="p">)</span>
+            <span class="n">_prsr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="s1">'box_size'</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">box_size</span><span class="p">))</span>
             <span class="n">fp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span> <span class="o">=</span> <span class="n">prj_name</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="n">box_size</span>
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span>     <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">initial_particles</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span>     <span class="o">=</span> <span class="s1">''</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span> <span class="o">=</span> <span class="s1">''</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_particles</span> <span class="o">=</span> <span class="s1">''</span>
         
         <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span>    <span class="o">=</span> <span class="mi">3</span>
@@ -603,26 +603,26 @@
         
         <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span>  <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_tilt_reconstruction</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span>   <span class="o">=</span> <span class="s1">&#39;none&#39;</span> <span class="c1"># affine / gaussian / tps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span>   <span class="o">=</span> <span class="s1">'none'</span> <span class="c1"># affine / gaussian / tps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tps_lambda</span>              <span class="o">=</span> <span class="mf">1.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fitting_from_origin</span>     <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span>              <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">type_ctf_smoothing</span>      <span class="o">=</span> <span class="s1">&#39;gaussian&#39;</span> <span class="c1"># gaussian / tps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type_ctf_smoothing</span>      <span class="o">=</span> <span class="s1">'gaussian'</span> <span class="c1"># gaussian / tps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_tps_lambda</span>          <span class="o">=</span> <span class="mf">1.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reweight_classification</span> <span class="o">=</span> <span class="kc">False</span>
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span>               <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">mpi_params</span><span class="p">(</span><span class="s1">&#39;srun -n </span><span class="si">%d</span><span class="s1"> &#39;</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span>               <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">mpi_params</span><span class="p">(</span><span class="s1">'srun -n </span><span class="si">%d</span><span class="s1"> '</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="mi">1</span>
         
         <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span>           <span class="o">=</span> <span class="n">_ssa_modules</span><span class="o">.</span><span class="n">Aligner</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">averager</span>          <span class="o">=</span> <span class="n">_ssa_modules</span><span class="o">.</span><span class="n">Averager</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span>       <span class="o">=</span> <span class="n">_ssa_modules</span><span class="o">.</span><span class="n">CtfRefiner</span><span class="p">()</span>
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">&#39;on_reference&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">cc_type</span>           <span class="o">=</span> <span class="s1">&#39;cfsc&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">'on_reference'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">cc_type</span>           <span class="o">=</span> <span class="s1">'cfsc'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">halfsets_independ</span> <span class="o">=</span> <span class="kc">False</span>
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">&#39;wiener&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">'wiener'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">rec_halfsets</span>      <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span>  <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
@@ -630,7 +630,7 @@
 <div class="viewcode-block" id="STA.get_iteration_dir">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_iteration_dir">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_iteration_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the directory path for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Return the directory path for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -641,14 +641,14 @@
 <span class="sd">        -------</span>
 <span class="sd">        str</span>
 <span class="sd">            Path of the form ``&lt;prj_name&gt;/ite_NNNN/``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span> <span class="o">+</span> <span class="s1">&#39;/ite_</span><span class="si">%04d</span><span class="s1">/&#39;</span> <span class="o">%</span> <span class="n">ite</span></div>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span> <span class="o">+</span> <span class="s1">'/ite_</span><span class="si">%04d</span><span class="s1">/'</span> <span class="o">%</span> <span class="n">ite</span></div>
 
     
 <div class="viewcode-block" id="STA.get_iteration_files">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_iteration_files">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_iteration_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_iteration_files</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the standard file paths for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Return the standard file paths for iteration *ite*.</span>
 
 <span class="sd">        For ``ite &lt; 1`` the initial files (:attr:`initial_particles` and</span>
 <span class="sd">        :attr:`initial_reference`) are returned.</span>
@@ -663,16 +663,16 @@
 <span class="sd">        _iteration_files</span>
 <span class="sd">            Object with attributes ``ptcl_rslt``, ``ptcl_temp``,</span>
 <span class="sd">            ``reference``, and ``ite_dir``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">rslt</span> <span class="o">=</span> <span class="n">_iteration_files</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">ite</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">rslt</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_particles</span>
             <span class="n">rslt</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">base_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
-            <span class="n">rslt</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;particles.ptclsraw&#39;</span>
-            <span class="n">rslt</span><span class="o">.</span><span class="n">ptcl_temp</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;temp.ptclsraw&#39;</span>
-            <span class="n">rslt</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;reference.refstxt&#39;</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">ptcl_rslt</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">'particles.ptclsraw'</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">ptcl_temp</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">'temp.ptclsraw'</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">+</span> <span class="s1">'reference.refstxt'</span>
             <span class="n">rslt</span><span class="o">.</span><span class="n">ite_dir</span>   <span class="o">=</span> <span class="n">base_dir</span>
         <span class="k">return</span> <span class="n">rslt</span></div>
 
@@ -680,7 +680,7 @@
 <div class="viewcode-block" id="STA.get_names_map">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_names_map">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_names_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the full reference map for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Return the path to the full reference map for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -694,20 +694,20 @@
 <span class="sd">        -------</span>
 <span class="sd">        str</span>
 <span class="sd">            Path to the MRC map file.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">ite</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span><span class="p">)</span>
             <span class="n">map_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">ite_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
-            <span class="n">map_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">&#39;map_class</span><span class="si">%03d</span><span class="s1">.mrc&#39;</span> <span class="o">%</span> <span class="n">ref</span>
+            <span class="n">map_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">'map_class</span><span class="si">%03d</span><span class="s1">.mrc'</span> <span class="o">%</span> <span class="n">ref</span>
         <span class="k">return</span> <span class="n">map_name</span></div>
 
 
 <div class="viewcode-block" id="STA.get_names_mask">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_names_mask">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_names_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the soft mask for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Return the path to the soft mask for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -720,12 +720,12 @@
 <span class="sd">        -------</span>
 <span class="sd">        str</span>
 <span class="sd">            Path to the mask MRC file.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">ite</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span><span class="p">)</span>
             <span class="n">mask_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;reference.refstxt&#39;</span><span class="p">)</span>
+            <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span><span class="o">+</span><span class="s1">'reference.refstxt'</span><span class="p">)</span>
             <span class="n">mask_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">mask_name</span></div>
 
@@ -733,7 +733,7 @@
 <div class="viewcode-block" id="STA.get_names_halfmaps">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_names_halfmaps">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_names_halfmaps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the paths to the two half-maps for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Return the paths to the two half-maps for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -746,22 +746,22 @@
 <span class="sd">        -------</span>
 <span class="sd">        tuple of str</span>
 <span class="sd">            ``(half1_path, half2_path)``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">ite</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">refs_info</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_reference</span><span class="p">)</span>
             <span class="n">h1_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
             <span class="n">h2_name</span> <span class="o">=</span> <span class="n">refs_info</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">ite_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
-            <span class="n">h1_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">&#39;map_class</span><span class="si">%03d</span><span class="s1">_half1.mrc&#39;</span> <span class="o">%</span> <span class="n">ref</span>
-            <span class="n">h2_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">&#39;map_class</span><span class="si">%03d</span><span class="s1">_half2.mrc&#39;</span> <span class="o">%</span> <span class="n">ref</span>
+            <span class="n">h1_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">'map_class</span><span class="si">%03d</span><span class="s1">_half1.mrc'</span> <span class="o">%</span> <span class="n">ref</span>
+            <span class="n">h2_name</span> <span class="o">=</span> <span class="n">ite_dir</span> <span class="o">+</span> <span class="s1">'map_class</span><span class="si">%03d</span><span class="s1">_half2.mrc'</span> <span class="o">%</span> <span class="n">ref</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">h1_name</span><span class="p">,</span><span class="n">h2_name</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="STA.get_name_refstxt">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_name_refstxt">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_name_refstxt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the ``.refstxt`` file for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Return the path to the ``.refstxt`` file for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -772,7 +772,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        str</span>
 <span class="sd">            Path to the ``.refstxt`` file.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">files</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_files</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">files</span><span class="o">.</span><span class="n">reference</span></div>
 
@@ -780,7 +780,7 @@
 <div class="viewcode-block" id="STA.get_name_ptcls">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_name_ptcls">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_name_ptcls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the ``.ptclsraw`` file for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Return the path to the ``.ptclsraw`` file for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -791,7 +791,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        str</span>
 <span class="sd">            Path to the ``.ptclsraw`` file.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">files</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_files</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">files</span><span class="o">.</span><span class="n">ptcl_rslt</span></div>
 
@@ -799,7 +799,7 @@
 <div class="viewcode-block" id="STA.get_map">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_map">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load and return the reference map for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Load and return the reference map for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -812,7 +812,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        numpy.ndarray</span>
 <span class="sd">            3-D map array.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">v</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">_mrc_read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_names_map</span><span class="p">(</span><span class="n">ite</span><span class="p">,</span><span class="n">ref</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">v</span></div>
 
@@ -820,7 +820,7 @@
 <div class="viewcode-block" id="STA.get_ptcls">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_ptcls">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ptcls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load and return the particles for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Load and return the particles for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -831,7 +831,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        :class:`~susan.data.Particles`</span>
 <span class="sd">            Particle container with aligned positions and scores.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">files</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_files</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">files</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span></div>
 
@@ -839,7 +839,7 @@
 <div class="viewcode-block" id="STA.get_cc">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_cc">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_cc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the per-particle cross-correlation scores for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Return the per-particle cross-correlation scores for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -852,7 +852,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        numpy.ndarray, shape (N,)</span>
 <span class="sd">            CC scores for all particles assigned to reference *ref*.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">ptcls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ptcls</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="n">ref</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
 
@@ -860,7 +860,7 @@
 <div class="viewcode-block" id="STA.get_fsc">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.get_fsc">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_fsc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute and return the FSC curve for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Compute and return the FSC curve for iteration *ite*.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -873,7 +873,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        numpy.ndarray</span>
 <span class="sd">            1-D FSC array indexed by Fourier shell.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">i</span> <span class="o">=</span> <span class="n">ref</span><span class="o">-</span><span class="mi">1</span>
         <span class="n">refs</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_name_refstxt</span><span class="p">(</span><span class="n">ite</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">fsc_get</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">refs</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">refs</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">i</span><span class="p">])</span></div>
@@ -882,10 +882,10 @@
 <div class="viewcode-block" id="STA.setup_iteration">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.setup_iteration">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">setup_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">_iteration_files</span><span class="p">,</span> <span class="n">_iteration_files</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare the directory and file-path objects for iteration *ite*.</span>
+<span class="w">        </span><span class="sd">"""Prepare the directory and file-path objects for iteration *ite*.</span>
 
 <span class="sd">        Creates the iteration directory if needed and validates that the</span>
-<span class="sd">        previous iteration&#39;s output files exist.</span>
+<span class="sd">        previous iteration's output files exist.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -901,9 +901,9 @@
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        NameError</span>
-<span class="sd">            If the previous iteration&#39;s particle or reference files are</span>
+<span class="sd">            If the previous iteration's particle or reference files are</span>
 <span class="sd">            missing.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">base_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">_file_exists</span><span class="p">(</span><span class="n">base_dir</span><span class="p">):</span>
             <span class="n">_mkdir</span><span class="p">(</span><span class="n">base_dir</span><span class="p">)</span>
@@ -914,21 +914,21 @@
 
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_ite_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="s1">&#39;3&#39;</span><span class="p">,</span><span class="s1">&#39;3D&#39;</span><span class="p">,</span><span class="s1">&#39;3d&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="s1">'3'</span><span class="p">,</span><span class="s1">'3D'</span><span class="p">,</span><span class="s1">'3d'</span><span class="p">):</span>
             <span class="k">return</span> <span class="mi">3</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="s1">&#39;2&#39;</span><span class="p">,</span><span class="s1">&#39;2D&#39;</span><span class="p">,</span><span class="s1">&#39;2d&#39;</span><span class="p">):</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="s1">'2'</span><span class="p">,</span><span class="s1">'2D'</span><span class="p">,</span><span class="s1">'2d'</span><span class="p">):</span>
             <span class="k">return</span> <span class="mi">2</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;ctf&#39;</span><span class="p">,</span><span class="s1">&#39;CTF&#39;</span><span class="p">,</span><span class="s1">&#39;Ctf&#39;</span><span class="p">):</span>
-            <span class="k">return</span> <span class="s1">&#39;ctf&#39;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'ctf'</span><span class="p">,</span><span class="s1">'CTF'</span><span class="p">,</span><span class="s1">'Ctf'</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s1">'ctf'</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid Iteration Type (accepted value: 3, 2, &quot;ctf&quot;)&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid Iteration Type (accepted value: 3, 2, "ctf")'</span><span class="p">)</span>
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_exec_alignment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">,</span><span class="n">ite_type</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">dimensionality</span>    <span class="o">=</span> <span class="n">ite_type</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
         
-        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [</span><span class="si">%d</span><span class="s1">D Alignment] Start:&#39;</span> <span class="o">%</span> <span class="n">ite_type</span> <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">'  [</span><span class="si">%d</span><span class="s1">D Alignment] Start:'</span> <span class="o">%</span> <span class="n">ite_type</span> <span class="p">)</span>
         
         <span class="n">start_time</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -939,13 +939,13 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">align</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
         <span class="n">elapsed</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span><span class="o">-</span><span class="n">start_time</span>
         
-        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [</span><span class="si">%d</span><span class="s1">D Alignment] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ite_type</span><span class="p">,</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">'  [</span><span class="si">%d</span><span class="s1">D Alignment] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span><span class="n">ite_type</span><span class="p">,</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_exec_ctf_refinement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
         
-        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [CTF Refinement] Start:&#39;</span> <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">'  [CTF Refinement] Start:'</span> <span class="p">)</span>
         
         <span class="n">start_time</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -956,12 +956,12 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">refine</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
         <span class="n">elapsed</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span><span class="o">-</span><span class="n">start_time</span>
         
-        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [CTF Refinement] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">'  [CTF Refinement] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
 
 <div class="viewcode-block" id="STA.exec_estimation">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.exec_estimation">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">exec_estimation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the alignment or CTF refinement step.</span>
+<span class="w">        </span><span class="sd">"""Run the alignment or CTF refinement step.</span>
 
 <span class="sd">        Dispatches to :meth:`~susan.modules.Aligner.align` (or</span>
 <span class="sd">        :meth:`~susan.modules.Aligner.align_mpi`) for 3-D/2-D iteration</span>
@@ -974,10 +974,10 @@
 <span class="sd">            File paths for the current iteration (output).</span>
 <span class="sd">        prv : _iteration_files</span>
 <span class="sd">            File paths for the previous iteration (input).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">ite_type</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span>
         
-        <span class="k">if</span> <span class="n">ite_type</span> <span class="o">==</span> <span class="s1">&#39;ctf&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ite_type</span> <span class="o">==</span> <span class="s1">'ctf'</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_exec_ctf_refinement</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_exec_alignment</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">,</span><span class="n">ite_type</span><span class="p">)</span></div>
@@ -1023,13 +1023,13 @@
         <span class="c1"># smoothed delta is added back onto the previous prj_t.</span>
         <span class="n">prj_base</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitting_from_origin</span>
-                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;affine&#39;</span><span class="p">,</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="s1">&#39;tps&#39;</span><span class="p">)):</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'affine'</span><span class="p">,</span> <span class="s1">'gaussian'</span><span class="p">,</span> <span class="s1">'tps'</span><span class="p">)):</span>
             <span class="n">prj_base</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span><span class="o">.</span><span class="n">prj_t</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span> <span class="o">==</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span> <span class="o">==</span> <span class="s1">'none'</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">allow_drift</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Limiting 2D drift to </span><span class="si">%.2f</span><span class="s1"> Å.&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">'    Limiting 2D drift to </span><span class="si">%.2f</span><span class="s1"> Å.'</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">)</span>
                     <span class="n">ptcls_old</span>  <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span>
                     <span class="n">delta_angs</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span> <span class="o">-</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">prj_t</span>
                     <span class="n">norm_angs</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span> <span class="n">delta_angs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span> <span class="p">)</span>
@@ -1039,14 +1039,14 @@
                     <span class="n">delta_angs</span> <span class="o">=</span> <span class="n">scale_lim</span><span class="o">*</span><span class="n">delta_angs</span>
                     <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">prj_t</span> <span class="o">+</span> <span class="n">delta_angs</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Limiting 2D shift to </span><span class="si">%.2f</span><span class="s1"> Å.&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">'    Limiting 2D shift to </span><span class="si">%.2f</span><span class="s1"> Å.'</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">)</span>
                     <span class="n">norm_angs</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span> <span class="p">)</span>
                     <span class="n">scale_lim</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span><span class="o">/</span><span class="n">_np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">norm_angs</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span><span class="p">)</span>
                     <span class="n">scale_lim</span><span class="p">[</span> <span class="n">norm_angs</span><span class="o">&lt;</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
                     <span class="n">scale_lim</span> <span class="o">=</span> <span class="n">scale_lim</span><span class="p">[:,:,</span><span class="n">_np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
                     <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">scale_lim</span><span class="o">*</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span>
 
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;affine&#39;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">'affine'</span><span class="p">:</span>
             <span class="n">R</span>    <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="n">n</span>    <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_ptcl</span>
             <span class="n">pt</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
@@ -1067,7 +1067,7 @@
                     <span class="n">pt2</span> <span class="o">=</span> <span class="n">pt0_aug</span> <span class="o">@</span> <span class="n">xform</span>
                     <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="p">(</span><span class="n">pt2</span><span class="o">-</span><span class="n">pt0</span><span class="p">)</span>
 
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">'gaussian'</span><span class="p">:</span>
             <span class="n">R</span>    <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="n">n</span>    <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_ptcl</span>
             <span class="n">pt</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
@@ -1087,7 +1087,7 @@
                     <span class="n">sigma</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.25</span>
                     <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">smooth_deltas</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">base</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k_eff</span><span class="p">)</span>
 
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;tps&#39;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">'tps'</span><span class="p">:</span>
             <span class="n">R</span>    <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="n">n</span>    <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_ptcl</span>
             <span class="n">pt</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
@@ -1104,9 +1104,9 @@
                     <span class="n">pt0</span> <span class="o">=</span> <span class="n">pt0</span><span class="p">[:,:</span><span class="mi">2</span><span class="p">]</span>
                     <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">tps_fit</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">prj_t</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">base</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tps_lambda</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;ctf&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="o">==</span> <span class="s1">'ctf'</span><span class="p">:</span>
             <span class="n">method</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_ctf_smoothing</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Smoothing CTF defocus deltas (</span><span class="si">%s</span><span class="s1">).&#39;</span> <span class="o">%</span> <span class="n">method</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'    Smoothing CTF defocus deltas (</span><span class="si">%s</span><span class="s1">).'</span> <span class="o">%</span> <span class="n">method</span><span class="p">)</span>
             <span class="n">ptcls_old</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span>
             <span class="n">delta_U</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">def_U</span> <span class="o">-</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">def_U</span>
             <span class="n">delta_V</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">def_V</span> <span class="o">-</span> <span class="n">ptcls_old</span><span class="o">.</span><span class="n">def_V</span>
@@ -1114,7 +1114,7 @@
             <span class="n">n</span>    <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">n_ptcl</span>
             <span class="n">pt</span>   <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
             <span class="n">tomos</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">)</span>
-            <span class="n">min_n</span> <span class="o">=</span> <span class="mi">4</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;tps&#39;</span> <span class="k">else</span> <span class="mi">2</span>
+            <span class="n">min_n</span> <span class="o">=</span> <span class="mi">4</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">'tps'</span> <span class="k">else</span> <span class="mi">2</span>
             <span class="k">for</span> <span class="n">tcix</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">):</span>
                 <span class="n">idx</span> <span class="o">=</span> <span class="n">ptcls_in</span><span class="o">.</span><span class="n">tomo_id</span> <span class="o">==</span> <span class="n">tomos</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="n">tcix</span><span class="p">]</span>
                 <span class="n">n_ptcl_tomo</span> <span class="o">=</span> <span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
@@ -1126,7 +1126,7 @@
                     <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">tomos</span><span class="o">.</span><span class="n">proj_eZYZ</span><span class="p">[</span><span class="n">tcix</span><span class="p">,</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
                     <span class="n">pt0</span> <span class="o">=</span> <span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="nd">@R</span><span class="o">.</span><span class="n">T</span><span class="p">)[:,:</span><span class="mi">2</span><span class="p">]</span>
                     <span class="n">d</span>   <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">delta_U</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">],</span> <span class="n">delta_V</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span><span class="n">i</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;tps&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">'tps'</span><span class="p">:</span>
                         <span class="n">s</span> <span class="o">=</span> <span class="n">tps_fit</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_tps_lambda</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">sigma</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">pt0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.25</span>
@@ -1157,13 +1157,13 @@
             
                 <span class="n">ptcls_in</span><span class="o">.</span><span class="n">half_id</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">hid</span>
             
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Class </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">n_rf</span><span class="p">,(</span><span class="n">hid</span> <span class="o">&gt;</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      Half 1: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].&#39;</span>  <span class="o">%</span> <span class="p">(</span>    <span class="n">n_h1</span><span class="p">,(</span><span class="n">hid</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      Half 2: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].&#39;</span>  <span class="o">%</span> <span class="p">(</span>    <span class="n">n_h2</span><span class="p">,(</span><span class="n">hid</span><span class="o">==</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">'    Class </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].'</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">n_rf</span><span class="p">,(</span><span class="n">hid</span> <span class="o">&gt;</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">'      Half 1: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].'</span>  <span class="o">%</span> <span class="p">(</span>    <span class="n">n_h1</span><span class="p">,(</span><span class="n">hid</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">'      Half 2: </span><span class="si">%7d</span><span class="s1"> particles [</span><span class="si">%7d</span><span class="s1">].'</span>  <span class="o">%</span> <span class="p">(</span>    <span class="n">n_h2</span><span class="p">,(</span><span class="n">hid</span><span class="o">==</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Class </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7d</span><span class="s1"> particles.&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> <span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      Half 1: </span><span class="si">%7d</span><span class="s1"> particles.&#39;</span>  <span class="o">%</span> <span class="p">(</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;      Half 2: </span><span class="si">%7d</span><span class="s1"> particles.&#39;</span>  <span class="o">%</span> <span class="p">(</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">'    Class </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7d</span><span class="s1"> particles.'</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">'      Half 1: </span><span class="si">%7d</span><span class="s1"> particles.'</span>  <span class="o">%</span> <span class="p">(</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">'      Half 2: </span><span class="si">%7d</span><span class="s1"> particles.'</span>  <span class="o">%</span> <span class="p">(</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">)</span>
             
         <span class="k">return</span> <span class="n">ptcls_in</span><span class="p">[</span> <span class="p">(</span><span class="n">ptcls_in</span><span class="o">.</span><span class="n">half_id</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="p">]</span>
         
@@ -1173,17 +1173,17 @@
         <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_tilt_reconstruction</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)):</span>
             <span class="n">v</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Restricting reconstruction to tilt range [</span><span class="si">%.2f</span><span class="s1">, </span><span class="si">%.2f</span><span class="s1">] degrees.&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">v</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'    Restricting reconstruction to tilt range [</span><span class="si">%.2f</span><span class="s1">, </span><span class="si">%.2f</span><span class="s1">] degrees.'</span> <span class="o">%</span> <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">v</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="p">)</span>
             <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="o">.</span><span class="n">Geom</span><span class="o">.</span><span class="n">enable_by_tilt_range</span><span class="p">(</span><span class="n">ptcls_out</span><span class="p">,</span><span class="n">tomos</span><span class="p">,</span><span class="n">tilt_deg_min</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span><span class="n">tilt_deg_max</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    Restricting reconstruction to </span><span class="si">%.2f</span><span class="s1"> maximum tilt.&#39;</span> <span class="o">%</span> <span class="n">v</span> <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'    Restricting reconstruction to </span><span class="si">%.2f</span><span class="s1"> maximum tilt.'</span> <span class="o">%</span> <span class="n">v</span> <span class="p">)</span>
             <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="o">.</span><span class="n">Geom</span><span class="o">.</span><span class="n">enable_by_tilt</span><span class="p">(</span><span class="n">ptcls_out</span><span class="p">,</span><span class="n">tomos</span><span class="p">,</span><span class="n">tilt_deg_max</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
         <span class="n">ptcls_out</span><span class="o">.</span><span class="n">prj_w</span> <span class="o">=</span> <span class="n">ptcls_out</span><span class="o">.</span><span class="n">prj_w</span><span class="o">*</span><span class="n">prj_w</span>
     
 <div class="viewcode-block" id="STA.exec_particle_selection">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.exec_particle_selection">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">exec_particle_selection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select particles and prepare the input for reconstruction.</span>
+<span class="w">        </span><span class="sd">"""Select particles and prepare the input for reconstruction.</span>
 
 <span class="sd">        Performs multi-reference classification (if ``n_refs &gt; 1``), applies</span>
 <span class="sd">        optional 2-D shift corrections (:attr:`max_2d_delta_angstroms`,</span>
@@ -1198,13 +1198,13 @@
 <span class="sd">            File paths for the current iteration.</span>
 <span class="sd">        prv : _iteration_files</span>
 <span class="sd">            File paths for the previous iteration.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;  [Aligned particles] Processing:&#39;</span><span class="p">)</span>
+<span class="sd">        """</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'  [Aligned particles] Processing:'</span><span class="p">)</span>
         <span class="n">ptcls_in</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_rslt</span><span class="p">)</span>
         
         <span class="c1"># Limit 2D shifts:</span>
-        <span class="n">should_fix_2D</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span> <span class="o">!=</span> <span class="s1">&#39;none&#39;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span>
-        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="s1">&#39;ctf&#39;</span><span class="p">))</span> <span class="ow">and</span> <span class="n">should_fix_2D</span><span class="p">:</span>
+        <span class="n">should_fix_2D</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_2d_delta_angstroms</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_2d_shift_fitting</span> <span class="o">!=</span> <span class="s1">'none'</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth_ctf</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="s1">'ctf'</span><span class="p">))</span> <span class="ow">and</span> <span class="n">should_fix_2D</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_apply_2D_fixes</span><span class="p">(</span><span class="n">ptcls_in</span><span class="p">,</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
         
         <span class="c1"># Classify</span>
@@ -1232,13 +1232,13 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_limit_tilt_range_reconstruction</span><span class="p">(</span><span class="n">ptcls_out</span><span class="p">)</span>
         
         <span class="n">ptcls_out</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;  [Aligned particles] Done.&#39;</span><span class="p">)</span></div>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'  [Aligned particles] Done.'</span><span class="p">)</span></div>
 
         
 <div class="viewcode-block" id="STA.exec_averaging">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.exec_averaging">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">exec_averaging</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cur</span><span class="p">,</span> <span class="n">prv</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct the reference maps and update the ``.refstxt`` file.</span>
+<span class="w">        </span><span class="sd">"""Reconstruct the reference maps and update the ``.refstxt`` file.</span>
 
 <span class="sd">        Calls :meth:`~susan.modules.Averager.reconstruct` (or MPI variant),</span>
 <span class="sd">        then updates ``cur.reference`` with the new map paths.</span>
@@ -1249,36 +1249,36 @@
 <span class="sd">            File paths for the current iteration.</span>
 <span class="sd">        prv : _iteration_files</span>
 <span class="sd">            File paths for the previous iteration (provides the mask paths).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
         
-        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [Reconstruct Maps] Start:&#39;</span> <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">'  [Reconstruct Maps] Start:'</span> <span class="p">)</span>
         <span class="n">start_time</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">cmd</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">arg</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">reconstruct_mpi</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="o">+</span><span class="s1">&#39;map&#39;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">reconstruct_mpi</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="o">+</span><span class="s1">'map'</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="o">+</span><span class="s1">&#39;map&#39;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">averager</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="o">+</span><span class="s1">'map'</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomogram_file</span><span class="p">,</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">box_size</span><span class="p">)</span>
         <span class="n">elapsed</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span><span class="o">-</span><span class="n">start_time</span>
         
-        <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [Reconstruct Maps] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span> <span class="s1">'  [Reconstruct Maps] Finished. Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">))</span> <span class="p">)</span>
         
         <span class="n">_rm</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ptcl_temp</span><span class="p">)</span>
         
         <span class="n">refs</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="n">prv</span><span class="o">.</span><span class="n">reference</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span><span class="p">):</span>
-            <span class="n">refs</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">.mrc&#39;</span>       <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">refs</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">_half1.mrc&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">refs</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">_half2.mrc&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">refs</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">.mrc'</span>       <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">refs</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="o">=</span> <span class="s1">'</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">_half1.mrc'</span> <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">refs</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="o">=</span> <span class="s1">'</span><span class="si">%s</span><span class="s1">/map_class</span><span class="si">%03d</span><span class="s1">_half2.mrc'</span> <span class="o">%</span> <span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">ite_dir</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">refs</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">reference</span><span class="p">)</span></div>
 
     
 <div class="viewcode-block" id="STA.exec_postprocessing">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.exec_postprocessing">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">exec_postprocessing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cur</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute FSC-based resolution estimates for all references.</span>
+<span class="w">        </span><span class="sd">"""Compute FSC-based resolution estimates for all references.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1291,19 +1291,19 @@
 <span class="sd">            Estimated resolution in Fourier pixels at the</span>
 <span class="sd">            :attr:`fsc_threshold` level.  A scalar for single-reference</span>
 <span class="sd">            projects; a 1-D array for multi-reference projects.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">refs</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">reference</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [FSC Calculation] Start (1 reference):&#39;</span> <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span> <span class="s1">'  [FSC Calculation] Start (1 reference):'</span> <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;  [FSC Calculation] Start (</span><span class="si">%d</span><span class="s1"> references):&#39;</span> <span class="o">%</span> <span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span> <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span> <span class="s1">'  [FSC Calculation] Start (</span><span class="si">%d</span><span class="s1"> references):'</span> <span class="o">%</span> <span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span> <span class="p">)</span>
         
         <span class="n">rslt</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span> <span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span><span class="p">)</span> <span class="p">)</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span><span class="p">):</span>
             <span class="n">fsc</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">fsc_get</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">h1</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">refs</span><span class="o">.</span><span class="n">h2</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">refs</span><span class="o">.</span><span class="n">msk</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
             <span class="n">_</span><span class="p">,</span><span class="n">pix_size</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">_mrc_get_info</span><span class="p">(</span><span class="n">refs</span><span class="o">.</span><span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
             <span class="n">fsc_rslt</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">fsc_analyse</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span><span class="n">pix_size</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">fsc_threshold</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    - Reference </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7.3f</span><span class="s1"> angstroms [</span><span class="si">%d</span><span class="s1"> fourier pixels]&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">fsc_rslt</span><span class="o">.</span><span class="n">res</span><span class="p">,</span><span class="n">fsc_rslt</span><span class="o">.</span><span class="n">fpix</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'    - Reference </span><span class="si">%2d</span><span class="s1">: </span><span class="si">%7.3f</span><span class="s1"> angstroms [</span><span class="si">%d</span><span class="s1"> fourier pixels]'</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">fsc_rslt</span><span class="o">.</span><span class="n">res</span><span class="p">,</span><span class="n">fsc_rslt</span><span class="o">.</span><span class="n">fpix</span><span class="p">))</span>
             <span class="n">rslt</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">fsc_rslt</span><span class="o">.</span><span class="n">fpix</span>
         
         <span class="k">if</span> <span class="n">refs</span><span class="o">.</span><span class="n">n_refs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1315,7 +1315,7 @@
 <div class="viewcode-block" id="STA.execute_iteration">
 <a class="viewcode-back" href="../../../api/susan.project.Manager.html#susan.project.STA.STA.execute_iteration">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">execute_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run a complete STA iteration.</span>
+<span class="w">        </span><span class="sd">"""Run a complete STA iteration.</span>
 
 <span class="sd">        Executes :meth:`setup_iteration`, :meth:`exec_estimation`,</span>
 <span class="sd">        :meth:`exec_particle_selection`, :meth:`exec_averaging`, and</span>
@@ -1342,15 +1342,15 @@
 <span class="sd">        CTF iteration.  For a multi-reference project a</span>
 <span class="sd">        :class:`numpy.ndarray` of length ``n_refs`` filled with that value</span>
 <span class="sd">        is returned; otherwise a scalar.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">ite</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s1">&#39;execute_iteration(</span><span class="si">%d</span><span class="s1">): iteration 0 is the project seed and &#39;</span>
-                <span class="s1">&#39;cannot be run; returning the configured starting lowpass &#39;</span>
-                <span class="s1">&#39;instead.&#39;</span> <span class="o">%</span> <span class="n">ite</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;============================&#39;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Project: </span><span class="si">%s</span><span class="s1"> (Iteration </span><span class="si">%d</span><span class="s1">) Skipped.&#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span><span class="p">,</span><span class="n">ite</span><span class="p">))</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;ctf&#39;</span><span class="p">:</span>
+                <span class="s1">'execute_iteration(</span><span class="si">%d</span><span class="s1">): iteration 0 is the project seed and '</span>
+                <span class="s1">'cannot be run; returning the configured starting lowpass '</span>
+                <span class="s1">'instead.'</span> <span class="o">%</span> <span class="n">ite</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'============================'</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'Project: </span><span class="si">%s</span><span class="s1"> (Iteration </span><span class="si">%d</span><span class="s1">) Skipped.'</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span><span class="p">,</span><span class="n">ite</span><span class="p">))</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_ite_type</span><span class="p">()</span> <span class="o">==</span> <span class="s1">'ctf'</span><span class="p">:</span>
                 <span class="n">lowpass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_refiner</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">lowpass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aligner</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span>
@@ -1360,15 +1360,15 @@
             <span class="k">return</span> <span class="n">lowpass</span>
 
         <span class="n">start_time</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;============================&#39;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Project: </span><span class="si">%s</span><span class="s1"> (Iteration </span><span class="si">%d</span><span class="s1">)&#39;</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span><span class="p">,</span><span class="n">ite</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'============================'</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'Project: </span><span class="si">%s</span><span class="s1"> (Iteration </span><span class="si">%d</span><span class="s1">)'</span><span class="o">%</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prj_name</span><span class="p">,</span><span class="n">ite</span><span class="p">))</span>
         <span class="n">cur</span><span class="p">,</span><span class="n">prv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setup_iteration</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exec_estimation</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exec_particle_selection</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exec_averaging</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span><span class="n">prv</span><span class="p">)</span>
         <span class="n">rslt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exec_postprocessing</span><span class="p">(</span><span class="n">cur</span><span class="p">)</span>
         <span class="n">elapsed</span> <span class="o">=</span> <span class="n">_ssa_utils</span><span class="o">.</span><span class="n">time_now</span><span class="p">()</span><span class="o">-</span><span class="n">start_time</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Iteration </span><span class="si">%d</span><span class="s1"> Finished [Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">)]&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">ite</span><span class="p">,</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">)))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'Iteration </span><span class="si">%d</span><span class="s1"> Finished [Elapsed time: </span><span class="si">%.1f</span><span class="s1"> seconds (</span><span class="si">%s</span><span class="s1">)]'</span><span class="o">%</span><span class="p">(</span><span class="n">ite</span><span class="p">,</span><span class="n">elapsed</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">elapsed</span><span class="p">)))</span>
         <span class="k">return</span> <span class="n">rslt</span></div>
 </div>
 

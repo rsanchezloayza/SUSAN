@@ -335,7 +335,7 @@
 <div class="viewcode-block" id="Particles">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Particles</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-particle metadata container for SUSAN subtomogram averaging.</span>
+<span class="w">    </span><span class="sd">"""Per-particle metadata container for SUSAN subtomogram averaging.</span>
 
 <span class="sd">    Stores coordinates, 3-D alignment, per-projection 2-D alignment,</span>
 <span class="sd">    CTF defocus, and half-set assignments for a set of particles.</span>
@@ -495,12 +495,12 @@
 <span class="sd">          use :attr:`def_Bfct` instead.</span>
 
 <span class="sd">          A value of ``9999`` is the sentinel written when the CC peak width</span>
-<span class="sd">          cannot be measured.  It zeroes the projection&#39;s contribution to the</span>
+<span class="sd">          cannot be measured.  It zeroes the projection's contribution to the</span>
 <span class="sd">          numerator while that projection still carries its full weight in the</span>
 <span class="sd">          denominator.</span>
 
-<span class="sd">       Only the ``&#39;wiener&#39;``, ``&#39;pre_wiener&#39;`` and ``&#39;wiener_ssnr&#39;``</span>
-<span class="sd">       reconstruction policies apply it; ``&#39;none&#39;`` and ``&#39;phase_flip&#39;`` ignore</span>
+<span class="sd">       Only the ``'wiener'``, ``'pre_wiener'`` and ``'wiener_ssnr'``</span>
+<span class="sd">       reconstruction policies apply it; ``'none'`` and ``'phase_flip'`` ignore</span>
 <span class="sd">       it.</span>
 
 <span class="sd">    .. attribute:: def_mres</span>
@@ -512,13 +512,13 @@
 <span class="sd">       :type: ndarray, float32, shape (M, P)</span>
 
 <span class="sd">       CTF fit score.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">Geom</span> <span class="o">=</span> <span class="n">_Geom</span>
     <span class="n">MRA</span>  <span class="o">=</span> <span class="n">_MRA</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_ptcl</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_proj</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_refs</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load from file or allocate an empty container.</span>
+<span class="w">        </span><span class="sd">"""Load from file or allocate an empty container.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -530,14 +530,14 @@
 <span class="sd">            Maximum number of projections per particle.</span>
 <span class="sd">        n_refs : int</span>
 <span class="sd">            Number of reference slots (multi-reference alignment).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_load</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">n_proj</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">n_refs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_alloc</span><span class="p">(</span><span class="n">n_ptcl</span><span class="p">,</span><span class="n">n_proj</span><span class="p">,</span><span class="n">n_refs</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid input&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid input'</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_n_ptcl</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_n_refs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -549,8 +549,8 @@
     
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;ptclsraw&#39;</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span> <span class="s1">&#39;Wrong file extension, do you mean &#39;</span> <span class="o">+</span> <span class="n">_force_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;ptclsraw&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;?&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'ptclsraw'</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span> <span class="s1">'Wrong file extension, do you mean '</span> <span class="o">+</span> <span class="n">_force_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'ptclsraw'</span><span class="p">)</span> <span class="o">+</span> <span class="s1">'?'</span><span class="p">)</span>
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_alloc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">n_ptcl</span><span class="p">,</span><span class="n">n_proj</span><span class="p">,</span><span class="n">n_refs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span> <span class="n">n_ptcl</span>   <span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span> <span class="p">)</span>
@@ -586,14 +586,14 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_load_header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">fp</span><span class="p">):</span>
         <span class="n">buffer</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(</span> <span class="mi">8</span> <span class="o">+</span> <span class="mi">4</span><span class="o">*</span><span class="mi">3</span> <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">_np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span> <span class="n">buffer</span><span class="p">[:</span><span class="mi">8</span><span class="p">],</span> <span class="sa">b</span><span class="s1">&#39;SsaPtcl1&#39;</span> <span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid File signature&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span> <span class="n">buffer</span><span class="p">[:</span><span class="mi">8</span><span class="p">],</span> <span class="sa">b</span><span class="s1">'SsaPtcl1'</span> <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Invalid File signature"</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">buffer</span><span class="p">[</span><span class="mi">8</span><span class="p">:],</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
     
 <div class="viewcode-block" id="Particles.sort">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.sort">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">sort</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sort particles in-place by (tomo_id, ptcl_id).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Sort particles in-place by (tomo_id, ptcl_id)."""</span>
         <span class="n">idx</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">lexsort</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span> <span class="p">[</span><span class="n">idx</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span> <span class="p">[</span><span class="n">idx</span><span class="p">]</span>
@@ -626,7 +626,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">filename</span><span class="p">):</span>
         <span class="n">Particles</span><span class="o">.</span><span class="n">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
             <span class="n">n_ptcl</span><span class="p">,</span> <span class="n">n_proj</span><span class="p">,</span> <span class="n">n_refs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_header</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_alloc</span><span class="p">(</span><span class="n">n_ptcl</span><span class="p">,</span><span class="n">n_proj</span><span class="p">,</span><span class="n">n_refs</span><span class="p">)</span>
         <span class="n">_load_all</span><span class="p">(</span><span class="n">filename</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span>
@@ -641,13 +641,13 @@
 <div class="viewcode-block" id="Particles.save">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.save">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save to a ``.ptclsraw`` binary file.</span>
+<span class="w">        </span><span class="sd">"""Save to a ``.ptclsraw`` binary file.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        filename : str</span>
 <span class="sd">            Output path; must have a ``.ptclsraw`` extension.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">Particles</span><span class="o">.</span><span class="n">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_c32</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span> <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
         <span class="n">_save_all</span><span class="p">(</span><span class="n">filename</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span>
@@ -663,7 +663,7 @@
 
     
     <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select particles by index, boolean mask, or slice.</span>
+<span class="w">        </span><span class="sd">"""Select particles by index, boolean mask, or slice.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -675,15 +675,15 @@
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
 <span class="sd">            New container holding only the selected particles.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span><span class="nb">slice</span><span class="p">):</span>
             <span class="n">idx</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">*</span><span class="n">idx</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
     
     <span class="k">def</span><span class="w"> </span><span class="nf">update_tomo_cix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Refresh the deprecated ``tomo_cix`` field from ``tomo_id``.</span>
+<span class="w">        </span><span class="sd">"""Refresh the deprecated ``tomo_cix`` field from ``tomo_id``.</span>
 
-<span class="sd">        ``tomo_cix`` is no longer read by SUSAN: the index of a particle&#39;s</span>
+<span class="sd">        ``tomo_cix`` is no longer read by SUSAN: the index of a particle's</span>
 <span class="sd">        tomogram is derived from ``tomo_id`` through</span>
 <span class="sd">        :meth:`Tomograms.get_cix` wherever it is needed.  The field is still</span>
 <span class="sd">        written to the ``.ptclsraw`` file so that older SUSAN versions, which</span>
@@ -701,13 +701,13 @@
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
 <span class="sd">            If a ``tomo_id`` is not in *tomograms*.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tomo_cix</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">tomograms</span><span class="o">.</span><span class="n">get_cix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Particles.select">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.select">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a new Particles containing only the selected entries.</span>
+<span class="w">        </span><span class="sd">"""Return a new Particles containing only the selected entries.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -717,7 +717,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">idx</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">idx</span> <span class="o">=</span> <span class="n">idx</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span>
@@ -757,7 +757,7 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a deep copy of this Particles object.</span>
+<span class="w">        </span><span class="sd">"""Return a deep copy of this Particles object.</span>
 
 <span class="sd">        All numpy arrays are copied (no shared memory with the original).</span>
 <span class="sd">        Particle order is preserved.</span>
@@ -765,7 +765,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">ptcls_out</span> <span class="o">=</span> <span class="n">Particles</span><span class="p">(</span><span class="n">n_ptcl</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">,</span> <span class="n">n_proj</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_proj</span><span class="p">,</span> <span class="n">n_refs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_refs</span><span class="p">)</span>
         <span class="n">ptcls_out</span><span class="o">.</span><span class="n">ptcl_id</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span> <span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">ptcls_out</span><span class="o">.</span><span class="n">tomo_id</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span> <span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -799,7 +799,7 @@
 <div class="viewcode-block" id="Particles.append_ptcls">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.append_ptcls">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">append_ptcls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Append another Particles object to this one in-place.</span>
+<span class="w">        </span><span class="sd">"""Append another Particles object to this one in-place.</span>
 
 <span class="sd">        Both objects must have the same ``n_proj`` and ``n_refs``.</span>
 <span class="sd">        The combined list is sorted by (tomo_id, ptcl_id) after appending.</span>
@@ -807,7 +807,7 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        ptcls : Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ptcl_id</span> <span class="p">,</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ptcl_id</span> <span class="p">),</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span> <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span> <span class="p">,</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span> <span class="p">),</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span> <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tomo_cix</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_cix</span><span class="p">,</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_cix</span><span class="p">),</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span> <span class="p">)</span>
@@ -842,7 +842,7 @@
 <div class="viewcode-block" id="Particles.set_weights">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.set_weights">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">set_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_wgt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set per-projection weights, preserving already-excluded projections.</span>
+<span class="w">        </span><span class="sd">"""Set per-projection weights, preserving already-excluded projections.</span>
 
 <span class="sd">        Multiplies ``in_wgt`` by the existing ``prj_w &gt; 0`` mask so that</span>
 <span class="sd">        projections already set to zero remain excluded.</span>
@@ -851,18 +851,18 @@
 <span class="sd">        ----------</span>
 <span class="sd">        in_wgt : array-like, shape (P,) or (M, P)</span>
 <span class="sd">            New weight values.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">prj_w</span><span class="p">[:,:]</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prj_w</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">in_wgt</span></div>
 
         
 <div class="viewcode-block" id="Particles.halfsets_by_Y">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.halfsets_by_Y">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">halfsets_by_Y</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign half-sets by splitting each tomogram at its Y-median.</span>
+<span class="w">        </span><span class="sd">"""Assign half-sets by splitting each tomogram at its Y-median.</span>
 
 <span class="sd">        Particles above the median Y coordinate get half_id=2; those at</span>
 <span class="sd">        or below get half_id=1.  Applied per tomogram independently.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">tomo_ids</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span> <span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span> <span class="p">)</span>
         <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">tomo_ids</span><span class="p">:</span>
             <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span> <span class="o">==</span> <span class="n">tid</span>
@@ -874,7 +874,7 @@
 <div class="viewcode-block" id="Particles.halfsets_even_odd">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.halfsets_even_odd">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">halfsets_even_odd</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign half-sets by even/odd index (half_id alternates 1, 2, 1, 2…).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Assign half-sets by even/odd index (half_id alternates 1, 2, 1, 2…)."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">half_id</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">half_id</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span></div>
 
@@ -882,14 +882,14 @@
 <div class="viewcode-block" id="Particles.halfsets_randomize">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.halfsets_randomize">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">halfsets_randomize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign half-sets randomly (each particle independently drawn from {1, 2}).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Assign half-sets randomly (each particle independently drawn from {1, 2})."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">half_id</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">half_id</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></div>
 
         
 <div class="viewcode-block" id="Particles.update_position">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.update_position">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_position</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Absorb the 3-D alignment translation into the particle position.</span>
+<span class="w">        </span><span class="sd">"""Absorb the 3-D alignment translation into the particle position.</span>
 
 <span class="sd">        Adds ``ali_t[ref_id]`` to ``position`` and resets ``ali_t[ref_id]``</span>
 <span class="sd">        to zero.  Useful after alignment to make coordinates absolute again.</span>
@@ -898,7 +898,7 @@
 <span class="sd">        ----------</span>
 <span class="sd">        ref_id : int, optional</span>
 <span class="sd">            Reference index whose translation to absorb. Default 0.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_id</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_id</span><span class="p">,:,:]</span> <span class="o">=</span> <span class="mi">0</span></div>
 
@@ -908,10 +908,10 @@
 <div class="viewcode-block" id="Particles.update_defocus">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.update_defocus">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_defocus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomos_info</span><span class="p">,</span> <span class="n">ref_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">z_sign</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Recompute per-projection defocus values from the current 3-D positions.</span>
+<span class="w">        </span><span class="sd">"""Recompute per-projection defocus values from the current 3-D positions.</span>
 
 <span class="sd">        For each particle, projects the 3-D position (position + ali_t[ref_id])</span>
-<span class="sd">        onto each tilt projection&#39;s Z-axis and corrects the tomogram-level</span>
+<span class="sd">        onto each tilt projection's Z-axis and corrects the tomogram-level</span>
 <span class="sd">        defocus by the resulting depth offset.  Also copies projection weights,</span>
 <span class="sd">        astigmatism, B-factor, and CTF scores from the Tomograms metadata.</span>
 
@@ -920,7 +920,7 @@
 <span class="sd">        ``dZ`` have opposite signs; with the overfocus (negative) convention,</span>
 <span class="sd">        they have the same sign.  The effective Z coefficient is therefore</span>
 <span class="sd">        multiplied by ``sign(base_defocus)`` so the addition stays consistent</span>
-<span class="sd">        with whatever convention the tomogram&#39;s defocus values were stored in.</span>
+<span class="sd">        with whatever convention the tomogram's defocus values were stored in.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -932,7 +932,7 @@
 <span class="sd">            Override the Z-axis handedness (+1 or −1).  If None (default),</span>
 <span class="sd">            ``tomos_info.handedness`` is used per tomogram.  This value is</span>
 <span class="sd">            still combined with the base-defocus sign internally.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         
         <span class="c1"># Calculate tilt rotation matrix</span>
         <span class="n">R_arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">tomos_info</span><span class="o">.</span><span class="n">n_tomos</span><span class="p">,</span><span class="n">tomos_info</span><span class="o">.</span><span class="n">n_projs</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -975,28 +975,28 @@
 <div class="viewcode-block" id="Particles.x">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.x">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Absolute X coordinate: position[:,0] + ali_t[ref_idx,:,0] (Ångströms).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Absolute X coordinate: position[:,0] + ali_t[ref_idx,:,0] (Ångströms)."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:,</span><span class="mi">0</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="Particles.y">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.y">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Absolute Y coordinate: position[:,1] + ali_t[ref_idx,:,1] (Ångströms).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Absolute Y coordinate: position[:,1] + ali_t[ref_idx,:,1] (Ångströms)."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:,</span><span class="mi">1</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="Particles.z">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.z">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Absolute Z coordinate: position[:,2] + ali_t[ref_idx,:,2] (Ångströms).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Absolute Z coordinate: position[:,2] + ali_t[ref_idx,:,2] (Ångströms)."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">[:,</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:,</span><span class="mi">2</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="Particles.pos">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.pos">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">pos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Absolute (X, Y, Z) positions: position + ali_t[ref_idx], shape (M, 3), Ångströms.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Absolute (X, Y, Z) positions: position + ali_t[ref_idx], shape (M, 3), Ångströms."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">]</span></div>
 
 
@@ -1007,18 +1007,18 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_tomogram</span><span class="p">(</span><span class="n">tomograms</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="n">_tomodef</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Tomograms must be a Tomograms object.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Tomograms must be a Tomograms object.'</span><span class="p">)</span>
         <span class="n">apix</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span> <span class="n">tomograms</span><span class="o">.</span><span class="n">pix_size</span> <span class="p">)</span>
         <span class="k">if</span> <span class="n">apix</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Tomograms must have the same pixel size.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Tomograms must have the same pixel size.'</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">apix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_grid_step</span><span class="p">(</span><span class="n">s_ang</span><span class="p">,</span><span class="n">s_pix</span><span class="p">,</span><span class="n">apix</span><span class="p">):</span>
         <span class="k">if</span>   <span class="n">s_ang</span> <span class="ow">is</span>     <span class="kc">None</span> <span class="ow">and</span> <span class="n">s_pix</span> <span class="ow">is</span>     <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Set the steps either in angstroms or pixels&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Set the steps either in angstroms or pixels'</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">s_ang</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">s_pix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Set step_angstroms or step_pixels, not both.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Set step_angstroms or step_pixels, not both.'</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">s_ang</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">s_pix</span> <span class="ow">is</span>     <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">s_ang</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1032,14 +1032,14 @@
         <span class="k">elif</span> <span class="n">p</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">p</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;skip_border_pixels must be either a scalar or a 3-element vector&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'skip_border_pixels must be either a scalar or a 3-element vector'</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Particles.grid_2d">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.grid_2d">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">grid_2d</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="n">step_angstroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">step_pixels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">skip_border_pixels</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">angle_deg_Y</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a 2-D regular grid of particles at Z=0 across all tomograms.</span>
+<span class="w">        </span><span class="sd">"""Create a 2-D regular grid of particles at Z=0 across all tomograms.</span>
 
 <span class="sd">        Positions are placed on an XY grid centred at the tomogram origin.</span>
 <span class="sd">        Defocus values are initialised from the Tomograms metadata.</span>
@@ -1060,7 +1060,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">apix</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_validate_tomogram</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span>
         <span class="n">step</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_get_grid_step</span><span class="p">(</span><span class="n">step_angstroms</span><span class="p">,</span><span class="n">step_pixels</span><span class="p">,</span><span class="n">apix</span><span class="p">)</span>
         <span class="n">brdr</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_get_border_pixels</span><span class="p">(</span><span class="n">skip_border_pixels</span><span class="p">)</span>
@@ -1097,7 +1097,7 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">grid_3d</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="n">step_angstroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">step_pixels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">skip_border_pixels</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a 3-D regular grid of particles across all tomograms.</span>
+<span class="w">        </span><span class="sd">"""Create a 3-D regular grid of particles across all tomograms.</span>
 
 <span class="sd">        Positions fill the full XYZ volume of each tomogram.  Half-sets are</span>
 <span class="sd">        assigned by even/odd index; defocus values are initialised from the</span>
@@ -1117,7 +1117,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">apix</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_validate_tomogram</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span>
         <span class="n">step</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_get_grid_step</span><span class="p">(</span><span class="n">step_angstroms</span><span class="p">,</span><span class="n">step_pixels</span><span class="p">,</span><span class="n">apix</span><span class="p">)</span>
         <span class="n">brdr</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_get_border_pixels</span><span class="p">(</span><span class="n">skip_border_pixels</span><span class="p">)</span>
@@ -1151,12 +1151,12 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_import_args</span><span class="p">(</span><span class="n">position</span><span class="p">,</span><span class="n">ptcls_id</span><span class="p">,</span><span class="n">tomos_id</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">position</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">position</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Position must be a N-by-3 2D matrix&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Position must be a N-by-3 2D matrix'</span><span class="p">)</span>
         <span class="n">N</span> <span class="o">=</span> <span class="n">position</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">ptcls_id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">N</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Number of entries in ptcls_id do not match position&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Number of entries in ptcls_id do not match position'</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">tomos_id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">N</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Number of entries in tomos_id do not match position&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Number of entries in tomos_id do not match position'</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">N</span>
         
     <span class="nd">@staticmethod</span>
@@ -1170,7 +1170,7 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">import_data</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">tomos_id</span><span class="p">,</span> <span class="n">ptcls_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                     <span class="n">randomize_angles</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a Particles object from external coordinate data.</span>
+<span class="w">        </span><span class="sd">"""Create a Particles object from external coordinate data.</span>
 
 <span class="sd">        Converts pixel-space coordinates (relative to tomogram corner) to</span>
 <span class="sd">        Ångström-space coordinates centred at the tomogram origin, and</span>
@@ -1193,7 +1193,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">ptcls_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ptcls_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">tomos_id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">apix</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_validate_tomogram</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span>
@@ -1218,7 +1218,7 @@
 <div class="viewcode-block" id="Particles.export_positions">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.html#susan.data.Particles.export_positions">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">export_positions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">tomo_id</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert particle positions back to pixel coordinates relative to the tomogram corner.</span>
+<span class="w">        </span><span class="sd">"""Convert particle positions back to pixel coordinates relative to the tomogram corner.</span>
 
 <span class="sd">        Inverse of the conversion done by ``import_data``.  Useful for</span>
 <span class="sd">        exporting coordinates to IMOD or other tools that expect pixel-space</span>
@@ -1242,17 +1242,17 @@
 <span class="sd">        ndarray, float32, shape (M, 3)</span>
 <span class="sd">            Positions in pixels, relative to the tomogram corner.  ``M`` is the</span>
 <span class="sd">            number of particles of *tomo_id* when it is given.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">tomo_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">apix</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_validate_tomogram</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span>
             <span class="n">mask</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">,</span><span class="nb">bool</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="n">_tomodef</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Tomograms must be a Tomograms object.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Tomograms must be a Tomograms object.'</span><span class="p">)</span>
             <span class="n">tomo_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)</span>
             <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span> <span class="o">==</span> <span class="n">tomo_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;tomo_id </span><span class="si">%d</span><span class="s1"> not found in the particles.&#39;</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'tomo_id </span><span class="si">%d</span><span class="s1"> not found in the particles.'</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
             <span class="n">apix</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tomograms</span><span class="o">.</span><span class="n">pix_size</span><span class="p">[</span><span class="n">tomograms</span><span class="o">.</span><span class="n">get_cix</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)])</span>
 
         <span class="n">cix</span> <span class="o">=</span> <span class="n">tomograms</span><span class="o">.</span><span class="n">get_cix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
@@ -1261,41 +1261,41 @@
         <span class="k">return</span> <span class="n">pos</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span></div>
 
 
-    <span class="n">_ARTIAX_FIXED_COLUMNS</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;pos_x&#39;</span><span class="p">,</span><span class="s1">&#39;pos_y&#39;</span><span class="p">,</span><span class="s1">&#39;pos_z&#39;</span><span class="p">,</span><span class="s1">&#39;shift_x&#39;</span><span class="p">,</span><span class="s1">&#39;shift_y&#39;</span><span class="p">,</span><span class="s1">&#39;shift_z&#39;</span><span class="p">,</span>
-                             <span class="s1">&#39;phi&#39;</span><span class="p">,</span><span class="s1">&#39;the&#39;</span><span class="p">,</span><span class="s1">&#39;psi&#39;</span><span class="p">,</span><span class="s1">&#39;cc&#39;</span><span class="p">,</span><span class="s1">&#39;half_id&#39;</span><span class="p">,</span><span class="s1">&#39;class&#39;</span><span class="p">,</span><span class="s1">&#39;tomo_id&#39;</span><span class="p">)</span>
+    <span class="n">_ARTIAX_FIXED_COLUMNS</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'pos_x'</span><span class="p">,</span><span class="s1">'pos_y'</span><span class="p">,</span><span class="s1">'pos_z'</span><span class="p">,</span><span class="s1">'shift_x'</span><span class="p">,</span><span class="s1">'shift_y'</span><span class="p">,</span><span class="s1">'shift_z'</span><span class="p">,</span>
+                             <span class="s1">'phi'</span><span class="p">,</span><span class="s1">'the'</span><span class="p">,</span><span class="s1">'psi'</span><span class="p">,</span><span class="s1">'cc'</span><span class="p">,</span><span class="s1">'half_id'</span><span class="p">,</span><span class="s1">'class'</span><span class="p">,</span><span class="s1">'tomo_id'</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_artiax_extra_name</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="n">other</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The name of an extra column must be a non-empty string.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The name of an extra column must be a non-empty string.'</span><span class="p">)</span>
         <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s1">&#39;</span><span class="se">\t\r\n</span><span class="s1">&#39;</span> <span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The name of an extra column cannot contain tabs or &#39;</span>
-                             <span class="s1">&#39;line breaks: &#39;</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s1">'</span><span class="se">\t\r\n</span><span class="s1">'</span> <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The name of an extra column cannot contain tabs or '</span>
+                             <span class="s1">'line breaks: '</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">Particles</span><span class="o">.</span><span class="n">_ARTIAX_FIXED_COLUMNS</span> <span class="ow">or</span> <span class="n">name</span> <span class="o">==</span> <span class="n">other</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The extra column cannot be named &#39;</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-                             <span class="o">+</span> <span class="s1">&#39;: the name is already in use.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The extra column cannot be named '</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                             <span class="o">+</span> <span class="s1">': the name is already in use.'</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">name</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">export_artiax</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">tomo_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-                      <span class="n">save_extra1</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">extra1_name</span><span class="o">=</span><span class="s1">&#39;extra_1&#39;</span><span class="p">,</span>
-                      <span class="n">save_extra2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">extra2_name</span><span class="o">=</span><span class="s1">&#39;extra_2&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export one tomogram&#39;s particles as an ArtiaX *Generic Particle List*.</span>
+                      <span class="n">save_extra1</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">extra1_name</span><span class="o">=</span><span class="s1">'extra_1'</span><span class="p">,</span>
+                      <span class="n">save_extra2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">extra2_name</span><span class="o">=</span><span class="s1">'extra_2'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Export one tomogram's particles as an ArtiaX *Generic Particle List*.</span>
 
 <span class="sd">        The file is the tab-separated ``.tsv`` list read by the ArtiaX plugin</span>
 <span class="sd">        for ChimeraX (also loadable as a Dynamo table, which uses the same</span>
 <span class="sd">        angular convention).  One file describes one tomogram, because the</span>
 <span class="sd">        positions are voxel coordinates of that tomogram.</span>
 
-<span class="sd">        Angles are converted from SUSAN&#39;s ZYZ (``R = Rz(α)·Ry(β)·Rz(γ)``,</span>
-<span class="sd">        radians) to ArtiaX&#39;s ZXZ (``M = Rz(psi)·Rx(the)·Rz(phi)``, degrees).</span>
+<span class="sd">        Angles are converted from SUSAN's ZYZ (``R = Rz(α)·Ry(β)·Rz(γ)``,</span>
+<span class="sd">        radians) to ArtiaX's ZXZ (``M = Rz(psi)·Rx(the)·Rz(phi)``, degrees).</span>
 <span class="sd">        Using ``Ry(β) = Rz(90°)·Rx(β)·Rz(-90°)`` the conversion is exact::</span>
 
 <span class="sd">            phi = degrees(γ) - 90     the = degrees(β)     psi = degrees(α) + 90</span>
 
-<span class="sd">        No transpose is involved: ArtiaX&#39;s placement matrix is SUSAN&#39;s ``R``.</span>
-<span class="sd">        (Cross-check: SUSAN&#39;s RELION writer emits ``rot,tilt,psi = -γ,-β,-α``</span>
-<span class="sd">        and ArtiaX&#39;s RELION reader builds ``Rz(-psi)·Ry(-tilt)·Rz(-rot)``,</span>
+<span class="sd">        No transpose is involved: ArtiaX's placement matrix is SUSAN's ``R``.</span>
+<span class="sd">        (Cross-check: SUSAN's RELION writer emits ``rot,tilt,psi = -γ,-β,-α``</span>
+<span class="sd">        and ArtiaX's RELION reader builds ``Rz(-psi)·Ry(-tilt)·Rz(-rot)``,</span>
 <span class="sd">        which is exactly ``R`` again.)</span>
 
 <span class="sd">        Columns written: the nine required ones (``pos_x pos_y pos_z shift_x</span>
@@ -1314,7 +1314,7 @@
 <span class="sd">        The alignment shift is folded into ``pos_*`` (as in</span>
 <span class="sd">        :meth:`export_positions`) and the ``shift_*`` columns are zero, so the</span>
 <span class="sd">        result does not depend on the *translation* pixel size set in ArtiaX.</span>
-<span class="sd">        Set the *origin* pixel size in ArtiaX to the tomogram&#39;s pixel size,</span>
+<span class="sd">        Set the *origin* pixel size in ArtiaX to the tomogram's pixel size,</span>
 <span class="sd">        printed by this method.</span>
 
 <span class="sd">        Parameters</span>
@@ -1333,24 +1333,24 @@
 <span class="sd">            Write :attr:`extra_1` / :attr:`extra_2` as an additional column.</span>
 <span class="sd">            Default False.</span>
 <span class="sd">        extra1_name, extra2_name : str, optional</span>
-<span class="sd">            Column names for those fields.  Defaults ``&#39;extra_1&#39;`` and</span>
-<span class="sd">            ``&#39;extra_2&#39;``, which :meth:`import_artiax` reads without further</span>
+<span class="sd">            Column names for those fields.  Defaults ``'extra_1'`` and</span>
+<span class="sd">            ``'extra_2'``, which :meth:`import_artiax` reads without further</span>
 <span class="sd">            configuration; pass any other name back to it explicitly.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; ptcls.export_artiax(&#39;tomos.tomostxt&#39;,&#39;tomo003.tsv&#39;,tomo_id=3)</span>
-<span class="sd">        &gt;&gt;&gt; ptcls.export_artiax(tomos,&#39;tomo003.tsv&#39;,save_extra1=True,</span>
-<span class="sd">        ...                     extra1_name=&#39;segment_id&#39;)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        &gt;&gt;&gt; ptcls.export_artiax('tomos.tomostxt','tomo003.tsv',tomo_id=3)</span>
+<span class="sd">        &gt;&gt;&gt; ptcls.export_artiax(tomos,'tomo003.tsv',save_extra1=True,</span>
+<span class="sd">        ...                     extra1_name='segment_id')</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="nb">str</span><span class="p">):</span>
             <span class="n">tomograms</span> <span class="o">=</span> <span class="n">_tomodef</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="n">_tomodef</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Tomograms must be a Tomograms object or the path &#39;</span>
-                             <span class="s1">&#39;to a .tomostxt file.&#39;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;tsv&#39;</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Wrong file extension, do you mean &#39;</span>
-                             <span class="o">+</span> <span class="n">_force_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;tsv&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;?&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Tomograms must be a Tomograms object or the path '</span>
+                             <span class="s1">'to a .tomostxt file.'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'tsv'</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Wrong file extension, do you mean '</span>
+                             <span class="o">+</span> <span class="n">_force_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'tsv'</span><span class="p">)</span> <span class="o">+</span> <span class="s1">'?'</span><span class="p">)</span>
 
         <span class="n">extra_cols</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="n">save_extra1</span><span class="p">:</span>
@@ -1364,14 +1364,14 @@
         <span class="n">tids</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">tomo_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">tids</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The particles span several tomograms (&#39;</span>
-                                 <span class="o">+</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tids</span><span class="p">)</span>
-                                 <span class="o">+</span> <span class="s1">&#39;); set tomo_id to select one.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The particles span several tomograms ('</span>
+                                 <span class="o">+</span> <span class="s1">','</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tids</span><span class="p">)</span>
+                                 <span class="o">+</span> <span class="s1">'); set tomo_id to select one.'</span><span class="p">)</span>
             <span class="n">tomo_id</span> <span class="o">=</span> <span class="n">tids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">tomo_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tomo_id</span> <span class="o">==</span> <span class="n">tomo_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;tomo_id </span><span class="si">%d</span><span class="s1"> not found in the particles.&#39;</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'tomo_id </span><span class="si">%d</span><span class="s1"> not found in the particles.'</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
 
         <span class="n">apix</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tomograms</span><span class="o">.</span><span class="n">pix_size</span><span class="p">[</span><span class="n">tomograms</span><span class="o">.</span><span class="n">get_cix</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)])</span>
 
@@ -1389,34 +1389,34 @@
         <span class="n">clss</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
         <span class="n">extras</span>  <span class="o">=</span> <span class="p">[</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="n">values</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">values</span> <span class="ow">in</span> <span class="n">extra_cols</span> <span class="p">]</span>
 
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
-            <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="s1">&#39;pos_x&#39;</span><span class="p">,</span><span class="s1">&#39;pos_y&#39;</span><span class="p">,</span><span class="s1">&#39;pos_z&#39;</span><span class="p">,</span>
-                                <span class="s1">&#39;shift_x&#39;</span><span class="p">,</span><span class="s1">&#39;shift_y&#39;</span><span class="p">,</span><span class="s1">&#39;shift_z&#39;</span><span class="p">,</span>
-                                <span class="s1">&#39;phi&#39;</span><span class="p">,</span><span class="s1">&#39;the&#39;</span><span class="p">,</span><span class="s1">&#39;psi&#39;</span><span class="p">,</span>
-                                <span class="s1">&#39;cc&#39;</span><span class="p">,</span><span class="s1">&#39;half_id&#39;</span><span class="p">,</span><span class="s1">&#39;class&#39;</span><span class="p">,</span><span class="s1">&#39;tomo_id&#39;</span><span class="p">)</span>
-                               <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">_</span> <span class="ow">in</span> <span class="n">extras</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+            <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="se">\t</span><span class="s1">'</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="s1">'pos_x'</span><span class="p">,</span><span class="s1">'pos_y'</span><span class="p">,</span><span class="s1">'pos_z'</span><span class="p">,</span>
+                                <span class="s1">'shift_x'</span><span class="p">,</span><span class="s1">'shift_y'</span><span class="p">,</span><span class="s1">'shift_z'</span><span class="p">,</span>
+                                <span class="s1">'phi'</span><span class="p">,</span><span class="s1">'the'</span><span class="p">,</span><span class="s1">'psi'</span><span class="p">,</span>
+                                <span class="s1">'cc'</span><span class="p">,</span><span class="s1">'half_id'</span><span class="p">,</span><span class="s1">'class'</span><span class="p">,</span><span class="s1">'tomo_id'</span><span class="p">)</span>
+                               <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">_</span> <span class="ow">in</span> <span class="n">extras</span><span class="p">))</span> <span class="o">+</span> <span class="s1">'</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%.4f</span><span class="se">\t</span><span class="si">%.4f</span><span class="se">\t</span><span class="si">%.4f</span><span class="se">\t</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">]))</span>
-                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;0</span><span class="se">\t</span><span class="s1">0</span><span class="se">\t</span><span class="s1">0</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%.4f</span><span class="se">\t</span><span class="si">%.4f</span><span class="se">\t</span><span class="si">%.4f</span><span class="se">\t</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">phi</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">the</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">psi</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
-                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%.6f</span><span class="se">\t</span><span class="si">%d</span><span class="se">\t</span><span class="si">%d</span><span class="se">\t</span><span class="si">%d</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">cc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">half_id</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">clss</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">tomo_id</span><span class="p">))</span>
+                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="si">%.4f</span><span class="se">\t</span><span class="si">%.4f</span><span class="se">\t</span><span class="si">%.4f</span><span class="se">\t</span><span class="s1">'</span><span class="o">%</span><span class="p">(</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">]))</span>
+                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'0</span><span class="se">\t</span><span class="s1">0</span><span class="se">\t</span><span class="s1">0</span><span class="se">\t</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="si">%.4f</span><span class="se">\t</span><span class="si">%.4f</span><span class="se">\t</span><span class="si">%.4f</span><span class="se">\t</span><span class="s1">'</span><span class="o">%</span><span class="p">(</span><span class="n">phi</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">the</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">psi</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="si">%.6f</span><span class="se">\t</span><span class="si">%d</span><span class="se">\t</span><span class="si">%d</span><span class="se">\t</span><span class="si">%d</span><span class="s1">'</span><span class="o">%</span><span class="p">(</span><span class="n">cc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">half_id</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">clss</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">tomo_id</span><span class="p">))</span>
                 <span class="k">for</span> <span class="n">_</span><span class="p">,</span><span class="n">values</span> <span class="ow">in</span> <span class="n">extras</span><span class="p">:</span>
                     <span class="c1"># Shortest representation that reads back as the same</span>
                     <span class="c1"># float32: whole numbers stay clean, fractions stay exact.</span>
-                    <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">_np</span><span class="o">.</span><span class="n">format_float_positional</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-                                        <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">trim</span><span class="o">=</span><span class="s1">&#39;-&#39;</span><span class="p">))</span>
-                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="se">\t</span><span class="s1">'</span> <span class="o">+</span> <span class="n">_np</span><span class="o">.</span><span class="n">format_float_positional</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                                        <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">trim</span><span class="o">=</span><span class="s1">'-'</span><span class="p">))</span>
+                <span class="n">fp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Particles.export_artiax] </span><span class="si">%d</span><span class="s1"> particles from tomogram </span><span class="si">%d</span><span class="s1"> saved to </span><span class="si">%s</span><span class="s1">.&#39;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'[Particles.export_artiax] </span><span class="si">%d</span><span class="s1"> particles from tomogram </span><span class="si">%d</span><span class="s1"> saved to </span><span class="si">%s</span><span class="s1">.'</span>
               <span class="o">%</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">filename</span><span class="p">))</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extras</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;  Extra columns: &#39;</span> <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">_</span> <span class="ow">in</span> <span class="n">extras</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;  In ArtiaX, set the origin pixel size to </span><span class="si">%.3f</span><span class="s1"> angstroms.&#39;</span><span class="o">%</span><span class="n">apix</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'  Extra columns: '</span> <span class="o">+</span> <span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">_</span> <span class="ow">in</span> <span class="n">extras</span><span class="p">)</span> <span class="o">+</span> <span class="s1">'.'</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'  In ArtiaX, set the origin pixel size to </span><span class="si">%.3f</span><span class="s1"> angstroms.'</span><span class="o">%</span><span class="n">apix</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">import_artiax</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">tomo_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                      <span class="n">extra1_name</span><span class="o">=</span><span class="s1">&#39;extra_1&#39;</span><span class="p">,</span> <span class="n">extra2_name</span><span class="o">=</span><span class="s1">&#39;extra_2&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a Particles object from an ArtiaX *Generic Particle List*.</span>
+                      <span class="n">extra1_name</span><span class="o">=</span><span class="s1">'extra_1'</span><span class="p">,</span> <span class="n">extra2_name</span><span class="o">=</span><span class="s1">'extra_2'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Create a Particles object from an ArtiaX *Generic Particle List*.</span>
 
 <span class="sd">        Inverse of :meth:`export_artiax`.  Reads the tab-separated ``.tsv``</span>
 <span class="sd">        list (a comma-separated file is also accepted) and rebuilds the</span>
@@ -1424,16 +1424,16 @@
 <span class="sd">        imported positions, so particles moved or added inside ChimeraX get</span>
 <span class="sd">        correct CTF parameters.</span>
 
-<span class="sd">        Angles are converted back from ArtiaX&#39;s ZXZ to SUSAN&#39;s ZYZ::</span>
+<span class="sd">        Angles are converted back from ArtiaX's ZXZ to SUSAN's ZYZ::</span>
 
 <span class="sd">            α = radians(psi) - π/2    β = radians(the)    γ = radians(phi) + π/2</span>
 
-<span class="sd">        and canonicalised into SUSAN&#39;s ranges (``β ∈ [0,π]``, ``α,γ ∈ (-π,π]``)</span>
+<span class="sd">        and canonicalised into SUSAN's ranges (``β ∈ [0,π]``, ``α,γ ∈ (-π,π]``)</span>
 <span class="sd">        using ``(α, β, γ) ≡ (α+π, -β, γ+π)``, so lists produced by other tools</span>
 <span class="sd">        are handled too.</span>
 
 <span class="sd">        The positions are read as ``pos_* + shift_*``, which assumes the two</span>
-<span class="sd">        pixel sizes in ArtiaX were both set to the tomogram&#39;s pixel size (the</span>
+<span class="sd">        pixel sizes in ArtiaX were both set to the tomogram's pixel size (the</span>
 <span class="sd">        files written by :meth:`export_artiax` carry zero shifts, so this is</span>
 <span class="sd">        automatic for a round trip).</span>
 
@@ -1461,7 +1461,7 @@
 <span class="sd">            when the file has no usable ``tomo_id`` column.</span>
 <span class="sd">        extra1_name, extra2_name : str, optional</span>
 <span class="sd">            Columns to load into :attr:`extra_1` / :attr:`extra_2`.  Default</span>
-<span class="sd">            ``&#39;extra_1&#39;`` and ``&#39;extra_2&#39;``, matching :meth:`export_artiax`;</span>
+<span class="sd">            ``'extra_1'`` and ``'extra_2'``, matching :meth:`export_artiax`;</span>
 <span class="sd">            pass the names used there if they were customised.  Missing columns</span>
 <span class="sd">            are ignored.</span>
 
@@ -1471,36 +1471,36 @@
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; ptcls = susan.data.Particles.import_artiax(&#39;tomos.tomostxt&#39;,</span>
-<span class="sd">        ...                                           &#39;tomo003.tsv&#39;)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        &gt;&gt;&gt; ptcls = susan.data.Particles.import_artiax('tomos.tomostxt',</span>
+<span class="sd">        ...                                           'tomo003.tsv')</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="nb">str</span><span class="p">):</span>
             <span class="n">tomograms</span> <span class="o">=</span> <span class="n">_tomodef</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="n">_tomodef</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Tomograms must be a Tomograms object or the path &#39;</span>
-                             <span class="s1">&#39;to a .tomostxt file.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Tomograms must be a Tomograms object or the path '</span>
+                             <span class="s1">'to a .tomostxt file.'</span><span class="p">)</span>
 
-        <span class="n">required</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;pos_x&#39;</span><span class="p">,</span><span class="s1">&#39;pos_y&#39;</span><span class="p">,</span><span class="s1">&#39;pos_z&#39;</span><span class="p">,</span><span class="s1">&#39;shift_x&#39;</span><span class="p">,</span><span class="s1">&#39;shift_y&#39;</span><span class="p">,</span><span class="s1">&#39;shift_z&#39;</span><span class="p">,</span>
-                    <span class="s1">&#39;phi&#39;</span><span class="p">,</span><span class="s1">&#39;the&#39;</span><span class="p">,</span><span class="s1">&#39;psi&#39;</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="n">newline</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'pos_x'</span><span class="p">,</span><span class="s1">'pos_y'</span><span class="p">,</span><span class="s1">'pos_z'</span><span class="p">,</span><span class="s1">'shift_x'</span><span class="p">,</span><span class="s1">'shift_y'</span><span class="p">,</span><span class="s1">'shift_z'</span><span class="p">,</span>
+                    <span class="s1">'phi'</span><span class="p">,</span><span class="s1">'the'</span><span class="p">,</span><span class="s1">'psi'</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="n">newline</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
             <span class="n">header</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
-            <span class="k">if</span>   <span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="p">:</span> <span class="n">delimiter</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span>
-            <span class="k">elif</span> <span class="s1">&#39;,&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="p">:</span>  <span class="n">delimiter</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span>
+            <span class="k">if</span>   <span class="s1">'</span><span class="se">\t</span><span class="s1">'</span> <span class="ow">in</span> <span class="n">header</span><span class="p">:</span> <span class="n">delimiter</span> <span class="o">=</span> <span class="s1">'</span><span class="se">\t</span><span class="s1">'</span>
+            <span class="k">elif</span> <span class="s1">','</span> <span class="ow">in</span> <span class="n">header</span><span class="p">:</span>  <span class="n">delimiter</span> <span class="o">=</span> <span class="s1">','</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Cannot determine the delimiter of &#39;</span><span class="o">+</span><span class="n">filename</span>
-                                 <span class="o">+</span><span class="s1">&#39;: expected a tab- or comma-separated header.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Cannot determine the delimiter of '</span><span class="o">+</span><span class="n">filename</span>
+                                 <span class="o">+</span><span class="s1">': expected a tab- or comma-separated header.'</span><span class="p">)</span>
             <span class="n">fp</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
             <span class="n">reader</span> <span class="o">=</span> <span class="n">_csv</span><span class="o">.</span><span class="n">DictReader</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="n">delimiter</span><span class="o">=</span><span class="n">delimiter</span><span class="p">)</span>
             <span class="n">fields</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">fieldnames</span> <span class="ow">or</span> <span class="p">[])</span>
             <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">required</span> <span class="k">if</span> <span class="n">f</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fields</span> <span class="p">]</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Missing columns in &#39;</span> <span class="o">+</span> <span class="n">filename</span> <span class="o">+</span> <span class="s1">&#39;: &#39;</span>
-                                 <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Missing columns in '</span> <span class="o">+</span> <span class="n">filename</span> <span class="o">+</span> <span class="s1">': '</span>
+                                 <span class="o">+</span> <span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">))</span>
             <span class="n">rows</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>
 
         <span class="n">N</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">N</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;No particles in &#39;</span> <span class="o">+</span> <span class="n">filename</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'No particles in '</span> <span class="o">+</span> <span class="n">filename</span><span class="p">)</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">column</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
@@ -1509,31 +1509,31 @@
 
         <span class="c1"># Positions: voxels from the corner (the shift is folded back in).</span>
         <span class="n">pos</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="s1">&#39;xyz&#39;</span><span class="p">):</span>
-            <span class="n">pos</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">&#39;pos_&#39;</span><span class="o">+</span><span class="n">c</span><span class="p">)</span> <span class="o">+</span> <span class="n">column</span><span class="p">(</span><span class="s1">&#39;shift_&#39;</span><span class="o">+</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="s1">'xyz'</span><span class="p">):</span>
+            <span class="n">pos</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">'pos_'</span><span class="o">+</span><span class="n">c</span><span class="p">)</span> <span class="o">+</span> <span class="n">column</span><span class="p">(</span><span class="s1">'shift_'</span><span class="o">+</span><span class="n">c</span><span class="p">)</span>
 
         <span class="c1"># Tomogram: the argument wins, the column fills in, zeros are new picks.</span>
-        <span class="n">file_ids</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">&#39;tomo_id&#39;</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="n">file_ids</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">'tomo_id'</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
         <span class="n">seen</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">file_ids</span><span class="p">[</span><span class="n">file_ids</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">file_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> \
                <span class="k">else</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">tomo_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">seen</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;No usable tomo_id column in &#39;</span> <span class="o">+</span> <span class="n">filename</span>
-                                 <span class="o">+</span> <span class="s1">&#39;; set tomo_id.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'No usable tomo_id column in '</span> <span class="o">+</span> <span class="n">filename</span>
+                                 <span class="o">+</span> <span class="s1">'; set tomo_id.'</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">seen</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Several tomo_id values in &#39;</span> <span class="o">+</span> <span class="n">filename</span> <span class="o">+</span> <span class="s1">&#39; (&#39;</span>
-                                 <span class="o">+</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">)</span>
-                                 <span class="o">+</span> <span class="s1">&#39;); set tomo_id to select one.&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Several tomo_id values in '</span> <span class="o">+</span> <span class="n">filename</span> <span class="o">+</span> <span class="s1">' ('</span>
+                                 <span class="o">+</span> <span class="s1">','</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">)</span>
+                                 <span class="o">+</span> <span class="s1">'); set tomo_id to select one.'</span><span class="p">)</span>
             <span class="n">tomo_id</span> <span class="o">=</span> <span class="n">seen</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Particles.import_artiax] tomo_id </span><span class="si">%d</span><span class="s1"> read from the file.&#39;</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'[Particles.import_artiax] tomo_id </span><span class="si">%d</span><span class="s1"> read from the file.'</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">tomo_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">seen</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">seen</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">seen</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">tomo_id</span><span class="p">):</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Particles.import_artiax] the file reports tomo_id &#39;</span>
-                      <span class="o">+</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">)</span>
-                      <span class="o">+</span> <span class="s1">&#39;, using </span><span class="si">%d</span><span class="s1"> as requested.&#39;</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">'[Particles.import_artiax] the file reports tomo_id '</span>
+                      <span class="o">+</span> <span class="s1">','</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">)</span>
+                      <span class="o">+</span> <span class="s1">', using </span><span class="si">%d</span><span class="s1"> as requested.'</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">tomograms</span><span class="o">.</span><span class="n">has_tomo</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;tomo_id </span><span class="si">%d</span><span class="s1"> not found in the tomograms.&#39;</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'tomo_id </span><span class="si">%d</span><span class="s1"> not found in the tomograms.'</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
         <span class="n">tomos_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">N</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
 
         <span class="n">ptcls</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">import_data</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="n">pos</span><span class="p">,</span><span class="n">tomos_id</span><span class="p">,</span>
@@ -1542,11 +1542,11 @@
         <span class="c1"># import_data sorts: ptcl_id[i] is the file row of stored particle i.</span>
         <span class="n">row</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
 
-        <span class="c1"># ZXZ (degrees) -&gt; ZYZ (radians), then into SUSAN&#39;s ranges.</span>
+        <span class="c1"># ZXZ (degrees) -&gt; ZYZ (radians), then into SUSAN's ranges.</span>
         <span class="n">wrap</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="p">((</span><span class="n">a</span> <span class="o">+</span> <span class="n">_np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">_np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">-</span> <span class="n">_np</span><span class="o">.</span><span class="n">pi</span>
-        <span class="n">alpha</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">column</span><span class="p">(</span><span class="s1">&#39;psi&#39;</span><span class="p">)[</span><span class="n">row</span><span class="p">])</span> <span class="o">-</span> <span class="n">_np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span>
-        <span class="n">beta</span>  <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">column</span><span class="p">(</span><span class="s1">&#39;the&#39;</span><span class="p">)[</span><span class="n">row</span><span class="p">]))</span>
-        <span class="n">gamma</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">column</span><span class="p">(</span><span class="s1">&#39;phi&#39;</span><span class="p">)[</span><span class="n">row</span><span class="p">])</span> <span class="o">+</span> <span class="n">_np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">column</span><span class="p">(</span><span class="s1">'psi'</span><span class="p">)[</span><span class="n">row</span><span class="p">])</span> <span class="o">-</span> <span class="n">_np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span>
+        <span class="n">beta</span>  <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">column</span><span class="p">(</span><span class="s1">'the'</span><span class="p">)[</span><span class="n">row</span><span class="p">]))</span>
+        <span class="n">gamma</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">column</span><span class="p">(</span><span class="s1">'phi'</span><span class="p">)[</span><span class="n">row</span><span class="p">])</span> <span class="o">+</span> <span class="n">_np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span>
         <span class="n">flip</span>  <span class="o">=</span> <span class="n">beta</span> <span class="o">&lt;</span> <span class="mi">0</span>
         <span class="n">beta</span> <span class="p">[</span><span class="n">flip</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">beta</span><span class="p">[</span><span class="n">flip</span><span class="p">]</span>
         <span class="n">alpha</span><span class="p">[</span><span class="n">flip</span><span class="p">]</span> <span class="o">+=</span>  <span class="n">_np</span><span class="o">.</span><span class="n">pi</span>
@@ -1555,21 +1555,21 @@
         <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="mi">0</span><span class="p">,:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">beta</span>
         <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="mi">0</span><span class="p">,:,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">gamma</span><span class="p">)</span>
 
-        <span class="n">cc</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">&#39;cc&#39;</span><span class="p">)</span>
+        <span class="n">cc</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">'cc'</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="mi">0</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">cc</span><span class="p">[</span><span class="n">row</span><span class="p">]</span>
 
-        <span class="n">half_id</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">&#39;half_id&#39;</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="n">half_id</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">'half_id'</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">half_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">half_id</span> <span class="o">=</span> <span class="n">half_id</span><span class="p">[</span><span class="n">row</span><span class="p">]</span>
             <span class="n">valid</span>   <span class="o">=</span> <span class="p">(</span><span class="n">half_id</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
             <span class="n">ptcls</span><span class="o">.</span><span class="n">half_id</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span> <span class="o">=</span> <span class="n">half_id</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
-                <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1"> particles without half_id (picked in ArtiaX?): &#39;</span>
-                               <span class="s1">&#39;their half-sets were assigned automatically and do &#39;</span>
-                               <span class="s1">&#39;not follow any previous split.&#39;</span><span class="o">%</span><span class="nb">int</span><span class="p">((</span><span class="o">~</span><span class="n">valid</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+                <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">'</span><span class="si">%d</span><span class="s1"> particles without half_id (picked in ArtiaX?): '</span>
+                               <span class="s1">'their half-sets were assigned automatically and do '</span>
+                               <span class="s1">'not follow any previous split.'</span><span class="o">%</span><span class="nb">int</span><span class="p">((</span><span class="o">~</span><span class="n">valid</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
 
-        <span class="n">clss</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">&#39;class&#39;</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="n">clss</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="s1">'class'</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">clss</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">cur</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">clss</span><span class="p">[</span><span class="n">row</span><span class="p">],</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
             <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">cur</span><span class="o">.</span><span class="n">max</span><span class="p">())):</span>
@@ -1577,17 +1577,17 @@
             <span class="n">ptcls</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">cur</span>
 
         <span class="n">loaded</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">field</span> <span class="ow">in</span> <span class="p">((</span><span class="n">extra1_name</span><span class="p">,</span><span class="s1">&#39;extra_1&#39;</span><span class="p">),(</span><span class="n">extra2_name</span><span class="p">,</span><span class="s1">&#39;extra_2&#39;</span><span class="p">)):</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">field</span> <span class="ow">in</span> <span class="p">((</span><span class="n">extra1_name</span><span class="p">,</span><span class="s1">'extra_1'</span><span class="p">),(</span><span class="n">extra2_name</span><span class="p">,</span><span class="s1">'extra_2'</span><span class="p">)):</span>
             <span class="n">values</span> <span class="o">=</span> <span class="n">column</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="nb">getattr</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span><span class="n">field</span><span class="p">)[:]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">row</span><span class="p">]</span>
-                <span class="n">loaded</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> -&gt; </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="n">field</span><span class="p">))</span>
+                <span class="n">loaded</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">'</span><span class="si">%s</span><span class="s1"> -&gt; </span><span class="si">%s</span><span class="s1">'</span><span class="o">%</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="n">field</span><span class="p">))</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">loaded</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Particles.import_artiax] extra columns: &#39;</span>
-                  <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">loaded</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'[Particles.import_artiax] extra columns: '</span>
+                  <span class="o">+</span> <span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">loaded</span><span class="p">)</span> <span class="o">+</span> <span class="s1">'.'</span><span class="p">)</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[Particles.import_artiax] </span><span class="si">%d</span><span class="s1"> particles loaded from </span><span class="si">%s</span><span class="s1"> &#39;</span>
-              <span class="s1">&#39;(tomogram </span><span class="si">%d</span><span class="s1">, </span><span class="si">%d</span><span class="s1"> references).&#39;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'[Particles.import_artiax] </span><span class="si">%d</span><span class="s1"> particles loaded from </span><span class="si">%s</span><span class="s1"> '</span>
+              <span class="s1">'(tomogram </span><span class="si">%d</span><span class="s1">, </span><span class="si">%d</span><span class="s1"> references).'</span>
               <span class="o">%</span><span class="p">(</span><span class="n">N</span><span class="p">,</span><span class="n">filename</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_refs</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">ptcls</span></div>
 

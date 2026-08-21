@@ -577,7 +577,7 @@ current level, the search range is ±``factor`` · <em>ang</em>.</p>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Configuration for launching MPI-parallel processing modules.</p>
 <p>The MPI binary is invoked roughly as:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmd</span> <span class="o">=</span> <span class="n">mpi_params</span><span class="o">.</span><span class="n">cmd</span> <span class="o">%</span> <span class="n">mpi_params</span><span class="o">.</span><span class="n">arg</span> <span class="o">+</span> <span class="s1">&#39; susan_aligner_mpi &#39;</span> <span class="o">+</span> <span class="n">aligner</span><span class="o">.</span><span class="n">get_args</span><span class="p">()</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmd</span> <span class="o">=</span> <span class="n">mpi_params</span><span class="o">.</span><span class="n">cmd</span> <span class="o">%</span> <span class="n">mpi_params</span><span class="o">.</span><span class="n">arg</span> <span class="o">+</span> <span class="s1">' susan_aligner_mpi '</span> <span class="o">+</span> <span class="n">aligner</span><span class="o">.</span><span class="n">get_args</span><span class="p">()</span>
 <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
 </pre></div>
 </div>

@@ -400,23 +400,23 @@ not already present on the system; no manual installation is needed.</p>
 <p>If cmake, gcc, and the CUDA toolkit are already on <code class="docutils literal notranslate"><span class="pre">PATH</span></code>, SUSAN installs
 directly into any active Python environment.</p>
 <p><strong>Core install:</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;git+https://github.com/rsanchezloayza/SUSAN&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"git+https://github.com/rsanchezloayza/SUSAN"</span>
 </pre></div>
 </div>
 <p><strong>Optional extras:</strong></p>
 <ul>
 <li><p>PyTorch (required for the Noise2Noise denoiser):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;SUSAN[ml] @ git+https://github.com/rsanchezloayza/SUSAN&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"SUSAN[ml] @ git+https://github.com/rsanchezloayza/SUSAN"</span>
 </pre></div>
 </div>
 </li>
 <li><p>Analysis tools (scikit-image, scikit-learn, numba, bm4d):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;SUSAN[analysis] @ git+https://github.com/rsanchezloayza/SUSAN&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"SUSAN[analysis] @ git+https://github.com/rsanchezloayza/SUSAN"</span>
 </pre></div>
 </div>
 </li>
 <li><p>Both:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;SUSAN[full] @ git+https://github.com/rsanchezloayza/SUSAN&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"SUSAN[full] @ git+https://github.com/rsanchezloayza/SUSAN"</span>
 </pre></div>
 </div>
 </li>
@@ -520,7 +520,7 @@ conda<span class="w"> </span>activate<span class="w"> </span>susan-hpc
 <p><strong>Step 2 — load cluster modules and install SUSAN:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>module<span class="w"> </span>load<span class="w"> </span>cuda<span class="w"> </span>cmake<span class="w"> </span>gcc<span class="w">        </span><span class="c1"># exact names vary by cluster</span>
 module<span class="w"> </span>load<span class="w"> </span>openmpi<span class="w">               </span><span class="c1"># optional, for multi-node support</span>
-pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;git+https://github.com/rsanchezloayza/SUSAN&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"git+https://github.com/rsanchezloayza/SUSAN"</span>
 </pre></div>
 </div>
 <div class="admonition note">

@@ -329,8 +329,8 @@
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_warnings</span>
     <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-        <span class="s2">&quot;susan.ml is not available: PyTorch is not installed. &quot;</span>
-        <span class="s2">&quot;Install it with:  pip install susan[ml]&quot;</span><span class="p">,</span>
+        <span class="s2">"susan.ml is not available: PyTorch is not installed. "</span>
+        <span class="s2">"Install it with:  pip install susan[ml]"</span><span class="p">,</span>
         <span class="ne">ImportWarning</span><span class="p">,</span>
         <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
     <span class="p">)</span>
@@ -339,7 +339,7 @@
 <div class="viewcode-block" id="read">
 <a class="viewcode-back" href="../api/susan.html#susan.read">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read a SUSAN-supported file and return the appropriate object.</span>
+<span class="w">    </span><span class="sd">"""Read a SUSAN-supported file and return the appropriate object.</span>
 
 <span class="sd">    The file format is inferred from the extension.</span>
 
@@ -368,48 +368,48 @@
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If the file extension is not recognised.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;.mrc&#39;</span><span class="p">,</span><span class="s1">&#39;.map&#39;</span><span class="p">,</span><span class="s1">&#39;.ali&#39;</span><span class="p">,</span><span class="s1">&#39;.st&#39;</span><span class="p">,</span><span class="s1">&#39;.rec&#39;</span><span class="p">):</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'.mrc'</span><span class="p">,</span><span class="s1">'.map'</span><span class="p">,</span><span class="s1">'.ali'</span><span class="p">,</span><span class="s1">'.st'</span><span class="p">,</span><span class="s1">'.rec'</span><span class="p">):</span>
         <span class="n">v</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">mrc</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">v</span>
-    <span class="k">elif</span> <span class="n">utils</span><span class="o">.</span><span class="n">is_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;ptclsraw&#39;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">utils</span><span class="o">.</span><span class="n">is_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'ptclsraw'</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">utils</span><span class="o">.</span><span class="n">is_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;refstxt&#39;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">utils</span><span class="o">.</span><span class="n">is_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'refstxt'</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">Reference</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">utils</span><span class="o">.</span><span class="n">is_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">&#39;tomostxt&#39;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">utils</span><span class="o">.</span><span class="n">is_extension</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'tomostxt'</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">Tomograms</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unsupported file.&#39;</span><span class="p">)</span></div>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Unsupported file.'</span><span class="p">)</span></div>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_check_susan_bin_in_path</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">&#39;susan_aligner&#39;</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_susan_bin_in_path</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">'susan_aligner'</span><span class="p">):</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">shutil</span><span class="w"> </span><span class="kn">import</span> <span class="n">which</span>
     <span class="k">return</span> <span class="n">which</span><span class="p">(</span><span class="n">bin_name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_add_susan_bin_to_path</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">&#39;susan_aligner&#39;</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_add_susan_bin_to_path</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">'susan_aligner'</span><span class="p">):</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">os.path</span><span class="w"> </span><span class="kn">import</span> <span class="n">dirname</span><span class="p">,</span><span class="n">abspath</span><span class="p">,</span><span class="n">exists</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
     <span class="n">base_dir</span>   <span class="o">=</span> <span class="n">dirname</span><span class="p">(</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
-    <span class="n">local_dir</span>  <span class="o">=</span> <span class="n">abspath</span><span class="p">(</span><span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;/bin&#39;</span><span class="p">)</span>
-    <span class="n">local_file</span> <span class="o">=</span> <span class="n">local_dir</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">bin_name</span>
-    <span class="n">bin_dir</span>    <span class="o">=</span> <span class="n">abspath</span><span class="p">(</span><span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;/../bin&#39;</span><span class="p">)</span>
-    <span class="n">bin_file</span>   <span class="o">=</span> <span class="n">bin_dir</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">bin_name</span>
-    <span class="n">build_dir</span>  <span class="o">=</span> <span class="n">abspath</span><span class="p">(</span><span class="n">base_dir</span> <span class="o">+</span> <span class="s1">&#39;/../build&#39;</span><span class="p">)</span>
-    <span class="n">build_file</span> <span class="o">=</span> <span class="n">build_dir</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">bin_name</span>
+    <span class="n">local_dir</span>  <span class="o">=</span> <span class="n">abspath</span><span class="p">(</span><span class="n">base_dir</span> <span class="o">+</span> <span class="s1">'/bin'</span><span class="p">)</span>
+    <span class="n">local_file</span> <span class="o">=</span> <span class="n">local_dir</span><span class="o">+</span><span class="s1">'/'</span><span class="o">+</span><span class="n">bin_name</span>
+    <span class="n">bin_dir</span>    <span class="o">=</span> <span class="n">abspath</span><span class="p">(</span><span class="n">base_dir</span> <span class="o">+</span> <span class="s1">'/../bin'</span><span class="p">)</span>
+    <span class="n">bin_file</span>   <span class="o">=</span> <span class="n">bin_dir</span><span class="o">+</span><span class="s1">'/'</span><span class="o">+</span><span class="n">bin_name</span>
+    <span class="n">build_dir</span>  <span class="o">=</span> <span class="n">abspath</span><span class="p">(</span><span class="n">base_dir</span> <span class="o">+</span> <span class="s1">'/../build'</span><span class="p">)</span>
+    <span class="n">build_file</span> <span class="o">=</span> <span class="n">build_dir</span><span class="o">+</span><span class="s1">'/'</span><span class="o">+</span><span class="n">bin_name</span>
     <span class="k">if</span> <span class="n">exists</span><span class="p">(</span><span class="n">local_file</span><span class="p">):</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">&#39;:&#39;</span><span class="o">+</span><span class="n">local_dir</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">'PATH'</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">':'</span><span class="o">+</span><span class="n">local_dir</span>
     <span class="k">elif</span> <span class="n">exists</span><span class="p">(</span><span class="n">bin_file</span><span class="p">):</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">&#39;:&#39;</span><span class="o">+</span><span class="n">bin_dir</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">'PATH'</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">':'</span><span class="o">+</span><span class="n">bin_dir</span>
     <span class="k">elif</span> <span class="n">exists</span><span class="p">(</span><span class="n">build_file</span><span class="p">):</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">&#39;:&#39;</span><span class="o">+</span><span class="n">build_dir</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">'PATH'</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">':'</span><span class="o">+</span><span class="n">build_dir</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">False</span>
     <span class="k">return</span> <span class="kc">True</span>
 
 <span class="n">_HAS_BINARIES</span> <span class="o">=</span> <span class="n">_check_susan_bin_in_path</span><span class="p">()</span> <span class="ow">or</span> <span class="n">_add_susan_bin_to_path</span><span class="p">()</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">has_binaries</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">&#39;susan_aligner&#39;</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether the compiled SUSAN (CUDA) executables are available.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">has_binaries</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">'susan_aligner'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Whether the compiled SUSAN (CUDA) executables are available.</span>
 
 <span class="sd">    They are absent when SUSAN was installed without the CUDA modules</span>
 <span class="sd">    (``SUSAN_NO_CUDA=1 pip install susan``). Reading files and analysing</span>
@@ -418,32 +418,32 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    bool</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">_check_susan_bin_in_path</span><span class="p">(</span><span class="n">bin_name</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">require_binaries</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">&#39;susan_aligner&#39;</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raise :class:`RuntimeError` if the compiled executables are missing.&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">require_binaries</span><span class="p">(</span><span class="n">bin_name</span><span class="o">=</span><span class="s1">'susan_aligner'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Raise :class:`RuntimeError` if the compiled executables are missing."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">has_binaries</span><span class="p">(</span><span class="n">bin_name</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-            <span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39; not found: SUSAN was installed without the CUDA modules, or &quot;</span>
-            <span class="s2">&quot;the binaries are not in the PATH. Reinstall on a machine with the &quot;</span>
-            <span class="s2">&quot;CUDA toolkit (pip install susan) to enable susan.modules.&quot;</span> <span class="o">%</span> <span class="n">bin_name</span>
+            <span class="s2">"'</span><span class="si">%s</span><span class="s2">' not found: SUSAN was installed without the CUDA modules, or "</span>
+            <span class="s2">"the binaries are not in the PATH. Reinstall on a machine with the "</span>
+            <span class="s2">"CUDA toolkit (pip install susan) to enable susan.modules."</span> <span class="o">%</span> <span class="n">bin_name</span>
         <span class="p">)</span>
 
 <span class="k">if</span> <span class="ow">not</span> <span class="n">_HAS_BINARIES</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_warnings</span>
     <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-        <span class="s2">&quot;The SUSAN executables were not found: susan.modules (alignment, &quot;</span>
-        <span class="s2">&quot;reconstruction, CTF estimation) is unavailable. Reading and analysing &quot;</span>
-        <span class="s2">&quot;SUSAN files still works. This is expected if SUSAN was installed with &quot;</span>
-        <span class="s2">&quot;SUSAN_NO_CUDA=1; otherwise add the binaries to the PATH.&quot;</span><span class="p">,</span>
+        <span class="s2">"The SUSAN executables were not found: susan.modules (alignment, "</span>
+        <span class="s2">"reconstruction, CTF estimation) is unavailable. Reading and analysing "</span>
+        <span class="s2">"SUSAN files still works. This is expected if SUSAN was installed with "</span>
+        <span class="s2">"SUSAN_NO_CUDA=1; otherwise add the binaries to the PATH."</span><span class="p">,</span>
         <span class="ne">UserWarning</span><span class="p">,</span>
         <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">del</span> <span class="n">_warnings</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[]</span>
-<span class="n">__all__</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;read&#39;</span><span class="p">,</span><span class="s1">&#39;has_binaries&#39;</span><span class="p">,</span><span class="s1">&#39;require_binaries&#39;</span><span class="p">])</span>
+<span class="n">__all__</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">'read'</span><span class="p">,</span><span class="s1">'has_binaries'</span><span class="p">,</span><span class="s1">'require_binaries'</span><span class="p">])</span>
 </pre></div>
         </article>
       </div>

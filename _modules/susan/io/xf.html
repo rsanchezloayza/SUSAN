@@ -300,14 +300,14 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for susan.io.xf</h1><div class="highlight"><pre>
-<span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;read&#39;</span><span class="p">]</span>
+<span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'read'</span><span class="p">]</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 
 <div class="viewcode-block" id="read">
 <a class="viewcode-back" href="../../../api/susan.io.xf.html#susan.io.xf.read">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">parse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read an IMOD alignment transform file (.xf).</span>
+<span class="w">    </span><span class="sd">"""Read an IMOD alignment transform file (.xf).</span>
 
 <span class="sd">    Each line of an .xf file encodes a 2-D affine transform as six values:</span>
 <span class="sd">    A11 A12 A21 A22 DX DY (linear part followed by translation).</span>
@@ -327,7 +327,7 @@
 <span class="sd">    data : numpy.ndarray</span>
 <span class="sd">        Shape (N, 2, 3) if parse=True, or (N, 6) if parse=False,</span>
 <span class="sd">        where N is the number of projections.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">parse</span><span class="p">:</span>
         <span class="n">A11</span><span class="p">,</span> <span class="n">A12</span><span class="p">,</span> <span class="n">A21</span><span class="p">,</span> <span class="n">A22</span><span class="p">,</span> <span class="n">DX</span><span class="p">,</span> <span class="n">DY</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">data</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="n">data</span><span class="p">[:,</span><span class="mi">2</span><span class="p">],</span> <span class="n">data</span><span class="p">[:,</span><span class="mi">3</span><span class="p">],</span> <span class="n">data</span><span class="p">[:,</span><span class="mi">4</span><span class="p">],</span> <span class="n">data</span><span class="p">[:,</span><span class="mi">5</span><span class="p">]</span>
