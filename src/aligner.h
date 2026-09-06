@@ -1271,10 +1271,7 @@ public:
         NP = N+P;
         MP = (NP/2)+1;
 
-        if( info->cc_type == CC_TYPE_CFSC )
-            load_reference_spectral_weighted(in_p_refs,info->p_gpu[0]);
-        else
-            load_references(in_p_refs);
+        load_references(in_p_refs);
     }
 
     ~AliPool() {

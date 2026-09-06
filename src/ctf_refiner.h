@@ -790,7 +790,7 @@ public:
         NP = N+P;
         MP = (NP/2)+1;
 
-        load_reference_spectral_weighted(in_p_refs,info->p_gpu[0]);
+        load_references(in_p_refs);
     }
 
     ~CtfRefinerPool() {
