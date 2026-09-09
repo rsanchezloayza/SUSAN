@@ -569,7 +569,7 @@ protected:
         if( ctf_type == ALI_CTF_ON_SUBSTACK )      ss_data.correct_wiener     (ptr->ctf_vals,ctf_wgt,ptr->g_def,ptr->K,stream);
         if( ctf_type == ALI_CTF_ON_SUBSTACK_SSNR ) ss_data.correct_wiener_ssnr(ptr->ctf_vals,ctf_wgt,ptr->g_def,ssnr,ptr->K,stream);
 
-        if( cc_type == CC_TYPE_CFSC ) {
+        if( cc_type_whitens_substack(cc_type) ) {
             rad_avgr.calculate_FRC(ss_data.ss_fourier,ptr->K,stream);
             if( ctf_type == ALI_CTF_ON_SUBSTACK_SSNR )
                 rad_avgr.apply_FRC(ss_data.ss_fourier,ptr->K,stream);
@@ -1271,7 +1271,10 @@ public:
         NP = N+P;
         MP = (NP/2)+1;
 
-        load_references(in_p_refs);
+        if( cc_type_whitens_reference(info->cc_type) )
+            load_reference_spectral_weighted(in_p_refs,info->p_gpu[0]);
+        else
+            load_references(in_p_refs);
     }
 
     ~AliPool() {
@@ -1358,7 +1361,7 @@ protected:
 
             /// Standard load: reads map/mask and applies the first
             /// normalize_masked (the result is mask*vol).
-            p_refs[r].load(in_p_refs->at(r),false);
+            p_refs[r].load(in_p_refs->at(r));
 
             if( p_refs[r].has_ref_mask() ) {
 

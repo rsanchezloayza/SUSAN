@@ -178,8 +178,17 @@ typedef enum {
 
 typedef enum {
     CC_TYPE_BASIC=0,
-    CC_TYPE_CFSC
+    CC_TYPE_CFSC,
+    CC_TYPE_CFSC_SUBSTACK
 } CcType_t;
+
+inline bool cc_type_whitens_substack(const uint32 cc_type) {
+    return (cc_type == CC_TYPE_CFSC) || (cc_type == CC_TYPE_CFSC_SUBSTACK);
+}
+
+inline bool cc_type_whitens_reference(const uint32 cc_type) {
+    return (cc_type == CC_TYPE_CFSC);
+}
 
 typedef enum {
     CC_STATS_NONE=0,

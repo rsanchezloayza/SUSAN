@@ -62,11 +62,12 @@ namespace ArgParser {
         CcType_t type = CC_TYPE_BASIC;
         bool all_ok = false;
 
-        check_arg_and_set(type,all_ok,arg,"basic",CC_TYPE_BASIC);
-        check_arg_and_set(type,all_ok,arg,"cfsc" ,CC_TYPE_CFSC );
+        check_arg_and_set(type,all_ok,arg,"basic"        ,CC_TYPE_BASIC        );
+        check_arg_and_set(type,all_ok,arg,"cfsc"         ,CC_TYPE_CFSC         );
+        check_arg_and_set(type,all_ok,arg,"cfsc_substack",CC_TYPE_CFSC_SUBSTACK);
 
         if( !all_ok )
-            fprintf(stderr,"Invalid cc type %s. Options are: basic or cfsc. Defaulting to basic.\n",arg);
+            fprintf(stderr,"Invalid cc type %s. Options are: basic, cfsc or cfsc_substack. Defaulting to basic.\n",arg);
 
         return type;
     }

@@ -41,6 +41,7 @@ typedef struct {
     uint32 pad_size;
     uint32 pad_type;
     uint32 norm_type;
+    uint32 cc_type;
     float  def_range;
     float  def_step;
     float  ang_range;
@@ -119,6 +120,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.pad_size    = 0;
     info.pad_type    = PAD_ZERO;
     info.norm_type   = NO_NORM;
+    info.cc_type     = CC_TYPE_CFSC_SUBSTACK;
     info.def_range   = 1000;
     info.def_step    = 100;
     info.ang_range   = 20;
@@ -159,6 +161,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         PAD_SIZE,
         PAD_TYPE,
         NORM_TYPE,
+        CC_TYPE,
         SSNR,
         ASTIGMATISM,
         BANDPASS,
@@ -187,6 +190,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"pad_size",   1, 0, PAD_SIZE   },
         {"pad_type",   1, 0, PAD_TYPE   },
         {"norm_type",  1, 0, NORM_TYPE  },
+        {"cc_type",    1, 0, CC_TYPE    },
         {"ssnr_param", 1, 0, SSNR       },
         {"bandpass",   1, 0, BANDPASS   },
         {"rolloff_f",  1, 0, ROLLOFF_F  },
@@ -235,6 +239,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case NORM_TYPE:
                 info.norm_type = ArgParser::get_norm_type(optarg);
+                break;
+            case CC_TYPE:
+                info.cc_type = ArgParser::get_cc_type(optarg);
                 break;
             case SSNR:
                 ArgParser::get_single_pair(info.ssnr_F,info.ssnr_S,optarg);
@@ -342,6 +349,13 @@ inline void print_full(const Info&info,FILE*fp=stdout) {
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(fp,"\t\tSubstack normalization policy: Mean=0, Std=1.\n");
 
+    if( info.cc_type == CC_TYPE_BASIC )
+        fprintf(fp,"\t\tRefining using Cross-Correlation.\n");
+    if( info.cc_type == CC_TYPE_CFSC )
+        fprintf(fp,"\t\tRefining using the Cumulative Fourier Shell Correlation (substack and reference).\n");
+    if( info.cc_type == CC_TYPE_CFSC_SUBSTACK )
+        fprintf(fp,"\t\tRefining using the Cumulative Fourier Shell Correlation (substack only).\n");
+
     fprintf(fp,"\t\tDefocus search range: %.2f.\n",info.def_range);
     fprintf(fp,"\t\tDefocus search step: %.2f.\n",info.def_step);
     fprintf(fp,"\t\tDefocus angle range: %.2f.\n",info.ang_range);
@@ -406,6 +420,14 @@ inline void print_basic(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"Normalized to Mean=0.\n");
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(fp,"Normalized to Mean=0, Std=1.\n");
+
+    fprintf(fp,"    - ");
+    if( info.cc_type == CC_TYPE_BASIC )
+        fprintf(fp,"Refining with CC.\n");
+    if( info.cc_type == CC_TYPE_CFSC )
+        fprintf(fp,"Refining with CFSC (substack and reference).\n");
+    if( info.cc_type == CC_TYPE_CFSC_SUBSTACK )
+        fprintf(fp,"Refining with CFSC (substack only).\n");
 
     fprintf(fp,"    - Defocus search: Range=%.2f, Step=%.2f.",info.def_range,info.def_step);
     fprintf(fp," Angle: Range=%.2f, Step=%.2f.",info.ang_range,info.ang_step);

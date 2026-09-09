@@ -137,6 +137,7 @@ public:
     float offset_sigma;   // pixels; Gaussian σ on translation magnitude. 0 ⇒ disabled.
     float defocus_sigma;  // Å;      Gaussian σ on |(dU,dV)|.            0 ⇒ disabled.
     float phase_sigma;    // rad;    Gaussian σ on phase-shift magnitude. 0 ⇒ disabled.
+    int   cc_type;
     bool  use_halves;
     bool  astigmatism;
     bool  phase_flip;
@@ -286,7 +287,7 @@ protected:
         /// Steps:
         /// - [optional] Pad the substack [gaussian or zero padding].
         /// - Add the data to the substack.
-        /// - Apply spectral weighting CFSC+SSNR.
+        /// - [optional] Apply spectral weighting CFSC+SSNR.
         /// - Apply dose weighting/exposure filtering.
         /// - Normalize substacks energy (per projection).
         /// - Apply bandpass.
@@ -296,8 +297,10 @@ protected:
 
         ss_data.add_data(ptr->g_stk,ptr->g_ali,ptr->K,stream);
 
-        rad_avgr.calculate_FRC(ss_data.ss_fourier,ptr->K,stream);
-        rad_avgr.apply_FRC(ss_data.ss_fourier,ptr->ctf_vals,ssnr,ptr->K,stream);
+        if( cc_type_whitens_substack(cc_type) ) {
+            rad_avgr.calculate_FRC(ss_data.ss_fourier,ptr->K,stream);
+            rad_avgr.apply_FRC(ss_data.ss_fourier,ptr->ctf_vals,ssnr,ptr->K,stream);
+        }
 
         ss_data .apply_exposure_filt(ptr->ctf_vals,ptr->g_def,ptr->K,stream);
         rad_avgr.normalize_stacks(ss_data.ss_fourier,ptr->K,stream);
@@ -560,6 +563,7 @@ protected:
         gpu_worker.R           = R;
         gpu_worker.p_refs      = p_refs;
         gpu_worker.use_halves  = p_info->use_halves;
+        gpu_worker.cc_type     = p_info->cc_type;
         gpu_worker.pad_type    = pad_type;
         gpu_worker.phase_flip  = p_info->phase_flip;
         gpu_worker.max_K       = max_K;
@@ -790,7 +794,10 @@ public:
         NP = N+P;
         MP = (NP/2)+1;
 
-        load_references(in_p_refs);
+        if( cc_type_whitens_reference(info->cc_type) )
+            load_reference_spectral_weighted(in_p_refs,info->p_gpu[0]);
+        else
+            load_references(in_p_refs);
     }
 
     ~CtfRefinerPool() {

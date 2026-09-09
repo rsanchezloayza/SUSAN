@@ -302,7 +302,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 info.ctf_type = ArgParser::get_ali_ctf_type(optarg);
                 /// ToBeDeprecated:
                 if(strcmp(optarg,"cfsc")==0)
-                    info.cc_type = CC_TYPE_CFSC;
+                    info.cc_type = CC_TYPE_CFSC_SUBSTACK;
                 break;
             case CC_TYPE:
                 info.cc_type = ArgParser::get_cc_type(optarg);
@@ -496,7 +496,9 @@ inline void print_full(const Info&info,FILE*fp) {
     if( info.cc_type == CC_TYPE_BASIC )
         fprintf(fp,"\t\tAligning using Cross-Correlation. ");
     if( info.cc_type == CC_TYPE_CFSC )
-        fprintf(fp,"\t\tAligning using the Cumulative Fourier Shell Correlation. ");
+        fprintf(fp,"\t\tAligning using the Cumulative Fourier Shell Correlation (substack and reference). ");
+    if( info.cc_type == CC_TYPE_CFSC_SUBSTACK )
+        fprintf(fp,"\t\tAligning using the Cumulative Fourier Shell Correlation (substack only). ");
 
     if( info.cc_stats == CC_STATS_NONE )
         fprintf(fp,"\n");
@@ -645,7 +647,9 @@ inline void print_basic(const Info&info,FILE*fp) {
     if( info.cc_type == CC_TYPE_BASIC )
         fprintf(fp,"Aligning with CC. ");
     if( info.cc_type == CC_TYPE_CFSC )
-        fprintf(fp,"Aligning with CFSC. ");
+        fprintf(fp,"Aligning with CFSC (substack and reference). ");
+    if( info.cc_type == CC_TYPE_CFSC_SUBSTACK )
+        fprintf(fp,"Aligning with CFSC (substack only). ");
 
     if( info.cc_stats == CC_STATS_SIGMA )
         fprintf(fp,"Measuring (per angle): max( (cc_max - cc_mean) / cc_std , 0 ).");
