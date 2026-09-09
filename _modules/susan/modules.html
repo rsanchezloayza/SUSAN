@@ -438,8 +438,10 @@
 <span class="sd">        ``'cfsc'`` is a deprecated alias for ``'wiener_ssnr'``.</span>
 <span class="sd">        Default: ``'on_reference'``.</span>
 <span class="sd">    cc_type : str</span>
-<span class="sd">        Cross-correlation variant used for scoring: ``'basic'`` or</span>
-<span class="sd">        ``'cfsc'``.  Default: ``'basic'``.</span>
+<span class="sd">        Cross-correlation variant used for scoring: ``'basic'``, ``'cfsc'``</span>
+<span class="sd">        or ``'cfsc_substack'``.  ``'cfsc'`` whitens both the substack and the</span>
+<span class="sd">        3D reference map; ``'cfsc_substack'`` whitens only the substack and</span>
+<span class="sd">        leaves the reference untouched.  Default: ``'basic'``.</span>
 <span class="sd">    cc_stats_type : str</span>
 <span class="sd">        Post-CC statistics normalisation: ``'none'``, ``'probability'``, or</span>
 <span class="sd">        ``'sigma'``.  Default: ``'none'``.</span>
@@ -648,6 +650,9 @@
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'phase_flip'</span><span class="p">,</span><span class="s1">'on_reference'</span><span class="p">,</span><span class="s1">'on_substack'</span><span class="p">,</span><span class="s1">'wiener_ssnr'</span><span class="p">,</span><span class="s1">'cfsc'</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid ctf correction type. Only "none", "phase_flip", "on_reference", "on_substack", "wiener_ssnr" or "cfsc" are valid'</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'basic'</span><span class="p">,</span><span class="s1">'cfsc'</span><span class="p">,</span><span class="s1">'cfsc_substack'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid cc type. Only "basic", "cfsc" or "cfsc_substack" are valid'</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_stats_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'probability'</span><span class="p">,</span><span class="s1">'sigma'</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid cc statistic method. Only "none", "probability" or "sigma" are valid'</span><span class="p">)</span>
@@ -1540,6 +1545,11 @@
 <span class="sd">        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``,</span>
 <span class="sd">        ``'poisson_raw'``, ``'poisson_normal'``.</span>
 <span class="sd">        Default: ``'zero_mean_one_std'``.</span>
+<span class="sd">    cc_type : str</span>
+<span class="sd">        Cross-correlation variant used for scoring: ``'basic'``, ``'cfsc'``</span>
+<span class="sd">        or ``'cfsc_substack'``.  ``'cfsc'`` whitens both the substack and the</span>
+<span class="sd">        3D reference map; ``'cfsc_substack'`` whitens only the substack and</span>
+<span class="sd">        leaves the reference untouched.  Default: ``'cfsc_substack'``.</span>
 <span class="sd">    halfsets_independ : bool</span>
 <span class="sd">        Process the two half-sets with independent references.</span>
 <span class="sd">        Default: ``False``.</span>
@@ -1609,6 +1619,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">extra_padding</span>      <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>       <span class="o">=</span> <span class="s1">'zero'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>     <span class="o">=</span> <span class="s1">'zero_mean_one_std'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cc_type</span>            <span class="o">=</span> <span class="s1">'cfsc_substack'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">halfsets_independ</span>  <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">refine_astigmatism</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">phase_flip</span>         <span class="o">=</span> <span class="kc">False</span>
@@ -1658,6 +1669,9 @@
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'zero_mean'</span><span class="p">,</span><span class="s1">'zero_mean_one_std'</span><span class="p">,</span><span class="s1">'zero_mean_unit_var'</span><span class="p">,</span><span class="s1">'poisson_raw'</span><span class="p">,</span><span class="s1">'poisson_normal'</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid'</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'basic'</span><span class="p">,</span><span class="s1">'cfsc'</span><span class="p">,</span><span class="s1">'cfsc_substack'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid cc type. Only "basic", "cfsc" or "cfsc_substack" are valid'</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">angles</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_shift_deg</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The steps values must be larger than 0'</span><span class="p">)</span>
@@ -1719,6 +1733,7 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -pad_size </span><span class="si">%d</span><span class="s1">'</span>      <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_padding</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -pad_type '</span>        <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -norm_type '</span>       <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -cc_type '</span>         <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_type</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ssnr_param </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">F</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">S</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">rolloff</span>

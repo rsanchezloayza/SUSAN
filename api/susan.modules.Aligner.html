@@ -565,8 +565,10 @@ Default: <code class="docutils literal notranslate"><span class="pre">'on_refere
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.cc_type">
 <span class="sig-name descname"><span class="pre">cc_type</span></span><a class="headerlink" href="#susan.modules.Aligner.cc_type" title="Link to this definition">¶</a></dt>
-<dd><p>Cross-correlation variant used for scoring: <code class="docutils literal notranslate"><span class="pre">'basic'</span></code> or
-<code class="docutils literal notranslate"><span class="pre">'cfsc'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'basic'</span></code>.</p>
+<dd><p>Cross-correlation variant used for scoring: <code class="docutils literal notranslate"><span class="pre">'basic'</span></code>, <code class="docutils literal notranslate"><span class="pre">'cfsc'</span></code>
+or <code class="docutils literal notranslate"><span class="pre">'cfsc_substack'</span></code>.  <code class="docutils literal notranslate"><span class="pre">'cfsc'</span></code> whitens both the substack and the
+3D reference map; <code class="docutils literal notranslate"><span class="pre">'cfsc_substack'</span></code> whitens only the substack and
+leaves the reference untouched.  Default: <code class="docutils literal notranslate"><span class="pre">'basic'</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>

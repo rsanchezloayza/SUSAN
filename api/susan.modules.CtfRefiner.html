@@ -380,6 +380,20 @@ Default: <code class="docutils literal notranslate"><span class="pre">'zero_mean
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.CtfRefiner.cc_type">
+<span class="sig-name descname"><span class="pre">cc_type</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.cc_type" title="Link to this definition">¶</a></dt>
+<dd><p>Cross-correlation variant used for scoring: <code class="docutils literal notranslate"><span class="pre">'basic'</span></code>, <code class="docutils literal notranslate"><span class="pre">'cfsc'</span></code>
+or <code class="docutils literal notranslate"><span class="pre">'cfsc_substack'</span></code>.  <code class="docutils literal notranslate"><span class="pre">'cfsc'</span></code> whitens both the substack and the
+3D reference map; <code class="docutils literal notranslate"><span class="pre">'cfsc_substack'</span></code> whitens only the substack and
+leaves the reference untouched.  Default: <code class="docutils literal notranslate"><span class="pre">'cfsc_substack'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfRefiner.halfsets_independ">
 <span class="sig-name descname"><span class="pre">halfsets_independ</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.halfsets_independ" title="Link to this definition">¶</a></dt>
 <dd><p>Process the two half-sets with independent references.
@@ -706,6 +720,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">mpi_params
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.extra_padding"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.extra_padding</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.padding_type"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.padding_type</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.normalize_type"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.normalize_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfRefiner.cc_type"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.cc_type</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.halfsets_independ"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.halfsets_independ</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.refine_astigmatism"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.refine_astigmatism</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.phase_flip"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.phase_flip</span></code></a></li>
