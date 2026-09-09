@@ -134,8 +134,10 @@ class Aligner:
         ``'cfsc'`` is a deprecated alias for ``'wiener_ssnr'``.
         Default: ``'on_reference'``.
     cc_type : str
-        Cross-correlation variant used for scoring: ``'basic'`` or
-        ``'cfsc'``.  Default: ``'basic'``.
+        Cross-correlation variant used for scoring: ``'basic'``, ``'cfsc'``
+        or ``'cfsc_substack'``.  ``'cfsc'`` whitens both the substack and the
+        3D reference map; ``'cfsc_substack'`` whitens only the substack and
+        leaves the reference untouched.  Default: ``'basic'``.
     cc_stats_type : str
         Post-CC statistics normalisation: ``'none'``, ``'probability'``, or
         ``'sigma'``.  Default: ``'none'``.
@@ -338,6 +340,9 @@ class Aligner:
         
         if not self.ctf_correction in ['none','phase_flip','on_reference','on_substack','wiener_ssnr','cfsc']:
             raise ValueError('Invalid ctf correction type. Only "none", "phase_flip", "on_reference", "on_substack", "wiener_ssnr" or "cfsc" are valid')
+        
+        if not self.cc_type in ['basic','cfsc','cfsc_substack']:
+            raise ValueError('Invalid cc type. Only "basic", "cfsc" or "cfsc_substack" are valid')
         
         if not self.cc_stats_type in ['none','probability','sigma']:
             raise ValueError('Invalid cc statistic method. Only "none", "probability" or "sigma" are valid')
@@ -1179,6 +1184,11 @@ class CtfRefiner:
         ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``,
         ``'poisson_raw'``, ``'poisson_normal'``.
         Default: ``'zero_mean_one_std'``.
+    cc_type : str
+        Cross-correlation variant used for scoring: ``'basic'``, ``'cfsc'``
+        or ``'cfsc_substack'``.  ``'cfsc'`` whitens both the substack and the
+        3D reference map; ``'cfsc_substack'`` whitens only the substack and
+        leaves the reference untouched.  Default: ``'cfsc_substack'``.
     halfsets_independ : bool
         Process the two half-sets with independent references.
         Default: ``False``.
@@ -1248,6 +1258,7 @@ class CtfRefiner:
         self.extra_padding      = 0
         self.padding_type       = 'zero'
         self.normalize_type     = 'zero_mean_one_std'
+        self.cc_type            = 'cfsc_substack'
         self.halfsets_independ  = False
         self.refine_astigmatism = False
         self.phase_flip         = False
@@ -1294,6 +1305,9 @@ class CtfRefiner:
         
         if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
             raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
+        
+        if not self.cc_type in ['basic','cfsc','cfsc_substack']:
+            raise ValueError('Invalid cc type. Only "basic", "cfsc" or "cfsc_substack" are valid')
         
         if not self.defocus_angstroms.step > 0 or not self.angles.step > 0 or not self.phase_shift_deg.step > 0:
             raise ValueError('The steps values must be larger than 0')
@@ -1353,6 +1367,7 @@ class CtfRefiner:
         args = args + ' -pad_size %d'      % self.extra_padding
         args = args + ' -pad_type '        + self.padding_type
         args = args + ' -norm_type '       + self.normalize_type
+        args = args + ' -cc_type '         + self.cc_type
         args = args + ' -ssnr_param %f,%f' % (self.ssnr.F,self.ssnr.S)
         args = args + ' -bandpass %f,%f'   % (self.bandpass.highpass,self.bandpass.lowpass)
         args = args + ' -rolloff_f %f'     % self.bandpass.rolloff
