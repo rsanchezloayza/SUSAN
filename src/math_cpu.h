@@ -887,7 +887,7 @@ public:
 
     void get_etc(int&days,int&hours,int&mins,int&secs,const int processed,const int total) {
         if( processed > 0 ) {
-            if( total == processed ) {
+            if( processed >= total ) {
                 days =0;
                 hours=0;
                 mins =0;

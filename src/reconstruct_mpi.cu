@@ -49,7 +49,7 @@ public:
         mpi_progress->put( mpi_iface->node_id, val );
 
         if( mpi_iface->is_main_node() ) {
-            n_ptcls = ptcls_full->n_ptcl;
+            progress.set_total( ptcls_full->n_ptcl );
         }
     }
 

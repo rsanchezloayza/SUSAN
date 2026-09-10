@@ -95,6 +95,10 @@ public:
         delete [] buffer;
     }
 
+    void set_total(const uint32 in_total) {
+        total = (single)in_total;
+    }
+
     void start() {
         timer.tic();
         set_caption(0,true);
