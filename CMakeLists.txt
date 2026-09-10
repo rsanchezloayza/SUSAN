@@ -91,8 +91,8 @@ foreach(target IN LISTS target_list)
 	add_executable(${bin} src/${target}.cu)
 	target_link_libraries(${bin} PRIVATE cufft Eigen3::Eigen)
 	if(target STREQUAL "estimate_ctf")
-        target_link_libraries(${bin} PRIVATE lodepng)
-    endif()
+		target_link_libraries(${bin} PRIVATE lodepng)
+	endif()
 	set_property(TARGET ${bin} PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCHS})
 	add_custom_command(TARGET ${bin} POST_BUILD 
 		COMMAND mkdir -p ${CMAKE_SOURCE_DIR}/susan/bin
@@ -111,6 +111,10 @@ if( MPI_FOUND )
 		target_link_libraries(${bin} cufft ${MPI_CXX_LIBRARIES} Eigen3::Eigen)
 		target_include_directories(${bin} PUBLIC ${MPI_CXX_INCLUDE_DIRS})
 		set_property(TARGET ${bin} PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCHS})
+		add_custom_command(TARGET ${bin} POST_BUILD 
+			COMMAND mkdir -p ${CMAKE_SOURCE_DIR}/susan/bin
+			COMMAND cp -v ${CMAKE_CURRENT_BINARY_DIR}/${bin} ${CMAKE_SOURCE_DIR}/susan/bin/
+		)
 	endforeach()
 endif( MPI_FOUND )
 
