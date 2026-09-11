@@ -21,6 +21,8 @@ __all__ = ['dose_from_fsc',
            'radial_expansion',
            'fsc_get',
            'fsc_analyse',
+           'fsc_get_fpix',
+           'ssnr_from_fsc',
            'bandpass',
            'apply_FOM',
            'fsc_sharpen',
@@ -43,8 +45,13 @@ __all__ = ['dose_from_fsc',
           ]
 
 import datetime
+import warnings as _warnings
 import susan.io.mrc as mrc
 import numpy as np
+
+def _warn(msg):
+    _warnings.warn(msg,RuntimeWarning,stacklevel=3)
+
 from os.path import splitext as split_ext
 from susan.utils._functions_core import (
     radial_average as _radial_average_cy,
@@ -372,6 +379,56 @@ def fsc_analyse(fsc,apix=1.0,thres=0.143):
 
 ###########################################
 
+def fsc_get_fpix(fsc,th_list=(0.5,0.143),interp=True):
+    """Resolution in Fourier pixels at each of several FSC thresholds.
+
+    Unlike :func:`fsc_analyse`, this always returns a list, one entry per
+    threshold, and can interpolate the crossing to sub-shell precision.
+
+    Parameters
+    ----------
+    fsc : array_like
+        FSC curve as returned by :func:`fsc_get` (``n = box//2 + 1`` shells).
+    th_list : float or sequence of float, optional
+        FSC threshold(s).  A scalar is accepted and treated as a 1-element
+        list.  Default ``(0.5, 0.143)``.
+    interp : bool, optional
+        If True (default) linearly interpolate between the two shells
+        bracketing the crossing.  Matters when the crossings are only a few
+        shells apart, which is typical of CryoET half-map FSCs: with integer
+        crossings the anchors used by :func:`ssnr_from_fsc` can be off by
+        more than 15%.
+
+    Returns
+    -------
+    list of float
+        One entry per threshold, always a list even for a single threshold.
+
+        Sentinels:
+
+        * ``nan`` — the FSC never drops below the threshold.
+        * ``0.0`` — the FSC is already below the threshold at shell 0.
+    """
+    fsc     = np.asarray(fsc,dtype=np.float64)
+    th_list = np.atleast_1d(np.asarray(th_list,dtype=np.float64))
+
+    rslt = []
+    for th in th_list:
+        below = fsc < th
+        if not below.any():
+            rslt.append(float('nan'))
+            continue
+        i = int(np.argmax(below))
+        if i == 0:
+            rslt.append(0.0)
+            continue
+        if interp:
+            f0,f1 = fsc[i-1],fsc[i]
+            frac  = (f0-th)/(f0-f1) if f0 > f1 else 0.0
+            rslt.append(float(i-1+frac))
+        else:
+            rslt.append(float(i))
+    return rslt
 
 ###########################################
 
@@ -629,7 +686,8 @@ def dose_from_fsc(fsc, apix, freq_range=(0.1, 0.8), fsc_min=0.1):
     ----------
     fsc : array_like
         FSC curve as returned by ``fsc_get``.  Assumed to have n shells
-        spanning a box of size 2n (i.e. shell k → s = k / (2n·apix)).
+        spanning a box of side 2(n-1), i.e. shell k → s = k / (2(n-1)·apix),
+        matching ``fsc_get`` and ``fsc_analyse``.
     apix : float
         Pixel size in Angstroms.
     freq_range : tuple of float
@@ -648,8 +706,11 @@ def dose_from_fsc(fsc, apix, freq_range=(0.1, 0.8), fsc_min=0.1):
     """
     fsc   = np.asarray(fsc, dtype=np.float64)
     n     = len(fsc)
+    if n < 2:
+        return float('nan')
+    box   = 2*(n-1)
     s_nyq = 1.0 / (2.0 * float(apix))
-    s     = np.arange(n) / n * s_nyq   # shell k → s = k/(2n·apix); s[n-1] ≈ s_nyq
+    s     = np.arange(n) / (box * float(apix))   # shell k → s = k/(box·apix); s[n-1] = s_nyq
     s2    = s * s
 
     lo, hi = freq_range
@@ -659,6 +720,166 @@ def dose_from_fsc(fsc, apix, freq_range=(0.1, 0.8), fsc_min=0.1):
 
     slope, _ = np.polyfit(s2[mask], np.log(fsc[mask]), 1)
     return -4.0 * slope   # dose = −4 · slope  (matches exp(−s²·dose/4) convention)
+
+###########################################
+
+def ssnr_from_fsc(fsc,apix,th_list=(0.5,0.143),n_eff=None,fallback=True):
+    """Estimate the ad-hoc SSNR parameters (S, F) from an FSC curve.
+
+    SUSAN models the spectral SNR as (see :class:`susan.utils.datatypes.ssnr`)
+
+    .. math::
+        SSNR(s) = 10^{3S} \\cdot e^{-100 F s}, \\quad s \\text{ in } 1/\\text{\\AA}
+
+    so :math:`\\ln SSNR` is linear in *s* and two points determine it.  The
+    two anchors are taken from the FSC itself, converting each threshold *t*
+    to the map SSNR it corresponds to, :math:`SSNR = 2t/(1-t)`:
+
+    .. math::
+        F = \\frac{\\ln(q_1/q_2)\\,(box \\cdot apix)}{100\\,(r_2-r_1)}, \\quad
+        S = \\frac{\\ln q_1 + \\ln(q_1/q_2)\\, r_1/(r_2-r_1)}{3 \\ln 10}
+
+    with :math:`r_i` the crossing radii in Fourier pixels and
+    :math:`q_i = 2t_i/(1-t_i)`.  Note that *S* depends only on the ratio
+    :math:`r_1/(r_2-r_1)` and so is independent of the pixel size; *F* scales
+    with ``box*apix``.
+
+    The two-anchor solve is used rather than a least-squares fit because the
+    applied weight, ``SSNR/(1+SSNR)``, saturates at 0 and 1: only the location
+    and sharpness of the turnover matter, and those are what the anchors fix.
+
+    Parameters
+    ----------
+    fsc : array_like
+        FSC curve as returned by :func:`fsc_get` (``n = box//2 + 1`` shells,
+        so the box side is ``2*(n-1)``).
+    apix : float
+        Pixel size in Angstroms of the maps the FSC was computed from.
+        Needed for *F*; *S* does not depend on it.
+    th_list : sequence of two float, optional
+        The two FSC anchors, in decreasing order.  Default ``(0.5, 0.143)``.
+    n_eff : float or None, optional
+        Effective number of independent 2D measurements contributing to the
+        map, roughly ``n_particles * n_tilts`` (times the symmetry order; use
+        ``sum(prj_w)`` in place of ``n_tilts`` if the weights are not all 1).
+        The FSC measures the SSNR of the *map*, while the model is defined as
+        the SSNR of a *single projection*, so ``S`` is reduced by
+        ``log10(n_eff)/3`` (``F`` is unchanged).  Pass it when the result is
+        destined for the substack whitening or the reconstruction Wiener
+        filter, both of which apply the SSNR once per projection.  ``None``
+        (default) returns the map SSNR unconverted.
+
+        Note that with ``n_eff=None`` the returned ``S`` is always positive
+        (every term of its formula is, as long as ``th_list[0] > 1/3``), so
+        the ``10^(3S) > 1`` gate in the C++ ``radial_frc_acc`` always engages.
+        Applying the conversion can push ``S`` below 0 on a low-SSNR dataset,
+        which that gate reads as "disabled" and silently reverts to pure
+        whitening.
+    fallback : bool, optional
+        What to do when the requested anchors are not both reached.  Default
+        True, which walks down this ladder:
+
+        1. Both ``th_list`` crossings usable — solve directly.
+        2. Only ``th_list[0]`` crossed — re-anchor on
+           ``((1+th_list[0])/2, th_list[0])``, i.e. ``(0.75, 0.5)`` for the
+           defaults.  The estimate is then extrapolated past the data, and a
+           warning is issued.
+        3. Neither crossed — the map is Nyquist-limited rather than
+           SNR-limited.  Anchor on the curve itself (first shell below 0.99
+           and the outermost shell) so the taper follows the FSC value at
+           Nyquist.  It is correspondingly mild, tending to no taper at all
+           as the FSC flattens.  A warning is issued.
+
+        Set False to get ``nan`` instead of any fallback.
+
+    Returns
+    -------
+    datatypes.ssnr
+        Named tuple with fields ``S`` and ``F``.
+
+        Both fields are ``nan`` if no usable pair of anchors exists: the
+        crossings are out of order or coincident, the first anchor sits at
+        shell 0, the curve has fewer than 2 shells, or ``fallback`` is False
+        and the requested anchors were not both reached.  Check with
+        ``math.isnan(rslt.F)`` before use.
+
+    Raises
+    ------
+    ValueError
+        If ``th_list`` does not hold exactly two decreasing values in (0, 1),
+        or if ``apix`` is not positive.
+    """
+    fsc = np.asarray(fsc,dtype=np.float64)
+
+    th_list = np.atleast_1d(np.asarray(th_list,dtype=np.float64))
+    if th_list.size != 2:
+        raise ValueError('ssnr_from_fsc needs exactly 2 thresholds (the two anchors).')
+    t1,t2 = float(th_list[0]),float(th_list[1])
+    if not (0.0 < t2 < t1 < 1.0):
+        raise ValueError('The thresholds must satisfy 0 < th_list[1] < th_list[0] < 1.')
+    if not (float(apix) > 0.0):
+        raise ValueError('apix must be larger than 0.')
+    if n_eff is not None and not (float(n_eff) > 0.0):
+        raise ValueError('n_eff must be larger than 0 (or None to skip the conversion).')
+    if fsc.size < 2:
+        return datatypes.ssnr(float('nan'),float('nan'))
+
+    def _q(t):                       # FSC threshold -> SSNR of the map
+        t = min(float(t),1.0-1e-6)   # clamp: FSC == 1 would give an infinite SSNR
+        return 2.0*t/(1.0-t)
+
+    r1,r2 = fsc_get_fpix(fsc,(t1,t2),interp=True)
+    q1,q2 = _q(t1),_q(t2)
+
+    ok1 = bool(np.isfinite(r1)) and (r1 > 0.0)
+    ok2 = bool(np.isfinite(r2))
+
+    if ok1 and ok2 and (r2 > r1):
+        pass                         # level 1: both requested anchors usable
+    elif not fallback:
+        return datatypes.ssnr(float('nan'),float('nan'))
+    elif ok1:
+        # Level 2: the outer anchor was never reached, but the inner one was.
+        # Move both anchors up: t1 becomes the FSC halfway between 1 and t1
+        # (0.75 for the default t1 = 0.5) and the old t1 becomes the outer one.
+        t1b,t2b = 0.5*(1.0+t1),t1
+        r1,r2   = fsc_get_fpix(fsc,(t1b,t2b),interp=True)
+        q1,q2   = _q(t1b),_q(t2b)
+        if (not np.isfinite(r1)) or (not np.isfinite(r2)) or (r2 <= r1):
+            return datatypes.ssnr(float('nan'),float('nan'))
+        _warn('ssnr_from_fsc: FSC never reaches %g; anchoring on (%g, %g) instead.'%(t2,t1b,t2b))
+    else:
+        # Level 3: not even the inner anchor was reached, so the map is
+        # Nyquist-limited rather than SNR-limited.  Anchor on the curve
+        # itself: the first shell safely below 1 and the outermost shell.
+        # The taper this yields is set by the FSC value at Nyquist, and is
+        # correspondingly mild (it tends to no taper as the FSC flattens).
+        usable = np.argwhere(fsc < 0.99)
+        if usable.size == 0:
+            return datatypes.ssnr(float('nan'),float('nan'))
+        r1,r2  = float(usable[0,0]),float(fsc.size-1)
+        q1,q2  = _q(fsc[int(r1)]),_q(fsc[-1])
+        if r2 <= r1:
+            return datatypes.ssnr(float('nan'),float('nan'))
+        _warn('ssnr_from_fsc: FSC never reaches %g; anchoring on the curve '
+              '(shells %d and %d, FSC %.3f and %.3f). The taper will be mild.'
+              %(t1,int(r1),int(r2),fsc[int(r1)],fsc[-1]))
+
+    # q1 == q2 (a flat FSC) is fine and yields F = 0, i.e. no taper.  A
+    # non-positive SSNR carries no information, and q1 < q2 would mean the
+    # SSNR rises with frequency; neither is a usable anchor pair.
+    if (not (q1 > 0.0)) or (not (q2 > 0.0)) or (q1 < q2):
+        return datatypes.ssnr(float('nan'),float('nan'))
+
+    lq  = np.log(q1/q2)
+    box = 2*(fsc.size-1)
+    F   = lq*(box*float(apix))/(100.0*(r2-r1))
+    S   = (np.log(q1) + lq*r1/(r2-r1))/(3.0*np.log(10.0))
+
+    if n_eff is not None:
+        S -= np.log10(float(n_eff))/3.0
+
+    return datatypes.ssnr(float(S),float(F))
 
 ###########################################
 
