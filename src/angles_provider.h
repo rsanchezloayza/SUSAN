@@ -226,37 +226,16 @@ public:
     }
 
     void get_current_R(M33f&R) {
-        /// Sample Cone trying to keep the Y axis always point forward
-        /// (avoid twisting from the cone sampling)
-        float phi   = eu1 * DEG2RAD;
-        float theta = eu2 * DEG2RAD;
-        float psi   = eu3 * DEG2RAD;
+        V3f eu;
+        eu(0) = eu1;
+        eu(1) = eu2;
+        eu(2) = eu3-eu1;
+        eu *= DEG2RAD;
 
-        // current forward
-        V3f forward;
-        forward << sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta);
+        M33f Rtmp;
+        eZYZ_Rmat(Rtmp,eu);
 
-        // Direction trying to keep
-        V3f face_direction(0,1,0);
-
-        if (fabs(forward.dot(face_direction)) > 0.999f)
-            face_direction = V3f(1,0,0);
-
-        // Be sure to continue looking forward
-        V3f right = face_direction.cross(forward).normalized();
-        V3f up    = forward.cross(right);
-
-        M33f Rcone;
-        Rcone.col(0) = right;
-        Rcone.col(1) = up;
-        Rcone.col(2) = forward;
-
-        // Add in plane rotations
-        Eigen::AngleAxisf rz(psi, Eigen::Vector3f::UnitZ());
-        M33f Rinplane = rz.toRotationMatrix();
-
-        // Final rotation
-        R = Rcone*Rinplane*pseudo_sym_list[curr_sym];
+        R = Rtmp*pseudo_sym_list[curr_sym];
     }
 
     void get_current_R(Rot33&R) {

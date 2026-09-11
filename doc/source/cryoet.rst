@@ -314,6 +314,75 @@ solved by alternating among three sub-problems:
   CTF-deconvolved reference.
 
 
+.. _angular-conventions:
+
+Angular conventions
+~~~~~~~~~~~~~~~~~~~
+
+Both orientation sub-problems are searched with the same cone/in-plane
+sampling and both store their result as a ZYZ Euler triplet, built as
+
+.. math::
+
+   R(\theta_0,\theta_1,\theta_2) = R_z(\theta_0)\,R_y(\theta_1)\,R_z(\theta_2).
+
+The two triplets do **not** read the same way, because the two rotations sit at
+opposite ends of the projection chain. Writing the full reference-to-image
+transform for particle :math:`i` and projection :math:`j`,
+
+.. math::
+
+   \underbrace{R^\text{prj}_{ij}}_{\texttt{prj\_eu}}\;
+   \underbrace{R^\text{tilt}_{j}}_{\texttt{.tomostxt}}\;
+   \underbrace{R^\text{ali}_{i}}_{\texttt{ali\_eu}},
+
+``ali_eu`` is the **innermost** factor and ``prj_eu`` the **outermost** one.
+Each search perturbs its own rotation in the frame that matters for it — the
+reference frame for the 3D search, the projection frame for the 2D one — so the
+increment is composed on the right of ``ali_eu`` and on the left of ``prj_eu``.
+That single difference mirrors the meaning of the three stored angles:
+
++-----------------+------------------------------+------------------------------+
+|                 | ``ali_eu`` (3D alignment)    | ``prj_eu`` (2D refinement)   |
++=================+==============================+==============================+
+| maps            | reference → tomogram         | tilt geometry → image        |
++-----------------+------------------------------+------------------------------+
+| increment       | right-multiplied             | left-multiplied              |
++-----------------+------------------------------+------------------------------+
+| cone axis       | particle Z in the tomogram   | viewing direction            |
++-----------------+------------------------------+------------------------------+
+| :math:`\theta_0`| cone **azimuth**             | **in-plane** rotation        |
++-----------------+------------------------------+------------------------------+
+| :math:`\theta_1`| cone **polar**               | cone **polar**               |
++-----------------+------------------------------+------------------------------+
+| :math:`\theta_2`| **in-plane** rotation        | cone **azimuth**,            |
+|                 |                              | as :math:`180^\circ-\theta_2`|
++-----------------+------------------------------+------------------------------+
+
+So for ``ali_eu`` the triplet reads *(azimuth, polar, in-plane)* and a pure
+in-plane search moves :math:`\theta_2` alone, whereas for ``prj_eu`` it reads
+*(in-plane, polar, azimuth)* and a pure in-plane search moves
+:math:`\theta_0` alone. The polar angle is :math:`\theta_1` in both.
+
+The sampling parameters are unaffected by this and keep their literal meaning
+in both searches: ``cone_range`` is the full aperture of a cone centred on the
+current axis — the particle's own Z for 3D, the viewing direction for 2D — so a
+sample at polar :math:`\theta` displaces that axis by exactly :math:`\theta`
+for every azimuth, and ``inplane_range`` spans a rotation about that same axis
+that leaves it fixed. Only the slot the result is stored in differs.
+
+.. note::
+
+   The ZYZ parametrisation is degenerate at :math:`\theta_1 = 0`, where
+   :math:`R = R_z(\theta_0 + \theta_2)` and only the sum is determined. The
+   stored :math:`\theta_0` and :math:`\theta_2` are then individually
+   ill-conditioned — a particle whose axis nearly coincides with the cone axis
+   can show both angles swinging by degrees between iterations while the
+   rotation itself barely moves. Use the rotation matrix, or
+   :math:`\theta_0 + \theta_2`, for per-particle statistics and convergence
+   diagnostics in that regime; never the two angles separately.
+
+
 Spectral weighting in the reconstruction
 ----------------------------------------
 

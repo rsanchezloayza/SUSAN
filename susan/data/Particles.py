@@ -99,6 +99,10 @@ class Particles:
        :type: ndarray, float32, shape (R, M, 3)
 
        3-D alignment: ZYZ Euler angles in radians, one set per reference.
+       Maps the reference onto the tomogram, and reads
+       *(cone azimuth, cone polar, in-plane)*: a pure in-plane search moves
+       the **last** angle. Note the mirrored reading of :attr:`prj_eu`; see
+       :ref:`angular conventions <angular-conventions>`.
 
     .. attribute:: ali_t
        :type: ndarray, float32, shape (R, M, 3)
@@ -120,7 +124,12 @@ class Particles:
     .. attribute:: prj_eu
        :type: ndarray, float32, shape (M, P, 3)
 
-       Per-projection 2-D alignment: ZYZ Euler angles in radians.
+       Per-projection 2-D alignment: ZYZ Euler angles in radians. Applied in
+       the projection frame, so the triplet reads *mirrored* with respect to
+       :attr:`ali_eu` — *(in-plane, cone polar, cone azimuth)* — and a pure
+       in-plane search moves the **first** angle. The cone and in-plane
+       sampling parameters themselves mean the same thing in both searches;
+       see :ref:`angular conventions <angular-conventions>`.
 
     .. attribute:: prj_t
        :type: ndarray, float32, shape (M, P, 2)

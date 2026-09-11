@@ -635,7 +635,7 @@ protected:
                         /// - Normalize reference projections.
 
                         ang_prov.get_current_R(R_ite);
-                        R_tmp = (R_ite*R_lvl*R_ali).transpose();
+                        R_tmp = (R_ali*R_lvl*R_ite).transpose();
                         Math::set(Rot,R_tmp);
 
                         ali_data.rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
@@ -669,7 +669,7 @@ protected:
                         /// (cone) and in-plane (twist) deviations are penalised
                         /// independently with the same angle_sigma and multiplied.
                         /// Disabled (w=1) when angle_sigma <= 0.
-                        const M33f  R_cum  = R_ite*R_lvl;
+                        const M33f  R_cum  = R_lvl*R_ite;
                         const float weight = orientation_prior_weight_deg(cone_theta_deg(R_cum)   ,angle_sigma)
                                            * orientation_prior_weight_deg(inplane_theta_deg(R_cum),angle_sigma);
 
@@ -819,7 +819,7 @@ protected:
 
         M33f Rprv;
         Math::eZYZ_Rmat(Rprv,ptcl.ali_eu[ref_ix]);
-        M33f Rnew = Rot*Rprv;
+        M33f Rnew = Rprv*Rot;
         Math::Rmat_eZYZ(ptcl.ali_eu[ref_ix],Rnew);
 
         Vec3 t_store = t;

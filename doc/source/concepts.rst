@@ -99,6 +99,11 @@ plain text. Each record contains:
 * **per-projection 2D refinement** — in-plane shifts and rotations;
 * **per-projection CTF** — individual defocus and astigmatism values.
 
+The 3D and 2D orientations are both stored as ZYZ Euler angles, but the two
+triplets read mirrored with respect to each other: the in-plane rotation is
+the last angle of the 3D alignment and the first of the 2D refinement. See
+:ref:`angular-conventions`.
+
 Because coordinates are stored in Ångströms and geometry lives in
 ``.tomostxt``, the same ``.ptclsraw`` file works unchanged at any binning
 level; multiresolution processing requires no re-extraction. In Python,
