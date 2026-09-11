@@ -327,7 +327,8 @@ marked as 9999) to calibrate <code class="docutils literal notranslate"><span cl
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>fsc</strong> (<em>array_like</em>) – FSC curve as returned by <code class="docutils literal notranslate"><span class="pre">fsc_get</span></code>.  Assumed to have n shells
-spanning a box of size 2n (i.e. shell k → s = k / (2n·apix)).</p></li>
+spanning a box of side 2(n-1), i.e. shell k → s = k / (2(n-1)·apix),
+matching <code class="docutils literal notranslate"><span class="pre">fsc_get</span></code> and <code class="docutils literal notranslate"><span class="pre">fsc_analyse</span></code>.</p></li>
 <li><p><strong>apix</strong> (<em>float</em>) – Pixel size in Angstroms.</p></li>
 <li><p><strong>freq_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – (low, high) as fractions of Nyquist over which to fit.  The default
 (0.1, 0.8) covers the Guinier decay while stopping before the
@@ -427,6 +428,125 @@ drops below <code class="docutils literal notranslate"><span class="pre">thres</
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.fsc_info" title="susan.utils.datatypes.fsc_info">datatypes.fsc_info</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.fsc_get_fpix">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">fsc_get_fpix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fsc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">th_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.5,</span> <span class="pre">0.143)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#fsc_get_fpix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.fsc_get_fpix" title="Link to this definition">¶</a></dt>
+<dd><p>Resolution in Fourier pixels at each of several FSC thresholds.</p>
+<p>Unlike <a class="reference internal" href="#susan.utils._functions.fsc_analyse" title="susan.utils._functions.fsc_analyse"><code class="xref py py-func docutils literal notranslate"><span class="pre">fsc_analyse()</span></code></a>, this always returns a list, one entry per
+threshold, and can interpolate the crossing to sub-shell precision.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fsc</strong> (<em>array_like</em>) – FSC curve as returned by <a class="reference internal" href="#susan.utils._functions.fsc_get" title="susan.utils._functions.fsc_get"><code class="xref py py-func docutils literal notranslate"><span class="pre">fsc_get()</span></code></a> (<code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">=</span> <span class="pre">box//2</span> <span class="pre">+</span> <span class="pre">1</span></code> shells).</p></li>
+<li><p><strong>th_list</strong> (<em>float</em><em> or </em><em>sequence</em><em> of </em><em>float</em><em>, </em><em>optional</em>) – FSC threshold(s).  A scalar is accepted and treated as a 1-element
+list.  Default <code class="docutils literal notranslate"><span class="pre">(0.5,</span> <span class="pre">0.143)</span></code>.</p></li>
+<li><p><strong>interp</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default) linearly interpolate between the two shells
+bracketing the crossing.  Matters when the crossings are only a few
+shells apart, which is typical of CryoET half-map FSCs: with integer
+crossings the anchors used by <a class="reference internal" href="#susan.utils._functions.ssnr_from_fsc" title="susan.utils._functions.ssnr_from_fsc"><code class="xref py py-func docutils literal notranslate"><span class="pre">ssnr_from_fsc()</span></code></a> can be off by
+more than 15%.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>One entry per threshold, always a list even for a single threshold.</p>
+<p>Sentinels:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">nan</span></code> — the FSC never drops below the threshold.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code> — the FSC is already below the threshold at shell 0.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.ssnr_from_fsc">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">ssnr_from_fsc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fsc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">th_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.5,</span> <span class="pre">0.143)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_eff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fallback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#ssnr_from_fsc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.ssnr_from_fsc" title="Link to this definition">¶</a></dt>
+<dd><p>Estimate the ad-hoc SSNR parameters (S, F) from an FSC curve.</p>
+<p>SUSAN models the spectral SNR as (see <a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.ssnr" title="susan.utils.datatypes.ssnr"><code class="xref py py-class docutils literal notranslate"><span class="pre">susan.utils.datatypes.ssnr</span></code></a>)</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[SSNR(s) = 10^{3S} \cdot e^{-100 F s}, \quad s \text{ in } 1/\text{\AA}\]</div>
+</div>
+<p>so <span class="math notranslate nohighlight">\(\ln SSNR\)</span> is linear in <em>s</em> and two points determine it.  The
+two anchors are taken from the FSC itself, converting each threshold <em>t</em>
+to the map SSNR it corresponds to, <span class="math notranslate nohighlight">\(SSNR = 2t/(1-t)\)</span>:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[F = \frac{\ln(q_1/q_2)\,(box \cdot apix)}{100\,(r_2-r_1)}, \quad
+S = \frac{\ln q_1 + \ln(q_1/q_2)\, r_1/(r_2-r_1)}{3 \ln 10}\]</div>
+</div>
+<p>with <span class="math notranslate nohighlight">\(r_i\)</span> the crossing radii in Fourier pixels and
+<span class="math notranslate nohighlight">\(q_i = 2t_i/(1-t_i)\)</span>.  Note that <em>S</em> depends only on the ratio
+<span class="math notranslate nohighlight">\(r_1/(r_2-r_1)\)</span> and so is independent of the pixel size; <em>F</em> scales
+with <code class="docutils literal notranslate"><span class="pre">box*apix</span></code>.</p>
+<p>The two-anchor solve is used rather than a least-squares fit because the
+applied weight, <code class="docutils literal notranslate"><span class="pre">SSNR/(1+SSNR)</span></code>, saturates at 0 and 1: only the location
+and sharpness of the turnover matter, and those are what the anchors fix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fsc</strong> (<em>array_like</em>) – FSC curve as returned by <a class="reference internal" href="#susan.utils._functions.fsc_get" title="susan.utils._functions.fsc_get"><code class="xref py py-func docutils literal notranslate"><span class="pre">fsc_get()</span></code></a> (<code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">=</span> <span class="pre">box//2</span> <span class="pre">+</span> <span class="pre">1</span></code> shells,
+so the box side is <code class="docutils literal notranslate"><span class="pre">2*(n-1)</span></code>).</p></li>
+<li><p><strong>apix</strong> (<em>float</em>) – Pixel size in Angstroms of the maps the FSC was computed from.
+Needed for <em>F</em>; <em>S</em> does not depend on it.</p></li>
+<li><p><strong>th_list</strong> (<em>sequence</em><em> of </em><em>two float</em><em>, </em><em>optional</em>) – The two FSC anchors, in decreasing order.  Default <code class="docutils literal notranslate"><span class="pre">(0.5,</span> <span class="pre">0.143)</span></code>.</p></li>
+<li><p><strong>n_eff</strong> (<em>float</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – <p>Effective number of independent 2D measurements contributing to the
+map, roughly <code class="docutils literal notranslate"><span class="pre">n_particles</span> <span class="pre">*</span> <span class="pre">n_tilts</span></code> (times the symmetry order; use
+<code class="docutils literal notranslate"><span class="pre">sum(prj_w)</span></code> in place of <code class="docutils literal notranslate"><span class="pre">n_tilts</span></code> if the weights are not all 1).
+The FSC measures the SSNR of the <em>map</em>, while the model is defined as
+the SSNR of a <em>single projection</em>, so <code class="docutils literal notranslate"><span class="pre">S</span></code> is reduced by
+<code class="docutils literal notranslate"><span class="pre">log10(n_eff)/3</span></code> (<code class="docutils literal notranslate"><span class="pre">F</span></code> is unchanged).  Pass it when the result is
+destined for the substack whitening or the reconstruction Wiener
+filter, both of which apply the SSNR once per projection.  <code class="docutils literal notranslate"><span class="pre">None</span></code>
+(default) returns the map SSNR unconverted.</p>
+<p>Note that with <code class="docutils literal notranslate"><span class="pre">n_eff=None</span></code> the returned <code class="docutils literal notranslate"><span class="pre">S</span></code> is always positive
+(every term of its formula is, as long as <code class="docutils literal notranslate"><span class="pre">th_list[0]</span> <span class="pre">&gt;</span> <span class="pre">1/3</span></code>), so
+the <code class="docutils literal notranslate"><span class="pre">10^(3S)</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> gate in the C++ <code class="docutils literal notranslate"><span class="pre">radial_frc_acc</span></code> always engages.
+Applying the conversion can push <code class="docutils literal notranslate"><span class="pre">S</span></code> below 0 on a low-SSNR dataset,
+which that gate reads as “disabled” and silently reverts to pure
+whitening.</p>
+</p></li>
+<li><p><strong>fallback</strong> (<em>bool</em><em>, </em><em>optional</em>) – <p>What to do when the requested anchors are not both reached.  Default
+True, which walks down this ladder:</p>
+<ol class="arabic simple">
+<li><p>Both <code class="docutils literal notranslate"><span class="pre">th_list</span></code> crossings usable — solve directly.</p></li>
+<li><p>Only <code class="docutils literal notranslate"><span class="pre">th_list[0]</span></code> crossed — re-anchor on
+<code class="docutils literal notranslate"><span class="pre">((1+th_list[0])/2,</span> <span class="pre">th_list[0])</span></code>, i.e. <code class="docutils literal notranslate"><span class="pre">(0.75,</span> <span class="pre">0.5)</span></code> for the
+defaults.  The estimate is then extrapolated past the data, and a
+warning is issued.</p></li>
+<li><p>Neither crossed — the map is Nyquist-limited rather than
+SNR-limited.  Anchor on the curve itself (first shell below 0.99
+and the outermost shell) so the taper follows the FSC value at
+Nyquist.  It is correspondingly mild, tending to no taper at all
+as the FSC flattens.  A warning is issued.</p></li>
+</ol>
+<p>Set False to get <code class="docutils literal notranslate"><span class="pre">nan</span></code> instead of any fallback.</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Named tuple with fields <code class="docutils literal notranslate"><span class="pre">S</span></code> and <code class="docutils literal notranslate"><span class="pre">F</span></code>.</p>
+<p>Both fields are <code class="docutils literal notranslate"><span class="pre">nan</span></code> if no usable pair of anchors exists: the
+crossings are out of order or coincident, the first anchor sits at
+shell 0, the curve has fewer than 2 shells, or <code class="docutils literal notranslate"><span class="pre">fallback</span></code> is False
+and the requested anchors were not both reached.  Check with
+<code class="docutils literal notranslate"><span class="pre">math.isnan(rslt.F)</span></code> before use.</p>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.ssnr" title="susan.utils.datatypes.ssnr">datatypes.ssnr</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <code class="docutils literal notranslate"><span class="pre">th_list</span></code> does not hold exactly two decreasing values in (0, 1),
+    or if <code class="docutils literal notranslate"><span class="pre">apix</span></code> is not positive.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -857,6 +977,8 @@ the given resolution.  No pixel size or particle diameter is needed.</p>
 <li><a class="reference internal" href="#susan.utils._functions.radial_average"><code class="docutils literal notranslate"><span class="pre">radial_average()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.fsc_get"><code class="docutils literal notranslate"><span class="pre">fsc_get()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.fsc_analyse"><code class="docutils literal notranslate"><span class="pre">fsc_analyse()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.fsc_get_fpix"><code class="docutils literal notranslate"><span class="pre">fsc_get_fpix()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.ssnr_from_fsc"><code class="docutils literal notranslate"><span class="pre">ssnr_from_fsc()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.bandpass"><code class="docutils literal notranslate"><span class="pre">bandpass()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.apply_FOM"><code class="docutils literal notranslate"><span class="pre">apply_FOM()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.fsc_sharpen"><code class="docutils literal notranslate"><span class="pre">fsc_sharpen()</span></code></a></li>

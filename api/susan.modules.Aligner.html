@@ -403,7 +403,9 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dt class="sig sig-object py" id="susan.modules.Aligner.cone">
 <span class="sig-name descname"><span class="pre">cone</span></span><a class="headerlink" href="#susan.modules.Aligner.cone" title="Link to this definition">¶</a></dt>
 <dd><p>Out-of-plane (cone) angular search range and step in degrees.
-Default: <code class="docutils literal notranslate"><span class="pre">search_params(0,</span> <span class="pre">1)</span></code> (no search).</p>
+Default: <code class="docutils literal notranslate"><span class="pre">search_params(0,</span> <span class="pre">1)</span></code> (no search).  The range is honoured
+exactly and the step is rounded to the nearest value that divides it,
+so the requested aperture is always reached.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.search_params" title="susan.utils.datatypes.search_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">search_params</span></code></a></p>
@@ -415,7 +417,8 @@ Default: <code class="docutils literal notranslate"><span class="pre">search_par
 <dt class="sig sig-object py" id="susan.modules.Aligner.inplane">
 <span class="sig-name descname"><span class="pre">inplane</span></span><a class="headerlink" href="#susan.modules.Aligner.inplane" title="Link to this definition">¶</a></dt>
 <dd><p>In-plane angular search range and step in degrees.
-Default: <code class="docutils literal notranslate"><span class="pre">search_params(0,</span> <span class="pre">1)</span></code> (no search).</p>
+Default: <code class="docutils literal notranslate"><span class="pre">search_params(0,</span> <span class="pre">1)</span></code> (no search).  The step is adjusted to
+divide the range, as for <a class="reference internal" href="#susan.modules.Aligner.cone" title="susan.modules.Aligner.cone"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cone</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.search_params" title="susan.utils.datatypes.search_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">search_params</span></code></a></p>
@@ -427,7 +430,10 @@ Default: <code class="docutils literal notranslate"><span class="pre">search_par
 <dt class="sig sig-object py" id="susan.modules.Aligner.refine">
 <span class="sig-name descname"><span class="pre">refine</span></span><a class="headerlink" href="#susan.modules.Aligner.refine" title="Link to this definition">¶</a></dt>
 <dd><p>Multi-level angular refinement policy.
-Default: <code class="docutils literal notranslate"><span class="pre">refine_params(0,</span> <span class="pre">1)</span></code> (no refinement).</p>
+Default: <code class="docutils literal notranslate"><span class="pre">refine_params(0,</span> <span class="pre">2)</span></code> (no refinement).  When levels are
+enabled, keep <code class="docutils literal notranslate"><span class="pre">factor</span></code> at 2 or more: the worst-case gap of the
+level-0 cone grid is about 0.7 times the cone step, so <code class="docutils literal notranslate"><span class="pre">factor=1</span></code>
+leaves roughly 20% of directions outside the reach of the next level.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.refine_params" title="susan.utils.datatypes.refine_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">refine_params</span></code></a></p>

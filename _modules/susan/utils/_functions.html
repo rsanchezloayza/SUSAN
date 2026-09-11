@@ -323,6 +323,8 @@
            <span class="s1">'radial_expansion'</span><span class="p">,</span>
            <span class="s1">'fsc_get'</span><span class="p">,</span>
            <span class="s1">'fsc_analyse'</span><span class="p">,</span>
+           <span class="s1">'fsc_get_fpix'</span><span class="p">,</span>
+           <span class="s1">'ssnr_from_fsc'</span><span class="p">,</span>
            <span class="s1">'bandpass'</span><span class="p">,</span>
            <span class="s1">'apply_FOM'</span><span class="p">,</span>
            <span class="s1">'fsc_sharpen'</span><span class="p">,</span>
@@ -345,8 +347,13 @@
           <span class="p">]</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_warnings</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.io.mrc</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mrc</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_warn</span><span class="p">(</span><span class="n">msg</span><span class="p">):</span>
+    <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span><span class="ne">RuntimeWarning</span><span class="p">,</span><span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">os.path</span><span class="w"> </span><span class="kn">import</span> <span class="n">splitext</span> <span class="k">as</span> <span class="n">split_ext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils._functions_core</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">radial_average</span> <span class="k">as</span> <span class="n">_radial_average_cy</span><span class="p">,</span>
@@ -695,6 +702,59 @@
 
 <span class="c1">###########################################</span>
 
+<div class="viewcode-block" id="fsc_get_fpix">
+<a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.fsc_get_fpix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fsc_get_fpix</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span><span class="n">th_list</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span><span class="mf">0.143</span><span class="p">),</span><span class="n">interp</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Resolution in Fourier pixels at each of several FSC thresholds.</span>
+
+<span class="sd">    Unlike :func:`fsc_analyse`, this always returns a list, one entry per</span>
+<span class="sd">    threshold, and can interpolate the crossing to sub-shell precision.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fsc : array_like</span>
+<span class="sd">        FSC curve as returned by :func:`fsc_get` (``n = box//2 + 1`` shells).</span>
+<span class="sd">    th_list : float or sequence of float, optional</span>
+<span class="sd">        FSC threshold(s).  A scalar is accepted and treated as a 1-element</span>
+<span class="sd">        list.  Default ``(0.5, 0.143)``.</span>
+<span class="sd">    interp : bool, optional</span>
+<span class="sd">        If True (default) linearly interpolate between the two shells</span>
+<span class="sd">        bracketing the crossing.  Matters when the crossings are only a few</span>
+<span class="sd">        shells apart, which is typical of CryoET half-map FSCs: with integer</span>
+<span class="sd">        crossings the anchors used by :func:`ssnr_from_fsc` can be off by</span>
+<span class="sd">        more than 15%.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of float</span>
+<span class="sd">        One entry per threshold, always a list even for a single threshold.</span>
+
+<span class="sd">        Sentinels:</span>
+
+<span class="sd">        * ``nan`` — the FSC never drops below the threshold.</span>
+<span class="sd">        * ``0.0`` — the FSC is already below the threshold at shell 0.</span>
+<span class="sd">    """</span>
+    <span class="n">fsc</span>     <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">th_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">th_list</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
+
+    <span class="n">rslt</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">th</span> <span class="ow">in</span> <span class="n">th_list</span><span class="p">:</span>
+        <span class="n">below</span> <span class="o">=</span> <span class="n">fsc</span> <span class="o">&lt;</span> <span class="n">th</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">below</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span>
+            <span class="k">continue</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">below</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">interp</span><span class="p">:</span>
+            <span class="n">f0</span><span class="p">,</span><span class="n">f1</span> <span class="o">=</span> <span class="n">fsc</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">fsc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">frac</span>  <span class="o">=</span> <span class="p">(</span><span class="n">f0</span><span class="o">-</span><span class="n">th</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">f0</span><span class="o">-</span><span class="n">f1</span><span class="p">)</span> <span class="k">if</span> <span class="n">f0</span> <span class="o">&gt;</span> <span class="n">f1</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="o">+</span><span class="n">frac</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rslt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">rslt</span></div>
+
 
 <span class="c1">###########################################</span>
 
@@ -984,7 +1044,8 @@
 <span class="sd">    ----------</span>
 <span class="sd">    fsc : array_like</span>
 <span class="sd">        FSC curve as returned by ``fsc_get``.  Assumed to have n shells</span>
-<span class="sd">        spanning a box of size 2n (i.e. shell k → s = k / (2n·apix)).</span>
+<span class="sd">        spanning a box of side 2(n-1), i.e. shell k → s = k / (2(n-1)·apix),</span>
+<span class="sd">        matching ``fsc_get`` and ``fsc_analyse``.</span>
 <span class="sd">    apix : float</span>
 <span class="sd">        Pixel size in Angstroms.</span>
 <span class="sd">    freq_range : tuple of float</span>
@@ -1003,8 +1064,11 @@
 <span class="sd">    """</span>
     <span class="n">fsc</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="n">n</span>     <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">fsc</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">)</span>
+    <span class="n">box</span>   <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">s_nyq</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">apix</span><span class="p">))</span>
-    <span class="n">s</span>     <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span> <span class="o">*</span> <span class="n">s_nyq</span>   <span class="c1"># shell k → s = k/(2n·apix); s[n-1] ≈ s_nyq</span>
+    <span class="n">s</span>     <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">box</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">apix</span><span class="p">))</span>   <span class="c1"># shell k → s = k/(box·apix); s[n-1] = s_nyq</span>
     <span class="n">s2</span>    <span class="o">=</span> <span class="n">s</span> <span class="o">*</span> <span class="n">s</span>
 
     <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">freq_range</span>
@@ -1014,6 +1078,169 @@
 
     <span class="n">slope</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span><span class="n">s2</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">fsc</span><span class="p">[</span><span class="n">mask</span><span class="p">]),</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="o">-</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">slope</span>   <span class="c1"># dose = −4 · slope  (matches exp(−s²·dose/4) convention)</span></div>
+
+
+<span class="c1">###########################################</span>
+
+<div class="viewcode-block" id="ssnr_from_fsc">
+<a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.ssnr_from_fsc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ssnr_from_fsc</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span><span class="n">apix</span><span class="p">,</span><span class="n">th_list</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span><span class="mf">0.143</span><span class="p">),</span><span class="n">n_eff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Estimate the ad-hoc SSNR parameters (S, F) from an FSC curve.</span>
+
+<span class="sd">    SUSAN models the spectral SNR as (see :class:`susan.utils.datatypes.ssnr`)</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        SSNR(s) = 10^{3S} \\cdot e^{-100 F s}, \\quad s \\text{ in } 1/\\text{\\AA}</span>
+
+<span class="sd">    so :math:`\\ln SSNR` is linear in *s* and two points determine it.  The</span>
+<span class="sd">    two anchors are taken from the FSC itself, converting each threshold *t*</span>
+<span class="sd">    to the map SSNR it corresponds to, :math:`SSNR = 2t/(1-t)`:</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        F = \\frac{\\ln(q_1/q_2)\\,(box \\cdot apix)}{100\\,(r_2-r_1)}, \\quad</span>
+<span class="sd">        S = \\frac{\\ln q_1 + \\ln(q_1/q_2)\\, r_1/(r_2-r_1)}{3 \\ln 10}</span>
+
+<span class="sd">    with :math:`r_i` the crossing radii in Fourier pixels and</span>
+<span class="sd">    :math:`q_i = 2t_i/(1-t_i)`.  Note that *S* depends only on the ratio</span>
+<span class="sd">    :math:`r_1/(r_2-r_1)` and so is independent of the pixel size; *F* scales</span>
+<span class="sd">    with ``box*apix``.</span>
+
+<span class="sd">    The two-anchor solve is used rather than a least-squares fit because the</span>
+<span class="sd">    applied weight, ``SSNR/(1+SSNR)``, saturates at 0 and 1: only the location</span>
+<span class="sd">    and sharpness of the turnover matter, and those are what the anchors fix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fsc : array_like</span>
+<span class="sd">        FSC curve as returned by :func:`fsc_get` (``n = box//2 + 1`` shells,</span>
+<span class="sd">        so the box side is ``2*(n-1)``).</span>
+<span class="sd">    apix : float</span>
+<span class="sd">        Pixel size in Angstroms of the maps the FSC was computed from.</span>
+<span class="sd">        Needed for *F*; *S* does not depend on it.</span>
+<span class="sd">    th_list : sequence of two float, optional</span>
+<span class="sd">        The two FSC anchors, in decreasing order.  Default ``(0.5, 0.143)``.</span>
+<span class="sd">    n_eff : float or None, optional</span>
+<span class="sd">        Effective number of independent 2D measurements contributing to the</span>
+<span class="sd">        map, roughly ``n_particles * n_tilts`` (times the symmetry order; use</span>
+<span class="sd">        ``sum(prj_w)`` in place of ``n_tilts`` if the weights are not all 1).</span>
+<span class="sd">        The FSC measures the SSNR of the *map*, while the model is defined as</span>
+<span class="sd">        the SSNR of a *single projection*, so ``S`` is reduced by</span>
+<span class="sd">        ``log10(n_eff)/3`` (``F`` is unchanged).  Pass it when the result is</span>
+<span class="sd">        destined for the substack whitening or the reconstruction Wiener</span>
+<span class="sd">        filter, both of which apply the SSNR once per projection.  ``None``</span>
+<span class="sd">        (default) returns the map SSNR unconverted.</span>
+
+<span class="sd">        Note that with ``n_eff=None`` the returned ``S`` is always positive</span>
+<span class="sd">        (every term of its formula is, as long as ``th_list[0] &gt; 1/3``), so</span>
+<span class="sd">        the ``10^(3S) &gt; 1`` gate in the C++ ``radial_frc_acc`` always engages.</span>
+<span class="sd">        Applying the conversion can push ``S`` below 0 on a low-SSNR dataset,</span>
+<span class="sd">        which that gate reads as "disabled" and silently reverts to pure</span>
+<span class="sd">        whitening.</span>
+<span class="sd">    fallback : bool, optional</span>
+<span class="sd">        What to do when the requested anchors are not both reached.  Default</span>
+<span class="sd">        True, which walks down this ladder:</span>
+
+<span class="sd">        1. Both ``th_list`` crossings usable — solve directly.</span>
+<span class="sd">        2. Only ``th_list[0]`` crossed — re-anchor on</span>
+<span class="sd">           ``((1+th_list[0])/2, th_list[0])``, i.e. ``(0.75, 0.5)`` for the</span>
+<span class="sd">           defaults.  The estimate is then extrapolated past the data, and a</span>
+<span class="sd">           warning is issued.</span>
+<span class="sd">        3. Neither crossed — the map is Nyquist-limited rather than</span>
+<span class="sd">           SNR-limited.  Anchor on the curve itself (first shell below 0.99</span>
+<span class="sd">           and the outermost shell) so the taper follows the FSC value at</span>
+<span class="sd">           Nyquist.  It is correspondingly mild, tending to no taper at all</span>
+<span class="sd">           as the FSC flattens.  A warning is issued.</span>
+
+<span class="sd">        Set False to get ``nan`` instead of any fallback.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    datatypes.ssnr</span>
+<span class="sd">        Named tuple with fields ``S`` and ``F``.</span>
+
+<span class="sd">        Both fields are ``nan`` if no usable pair of anchors exists: the</span>
+<span class="sd">        crossings are out of order or coincident, the first anchor sits at</span>
+<span class="sd">        shell 0, the curve has fewer than 2 shells, or ``fallback`` is False</span>
+<span class="sd">        and the requested anchors were not both reached.  Check with</span>
+<span class="sd">        ``math.isnan(rslt.F)`` before use.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If ``th_list`` does not hold exactly two decreasing values in (0, 1),</span>
+<span class="sd">        or if ``apix`` is not positive.</span>
+<span class="sd">    """</span>
+    <span class="n">fsc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fsc</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="n">th_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">th_list</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">th_list</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'ssnr_from_fsc needs exactly 2 thresholds (the two anchors).'</span><span class="p">)</span>
+    <span class="n">t1</span><span class="p">,</span><span class="n">t2</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">th_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="nb">float</span><span class="p">(</span><span class="n">th_list</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">t2</span> <span class="o">&lt;</span> <span class="n">t1</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The thresholds must satisfy 0 &lt; th_list[1] &lt; th_list[0] &lt; 1.'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">apix</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'apix must be larger than 0.'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_eff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">n_eff</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'n_eff must be larger than 0 (or None to skip the conversion).'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fsc</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">datatypes</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">),</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_q</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>                       <span class="c1"># FSC threshold -&gt; SSNR of the map</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">),</span><span class="mf">1.0</span><span class="o">-</span><span class="mf">1e-6</span><span class="p">)</span>   <span class="c1"># clamp: FSC == 1 would give an infinite SSNR</span>
+        <span class="k">return</span> <span class="mf">2.0</span><span class="o">*</span><span class="n">t</span><span class="o">/</span><span class="p">(</span><span class="mf">1.0</span><span class="o">-</span><span class="n">t</span><span class="p">)</span>
+
+    <span class="n">r1</span><span class="p">,</span><span class="n">r2</span> <span class="o">=</span> <span class="n">fsc_get_fpix</span><span class="p">(</span><span class="n">fsc</span><span class="p">,(</span><span class="n">t1</span><span class="p">,</span><span class="n">t2</span><span class="p">),</span><span class="n">interp</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">q1</span><span class="p">,</span><span class="n">q2</span> <span class="o">=</span> <span class="n">_q</span><span class="p">(</span><span class="n">t1</span><span class="p">),</span><span class="n">_q</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span>
+
+    <span class="n">ok1</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">r1</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span><span class="n">r1</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">ok2</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">r2</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">ok1</span> <span class="ow">and</span> <span class="n">ok2</span> <span class="ow">and</span> <span class="p">(</span><span class="n">r2</span> <span class="o">&gt;</span> <span class="n">r1</span><span class="p">):</span>
+        <span class="k">pass</span>                         <span class="c1"># level 1: both requested anchors usable</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">fallback</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">datatypes</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">),</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">ok1</span><span class="p">:</span>
+        <span class="c1"># Level 2: the outer anchor was never reached, but the inner one was.</span>
+        <span class="c1"># Move both anchors up: t1 becomes the FSC halfway between 1 and t1</span>
+        <span class="c1"># (0.75 for the default t1 = 0.5) and the old t1 becomes the outer one.</span>
+        <span class="n">t1b</span><span class="p">,</span><span class="n">t2b</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="mf">1.0</span><span class="o">+</span><span class="n">t1</span><span class="p">),</span><span class="n">t1</span>
+        <span class="n">r1</span><span class="p">,</span><span class="n">r2</span>   <span class="o">=</span> <span class="n">fsc_get_fpix</span><span class="p">(</span><span class="n">fsc</span><span class="p">,(</span><span class="n">t1b</span><span class="p">,</span><span class="n">t2b</span><span class="p">),</span><span class="n">interp</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">q1</span><span class="p">,</span><span class="n">q2</span>   <span class="o">=</span> <span class="n">_q</span><span class="p">(</span><span class="n">t1b</span><span class="p">),</span><span class="n">_q</span><span class="p">(</span><span class="n">t2b</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">r1</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span><span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">r2</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span><span class="n">r2</span> <span class="o">&lt;=</span> <span class="n">r1</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">datatypes</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">),</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span>
+        <span class="n">_warn</span><span class="p">(</span><span class="s1">'ssnr_from_fsc: FSC never reaches </span><span class="si">%g</span><span class="s1">; anchoring on (</span><span class="si">%g</span><span class="s1">, </span><span class="si">%g</span><span class="s1">) instead.'</span><span class="o">%</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span><span class="n">t1b</span><span class="p">,</span><span class="n">t2b</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Level 3: not even the inner anchor was reached, so the map is</span>
+        <span class="c1"># Nyquist-limited rather than SNR-limited.  Anchor on the curve</span>
+        <span class="c1"># itself: the first shell safely below 1 and the outermost shell.</span>
+        <span class="c1"># The taper this yields is set by the FSC value at Nyquist, and is</span>
+        <span class="c1"># correspondingly mild (it tends to no taper as the FSC flattens).</span>
+        <span class="n">usable</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">fsc</span> <span class="o">&lt;</span> <span class="mf">0.99</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">usable</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">datatypes</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">),</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span>
+        <span class="n">r1</span><span class="p">,</span><span class="n">r2</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">usable</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]),</span><span class="nb">float</span><span class="p">(</span><span class="n">fsc</span><span class="o">.</span><span class="n">size</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">q1</span><span class="p">,</span><span class="n">q2</span>  <span class="o">=</span> <span class="n">_q</span><span class="p">(</span><span class="n">fsc</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">r1</span><span class="p">)]),</span><span class="n">_q</span><span class="p">(</span><span class="n">fsc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">r2</span> <span class="o">&lt;=</span> <span class="n">r1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">datatypes</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">),</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span>
+        <span class="n">_warn</span><span class="p">(</span><span class="s1">'ssnr_from_fsc: FSC never reaches </span><span class="si">%g</span><span class="s1">; anchoring on the curve '</span>
+              <span class="s1">'(shells </span><span class="si">%d</span><span class="s1"> and </span><span class="si">%d</span><span class="s1">, FSC </span><span class="si">%.3f</span><span class="s1"> and </span><span class="si">%.3f</span><span class="s1">). The taper will be mild.'</span>
+              <span class="o">%</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span><span class="nb">int</span><span class="p">(</span><span class="n">r1</span><span class="p">),</span><span class="nb">int</span><span class="p">(</span><span class="n">r2</span><span class="p">),</span><span class="n">fsc</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">r1</span><span class="p">)],</span><span class="n">fsc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+
+    <span class="c1"># q1 == q2 (a flat FSC) is fine and yields F = 0, i.e. no taper.  A</span>
+    <span class="c1"># non-positive SSNR carries no information, and q1 &lt; q2 would mean the</span>
+    <span class="c1"># SSNR rises with frequency; neither is a usable anchor pair.</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="p">(</span><span class="n">q1</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span><span class="ow">not</span> <span class="p">(</span><span class="n">q2</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span><span class="n">q1</span> <span class="o">&lt;</span> <span class="n">q2</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">datatypes</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">),</span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span>
+
+    <span class="n">lq</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">q1</span><span class="o">/</span><span class="n">q2</span><span class="p">)</span>
+    <span class="n">box</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="n">fsc</span><span class="o">.</span><span class="n">size</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">F</span>   <span class="o">=</span> <span class="n">lq</span><span class="o">*</span><span class="p">(</span><span class="n">box</span><span class="o">*</span><span class="nb">float</span><span class="p">(</span><span class="n">apix</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="mf">100.0</span><span class="o">*</span><span class="p">(</span><span class="n">r2</span><span class="o">-</span><span class="n">r1</span><span class="p">))</span>
+    <span class="n">S</span>   <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">q1</span><span class="p">)</span> <span class="o">+</span> <span class="n">lq</span><span class="o">*</span><span class="n">r1</span><span class="o">/</span><span class="p">(</span><span class="n">r2</span><span class="o">-</span><span class="n">r1</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="mf">3.0</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mf">10.0</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">n_eff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">S</span> <span class="o">-=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">n_eff</span><span class="p">))</span><span class="o">/</span><span class="mf">3.0</span>
+
+    <span class="k">return</span> <span class="n">datatypes</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">S</span><span class="p">),</span><span class="nb">float</span><span class="p">(</span><span class="n">F</span><span class="p">))</span></div>
 
 
 <span class="c1">###########################################</span>

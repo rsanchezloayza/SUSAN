@@ -362,13 +362,19 @@
 <span class="sd">        Default: ``False``.</span>
 <span class="sd">    cone : :class:`~susan.utils.datatypes.search_params`</span>
 <span class="sd">        Out-of-plane (cone) angular search range and step in degrees.</span>
-<span class="sd">        Default: ``search_params(0, 1)`` (no search).</span>
+<span class="sd">        Default: ``search_params(0, 1)`` (no search).  The range is honoured</span>
+<span class="sd">        exactly and the step is rounded to the nearest value that divides it,</span>
+<span class="sd">        so the requested aperture is always reached.</span>
 <span class="sd">    inplane : :class:`~susan.utils.datatypes.search_params`</span>
 <span class="sd">        In-plane angular search range and step in degrees.</span>
-<span class="sd">        Default: ``search_params(0, 1)`` (no search).</span>
+<span class="sd">        Default: ``search_params(0, 1)`` (no search).  The step is adjusted to</span>
+<span class="sd">        divide the range, as for :attr:`cone`.</span>
 <span class="sd">    refine : :class:`~susan.utils.datatypes.refine_params`</span>
 <span class="sd">        Multi-level angular refinement policy.</span>
-<span class="sd">        Default: ``refine_params(0, 1)`` (no refinement).</span>
+<span class="sd">        Default: ``refine_params(0, 2)`` (no refinement).  When levels are</span>
+<span class="sd">        enabled, keep ``factor`` at 2 or more: the worst-case gap of the</span>
+<span class="sd">        level-0 cone grid is about 0.7 times the cone step, so ``factor=1``</span>
+<span class="sd">        leaves roughly 20% of directions outside the reach of the next level.</span>
 <span class="sd">    angle_sigma : float</span>
 <span class="sd">        Width (degrees) of a Gaussian prior on the candidate orientation's</span>
 <span class="sd">        deviation from the previous pose.  Acts as a soft regulariser that</span>
@@ -538,7 +544,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ignore_classes</span>    <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cone</span>              <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">search_params</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inplane</span>           <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">search_params</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">refine</span>            <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">refine_params</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refine</span>            <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">refine_params</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">angle_sigma</span>       <span class="o">=</span> <span class="mf">0.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">offset_sigma</span>      <span class="o">=</span> <span class="mf">0.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">offset</span>            <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">offset_params</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">],</span><span class="mi">1</span><span class="p">,</span><span class="s1">'ellipsoid'</span><span class="p">)</span>
