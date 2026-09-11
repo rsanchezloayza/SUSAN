@@ -403,6 +403,10 @@
 <span class="sd">       :type: ndarray, float32, shape (R, M, 3)</span>
 
 <span class="sd">       3-D alignment: ZYZ Euler angles in radians, one set per reference.</span>
+<span class="sd">       Maps the reference onto the tomogram, and reads</span>
+<span class="sd">       *(cone azimuth, cone polar, in-plane)*: a pure in-plane search moves</span>
+<span class="sd">       the **last** angle. Note the mirrored reading of :attr:`prj_eu`; see</span>
+<span class="sd">       :ref:`angular conventions &lt;angular-conventions&gt;`.</span>
 
 <span class="sd">    .. attribute:: ali_t</span>
 <span class="sd">       :type: ndarray, float32, shape (R, M, 3)</span>
@@ -424,7 +428,12 @@
 <span class="sd">    .. attribute:: prj_eu</span>
 <span class="sd">       :type: ndarray, float32, shape (M, P, 3)</span>
 
-<span class="sd">       Per-projection 2-D alignment: ZYZ Euler angles in radians.</span>
+<span class="sd">       Per-projection 2-D alignment: ZYZ Euler angles in radians. Applied in</span>
+<span class="sd">       the projection frame, so the triplet reads *mirrored* with respect to</span>
+<span class="sd">       :attr:`ali_eu` — *(in-plane, cone polar, cone azimuth)* — and a pure</span>
+<span class="sd">       in-plane search moves the **first** angle. The cone and in-plane</span>
+<span class="sd">       sampling parameters themselves mean the same thing in both searches;</span>
+<span class="sd">       see :ref:`angular conventions &lt;angular-conventions&gt;`.</span>
 
 <span class="sd">    .. attribute:: prj_t</span>
 <span class="sd">       :type: ndarray, float32, shape (M, P, 2)</span>

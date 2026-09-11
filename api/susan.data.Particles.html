@@ -381,7 +381,11 @@ file for older SUSAN versions; refresh it with
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Particles.ali_eu">
 <span class="sig-name descname"><span class="pre">ali_eu</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">R</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">M</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Particles.ali_eu" title="Link to this definition">¶</a></dt>
-<dd><p>3-D alignment: ZYZ Euler angles in radians, one set per reference.</p>
+<dd><p>3-D alignment: ZYZ Euler angles in radians, one set per reference.
+Maps the reference onto the tomogram, and reads
+<em>(cone azimuth, cone polar, in-plane)</em>: a pure in-plane search moves
+the <strong>last</strong> angle. Note the mirrored reading of <a class="reference internal" href="#susan.data.Particles.prj_eu" title="susan.data.Particles.prj_eu"><code class="xref py py-attr docutils literal notranslate"><span class="pre">prj_eu</span></code></a>; see
+<a class="reference internal" href="../cryoet.html#angular-conventions"><span class="std std-ref">angular conventions</span></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -406,7 +410,12 @@ file for older SUSAN versions; refresh it with
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Particles.prj_eu">
 <span class="sig-name descname"><span class="pre">prj_eu</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">M</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">P</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Particles.prj_eu" title="Link to this definition">¶</a></dt>
-<dd><p>Per-projection 2-D alignment: ZYZ Euler angles in radians.</p>
+<dd><p>Per-projection 2-D alignment: ZYZ Euler angles in radians. Applied in
+the projection frame, so the triplet reads <em>mirrored</em> with respect to
+<a class="reference internal" href="#susan.data.Particles.ali_eu" title="susan.data.Particles.ali_eu"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ali_eu</span></code></a> — <em>(in-plane, cone polar, cone azimuth)</em> — and a pure
+in-plane search moves the <strong>first</strong> angle. The cone and in-plane
+sampling parameters themselves mean the same thing in both searches;
+see <a class="reference internal" href="../cryoet.html#angular-conventions"><span class="std std-ref">angular conventions</span></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">

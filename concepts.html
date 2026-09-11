@@ -391,6 +391,10 @@ plain text. Each record contains:</p>
 <li><p><strong>per-projection 2D refinement</strong> — in-plane shifts and rotations;</p></li>
 <li><p><strong>per-projection CTF</strong> — individual defocus and astigmatism values.</p></li>
 </ul>
+<p>The 3D and 2D orientations are both stored as ZYZ Euler angles, but the two
+triplets read mirrored with respect to each other: the in-plane rotation is
+the last angle of the 3D alignment and the first of the 2D refinement. See
+<a class="reference internal" href="cryoet.html#angular-conventions"><span class="std std-ref">Angular conventions</span></a>.</p>
 <p>Because coordinates are stored in Ångströms and geometry lives in
 <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code>, the same <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file works unchanged at any binning
 level; multiresolution processing requires no re-extraction. In Python,

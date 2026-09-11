@@ -587,6 +587,87 @@ weighted by the per-projection CTF, and divided to yield the
 CTF-deconvolved reference.</p></li>
 </ul>
 </section>
+<section id="angular-conventions">
+<span id="id1"></span><h3>Angular conventions<a class="headerlink" href="#angular-conventions" title="Link to this heading">¶</a></h3>
+<p>Both orientation sub-problems are searched with the same cone/in-plane
+sampling and both store their result as a ZYZ Euler triplet, built as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[R(\theta_0,\theta_1,\theta_2) = R_z(\theta_0)\,R_y(\theta_1)\,R_z(\theta_2).\]</div>
+</div>
+<p>The two triplets do <strong>not</strong> read the same way, because the two rotations sit at
+opposite ends of the projection chain. Writing the full reference-to-image
+transform for particle <span class="math notranslate nohighlight">\(i\)</span> and projection <span class="math notranslate nohighlight">\(j\)</span>,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\underbrace{R^\text{prj}_{ij}}_{\texttt{prj\_eu}}\;
+\underbrace{R^\text{tilt}_{j}}_{\texttt{.tomostxt}}\;
+\underbrace{R^\text{ali}_{i}}_{\texttt{ali\_eu}},\]</div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ali_eu</span></code> is the <strong>innermost</strong> factor and <code class="docutils literal notranslate"><span class="pre">prj_eu</span></code> the <strong>outermost</strong> one.
+Each search perturbs its own rotation in the frame that matters for it — the
+reference frame for the 3D search, the projection frame for the 2D one — so the
+increment is composed on the right of <code class="docutils literal notranslate"><span class="pre">ali_eu</span></code> and on the left of <code class="docutils literal notranslate"><span class="pre">prj_eu</span></code>.
+That single difference mirrors the meaning of the three stored angles:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">ali_eu</span></code> (3D alignment)</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">prj_eu</span></code> (2D refinement)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>maps</p></td>
+<td><p>reference → tomogram</p></td>
+<td><p>tilt geometry → image</p></td>
+</tr>
+<tr class="row-odd"><td><p>increment</p></td>
+<td><p>right-multiplied</p></td>
+<td><p>left-multiplied</p></td>
+</tr>
+<tr class="row-even"><td><p>cone axis</p></td>
+<td><p>particle Z in the tomogram</p></td>
+<td><p>viewing direction</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\theta_0\)</span></p></td>
+<td><p>cone <strong>azimuth</strong></p></td>
+<td><p><strong>in-plane</strong> rotation</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\theta_1\)</span></p></td>
+<td><p>cone <strong>polar</strong></p></td>
+<td><p>cone <strong>polar</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\theta_2\)</span></p></td>
+<td><p><strong>in-plane</strong> rotation</p></td>
+<td><p>cone <strong>azimuth</strong>,
+as <span class="math notranslate nohighlight">\(180^\circ-\theta_2\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>So for <code class="docutils literal notranslate"><span class="pre">ali_eu</span></code> the triplet reads <em>(azimuth, polar, in-plane)</em> and a pure
+in-plane search moves <span class="math notranslate nohighlight">\(\theta_2\)</span> alone, whereas for <code class="docutils literal notranslate"><span class="pre">prj_eu</span></code> it reads
+<em>(in-plane, polar, azimuth)</em> and a pure in-plane search moves
+<span class="math notranslate nohighlight">\(\theta_0\)</span> alone. The polar angle is <span class="math notranslate nohighlight">\(\theta_1\)</span> in both.</p>
+<p>The sampling parameters are unaffected by this and keep their literal meaning
+in both searches: <code class="docutils literal notranslate"><span class="pre">cone_range</span></code> is the full aperture of a cone centred on the
+current axis — the particle’s own Z for 3D, the viewing direction for 2D — so a
+sample at polar <span class="math notranslate nohighlight">\(\theta\)</span> displaces that axis by exactly <span class="math notranslate nohighlight">\(\theta\)</span>
+for every azimuth, and <code class="docutils literal notranslate"><span class="pre">inplane_range</span></code> spans a rotation about that same axis
+that leaves it fixed. Only the slot the result is stored in differs.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ZYZ parametrisation is degenerate at <span class="math notranslate nohighlight">\(\theta_1 = 0\)</span>, where
+<span class="math notranslate nohighlight">\(R = R_z(\theta_0 + \theta_2)\)</span> and only the sum is determined. The
+stored <span class="math notranslate nohighlight">\(\theta_0\)</span> and <span class="math notranslate nohighlight">\(\theta_2\)</span> are then individually
+ill-conditioned — a particle whose axis nearly coincides with the cone axis
+can show both angles swinging by degrees between iterations while the
+rotation itself barely moves. Use the rotation matrix, or
+<span class="math notranslate nohighlight">\(\theta_0 + \theta_2\)</span>, for per-particle statistics and convergence
+diagnostics in that regime; never the two angles separately.</p>
+</div>
+</section>
 </section>
 <section id="spectral-weighting-in-the-reconstruction">
 <h2>Spectral weighting in the reconstruction<a class="headerlink" href="#spectral-weighting-in-the-reconstruction" title="Link to this heading">¶</a></h2>
@@ -741,6 +822,7 @@ and <code class="docutils literal notranslate"><span class="pre">'wiener_ssnr'</
 <li><a class="reference internal" href="#projected-cross-correlation">Projected cross-correlation</a></li>
 <li><a class="reference internal" href="#cumulative-fourier-shell-correlation">Cumulative Fourier Shell Correlation</a></li>
 <li><a class="reference internal" href="#susan-optimization-objective">SUSAN optimization objective</a></li>
+<li><a class="reference internal" href="#angular-conventions">Angular conventions</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#spectral-weighting-in-the-reconstruction">Spectral weighting in the reconstruction</a></li>
