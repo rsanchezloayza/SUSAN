@@ -137,6 +137,38 @@ inline bool validate(const Info&info) {
         fprintf(stderr,"Template matching requires refine levels = 0 (got %d).\n",info.refine_level);
         rslt = false;
     }
+    if( !(info.cone_step > 0) ) {
+        fprintf(stderr,"Invalid cone search step: %f. It must be larger than 0.\n",info.cone_step);
+        rslt = false;
+    }
+    if( !(info.cone_range >= 0) ) {
+        fprintf(stderr,"Invalid cone search range: %f. It cannot be negative.\n",info.cone_range);
+        rslt = false;
+    }
+    if( !(info.inplane_step > 0) ) {
+        fprintf(stderr,"Invalid inplane search step: %f. It must be larger than 0.\n",info.inplane_step);
+        rslt = false;
+    }
+    if( !(info.inplane_range >= 0) ) {
+        fprintf(stderr,"Invalid inplane search range: %f. It cannot be negative.\n",info.inplane_range);
+        rslt = false;
+    }
+    if( !(info.off_s > 0) ) {
+        fprintf(stderr,"Invalid offset search step: %f. It must be larger than 0.\n",info.off_s);
+        rslt = false;
+    }
+    if( !(info.off_x >= 0) || !(info.off_y >= 0) || !(info.off_z >= 0) ) {
+        fprintf(stderr,"Invalid offset search range: %f,%f,%f. It cannot be negative.\n",info.off_x,info.off_y,info.off_z);
+        rslt = false;
+    }
+    if( !(info.angle_sigma >= 0) ) {
+        fprintf(stderr,"Invalid angle_sigma: %f. It cannot be negative (0 disables the prior).\n",info.angle_sigma);
+        rslt = false;
+    }
+    if( !(info.offset_sigma >= 0) ) {
+        fprintf(stderr,"Invalid offset_sigma: %f. It cannot be negative (0 disables the prior).\n",info.offset_sigma);
+        rslt = false;
+    }
     return rslt;
 }
 
@@ -168,7 +200,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.angle_sigma   = 0;
     info.offset_sigma  = 0;
     info.refine_level  = 0;
-    info.refine_factor = 1;
+    info.refine_factor = 2;
     info.off_type      = ELLIPSOID;
     info.off_space     = REFERENCE_SPACE;
     info.off_x         = 0;

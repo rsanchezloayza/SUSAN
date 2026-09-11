@@ -142,6 +142,10 @@ protected:
         }
         Rali = new M33f[R];
         Tali = new V3f [R];
+        for(int r=0;r<R;r++) {
+            Rali[r] = M33f::Identity();
+            Tali[r] = V3f::Zero();
+        }
     }
 
     void setup_gpu() {
@@ -175,10 +179,12 @@ protected:
         GPU::sync();
 
         Rot33 Rot;
-        single max_cc=0,cc;
+        single max_cc=-INFINITY,cc;
         int max_idx=0,idx;
         M33f R_ite,R_tmp;
         M33f R_lvl = Eigen::MatrixXf::Identity(3,3);
+
+        R_ref = M33f::Identity();
 
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next() ) {
             for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {

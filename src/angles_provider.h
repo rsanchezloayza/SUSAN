@@ -54,12 +54,18 @@ protected:
 
     double c_stp;
     double c_end;
+    double c_base;
     uint32 c_ite;
     uint32 c_lim;
+    uint32 c_ring;
+    uint32 c_num;
 
     double ip_ini;
     double ip_stp;
     double ip_end;
+    double ip_base;
+    uint32 ip_ite;
+    uint32 ip_num;
 
     double eu1;
     double eu2;
@@ -76,6 +82,12 @@ public:
 
         curr_lvl = 0;
         curr_sym = 0;
+        ip_ite   = 0;
+        ip_num   = 1;
+        c_ring   = 0;
+        c_num    = 0;
+        c_base   = 1;
+        ip_base  = 1;
 
         pseudo_sym_list = AnglesSymmetry::get_rotation_list("c1");
     }
@@ -86,8 +98,10 @@ public:
     int max_num_angles_any_level() {
         const uint32 sv_lvl=curr_lvl, sv_sym=curr_sym;
         const uint32 sv_cite=c_ite,   sv_clim=c_lim;
+        const uint32 sv_cring=c_ring, sv_cnum=c_num;
         const double sv_cstp=c_stp,   sv_cend=c_end;
         const double sv_ipini=ip_ini, sv_ipstp=ip_stp, sv_ipend=ip_end;
+        const uint32 sv_ipite=ip_ite, sv_ipnum=ip_num;
         const double sv_eu1=eu1,      sv_eu2=eu2,      sv_eu3=eu3;
 
         int count_max  =0;
@@ -107,8 +121,10 @@ public:
 
         curr_lvl=sv_lvl; curr_sym=sv_sym;
         c_ite=sv_cite;   c_lim=sv_clim;
+        c_ring=sv_cring; c_num=sv_cnum;
         c_stp=sv_cstp;   c_end=sv_cend;
         ip_ini=sv_ipini; ip_stp=sv_ipstp; ip_end=sv_ipend;
+        ip_ite=sv_ipite; ip_num=sv_ipnum;
         eu1=sv_eu1;      eu2=sv_eu2;      eu3=sv_eu3;
 
         return count_max;
@@ -125,18 +141,23 @@ public:
     void levels_init() {
         curr_lvl = 0;
 
-        c_stp = cone_step;
-        c_end = cone_range/2;
+        c_end  = cone_range/2;
+        c_base = get_angle_step(c_end, cone_step);
+        c_stp  = c_base;
 
-        ip_stp = get_angle_step(inplane_range, inplane_step);
+        ip_base = get_angle_step(inplane_range, inplane_step);
+        ip_stp  = ip_base;
 
-        float i_s = ip_stp*floor(inplane_range/(2*ip_stp));
+        double i_s = ip_stp*floor(inplane_range/(2*ip_stp));
 
         ip_ini = -i_s;
         ip_end =  i_s;
 
         if( !(ip_end<180.0) )
             ip_end = ip_end - ip_stp;
+
+        update_cone_count();
+        update_inplane_count();
     }
 
     bool levels_available() {
@@ -147,7 +168,7 @@ public:
         curr_lvl++;
         if( cone_range > 0 ) {
             c_end = refine_factor*c_stp/2;
-            c_stp = cone_step;
+            c_stp = c_base;
             for(uint32 i=0;i<curr_lvl;i++) c_stp = c_stp/2;
         }
         if( inplane_range > 0 ) {
@@ -156,9 +177,11 @@ public:
             ip_end =  rf*ip_stp/2;
             if( !(ip_end < 180.0) )
                 ip_end = ip_end - ip_stp;
-            ip_stp = inplane_step;
+            ip_stp = ip_base;
             for(uint32 i=0;i<curr_lvl;i++) ip_stp = ip_stp/2;
         }
+        update_cone_count();
+        update_inplane_count();
     }
 
     void sym_init() {
@@ -179,19 +202,21 @@ public:
     void cone_init() {
         eu1 = 0;
         eu2 = 0;
-        c_ite = 0;
-        c_lim = 0;
+        c_ite  = 0;
+        c_lim  = 0;
+        c_ring = 0;
     }
 
     bool cone_available() {
-        return (eu2 <= c_end);
+        return (c_ring <= c_num);
     }
 
     void cone_next() {
         c_ite++;
         if( c_ite >= c_lim ) {
             c_ite = 0;
-            eu2 += c_stp;
+            c_ring++;
+            eu2 = ((double)c_ring)*c_stp;
             c_lim = (uint32)fmax(round( 360*sin(eu2*M_PI/180.0f)/c_stp ),1.0);
         }
         if( c_lim > 0 )
@@ -201,15 +226,17 @@ public:
     }
 
     void inplane_init() {
+        ip_ite = 0;
         eu3 = ip_ini;
     }
 
     bool inplane_available() {
-        return (eu3 <= ip_end);
+        return (ip_ite < ip_num);
     }
 
     void inplane_next() {
-        eu3 += ip_stp;
+        ip_ite++;
+        eu3 = ip_ini + ((double)ip_ite)*ip_stp;
     }
 
     void print_lvl_angle() {
@@ -248,9 +275,17 @@ protected:
     double get_angle_step(const double range, const double step) {
         double rslt = 1.0;
         if( range > SUSAN_FLOAT_TOL ) {
-            rslt = range / round(range/step);
+            rslt = range / fmax(round(range/step),1.0);
         }
         return rslt;
+    }
+
+    void update_inplane_count() {
+        ip_num = (uint32)fmax(round((ip_end-ip_ini)/ip_stp),0.0) + 1;
+    }
+
+    void update_cone_count() {
+        c_num = (uint32)fmax(round(c_end/c_stp),0.0);
     }
 
 };

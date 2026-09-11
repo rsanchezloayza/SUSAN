@@ -105,6 +105,42 @@ inline bool validate(const Info&info) {
         fprintf(stderr,"Error with CUDA devices.\n");
         rslt = false;
     }
+    if( !(info.def_step > 0) ) {
+        fprintf(stderr,"Invalid defocus search step: %f. It must be larger than 0.\n",info.def_step);
+        rslt = false;
+    }
+    if( !(info.def_range >= 0) ) {
+        fprintf(stderr,"Invalid defocus search range: %f. It cannot be negative.\n",info.def_range);
+        rslt = false;
+    }
+    if( !(info.ang_step > 0) ) {
+        fprintf(stderr,"Invalid defocus angle search step: %f. It must be larger than 0.\n",info.ang_step);
+        rslt = false;
+    }
+    if( !(info.ang_range >= 0) ) {
+        fprintf(stderr,"Invalid defocus angle search range: %f. It cannot be negative.\n",info.ang_range);
+        rslt = false;
+    }
+    if( !(info.phase_shift_rad_step > 0) ) {
+        fprintf(stderr,"Invalid phase shift search step: %f. It must be larger than 0.\n",info.phase_shift_rad_step);
+        rslt = false;
+    }
+    if( !(info.phase_shift_rad_span >= 0) ) {
+        fprintf(stderr,"Invalid phase shift search span: %f. It cannot be negative.\n",info.phase_shift_rad_span);
+        rslt = false;
+    }
+    if( !(info.offset_sigma >= 0) ) {
+        fprintf(stderr,"Invalid offset_sigma: %f. It cannot be negative (0 disables the prior).\n",info.offset_sigma);
+        rslt = false;
+    }
+    if( !(info.defocus_sigma >= 0) ) {
+        fprintf(stderr,"Invalid defocus_sigma: %f. It cannot be negative (0 disables the prior).\n",info.defocus_sigma);
+        rslt = false;
+    }
+    if( !(info.phase_sigma >= 0) ) {
+        fprintf(stderr,"Invalid phase_sigma: %f. It cannot be negative (0 disables the prior).\n",info.phase_sigma);
+        rslt = false;
+    }
 
     return rslt;
 }

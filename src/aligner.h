@@ -320,7 +320,8 @@ public:
     bool drift3D;
 
     AnglesProvider ang_prov;
-    
+    int max_ang;
+
     const char *tm_type;
     const char *tm_prefix;
     int         tm_dim;
@@ -375,6 +376,8 @@ protected:
         ang_prov.refine_factor = ref_factor;
         ang_prov.refine_level  = ref_level;
         ang_prov.set_symmetry(psym);
+
+        max_ang = ang_prov.max_num_angles_any_level();
 
         GPU::sync();
 
@@ -607,7 +610,7 @@ protected:
         M33f R_lvl = Eigen::MatrixXf::Identity(3,3);
         M33f R_ite,R_tmp,R_ali;
 
-        CcTrackerAlignment cc_tracker((CcStatsType_t)cc_stats,ali_data.c_pts,ali_data.n_pts,ang_prov.max_num_angles_any_level(),ptr->ctf_vals.apix,offset_sigma);
+        CcTrackerAlignment cc_tracker((CcStatsType_t)cc_stats,ali_data.c_pts,ali_data.n_pts,max_ang,ptr->ctf_vals.apix,offset_sigma);
 
         Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
 
@@ -705,7 +708,7 @@ protected:
         Rot33 Rot;
         M33f  R_ite,R_ali;
 
-        CcTrackerAlignmentArr cc_tracker_arr((CcStatsType_t)cc_stats,ptr->K,ali_data.c_pts,ali_data.n_pts,ang_prov.max_num_angles_any_level(),ptr->ctf_vals.apix,offset_sigma);
+        CcTrackerAlignmentArr cc_tracker_arr((CcStatsType_t)cc_stats,ptr->K,ali_data.c_pts,ali_data.n_pts,max_ang,ptr->ctf_vals.apix,offset_sigma);
 
         single max_cc [ptr->K];
         single ite_cc [ptr->K];

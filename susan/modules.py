@@ -58,13 +58,19 @@ class Aligner:
         Default: ``False``.
     cone : :class:`~susan.utils.datatypes.search_params`
         Out-of-plane (cone) angular search range and step in degrees.
-        Default: ``search_params(0, 1)`` (no search).
+        Default: ``search_params(0, 1)`` (no search).  The range is honoured
+        exactly and the step is rounded to the nearest value that divides it,
+        so the requested aperture is always reached.
     inplane : :class:`~susan.utils.datatypes.search_params`
         In-plane angular search range and step in degrees.
-        Default: ``search_params(0, 1)`` (no search).
+        Default: ``search_params(0, 1)`` (no search).  The step is adjusted to
+        divide the range, as for :attr:`cone`.
     refine : :class:`~susan.utils.datatypes.refine_params`
         Multi-level angular refinement policy.
-        Default: ``refine_params(0, 1)`` (no refinement).
+        Default: ``refine_params(0, 2)`` (no refinement).  When levels are
+        enabled, keep ``factor`` at 2 or more: the worst-case gap of the
+        level-0 cone grid is about 0.7 times the cone step, so ``factor=1``
+        leaves roughly 20% of directions outside the reach of the next level.
     angle_sigma : float
         Width (degrees) of a Gaussian prior on the candidate orientation's
         deviation from the previous pose.  Acts as a soft regulariser that
@@ -234,7 +240,7 @@ class Aligner:
         self.ignore_classes    = False
         self.cone              = _dt.search_params(0,1)
         self.inplane           = _dt.search_params(0,1)
-        self.refine            = _dt.refine_params(0,1)
+        self.refine            = _dt.refine_params(0,2)
         self.angle_sigma       = 0.0
         self.offset_sigma      = 0.0
         self.offset            = _dt.offset_params([4,4,4],1,'ellipsoid')

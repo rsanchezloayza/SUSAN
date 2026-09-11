@@ -134,6 +134,12 @@ public:
     float ang_step;
     float ph_shft_range;
     float ph_shft_step;
+    float grid_def_step;
+    float grid_ang_step;
+    float grid_ph_step;
+    int   grid_def_n;
+    int   grid_ang_n;
+    int   grid_ph_n;
     float offset_sigma;   // pixels; Gaussian σ on translation magnitude. 0 ⇒ disabled.
     float defocus_sigma;  // Å;      Gaussian σ on |(dU,dV)|.            0 ⇒ disabled.
     float phase_sigma;    // rad;    Gaussian σ on phase-shift magnitude. 0 ⇒ disabled.
@@ -162,6 +168,10 @@ protected:
 
         NP = N+P;
         MP = (NP/2)+1;
+
+        grid_def_n = setup_grid(grid_def_step,def_range    ,def_step    );
+        grid_ang_n = setup_grid(grid_ang_step,ang_range    ,ang_step    );
+        grid_ph_n  = setup_grid(grid_ph_step ,ph_shft_range,ph_shft_step);
 
         GPU::set_device(gpu_ix);
 
@@ -368,18 +378,17 @@ protected:
 
         ctf_ref.load_buf(ali_data.prj_c,ptr->K,stream); /// Fixed copy of projections
 
-        float dU,dV,dA,dP;
         DefocusDelta delta_w;
 
         if( astigmatism ) {
-            for( dU=-def_range; dU<(def_range+0.5*def_step); dU+=def_step ) {
-                delta_w.U  = dU;
-                for( dV=-def_range; dV<(def_range+0.5*def_step); dV+=def_step ) {
-                    delta_w.V  = dV;
-                    for( dA=-ang_range; dA<(ang_range+0.5*ang_step); dA+=ang_step ) {
-                        delta_w.angle_deg  = dA;
-                        for( dP=-ph_shft_range; dP<(ph_shft_range+0.5*ph_shft_step); dP+=ph_shft_step ) {
-                            delta_w.phase_shift_rad = dP;
+            for( int iU=-grid_def_n; iU<=grid_def_n; iU++ ) {
+                delta_w.U  = ((float)iU)*grid_def_step;
+                for( int iV=-grid_def_n; iV<=grid_def_n; iV++ ) {
+                    delta_w.V  = ((float)iV)*grid_def_step;
+                    for( int iA=-grid_ang_n; iA<=grid_ang_n; iA++ ) {
+                        delta_w.angle_deg  = ((float)iA)*grid_ang_step;
+                        for( int iP=-grid_ph_n; iP<=grid_ph_n; iP++ ) {
+                            delta_w.phase_shift_rad = ((float)iP)*grid_ph_step;
                             /// - Apply CTF.
                             /// - Normalize reference projections.
                             ctf_ref.apply_ctf(ali_data.prj_c,delta_w,ptr,phase_flip,stream);
@@ -400,13 +409,13 @@ protected:
             }
         }
         else {
-            for( dU=-def_range; dU<(def_range+0.5*def_step); dU+=def_step ) {
-                delta_w.U = dU;
-                delta_w.V = dU;
+            for( int iU=-grid_def_n; iU<=grid_def_n; iU++ ) {
+                delta_w.U = ((float)iU)*grid_def_step;
+                delta_w.V = delta_w.U;
                 delta_w.angle_deg  = 0.0f;
 
-                for( dP=-ph_shft_range; dP<(ph_shft_range+0.5*ph_shft_step); dP+=ph_shft_step ) {
-                    delta_w.phase_shift_rad = dP;
+                for( int iP=-grid_ph_n; iP<=grid_ph_n; iP++ ) {
+                    delta_w.phase_shift_rad = ((float)iP)*grid_ph_step;
                     /// - Apply CTF.
                     /// - Normalize reference projections.
 
@@ -447,6 +456,16 @@ protected:
         }
         
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
+    }
+
+    static int setup_grid(float&out_step,const float range,const float in_step) {
+        if( !(range > SUSAN_FLOAT_TOL) || !(in_step > SUSAN_FLOAT_TOL) ) {
+            out_step = 1;
+            return 0;
+        }
+        int n = (int)fmax(round(range/in_step),1.0);
+        out_step = range/n;
+        return n;
     }
 
     void update_particle_projection(Particle&ptcl,const Defocus&delta_def,const Vec3&t,const single cc, const int prj_ix,const float apix) {
