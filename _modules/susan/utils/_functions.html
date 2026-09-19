@@ -327,6 +327,9 @@
            <span class="s1">'ssnr_from_fsc'</span><span class="p">,</span>
            <span class="s1">'bandpass'</span><span class="p">,</span>
            <span class="s1">'apply_FOM'</span><span class="p">,</span>
+           <span class="s1">'spectral_weight_CFSC'</span><span class="p">,</span>
+           <span class="s1">'apply_spectral_weight'</span><span class="p">,</span>
+           <span class="s1">'phase_randomize'</span><span class="p">,</span>
            <span class="s1">'fsc_sharpen'</span><span class="p">,</span>
            <span class="s1">'fsc_sharpen_filter'</span><span class="p">,</span>
            <span class="s1">'euDYN_rotm'</span><span class="p">,</span>
@@ -350,6 +353,8 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_warnings</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.io.mrc</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mrc</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.fft</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_sfft</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">lru_cache</span> <span class="k">as</span> <span class="n">_lru_cache</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_warn</span><span class="p">(</span><span class="n">msg</span><span class="p">):</span>
     <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span><span class="ne">RuntimeWarning</span><span class="p">,</span><span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
@@ -397,9 +402,9 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_apply_fourier_rad_wgt</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">wgt</span><span class="p">):</span>
-    <span class="n">v_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">),</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+    <span class="n">v_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
     <span class="n">_core_apply_fourier_rad_wgt</span><span class="p">(</span><span class="n">v_f</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">wgt</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
-    <span class="n">rslt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">irfftn</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">v_f</span><span class="p">,</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">)</span>
+    <span class="n">rslt</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">irfftn</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">v_f</span><span class="p">,</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span><span class="n">s</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">rslt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">rslt</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">rslt</span>
 
@@ -480,6 +485,197 @@
 <span class="sd">    """</span>
     <span class="n">wgt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">fsc_array</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">_apply_fourier_rad_wgt</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">wgt</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_cubic_even</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">name</span><span class="o">=</span><span class="s1">'v'</span><span class="p">):</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'</span><span class="si">%s</span><span class="s1"> must be three-dimensional, got </span><span class="si">%d</span><span class="s1"> dimensions'</span> <span class="o">%</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="n">v</span><span class="o">.</span><span class="n">ndim</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'</span><span class="si">%s</span><span class="s1"> must be cubic, got shape </span><span class="si">%s</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'</span><span class="si">%s</span><span class="s1"> must have an even box size, got </span><span class="si">%d</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">v</span>
+
+
+<span class="nd">@_lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_rfft_radial_index</span><span class="p">(</span><span class="n">shape_f</span><span class="p">):</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">shape_f</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="n">shape_f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">//</span><span class="mi">2</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">shape_f</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">shape_f</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">//</span><span class="mi">2</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">shape_f</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,:]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="p">[</span><span class="kc">None</span><span class="p">,:,</span><span class="kc">None</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">z</span><span class="p">[:,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">r</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">r</span><span class="o">.</span><span class="n">setflags</span><span class="p">(</span><span class="n">write</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">r</span>
+
+
+<div class="viewcode-block" id="spectral_weight_CFSC">
+<a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.spectral_weight_CFSC">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">spectral_weight_CFSC</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">apix</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span><span class="n">ssnr</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">)):</span>
+<span class="w">    </span><span class="sd">"""Compute the CFSC radial spectral weight of a volume.</span>
+
+<span class="sd">    This is the Python equivalent of the ``cfsc`` whitening the GPU code</span>
+<span class="sd">    applies to a 3-D reference (``RadialAverager::preset_FRC_vol``), returned</span>
+<span class="sd">    as a profile instead of being applied in place, so the weight measured on</span>
+<span class="sd">    one map can be applied to another with :func:`apply_spectral_weight`.</span>
+
+<span class="sd">    For each shell ``r = round(|k|)`` of the half-spectrum:</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        w[r] = \\sqrt{\\sum_{|k| \\in r} \\frac{|F(k)|^2}{\\max(r,1)}}</span>
+<span class="sd">               \\cdot \\mathrm{gain}[r] \\cdot \\sqrt{N/2}</span>
+
+<span class="sd">    with ``w[0] = sqrt(N/2)``.  The division by ``r`` makes the 3-D shell sum</span>
+<span class="sd">    scale like the 2-D ring sum used on the substack, keeping the reference and</span>
+<span class="sd">    the data whitened consistently.  The optional ad-hoc SSNR gain is</span>
+<span class="sd">    ``(s+1)/max(s,1e-6)`` with ``s = 10^(3 S) exp(-100 F r / (N apix))``, active</span>
+<span class="sd">    only when ``10^(3 S) &gt; 1``.</span>
+
+<span class="sd">    No masking is performed: apply the mask to *v* beforehand if the weight</span>
+<span class="sd">    should be measured over the masked region only.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    v : ndarray, shape (N, N, N)</span>
+<span class="sd">        Input volume.  Must be cubic with an even box size.</span>
+<span class="sd">    apix : float, optional</span>
+<span class="sd">        Pixel size in Angstroms, used only by the SSNR gain.  Default: ``0``</span>
+<span class="sd">        (gain disabled).</span>
+<span class="sd">    ssnr : tuple of float, optional</span>
+<span class="sd">        Ad-hoc SSNR parameters ``(F, S)``, matching ``-ssnr_param``.</span>
+<span class="sd">        Default: ``(0, 0)`` (gain disabled).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray, float32, shape (N//2+1,)</span>
+<span class="sd">        Radial weight to be divided out, as consumed by</span>
+<span class="sd">        :func:`apply_spectral_weight`.</span>
+<span class="sd">    """</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">_check_cubic_even</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="s1">'v'</span><span class="p">)</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">N</span><span class="o">//</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="n">v_f</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">r</span>   <span class="o">=</span> <span class="n">_rfft_radial_index</span><span class="p">(</span><span class="n">v_f</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">msk</span> <span class="o">=</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="n">M</span>
+
+    <span class="n">pwr</span> <span class="o">=</span> <span class="p">(</span><span class="n">v_f</span><span class="o">.</span><span class="n">real</span><span class="o">*</span><span class="n">v_f</span><span class="o">.</span><span class="n">real</span> <span class="o">+</span> <span class="n">v_f</span><span class="o">.</span><span class="n">imag</span><span class="o">*</span><span class="n">v_f</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">acc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="n">msk</span><span class="p">],</span><span class="n">weights</span><span class="o">=</span><span class="n">pwr</span><span class="p">[</span><span class="n">msk</span><span class="p">],</span><span class="n">minlength</span><span class="o">=</span><span class="n">M</span><span class="p">)[:</span><span class="n">M</span><span class="p">]</span>
+
+    <span class="n">wgt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">acc</span><span class="p">)</span>
+
+    <span class="n">ssnr_S</span> <span class="o">=</span> <span class="mf">10.0</span><span class="o">**</span><span class="p">(</span><span class="mf">3.0</span><span class="o">*</span><span class="n">ssnr</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">ssnr_S</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">ssnr_F</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">100.0</span><span class="o">*</span><span class="n">ssnr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="n">N</span><span class="o">*</span><span class="n">apix</span><span class="p">))</span> <span class="k">if</span> <span class="n">apix</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">s</span>   <span class="o">=</span> <span class="n">ssnr_S</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">M</span><span class="p">)</span><span class="o">*</span><span class="n">ssnr_F</span><span class="p">)</span>
+        <span class="n">wgt</span> <span class="o">=</span> <span class="n">wgt</span><span class="o">*</span><span class="p">((</span><span class="n">s</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="mf">1e-6</span><span class="p">))</span>
+
+    <span class="n">scale</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">N</span><span class="o">/</span><span class="mf">2.0</span><span class="p">)</span>
+    <span class="n">wgt</span>    <span class="o">=</span> <span class="n">wgt</span><span class="o">*</span><span class="n">scale</span>
+    <span class="n">wgt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">scale</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">wgt</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="apply_spectral_weight">
+<a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.apply_spectral_weight">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_spectral_weight</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">wgt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Divide a volume by a radial spectral weight in Fourier space.</span>
+
+<span class="sd">    The counterpart of :func:`spectral_weight_CFSC`.  Note the direction: the</span>
+<span class="sd">    weight is **divided** out, unlike :func:`apply_FOM` and :func:`bandpass`,</span>
+<span class="sd">    which multiply.  Shells where the weight is not positive are zeroed, as is</span>
+<span class="sd">    the DC term and everything beyond the end of *wgt*, matching</span>
+<span class="sd">    ``radial_frc_norm_vol``.  The result therefore has zero mean.</span>
+
+<span class="sd">    No masking is performed: re-apply the mask afterwards if needed.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    v : ndarray, shape (N, N, N)</span>
+<span class="sd">        Volume to weight.  Must be cubic with an even box size.</span>
+<span class="sd">    wgt : array_like, shape (N//2+1,)</span>
+<span class="sd">        Radial weight to divide out, typically from</span>
+<span class="sd">        :func:`spectral_weight_CFSC`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray, float32</span>
+<span class="sd">        Weighted volume, same shape as *v*.</span>
+<span class="sd">    """</span>
+    <span class="n">v</span>   <span class="o">=</span> <span class="n">_check_cubic_even</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="s1">'v'</span><span class="p">)</span>
+    <span class="n">wgt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">wgt</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">M</span>   <span class="o">=</span> <span class="n">wgt</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">v_f</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">r</span>   <span class="o">=</span> <span class="n">_rfft_radial_index</span><span class="p">(</span><span class="n">v_f</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="n">inv</span>     <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+    <span class="n">nz</span>      <span class="o">=</span> <span class="n">wgt</span> <span class="o">&gt;</span> <span class="mf">1e-8</span>
+    <span class="n">inv</span><span class="p">[</span><span class="n">nz</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">/</span><span class="n">wgt</span><span class="p">[</span><span class="n">nz</span><span class="p">]</span>
+
+    <span class="n">gain</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">r</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">r</span> <span class="o">&lt;</span> <span class="n">M</span><span class="p">),</span> <span class="n">inv</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">M</span><span class="o">-</span><span class="mi">1</span><span class="p">)],</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">v_f</span>  <span class="o">=</span> <span class="n">v_f</span><span class="o">*</span><span class="n">gain</span>
+
+    <span class="n">rslt</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">irfftn</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">v_f</span><span class="p">,</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span><span class="n">s</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">rslt</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="phase_randomize">
+<a class="viewcode-back" href="../../../api/susan.utils.functions.html#susan.utils._functions.phase_randomize">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">phase_randomize</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="n">fpix</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Randomize the Fourier phases of a volume, preserving its amplitudes.</span>
+
+<span class="sd">    Builds a null map that shares the radial (and full 3-D) amplitude spectrum</span>
+<span class="sd">    of *v* but carries no structural information above *fpix*.  Correlating</span>
+<span class="sd">    data against such a map measures the correlation obtainable by chance,</span>
+<span class="sd">    which is the empirical noise floor for CC-based resolution cut-offs.</span>
+
+<span class="sd">    Phases are borrowed from the transform of a random real volume rather than</span>
+<span class="sd">    drawn directly, so Hermitian symmetry is satisfied by construction and the</span>
+<span class="sd">    result is exactly real.  Because the amplitudes are untouched, spectral</span>
+<span class="sd">    weighting and energy normalisation behave identically on the randomized</span>
+<span class="sd">    map and on the original.</span>
+
+<span class="sd">    No masking is performed.  Apply the same mask to the result that the</span>
+<span class="sd">    original carries if the comparison is meant to be like for like.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    v : ndarray, shape (N, N, N)</span>
+<span class="sd">        Input volume.  Must be cubic with an even box size.</span>
+<span class="sd">    fpix : float, optional</span>
+<span class="sd">        Radius in Fourier pixels at which randomization starts.  Shells with</span>
+<span class="sd">        ``r &gt;= fpix`` are randomized, shells below keep their original phases.</span>
+<span class="sd">        Default: ``0``, which randomizes every frequency including DC.</span>
+<span class="sd">    seed : int or None, optional</span>
+<span class="sd">        Seed for the random phases.  Default: ``None`` (non-reproducible).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray, float32</span>
+<span class="sd">        Phase-randomized volume, same shape as *v*.</span>
+<span class="sd">    """</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">_check_cubic_even</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="s1">'v'</span><span class="p">)</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+    <span class="n">v_f</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">n_f</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">n_abs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">n_f</span><span class="p">)</span>
+    <span class="n">ph</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">n_f</span><span class="p">,</span><span class="n">n_abs</span><span class="p">,</span><span class="n">out</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">n_f</span><span class="p">),</span><span class="n">where</span><span class="o">=</span><span class="n">n_abs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">fpix</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">r</span>   <span class="o">=</span> <span class="n">_rfft_radial_index</span><span class="p">(</span><span class="n">v_f</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">r</span> <span class="o">&gt;=</span> <span class="n">fpix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v_f</span><span class="p">)</span><span class="o">*</span><span class="n">ph</span><span class="p">,</span> <span class="n">v_f</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v_f</span><span class="p">)</span><span class="o">*</span><span class="n">ph</span>
+
+    <span class="n">rslt</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">irfftn</span><span class="p">(</span><span class="n">_sfft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span><span class="n">s</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">rslt</span><span class="p">)</span></div>
 
 
 
@@ -649,8 +845,8 @@
         <span class="n">v1</span> <span class="o">=</span> <span class="n">v1</span><span class="o">*</span><span class="n">msk</span>
         <span class="n">v2</span> <span class="o">=</span> <span class="n">v2</span><span class="o">*</span><span class="n">msk</span>
 
-    <span class="n">V1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
-    <span class="n">V2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v2</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">V1</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">V2</span> <span class="o">=</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span> <span class="n">_sfft</span><span class="o">.</span><span class="n">rfftn</span><span class="p">(</span><span class="n">v2</span><span class="p">,</span><span class="n">norm</span><span class="o">=</span><span class="s1">'ortho'</span><span class="p">,</span><span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
     
     <span class="n">num</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">V1</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(</span><span class="n">V2</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
     <span class="n">d_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">V1</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(</span><span class="n">V1</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>

@@ -607,6 +607,108 @@ before taking the square root.</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.spectral_weight_CFSC">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">spectral_weight_CFSC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ssnr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.0,</span> <span class="pre">0.0)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#spectral_weight_CFSC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.spectral_weight_CFSC" title="Link to this definition">¶</a></dt>
+<dd><p>Compute the CFSC radial spectral weight of a volume.</p>
+<p>This is the Python equivalent of the <code class="docutils literal notranslate"><span class="pre">cfsc</span></code> whitening the GPU code
+applies to a 3-D reference (<code class="docutils literal notranslate"><span class="pre">RadialAverager::preset_FRC_vol</span></code>), returned
+as a profile instead of being applied in place, so the weight measured on
+one map can be applied to another with <a class="reference internal" href="#susan.utils._functions.apply_spectral_weight" title="susan.utils._functions.apply_spectral_weight"><code class="xref py py-func docutils literal notranslate"><span class="pre">apply_spectral_weight()</span></code></a>.</p>
+<p>For each shell <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">=</span> <span class="pre">round(|k|)</span></code> of the half-spectrum:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[w[r] = \sqrt{\sum_{|k| \in r} \frac{|F(k)|^2}{\max(r,1)}}
+       \cdot \mathrm{gain}[r] \cdot \sqrt{N/2}\]</div>
+</div>
+<p>with <code class="docutils literal notranslate"><span class="pre">w[0]</span> <span class="pre">=</span> <span class="pre">sqrt(N/2)</span></code>.  The division by <code class="docutils literal notranslate"><span class="pre">r</span></code> makes the 3-D shell sum
+scale like the 2-D ring sum used on the substack, keeping the reference and
+the data whitened consistently.  The optional ad-hoc SSNR gain is
+<code class="docutils literal notranslate"><span class="pre">(s+1)/max(s,1e-6)</span></code> with <code class="docutils literal notranslate"><span class="pre">s</span> <span class="pre">=</span> <span class="pre">10^(3</span> <span class="pre">S)</span> <span class="pre">exp(-100</span> <span class="pre">F</span> <span class="pre">r</span> <span class="pre">/</span> <span class="pre">(N</span> <span class="pre">apix))</span></code>, active
+only when <code class="docutils literal notranslate"><span class="pre">10^(3</span> <span class="pre">S)</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>.</p>
+<p>No masking is performed: apply the mask to <em>v</em> beforehand if the weight
+should be measured over the masked region only.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>v</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>, </em><em>N</em><em>)</em>) – Input volume.  Must be cubic with an even box size.</p></li>
+<li><p><strong>apix</strong> (<em>float</em><em>, </em><em>optional</em>) – Pixel size in Angstroms, used only by the SSNR gain.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>
+(gain disabled).</p></li>
+<li><p><strong>ssnr</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>optional</em>) – Ad-hoc SSNR parameters <code class="docutils literal notranslate"><span class="pre">(F,</span> <span class="pre">S)</span></code>, matching <code class="docutils literal notranslate"><span class="pre">-ssnr_param</span></code>.
+Default: <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">0)</span></code> (gain disabled).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Radial weight to be divided out, as consumed by
+<a class="reference internal" href="#susan.utils._functions.apply_spectral_weight" title="susan.utils._functions.apply_spectral_weight"><code class="xref py py-func docutils literal notranslate"><span class="pre">apply_spectral_weight()</span></code></a>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray, float32, shape (N//2+1,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.apply_spectral_weight">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">apply_spectral_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wgt</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#apply_spectral_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.apply_spectral_weight" title="Link to this definition">¶</a></dt>
+<dd><p>Divide a volume by a radial spectral weight in Fourier space.</p>
+<p>The counterpart of <a class="reference internal" href="#susan.utils._functions.spectral_weight_CFSC" title="susan.utils._functions.spectral_weight_CFSC"><code class="xref py py-func docutils literal notranslate"><span class="pre">spectral_weight_CFSC()</span></code></a>.  Note the direction: the
+weight is <strong>divided</strong> out, unlike <a class="reference internal" href="#susan.utils._functions.apply_FOM" title="susan.utils._functions.apply_FOM"><code class="xref py py-func docutils literal notranslate"><span class="pre">apply_FOM()</span></code></a> and <a class="reference internal" href="#susan.utils._functions.bandpass" title="susan.utils._functions.bandpass"><code class="xref py py-func docutils literal notranslate"><span class="pre">bandpass()</span></code></a>,
+which multiply.  Shells where the weight is not positive are zeroed, as is
+the DC term and everything beyond the end of <em>wgt</em>, matching
+<code class="docutils literal notranslate"><span class="pre">radial_frc_norm_vol</span></code>.  The result therefore has zero mean.</p>
+<p>No masking is performed: re-apply the mask afterwards if needed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>v</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>, </em><em>N</em><em>)</em>) – Volume to weight.  Must be cubic with an even box size.</p></li>
+<li><p><strong>wgt</strong> (<em>array_like</em><em>, </em><em>shape</em><em> (</em><em>N//2+1</em><em>,</em><em>)</em>) – Radial weight to divide out, typically from
+<a class="reference internal" href="#susan.utils._functions.spectral_weight_CFSC" title="susan.utils._functions.spectral_weight_CFSC"><code class="xref py py-func docutils literal notranslate"><span class="pre">spectral_weight_CFSC()</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Weighted volume, same shape as <em>v</em>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray, float32</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.phase_randomize">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">phase_randomize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fpix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#phase_randomize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.phase_randomize" title="Link to this definition">¶</a></dt>
+<dd><p>Randomize the Fourier phases of a volume, preserving its amplitudes.</p>
+<p>Builds a null map that shares the radial (and full 3-D) amplitude spectrum
+of <em>v</em> but carries no structural information above <em>fpix</em>.  Correlating
+data against such a map measures the correlation obtainable by chance,
+which is the empirical noise floor for CC-based resolution cut-offs.</p>
+<p>Phases are borrowed from the transform of a random real volume rather than
+drawn directly, so Hermitian symmetry is satisfied by construction and the
+result is exactly real.  Because the amplitudes are untouched, spectral
+weighting and energy normalisation behave identically on the randomized
+map and on the original.</p>
+<p>No masking is performed.  Apply the same mask to the result that the
+original carries if the comparison is meant to be like for like.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>v</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>, </em><em>N</em><em>)</em>) – Input volume.  Must be cubic with an even box size.</p></li>
+<li><p><strong>fpix</strong> (<em>float</em><em>, </em><em>optional</em>) – Radius in Fourier pixels at which randomization starts.  Shells with
+<code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">&gt;=</span> <span class="pre">fpix</span></code> are randomized, shells below keep their original phases.
+Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>, which randomizes every frequency including DC.</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Seed for the random phases.  Default: <code class="docutils literal notranslate"><span class="pre">None</span></code> (non-reproducible).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Phase-randomized volume, same shape as <em>v</em>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray, float32</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="susan.utils._functions.fsc_sharpen">
 <span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">fsc_sharpen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fsc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bfactor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fom</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rosenthal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lowpass</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thres</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.143</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rolloff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#fsc_sharpen"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.fsc_sharpen" title="Link to this definition">¶</a></dt>
 <dd><p>FSC-weighted B-factor sharpening of a map from its half-map FSC.</p>
@@ -981,6 +1083,9 @@ the given resolution.  No pixel size or particle diameter is needed.</p>
 <li><a class="reference internal" href="#susan.utils._functions.ssnr_from_fsc"><code class="docutils literal notranslate"><span class="pre">ssnr_from_fsc()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.bandpass"><code class="docutils literal notranslate"><span class="pre">bandpass()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.apply_FOM"><code class="docutils literal notranslate"><span class="pre">apply_FOM()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.spectral_weight_CFSC"><code class="docutils literal notranslate"><span class="pre">spectral_weight_CFSC()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.apply_spectral_weight"><code class="docutils literal notranslate"><span class="pre">apply_spectral_weight()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.phase_randomize"><code class="docutils literal notranslate"><span class="pre">phase_randomize()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.fsc_sharpen"><code class="docutils literal notranslate"><span class="pre">fsc_sharpen()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.fsc_sharpen_filter"><code class="docutils literal notranslate"><span class="pre">fsc_sharpen_filter()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.get_extension"><code class="docutils literal notranslate"><span class="pre">get_extension()</span></code></a></li>
