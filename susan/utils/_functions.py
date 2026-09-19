@@ -25,6 +25,9 @@ __all__ = ['dose_from_fsc',
            'ssnr_from_fsc',
            'bandpass',
            'apply_FOM',
+           'spectral_weight_CFSC',
+           'apply_spectral_weight',
+           'phase_randomize',
            'fsc_sharpen',
            'fsc_sharpen_filter',
            'euDYN_rotm',
@@ -48,6 +51,8 @@ import datetime
 import warnings as _warnings
 import susan.io.mrc as mrc
 import numpy as np
+import scipy.fft as _sfft
+from functools import lru_cache as _lru_cache
 
 def _warn(msg):
     _warnings.warn(msg,RuntimeWarning,stacklevel=3)
@@ -92,9 +97,9 @@ def radial_average(v):
 
 
 def _apply_fourier_rad_wgt(v,wgt):
-    v_f = np.ascontiguousarray(np.fft.fftshift(np.fft.rfftn(v.astype(float),norm='ortho'),axes=(0,1)))
+    v_f = np.ascontiguousarray(_sfft.fftshift(_sfft.rfftn(v.astype(float),norm='ortho',workers=-1),axes=(0,1)))
     _core_apply_fourier_rad_wgt(v_f, np.ascontiguousarray(wgt, dtype=np.float32))
-    rslt = np.fft.irfftn(np.fft.ifftshift(v_f,axes=(0,1)),norm='ortho')
+    rslt = _sfft.irfftn(_sfft.ifftshift(v_f,axes=(0,1)),s=v.shape,norm='ortho',workers=-1)
     rslt = np.float32(rslt)
     return rslt
 
@@ -170,6 +175,188 @@ def apply_FOM(v,fsc_array):
     """
     wgt = np.sqrt(fsc_array.clip(0,1))
     return _apply_fourier_rad_wgt(v,wgt)
+
+
+def _check_cubic_even(v,name='v'):
+    v = np.asarray(v)
+    if v.ndim != 3:
+        raise ValueError('%s must be three-dimensional, got %d dimensions' % (name,v.ndim))
+    if not (v.shape[0] == v.shape[1] == v.shape[2]):
+        raise ValueError('%s must be cubic, got shape %s' % (name,str(v.shape)))
+    if v.shape[0] % 2 != 0:
+        raise ValueError('%s must have an even box size, got %d' % (name,v.shape[0]))
+    return v
+
+
+@_lru_cache(maxsize=1)
+def _rfft_radial_index(shape_f):
+    z = np.arange(shape_f[0]) - shape_f[0]//2
+    y = np.arange(shape_f[1]) - shape_f[1]//2
+    x = np.arange(shape_f[2])
+    r = np.sqrt(x[None,None,:]**2 + y[None,:,None]**2 + z[:,None,None]**2)
+    r = np.round(r).astype(np.int32)
+    r.setflags(write=False)
+    return r
+
+
+def spectral_weight_CFSC(v,apix=0.0,ssnr=(0.0,0.0)):
+    """Compute the CFSC radial spectral weight of a volume.
+
+    This is the Python equivalent of the ``cfsc`` whitening the GPU code
+    applies to a 3-D reference (``RadialAverager::preset_FRC_vol``), returned
+    as a profile instead of being applied in place, so the weight measured on
+    one map can be applied to another with :func:`apply_spectral_weight`.
+
+    For each shell ``r = round(|k|)`` of the half-spectrum:
+
+    .. math::
+        w[r] = \\sqrt{\\sum_{|k| \\in r} \\frac{|F(k)|^2}{\\max(r,1)}}
+               \\cdot \\mathrm{gain}[r] \\cdot \\sqrt{N/2}
+
+    with ``w[0] = sqrt(N/2)``.  The division by ``r`` makes the 3-D shell sum
+    scale like the 2-D ring sum used on the substack, keeping the reference and
+    the data whitened consistently.  The optional ad-hoc SSNR gain is
+    ``(s+1)/max(s,1e-6)`` with ``s = 10^(3 S) exp(-100 F r / (N apix))``, active
+    only when ``10^(3 S) > 1``.
+
+    No masking is performed: apply the mask to *v* beforehand if the weight
+    should be measured over the masked region only.
+
+    Parameters
+    ----------
+    v : ndarray, shape (N, N, N)
+        Input volume.  Must be cubic with an even box size.
+    apix : float, optional
+        Pixel size in Angstroms, used only by the SSNR gain.  Default: ``0``
+        (gain disabled).
+    ssnr : tuple of float, optional
+        Ad-hoc SSNR parameters ``(F, S)``, matching ``-ssnr_param``.
+        Default: ``(0, 0)`` (gain disabled).
+
+    Returns
+    -------
+    ndarray, float32, shape (N//2+1,)
+        Radial weight to be divided out, as consumed by
+        :func:`apply_spectral_weight`.
+    """
+    v = _check_cubic_even(v,'v')
+    N = v.shape[-1]
+    M = N//2 + 1
+
+    v_f = _sfft.fftshift(_sfft.rfftn(v.astype(np.float64),norm='ortho',workers=-1),axes=(0,1))
+    r   = _rfft_radial_index(v_f.shape)
+    msk = r < M
+
+    pwr = (v_f.real*v_f.real + v_f.imag*v_f.imag)/np.maximum(r,1)
+    acc = np.bincount(r[msk],weights=pwr[msk],minlength=M)[:M]
+
+    wgt = np.sqrt(acc)
+
+    ssnr_S = 10.0**(3.0*ssnr[1])
+    if ssnr_S > 1:
+        ssnr_F = (-100.0*ssnr[0]/(N*apix)) if apix > 0 else 0.0
+        s   = ssnr_S*np.exp(np.arange(M)*ssnr_F)
+        wgt = wgt*((s+1)/np.maximum(s,1e-6))
+
+    scale  = np.sqrt(N/2.0)
+    wgt    = wgt*scale
+    wgt[0] = scale
+
+    return np.float32(wgt)
+
+
+def apply_spectral_weight(v,wgt):
+    """Divide a volume by a radial spectral weight in Fourier space.
+
+    The counterpart of :func:`spectral_weight_CFSC`.  Note the direction: the
+    weight is **divided** out, unlike :func:`apply_FOM` and :func:`bandpass`,
+    which multiply.  Shells where the weight is not positive are zeroed, as is
+    the DC term and everything beyond the end of *wgt*, matching
+    ``radial_frc_norm_vol``.  The result therefore has zero mean.
+
+    No masking is performed: re-apply the mask afterwards if needed.
+
+    Parameters
+    ----------
+    v : ndarray, shape (N, N, N)
+        Volume to weight.  Must be cubic with an even box size.
+    wgt : array_like, shape (N//2+1,)
+        Radial weight to divide out, typically from
+        :func:`spectral_weight_CFSC`.
+
+    Returns
+    -------
+    ndarray, float32
+        Weighted volume, same shape as *v*.
+    """
+    v   = _check_cubic_even(v,'v')
+    wgt = np.asarray(wgt,dtype=np.float64).ravel()
+    M   = wgt.shape[0]
+
+    v_f = _sfft.fftshift(_sfft.rfftn(v.astype(np.float64),norm='ortho',workers=-1),axes=(0,1))
+    r   = _rfft_radial_index(v_f.shape)
+
+    inv     = np.zeros(M)
+    nz      = wgt > 1e-8
+    inv[nz] = 1.0/wgt[nz]
+
+    gain = np.where((r > 0) & (r < M), inv[np.clip(r,0,M-1)], 0.0)
+    v_f  = v_f*gain
+
+    rslt = _sfft.irfftn(_sfft.ifftshift(v_f,axes=(0,1)),s=v.shape,norm='ortho',workers=-1)
+    return np.float32(rslt)
+
+
+def phase_randomize(v,fpix=0,seed=None):
+    """Randomize the Fourier phases of a volume, preserving its amplitudes.
+
+    Builds a null map that shares the radial (and full 3-D) amplitude spectrum
+    of *v* but carries no structural information above *fpix*.  Correlating
+    data against such a map measures the correlation obtainable by chance,
+    which is the empirical noise floor for CC-based resolution cut-offs.
+
+    Phases are borrowed from the transform of a random real volume rather than
+    drawn directly, so Hermitian symmetry is satisfied by construction and the
+    result is exactly real.  Because the amplitudes are untouched, spectral
+    weighting and energy normalisation behave identically on the randomized
+    map and on the original.
+
+    No masking is performed.  Apply the same mask to the result that the
+    original carries if the comparison is meant to be like for like.
+
+    Parameters
+    ----------
+    v : ndarray, shape (N, N, N)
+        Input volume.  Must be cubic with an even box size.
+    fpix : float, optional
+        Radius in Fourier pixels at which randomization starts.  Shells with
+        ``r >= fpix`` are randomized, shells below keep their original phases.
+        Default: ``0``, which randomizes every frequency including DC.
+    seed : int or None, optional
+        Seed for the random phases.  Default: ``None`` (non-reproducible).
+
+    Returns
+    -------
+    ndarray, float32
+        Phase-randomized volume, same shape as *v*.
+    """
+    v = _check_cubic_even(v,'v')
+    rng = np.random.default_rng(seed)
+
+    v_f = _sfft.fftshift(_sfft.rfftn(v.astype(np.float64),norm='ortho',workers=-1),axes=(0,1))
+    n_f = _sfft.fftshift(_sfft.rfftn(rng.standard_normal(v.shape),norm='ortho',workers=-1),axes=(0,1))
+
+    n_abs = np.abs(n_f)
+    ph    = np.divide(n_f,n_abs,out=np.ones_like(n_f),where=n_abs > 0)
+
+    if fpix > 0:
+        r   = _rfft_radial_index(v_f.shape)
+        out = np.where(r >= fpix, np.abs(v_f)*ph, v_f)
+    else:
+        out = np.abs(v_f)*ph
+
+    rslt = _sfft.irfftn(_sfft.ifftshift(out,axes=(0,1)),s=v.shape,norm='ortho',workers=-1)
+    return np.float32(rslt)
 
 
 def fsc_sharpen(v, fsc, apix, bfactor, fom='rosenthal',
@@ -330,8 +517,8 @@ def fsc_get(v1,v2,msk=None):
         v1 = v1*msk
         v2 = v2*msk
 
-    V1 = np.fft.fftshift( np.fft.rfftn(v1,norm='ortho'), axes=(0,1))
-    V2 = np.fft.fftshift( np.fft.rfftn(v2,norm='ortho'), axes=(0,1))
+    V1 = _sfft.fftshift( _sfft.rfftn(v1,norm='ortho',workers=-1), axes=(0,1))
+    V2 = _sfft.fftshift( _sfft.rfftn(v2,norm='ortho',workers=-1), axes=(0,1))
     
     num = np.ascontiguousarray(np.real(V1*np.conjugate(V2)), dtype=np.float32)
     d_1 = np.ascontiguousarray(np.real(V1*np.conjugate(V1)), dtype=np.float32)
