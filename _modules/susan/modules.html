@@ -451,6 +451,16 @@
 <span class="sd">    cc_stats_type : str</span>
 <span class="sd">        Post-CC statistics normalisation: ``'none'``, ``'probability'``, or</span>
 <span class="sd">        ``'sigma'``.  Default: ``'none'``.</span>
+
+<span class="sd">        ``'sigma'`` scores each orientation by the prominence of its CC peak</span>
+<span class="sd">        over the offset grid, then reports the z-score of the best orientation</span>
+<span class="sd">        against all the others.  The per-orientation prominence needs at least</span>
+<span class="sd">        3 offset points to be defined, so with :attr:`offset` spans that yield</span>
+<span class="sd">        1 or 2 points (notably ``set_offset_search(0)``) it falls back to the</span>
+<span class="sd">        raw peak CC; the across-orientation z-score is unaffected.  Note that</span>
+<span class="sd">        prominence is amplitude-invariant by construction, and that it is a</span>
+<span class="sd">        weak statistic on very small grids — a 7-point grid</span>
+<span class="sd">        (``set_offset_search(1)``) gives it only 7 samples per orientation.</span>
 <span class="sd">    pseudo_symmetry : str</span>
 <span class="sd">        Symmetry group applied to the angular search grid.  Default:</span>
 <span class="sd">        ``'c1'``.</span>
@@ -525,9 +535,14 @@
 <span class="sd">        auto-estimated dose-weighting against an external reference; see</span>
 <span class="sd">        :func:`susan.utils.dose_from_fsc`.  Default: ``1``.</span>
 
-<span class="sd">        Note that the aligner writes ``expfilt_gain * dose`` on **every** run,</span>
-<span class="sd">        so ``expfilt_gain = 0`` zeroes the field rather than preserving it, and</span>
-<span class="sd">        a hand-set exposure filter cannot survive an alignment.  The exposure</span>
+<span class="sd">        Note that the aligner writes ``expfilt_gain * dose`` on every run in</span>
+<span class="sd">        which the dose could be measured, so ``expfilt_gain = 0`` zeroes the</span>
+<span class="sd">        field rather than preserving it, and a hand-set exposure filter cannot</span>
+<span class="sd">        be relied on to survive an alignment.  The dose comes from the width of</span>
+<span class="sd">        the CC peak, which requires the peak to have neighbours on both sides</span>
+<span class="sd">        along at least one axis of the offset grid; when it does not (a</span>
+<span class="sd">        single-point grid, or a peak sitting on the grid boundary) the field is</span>
+<span class="sd">        left untouched rather than being overwritten.  The exposure</span>
 <span class="sd">        filter is *uncompensated* in the reconstruction (it enters the Wiener</span>
 <span class="sd">        numerator only), so whatever gain is used here is baked permanently into</span>
 <span class="sd">        the resulting map.  For an envelope the reconstruction will deconvolve,</span>
