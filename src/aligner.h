@@ -694,7 +694,7 @@ protected:
                            R_final,cc_tracker.get_vec(),cc_tracker.get_cc(),
                            ptr->class_ix,ptr->ctf_vals.apix);
 
-        {
+        if( cc_tracker.has_dose() ) {
             float dose = expfilt_gain * cc_tracker.get_dose();
             for(int i = 0; i < ptr->K; i++)
                 ptr->ptcl.def[i].ExpFilt = dose;
@@ -810,7 +810,8 @@ protected:
             update_particle_2D(ptr->ptcl,
                                max_R[i],cc_tracker_arr.get_vec(i),cc_cur,
                                i,ptr->ctf_vals.apix);
-            ptr->ptcl.def[i].ExpFilt = expfilt_gain * cc_tracker_arr.get_dose(i);
+            if( cc_tracker_arr.has_dose(i) )
+                ptr->ptcl.def[i].ExpFilt = expfilt_gain * cc_tracker_arr.get_dose(i);
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
         tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w);

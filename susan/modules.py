@@ -147,6 +147,16 @@ class Aligner:
     cc_stats_type : str
         Post-CC statistics normalisation: ``'none'``, ``'probability'``, or
         ``'sigma'``.  Default: ``'none'``.
+
+        ``'sigma'`` scores each orientation by the prominence of its CC peak
+        over the offset grid, then reports the z-score of the best orientation
+        against all the others.  The per-orientation prominence needs at least
+        3 offset points to be defined, so with :attr:`offset` spans that yield
+        1 or 2 points (notably ``set_offset_search(0)``) it falls back to the
+        raw peak CC; the across-orientation z-score is unaffected.  Note that
+        prominence is amplitude-invariant by construction, and that it is a
+        weak statistic on very small grids — a 7-point grid
+        (``set_offset_search(1)``) gives it only 7 samples per orientation.
     pseudo_symmetry : str
         Symmetry group applied to the angular search grid.  Default:
         ``'c1'``.
@@ -221,9 +231,14 @@ class Aligner:
         auto-estimated dose-weighting against an external reference; see
         :func:`susan.utils.dose_from_fsc`.  Default: ``1``.
 
-        Note that the aligner writes ``expfilt_gain * dose`` on **every** run,
-        so ``expfilt_gain = 0`` zeroes the field rather than preserving it, and
-        a hand-set exposure filter cannot survive an alignment.  The exposure
+        Note that the aligner writes ``expfilt_gain * dose`` on every run in
+        which the dose could be measured, so ``expfilt_gain = 0`` zeroes the
+        field rather than preserving it, and a hand-set exposure filter cannot
+        be relied on to survive an alignment.  The dose comes from the width of
+        the CC peak, which requires the peak to have neighbours on both sides
+        along at least one axis of the offset grid; when it does not (a
+        single-point grid, or a peak sitting on the grid boundary) the field is
+        left untouched rather than being overwritten.  The exposure
         filter is *uncompensated* in the reconstruction (it enters the Wiener
         numerator only), so whatever gain is used here is baked permanently into
         the resulting map.  For an envelope the reconstruction will deconvolve,

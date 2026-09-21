@@ -314,6 +314,8 @@ public:
     Vec3 get_vec() const { return current_vec_; }
     M33f get_rot() const { return current_rot_; }
 
+    bool has_dose() const { return current_sigma_ > 0.f; }
+
     float get_dose() const
     {
         if (current_sigma_ <= 0.f) return 9999.f;
@@ -332,6 +334,7 @@ private:
     float step_;
     bool  is_2d_;
     float offset_sigma_;
+    bool  use_psr_;             // false ⇒ per-angle score falls back to raw peak CC
     std::vector<float> pts_w_;  // precomputed translational prior weights
 
     // Best pose based on PSR (raw value stored; weighted only for tiebreak)
@@ -360,7 +363,8 @@ public:
         pix_size_(pix_size),
         step_(cc_tracker_detail::compute_step(p_pts, n_pts)),
         is_2d_(true),
-        offset_sigma_(offset_sigma)
+        offset_sigma_(offset_sigma),
+        use_psr_(n_pts >= 3)
     {
         for (int i = 0; i < n_pts_; ++i)
             if (pts_[i].z != 0.f) { is_2d_ = false; break; }
@@ -395,13 +399,15 @@ public:
     // translational prior (offset_sigma) is precomputed in pts_w_.
     //
     // Per-translation argmax uses the shift-weighted score (sign-safe).  The
-    // PSR numerator is the RAW p_cc[max_idx] at the chosen point (P1), so the
-    // stored best_vec_ and PSR describe the same point.  Welford stats are
-    // accumulated on RAW p_cc and RAW psr — neither prior leaks into them, so
-    // get_cc() still reports a clean angular-discriminability z-score.
+    // per-angle score is the PSR of the CC map over the offset grid, or the
+    // raw peak CC when the grid is too small for one (use_psr_).  Either way
+    // the numerator is the RAW p_cc[max_idx] at the chosen point (P1), so the
+    // stored best_vec_ and the score describe the same point.  Welford stats
+    // are accumulated on RAW p_cc and RAW psr — neither prior leaks into them,
+    // so get_cc() still reports a clean angular-discriminability z-score.
     // Cross-push tiebreak is the joint score:
     //     PSR · pts_w_[max_idx] · prior_weight
-    // (PSR ≥ 0, so no sign guard is needed.)
+    // sign-guarded, since in the fallback the score carries the CC's sign.
     void push(const float* p_cc,
               int n_pts,
               const M33f& Rot,
@@ -409,10 +415,7 @@ public:
     {
         const int n = std::min(n_pts, n_pts_);
 
-        // Need at least 3 points: with n=2, PSR is provably always 1.0
-        // regardless of the CC values (max - mean = stddev algebraically),
-        // which gives no useful information about peak quality.
-        if (n <= 2)
+        if (n < 1)
             return;
 
         // ---- First level (per push) ----
@@ -427,37 +430,48 @@ public:
         }
         const float max_val = p_cc[max_idx];  // raw CC at the chosen point (P1)
 
-        // Welford online mean/variance over raw CC values: numerically stable,
-        // avoids catastrophic cancellation in (sqsum/n − mean²).
-        // Uses biased (n) denominator so that PSR_raw = sqrt(n-1) exactly for
-        // an ideal single peak above uniform background, making the sqrt(n-1)
-        // normalisation below yield 1.0 on that ideal case.
-        float wf_mean = 0.f;
-        float wf_M2   = 0.f;
-        int   count   = 0;
+        float psr;
 
-        for (int i = 0; i < n; ++i) {
-            float v = p_cc[i];
-            count++;
-            float d = v - wf_mean;
-            wf_mean += d / count;
-            wf_M2   += d * (v - wf_mean);
+        if (use_psr_) {
+            // Welford online mean/variance over raw CC values: numerically stable,
+            // avoids catastrophic cancellation in (sqsum/n − mean²).
+            // Uses biased (n) denominator so that PSR_raw = sqrt(n-1) exactly for
+            // an ideal single peak above uniform background, making the sqrt(n-1)
+            // normalisation below yield 1.0 on that ideal case.
+            float wf_mean = 0.f;
+            float wf_M2   = 0.f;
+            int   count   = 0;
+
+            for (int i = 0; i < n; ++i) {
+                float v = p_cc[i];
+                count++;
+                float d = v - wf_mean;
+                wf_mean += d / count;
+                wf_M2   += d * (v - wf_mean);
+            }
+
+            // count == n >= 3 here; use biased variance (consistent with PSR derivation)
+            const float var = wf_M2 / count;
+
+            // Normalise PSR by sqrt(n-1) to remove grid-size dependence.
+            // For an ideal single peak above uniform background, raw PSR equals
+            // sqrt(n-1) (with biased variance), so after normalisation the value
+            // is 1.0 regardless of n.  This makes stored PSR values comparable
+            // across grids of different sizes and keeps the count==1 return and
+            // the z-score return of get_cc() on a consistent scale.
+            // A flat CC map (var == 0) has no peak to be prominent against, so
+            // it scores 0 rather than dropping the angle: every angle must
+            // contribute exactly one sample to the across-angle statistics.
+            psr = (var > 0.f)
+                  ? (max_val - wf_mean) / (std::sqrt(var) * std::sqrt(float(n - 1)))
+                  : 0.f;
         }
-
-        // count == n >= 3 here; use biased variance (consistent with PSR derivation)
-        float var = wf_M2 / count;
-        if (var <= 0.f)
-            return;
-
-        float stddev = std::sqrt(var);
-
-        // Normalise PSR by sqrt(n-1) to remove grid-size dependence.
-        // For an ideal single peak above uniform background, raw PSR equals
-        // sqrt(n-1) (with biased variance), so after normalisation the value
-        // is 1.0 regardless of n.  This makes stored PSR values comparable
-        // across grids of different sizes and keeps the count==1 return and
-        // the z-score return of get_cc() on a consistent scale.
-        float psr = (max_val - wf_mean) / (stddev * std::sqrt(float(n - 1)));
+        else {
+            // Grid too small for a PSR (n <= 2): score the angle by its raw
+            // peak CC.  Only the per-angle peak-sharpness term is lost; the
+            // across-angle sigma that get_cc() returns stays intact.
+            psr = max_val;
+        }
 
         // ---- Second level (Welford across angles) ----
         psr_count_++;
@@ -467,8 +481,10 @@ public:
         float delta2 = psr - psr_mean_;
         psr_M2_     += delta * delta2;
 
-        // Track best pose — joint score for the cross-push tiebreak.
-        const float psr_w = psr * pts_w_[max_idx] * prior_weight;
+        // Track best pose — joint score for the cross-push tiebreak.  A
+        // non-positive score bypasses both priors: multiplying it by weights
+        // in (0,1] would make the worst candidates score highest.
+        const float psr_w = (psr > 0.f) ? psr * pts_w_[max_idx] * prior_weight : psr;
         if (psr_w > best_psr_weighted_) {
             best_psr_weighted_ = psr_w;
             best_psr_          = psr;
@@ -500,6 +516,8 @@ public:
 
     Vec3 get_vec() const { return best_vec_; }
     M33f get_rot() const { return best_rot_; }
+
+    bool has_dose() const { return best_sigma_ > 0.f; }
 
     float get_dose() const
     {
@@ -551,6 +569,10 @@ public:
 
     M33f get_rot() const {
         return std::visit([](auto const& t) {return t.get_rot();}, tracker);
+    }
+
+    bool has_dose() const {
+        return std::visit([](auto const& t) {return t.has_dose();}, tracker);
     }
 
     float get_dose() const {
@@ -609,6 +631,11 @@ public:
     M33f get_rot(int idx) const
     {
         return trackers_[idx].get_rot();
+    }
+
+    bool has_dose(int idx) const
+    {
+        return trackers_[idx].has_dose();
     }
 
     float get_dose(int idx) const
