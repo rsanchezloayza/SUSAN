@@ -207,7 +207,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.off_y         = 0;
     info.off_z         = 0;
     info.off_s         = 1;
-    info.expfilt_gain  = 1.0;
+    info.expfilt_gain  = 0.0;
     info.verbosity     = VERBOSITY_BASIC;
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
@@ -549,6 +549,11 @@ inline void print_full(const Info&info,FILE*fp) {
         fprintf(fp,"\t\tSubstack normalization policy: VST.\n");
     if( info.norm_type == GAT_NORMAL )
         fprintf(fp,"\t\tSubstack normalization policy: GAT.\n");
+
+    if( info.expfilt_gain > 0 )
+        fprintf(fp,"\t\tExposure filter: writing %.3f * estimated dose.\n",info.expfilt_gain);
+    else
+        fprintf(fp,"\t\tExposure filter: disabled (gain=0).\n");
 
     fprintf(fp,"\t\tPseudo-symmetry search: %s.\n",info.pseudo_sym);
     fprintf(fp,"\t\tCone search:    Range=%.3f, Step=%.3f.\n",info.cone_range,info.cone_step);

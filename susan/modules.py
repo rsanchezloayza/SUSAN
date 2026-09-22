@@ -229,16 +229,11 @@ class Aligner:
         the per-projection exposure filter
         (:attr:`~susan.data.Particles.def_ExFl`).  Useful for calibrating the
         auto-estimated dose-weighting against an external reference; see
-        :func:`susan.utils.dose_from_fsc`.  Default: ``1``.
+        :func:`susan.utils.dose_from_fsc`.  Default: ``0`` (disabled).
 
-        Note that the aligner writes ``expfilt_gain * dose`` on every run in
-        which the dose could be measured, so ``expfilt_gain = 0`` zeroes the
-        field rather than preserving it, and a hand-set exposure filter cannot
-        be relied on to survive an alignment.  The dose comes from the width of
-        the CC peak, which requires the peak to have neighbours on both sides
-        along at least one axis of the offset grid; when it does not (a
-        single-point grid, or a peak sitting on the grid boundary) the field is
-        left untouched rather than being overwritten.  The exposure
+        Note that the aligner writes ``expfilt_gain * dose`` on **every** run,
+        so ``expfilt_gain = 0`` zeroes the field rather than preserving it, and
+        a hand-set exposure filter cannot survive an alignment.  The exposure
         filter is *uncompensated* in the reconstruction (it enters the Wiener
         numerator only), so whatever gain is used here is baked permanently into
         the resulting map.  For an envelope the reconstruction will deconvolve,
@@ -273,7 +268,7 @@ class Aligner:
         self.tm_prefix         = "template_matching"
         self.tm_sigma          = 0
         self.dilate            = 0
-        self.expfilt_gain      = 1
+        self.expfilt_gain      = 0
         
     def set_angular_search(self, c_r=0, c_s=1, i_r=0, i_s=1):
         """Set the cone and in-plane angular search parameters.
@@ -1045,6 +1040,13 @@ class CtfEstimator:
         to ``Defocus.ph_shft``.  If ``False``, the phase-shift search is
         skipped and ``ph_shft`` is forced to ``0`` for every projection;
         defocus refinement still runs normally.  Default: ``True``.
+    dechirp_cs : bool
+        If ``True``, the spherical-aberration contribution is removed from the
+        linearized signal before the peak search.  Under ``r = s**2`` its phase
+        is exactly quadratic in ``r`` with a coefficient that holds only
+        microscope constants, so it is removed without knowing the defocus.
+        This sharpens the peak and removes a bias that grows quickly as
+        ``resolution_max`` approaches ``2*pix_size``.  Default: ``True``.
     est_initial_snr : bool
         If ``True``, an initial per-projection weight is estimated from the
         depth of the Thon ring modulation and written as a ninth column of
@@ -1073,6 +1075,7 @@ class CtfEstimator:
         self.overfocus         = False
         self.est_phase_shift   = False
         self.est_initial_snr   = True
+        self.dechirp_cs        = True
         #self.mpi               = _dt.mpi_params('srun -n %d ',1)
         self.verbosity         = 1
         self.log_level         = 0
@@ -1122,6 +1125,7 @@ class CtfEstimator:
         args = args + ' -overfocus %d'     % (1 if self.overfocus else 0)
         args = args + ' -est_phase_shift %d' % (1 if self.est_phase_shift else 0)
         args = args + ' -est_initial_snr %d' % (1 if self.est_initial_snr else 0)
+        args = args + ' -dechirp_cs %d'      % (1 if self.dechirp_cs else 0)
         args = args + ' -verbosity %d'     % self.verbosity
         args = args + ' -log_level %d'     % self.log_level
         return args

@@ -72,8 +72,12 @@ public:
     GPU::GArrSingle  g_bufferB;
     GPU::GArrSingle2 g_fourier;
     GPU::GArrSingle  g_power;
+    GPU::GArrSingle2 g_cplxA;
+    GPU::GArrSingle2 g_cplxB;
 
-    GpuFFT::FFT1D rfft;
+    GpuFFT::FFT1D       rfft;
+    GpuFFT::FFT1D_full  fft_full;
+    GpuFFT::IFFT1D_full ifft_full;
 
     float  *c_linear;
     float  *c_defocus;
@@ -86,6 +90,9 @@ public:
     float new_apix;
     float max_nyquist;
     float lin_fpix_to_defocus;
+
+    bool  dechirp_cs;
+    float dechirp_coef;
 
     int   log_level;
 
@@ -107,9 +114,17 @@ public:
         apix = 1.0;
         new_apix = w_target_apix;
 
+        dechirp_cs   = false;
+        dechirp_coef = 0.0f;
+
         GPU::set_device(gpu_ix);
 
         rfft.alloc(N,K);
+        fft_full.alloc(N,K);
+        ifft_full.alloc(N,K);
+
+        g_cplxA.alloc(N*K);
+        g_cplxB.alloc(N*K);
 
         g_power.alloc(M*K);
         g_input.alloc(M*N*K);
@@ -137,6 +152,9 @@ public:
         apix = p_tomo->pix_size;
         max_nyquist = apix/new_apix;
         lin_fpix_to_defocus = 2.0f*new_apix*new_apix/lambda;
+
+        dechirp_cs   = info->dechirp_cs;
+        dechirp_coef = Math::get_dechirp_coef(lambda,p_tomo->CS,new_apix);
 
         set_defocus_search_range(info->def_min,info->def_max);
     }
@@ -248,6 +266,22 @@ protected:
         int3 siz_rad = make_int3(M,K,1);
         dim3 blk_rad = GPU::get_block_size_2D();
         dim3 grd_rad = GPU::calc_grid_size(blk_rad,siz_rad.x,siz_rad.y,siz_rad.z);
+
+        if( dechirp_cs ) {
+            int3 siz_full = make_int3(N,K,1);
+            dim3 grd_full = GPU::calc_grid_size(blk_rad,siz_full.x,siz_full.y,siz_full.z);
+
+            GpuKernels::real_to_complex<<<grd_full,blk_rad>>>(g_cplxA.ptr,g_linear.ptr,siz_full);
+            fft_full.exec(g_cplxB.ptr,g_cplxA.ptr);
+            GpuKernels::analytical_signal_1D<<<grd_full,blk_rad>>>(g_cplxB.ptr,M,N,1,K);
+            ifft_full.exec(g_cplxA.ptr,g_cplxB.ptr);
+            GpuKernels::divide<<<grd_full,blk_rad>>>(g_cplxA.ptr,N,siz_full);
+            GpuKernelsCtf::ctf_dechirp<<<grd_full,blk_rad>>>(g_cplxA.ptr,dechirp_coef,int(N),int(K));
+            fft_full.exec(g_cplxB.ptr,g_cplxA.ptr);
+            GpuKernels::divide<<<grd_full,blk_rad>>>(g_cplxB.ptr,N,siz_full);
+            GpuKernelsCtf::load_ps_half<<<grd_rad,blk_rad>>>(g_power.ptr,g_cplxB.ptr,int(M),int(N),int(K));
+            return;
+        }
 
         rfft.exec(g_fourier.ptr,g_linear.ptr);
         GpuKernels::divide<<<grd_rad,blk_rad>>>(g_fourier.ptr,N,siz_rad);
@@ -706,6 +740,8 @@ public:
     int  log_level;
     bool est_phase_shift;
     bool est_initial_snr;
+    bool dechirp_cs;
+    float dechirp_coef;
     float res_thres;
 
     float   *c_ini_idx;
@@ -780,6 +816,9 @@ public:
         lambda_kv = Math::get_lambda(p_tomo->KV);
         lambda_pi = lambda_kv*M_PI;
         lambda3_Cs_pi_2 = lambda_kv*lambda_kv*lambda_kv*(CS*1e7)*M_PI/2;
+
+        dechirp_cs   = info->dechirp_cs;
+        dechirp_coef = Math::get_dechirp_coef(lambda_kv,CS,new_apix);
     }
 
     void initial_estimation(const char*out_dir,float*input) {
@@ -1252,6 +1291,29 @@ protected:
         int3 siz_lin = make_int3(M,K,1);
         dim3 grd_lin = GPU::calc_grid_size(blk,siz_lin);
 
+        if( dechirp_cs ) {
+            GPU::GArrSingle2    g_cplxA;
+            GPU::GArrSingle2    g_cplxB;
+            GpuFFT::FFT1D_full  fft_full;
+            GpuFFT::IFFT1D_full ifft_full;
+
+            g_cplxA.alloc(N*K);
+            g_cplxB.alloc(N*K);
+            fft_full.alloc(N,K);
+            ifft_full.alloc(N,K);
+
+            GpuKernels::real_to_complex<<<grd_rad,blk>>>(g_cplxA.ptr,g_acc.ptr,siz_rad);
+            fft_full.exec(g_cplxB.ptr,g_cplxA.ptr);
+            GpuKernels::analytical_signal_1D<<<grd_rad,blk>>>(g_cplxB.ptr,M,N,1,K);
+            ifft_full.exec(g_cplxA.ptr,g_cplxB.ptr);
+            GpuKernels::divide<<<grd_rad,blk>>>(g_cplxA.ptr,N,siz_rad);
+            GpuKernelsCtf::ctf_dechirp<<<grd_rad,blk>>>(g_cplxA.ptr,dechirp_coef,int(N),int(K));
+            fft_full.exec(g_cplxB.ptr,g_cplxA.ptr);
+            GpuKernels::divide<<<grd_rad,blk>>>(g_cplxB.ptr,N,siz_rad);
+            GpuKernelsCtf::load_ps_half<<<grd_lin,blk>>>(g_ps.ptr,g_cplxB.ptr,int(M),int(N),int(K));
+            return;
+        }
+
         rfft.exec(g_fou.ptr,g_acc.ptr);
         GpuKernels::divide<<<grd_lin,blk>>>(g_fou.ptr,N,siz_lin);
         GpuKernels::load_ps<<<grd_lin,blk>>>(g_ps.ptr,g_fou.ptr,siz_lin);
@@ -1336,6 +1398,8 @@ protected:
         GpuKernels::analytical_signal_1D<<<grd_polar,blk>>>(g_fourier.ptr,M,N,R,K);
         ifft.exec(polar_complex.ptr,g_fourier.ptr);
         GpuKernels::divide<<<grd_polar,blk>>>(polar_complex.ptr,N,siz_polar);
+        if( dechirp_cs )
+            GpuKernelsCtf::ctf_dechirp<<<grd_polar,blk>>>(polar_complex.ptr,dechirp_coef,int(N),int(R*K));
         GpuKernels::polar_to_cart_complex<<<grd_cart,blk>>>(stk_complex.ptr,polar_complex.ptr,ang_step,N,R,K);
 
     }

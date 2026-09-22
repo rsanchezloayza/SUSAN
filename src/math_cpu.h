@@ -64,6 +64,14 @@ inline float get_lambda(const float kv) {
     return sqrtf( 150.4f / ( volt*(1.0f+(volt/1022000.0f)) ) );
 }
 
+/// r=s^2 normalized to the cutoff; the factor 2 is because the power
+/// spectrum oscillates at 2*gamma.
+inline float get_dechirp_coef(const float lambda,const float cs_mm,const float new_apix) {
+    float lambda3_Cs_pi_2 = lambda*lambda*lambda*(cs_mm*1e7f)*(float)M_PI/2.0f;
+    float w2 = new_apix*new_apix;
+    return 2.0f*lambda3_Cs_pi_2/(16.0f*w2*w2);
+}
+
 inline bool should_use_avx2(const uint32 length) {
     return (__builtin_cpu_supports ("avx2") && ( (length&31) == 0));
 }

@@ -200,6 +200,43 @@ __global__ void ctf_normalize_ps(double*p_acc, double*p_wgt, const float2*p_in, 
     }
 }
 
+__global__ void ctf_dechirp(float2*p_work, const float chirp_coef, const int N, const int n_rows) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < N && ss_idx.y < n_rows && ss_idx.z == 0 ) {
+
+        int   Nh  = N/2;
+        int   rad = ss_idx.x - Nh;
+        float r   = fabsf((float)rad)/Nh;
+        float ph  = chirp_coef*r*r;
+
+        if( rad < 0 ) ph = -ph;
+
+        float sn,cs;
+        sincosf(ph,&sn,&cs);
+
+        long idx = ss_idx.x + ((long)ss_idx.y)*N;
+        float2 val = p_work[idx];
+        float2 out;
+        out.x = val.x*cs - val.y*sn;
+        out.y = val.x*sn + val.y*cs;
+        p_work[idx] = out;
+    }
+}
+
+__global__ void load_ps_half(float*p_out, const float2*p_in, const int M, const int N, const int K) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < M && ss_idx.y < K && ss_idx.z == 0 ) {
+
+        float2 val = p_in[ ss_idx.x + ((long)ss_idx.y)*N ];
+        float  v   = cuCabsf(val);
+        p_out[ ss_idx.x + ((long)ss_idx.y)*M ] = v*v;
+    }
+}
+
 __global__ void ctf_linearize_ps(float*p_acc, float*p_wgt, const float*p_in, const float apix, const float new_apix, const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();

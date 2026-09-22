@@ -39,6 +39,7 @@ typedef struct {
     bool   is_overfocus;
     bool   est_phase_shift;
     bool   est_initial_snr;
+    bool   dechirp_cs;
     int    verbosity;
     int    log_level;
     int    n_gpu;
@@ -97,6 +98,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.is_overfocus    = true;
     info.est_phase_shift = true;
     info.est_initial_snr = false;
+    info.dechirp_cs      = true;
 
     /// Parse inputs:
     enum {
@@ -112,6 +114,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         OVERFOCUS,
         EST_PHASE_SHIFT,
         EST_INITIAL_SNR,
+        DECHIRP_CS,
         VERBOSITY,
         LOG_LEVEL
     };
@@ -132,6 +135,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"overfocus",      1, 0, OVERFOCUS       },
         {"est_phase_shift",1, 0, EST_PHASE_SHIFT },
         {"est_initial_snr",1, 0, EST_INITIAL_SNR },
+        {"dechirp_cs",     1, 0, DECHIRP_CS      },
         {0, 0, 0, 0}
     };
     
@@ -162,6 +166,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case EST_INITIAL_SNR:
                 info.est_initial_snr = atoi(optarg)>0;
+                break;
+            case DECHIRP_CS:
+                info.dechirp_cs = atoi(optarg)>0;
                 break;
             case GPU_LIST:
                 info.n_gpu = ArgParser::get_list_integers(info.p_gpu,optarg);
@@ -222,6 +229,7 @@ inline void print(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"\t\tDefocus range: %.2f - %.2f Å.\n",info.def_min,info.def_max);
     fprintf(fp,"\t\tPhase shift estimation: %s.\n",info.est_phase_shift?"enabled":"disabled");
     fprintf(fp,"\t\tInitial SNR estimation: %s.\n",info.est_initial_snr?"enabled":"disabled");
+    fprintf(fp,"\t\tCs de-chirp: %s.\n",info.dechirp_cs?"enabled":"disabled");
     fprintf(fp,"\t\tDebug data log level: %d.\n",info.log_level);
 
 }
