@@ -20,13 +20,11 @@ from . import Reference
 from . import Particles
 from . import Tomograms
 from . import TiltRangeSelector
-from . import DeformationModel
 from .Reference import *
 from .Particles import *
 from .Tomograms import *
 from .TiltRangeSelector import *
-from .DeformationModel import *
 
-__all__ = ['Particles','Reference','Tomograms','TiltRangeSelector','DeformationModel']
+__all__ = ['Particles','Reference','Tomograms','TiltRangeSelector']
 
 
