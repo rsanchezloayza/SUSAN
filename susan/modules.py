@@ -553,7 +553,7 @@ class Averager:
         cutoff and instead set the width of a tangential gaussian insertion
         kernel, so every frequency up to Nyquist is inserted, progressively
         blurred rather than truncated.  The width is
-        ``clamp(splat_gain*0.4*R/R_ref, 0.4, 1.0)`` fourier pixels with
+        ``clamp(splat_gain*0.4*R/R_ref, 0.4, 1.5)`` fourier pixels with
         ``R_ref = min(lowpass, def_mres)``, so it is flat (and equivalent to
         trilinear) up to ``R_ref/splat_gain`` and then grows.  ``1`` is the
         physically anchored value; larger distrusts the stated resolution more

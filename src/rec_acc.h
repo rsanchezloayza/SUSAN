@@ -163,9 +163,10 @@ public:
     GPU::GArrDouble  vol_wgt;
 
     /// Per-source-pixel splat geometry, filled by splat_prepass and read by the main kernel:
-    /// xyz is the landing point, w is sigma_t; inorm is 1/normalizer, or 0 to skip the pixel.
+    /// xyz is the landing point, w is sigma_t (which also sets the support radius); splat_norm
+    /// is (1/normalizer, cull exponent), with 1/normalizer 0 to skip the pixel.
     GPU::GArrSingle4 splat_geom;
-    GPU::GArrSingle  splat_inorm;
+    GPU::GArrSingle2 splat_norm;
     dim3 blk_splat;
     dim3 grd_splat;
 
@@ -186,7 +187,7 @@ public:
 
         if( with_splat ) {
             splat_geom.alloc(MP*NP*maxK);
-            splat_inorm.alloc(MP*NP*maxK);
+            splat_norm.alloc(MP*NP*maxK);
         }
 
         /// One warp per source pixel: x is the lane, y indexes the warps in the block.
@@ -213,8 +214,8 @@ public:
     void insert_splat_fwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,GPU::GArrDefocus&g_def,float splat_gain,float3 bandpass,int k,GPU::Stream&stream) {
         /// bandpass is not applied as a weight here; it only sets the kernel width, together
         /// with the per-projection max_res (see splat_prepass).
-        GpuKernelsVol::splat_prepass<<<grd_2D,blk,0,stream.strm>>>(splat_geom.ptr,splat_inorm.ptr,g_ali.ptr,g_def.ptr,splat_gain,bandpass,MP,NP,k);
-        GpuKernelsVol::insert_stk_splat_atomic<<<grd_splat,blk_splat,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,splat_geom.ptr,splat_inorm.ptr,g_ali.ptr,MP,NP,k);
+        GpuKernelsVol::splat_prepass<<<grd_2D,blk,0,stream.strm>>>(splat_geom.ptr,splat_norm.ptr,g_ali.ptr,g_def.ptr,splat_gain,bandpass,MP,NP,k);
+        GpuKernelsVol::insert_stk_splat_atomic<<<grd_splat,blk_splat,0,stream.strm>>>(vol_acc.ptr,vol_wgt.ptr,ss_stk.texture,ss_wgt.texture,splat_geom.ptr,splat_norm.ptr,g_ali.ptr,MP,NP,k);
     }
 
     void insert_linear_bwd(GPU::GTex2DSingle2&ss_stk,GPU::GTex2DSingle&ss_wgt,GPU::GArrProj2D&g_ali,float3 bandpass,int k,GPU::Stream&stream) {

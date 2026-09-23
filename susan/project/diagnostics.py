@@ -21,6 +21,8 @@
 Functions here are read-only: they never modify project files.
 """
 
+import os as _os
+
 import numpy as _np
 
 import susan.data    as _ssa_data
@@ -30,14 +32,61 @@ import susan.modules as _ssa_modules
 from susan.project.SubtomoAvg import SubtomoAvgBase as _SubtomoAvgBase
 
 
+def _write_uncapped_ptcls(sta, ite):
+    """Write a copy of the iteration's particles with ``def_mres`` cleared.
+
+    The aligner caps the per-projection lowpass at the stored ``def_mres``
+    whenever it is positive, so a sweep run on the untouched particles sees a
+    CC of exactly zero past that cap and can only ever recover the cap it was
+    given.  Zeroing the field disables the cap and lets the sweep measure the
+    signal that is actually there, including beyond the current estimate.
+
+    Returns
+    -------
+    tuple of (str, list of str)
+        Path of the generated ``.ptclsraw``, and every file created, for
+        cleanup by the caller.
+    """
+    ptcls = _ssa_data.Particles(sta.path_ptcls(ite))
+    ptcls.def_mres[:] = 0
+
+    dst = _os.path.join(sta.iteration_dir(ite),'max_res_cleared.ptclsraw')
+    ptcls.save(dst)
+
+    return dst, [dst]
+
+
+def _sweep_cc(ali, refstxt, tomofile, ptcls, box_size,
+              shell_centres, shell_hw, rolloff):
+    """Run one bandpass sweep, returning the CC stack and the projection weights."""
+    cc_shells = []
+    prj_w     = None
+
+    for k, cen in enumerate(shell_centres):
+        ali.bandpass.highpass = float(cen - shell_hw)
+        ali.bandpass.lowpass  = float(cen + shell_hw)
+        ali.bandpass.rolloff  = rolloff
+
+        print(ali.bandpass)
+
+        out_file = f'ali_shell_{k:03d}.ptclsraw'
+        ali.align(out_file, refstxt, tomofile, ptcls, box_size)
+
+        p = _ssa_data.Particles(out_file)
+        cc_shells.append(p.prj_cc.copy())
+        if prj_w is None:
+            prj_w = p.prj_w.copy()
+
+    return _np.array(cc_shells), prj_w
+
+
 def bandpass_shell_sweep(
     sta: _SubtomoAvgBase,
     ite: int,
-    apix: float,
     shell_hw: int = 5,
     threshold: float = 0.01,
     shell_pick: str = 'first',
-    use_halfsets: bool = False,
+    clear_max_res: bool = True,
     save_cc: str = None,
     fpix_max: int = None,
 ):
@@ -54,18 +103,19 @@ def bandpass_shell_sweep(
     sta : SubtomoAvgBase (or subclass)
         Project object.  Only :attr:`~SubtomoAvgBase.box_size`,
         :attr:`~SubtomoAvg.list_gpus_ids`, :meth:`~SubtomoAvgBase.path_refstxt`,
-        :meth:`~SubtomoAvgBase.path_ptcls`, and
-        :attr:`~SubtomoAvg.tomogram_file` are read.
+        :meth:`~SubtomoAvgBase.path_ptcls`, :attr:`~SubtomoAvg.tomogram_file`,
+        :meth:`~SubtomoAvgBase.fpix2A` (for the pixel size) and
+        ``aligner.halfsets_independ`` are read.  The half-set policy is
+        inherited from the project's own aligner so the sweep matches how the
+        iteration was actually aligned.
     ite : int
         Iteration whose particles and reference are used.
-    apix : float
-        Pixel size in Å.
     shell_hw : int, optional
         Half-width of each bandpass shell in Fourier pixels.  Default: ``5``.
     threshold : float, optional
         Fraction of the global maximum positive CC used as the "above noise"
         cut-off.  The absolute threshold is computed as
-        ``threshold * max(prj_cc[prj_cc > 0])``.  Default: ``0.1``.
+        ``threshold * max(prj_cc[prj_cc > 0])``.  Default: ``0.01``.
     shell_pick : {'first', 'last'}, optional
         Which threshold crossing defines the cut-off, with shells ordered from
         low to high frequency.  ``'first'`` (default) reports the last shell
@@ -74,9 +124,15 @@ def bandpass_shell_sweep(
         pull the estimate out; ``'last'`` reports the highest-frequency shell
         above the cut-off anywhere in the sweep, ignoring any dips in between.
         The two agree when the CC decays monotonically.
-    use_halfsets : bool, optional
-        Whether to respect half-set assignments during alignment.
-        Default: ``False``.
+    clear_max_res : bool, optional
+        Run the sweep on a temporary copy of the particles with ``def_mres``
+        zeroed, deleted afterwards.  The aligner caps the per-projection
+        lowpass at ``def_mres`` whenever it is positive, so without this the
+        CC is exactly zero past the cap already stored in the input and the
+        sweep can only recover the number it was handed: on EMPIAR-10064 the
+        shell at which the CC first vanishes has a rank correlation of
+        ``-1.0000`` with the input ``def_mres``.  Turn it off only to check a
+        sweep against an existing cap on purpose.  Default: ``True``.
     save_cc : str, optional
         If given, write the full ``(n_shells, n_ptcl, n_proj)`` CC array to
         this MRC file path.
@@ -105,7 +161,9 @@ def bandpass_shell_sweep(
     ali.ctf_correction   = 'on_reference'
     ali.normalize_type   = 'zero_mean_one_std'
     ali.cc_type          = 'cfsc'
-    ali.use_halfsets     = use_halfsets
+
+    _prj_ali = getattr(sta,'aligner',None)
+    ali.halfsets_independ = bool(getattr(_prj_ali,'halfsets_independ',False))
 
     box_size = sta.box_size
     rolloff  = 2
@@ -118,30 +176,27 @@ def bandpass_shell_sweep(
     ptcls    = sta.path_ptcls(ite)
     tomofile = sta.tomogram_file
 
-    prj_cc_shells = []   # (n_shells, n_ptcl, n_proj)
+    tmp_files = []
+    if clear_max_res:
+        ptcls, created = _write_uncapped_ptcls(sta, ite)
+        tmp_files += created
 
-    for k, cen in enumerate(shell_centres):
-        ali.bandpass.highpass = float(cen - shell_hw)
-        ali.bandpass.lowpass  = float(cen + shell_hw)
-        ali.bandpass.rolloff  = rolloff
+    try:
+        prj_cc_shells, prj_w = _sweep_cc(ali, refstxt, tomofile, ptcls, box_size,
+                                         shell_centres, shell_hw, rolloff)
 
-        print(ali.bandpass)
+        shell_res_A = sta.fpix2A(shell_centres)
 
-        out_file = f'ali_shell_{k:03d}.ptclsraw'
-        ali.align(out_file, refstxt, tomofile, ptcls, box_size)
+        if save_cc is not None:
+            _ssa_io.mrc.write(prj_cc_shells, save_cc)
 
-        p = _ssa_data.Particles(out_file)
-        prj_cc_shells.append(p.prj_cc.copy())
-
-    prj_cc_shells = _np.array(prj_cc_shells)   # (n_shells, n_ptcl, n_proj)
-    shell_res_A   = (box_size * apix) / shell_centres
-
-    if save_cc is not None:
-        _ssa_io.mrc.write(prj_cc_shells, save_cc)
-
-    pos_cc = prj_cc_shells[prj_cc_shells > 0]
-    cc_max = pos_cc.max() if pos_cc.size > 0 else 1.0
-    above  = prj_cc_shells > threshold * cc_max
+        pos_cc = prj_cc_shells[prj_cc_shells > 0]
+        cc_max = pos_cc.max() if pos_cc.size > 0 else 1.0
+        above  = prj_cc_shells > threshold * cc_max
+    finally:
+        for f in tmp_files:
+            if _os.path.exists(f):
+                _os.remove(f)
 
     # For each (ptcl, proj): the shell at the chosen threshold crossing.
     if shell_pick == 'first':

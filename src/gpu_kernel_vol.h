@@ -283,24 +283,39 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
 ///     sigma_t(R) = clamp( splat_gain * SIGMA_0 * R / R_ref , SIGMA_0 , SIGMA_MAX )
 ///
 /// splat_gain moves the crossover (R_ref/splat_gain) rather than the slope; 1 is the physical
-/// anchor and 0 clamps to SIGMA_0 everywhere, i.e. plain trilinear. SIGMA_MAX is set by the
-/// 5x5x5 support: at 1.0 the kernel keeps 97% of its mass inside the box, at 1.5 only 75%,
-/// and the truncated remainder rings.
-#define SPLAT_SIGMA_0   0.4f  /// closest match to trilinear over all sub-voxel offsets
-#define SPLAT_SIGMA_MAX 1.0f
-#define SPLAT_RAD       2     /// 5x5x5
-
-/// Taps below this share of the (normalized) kernel are dropped. Scattered write traffic is
-/// what this kernel costs, so the tap count is by far the most effective knob: at 5e-3 a source
-/// pixel writes ~31 of its 125 taps and deposits 94% of the kernel mass. Dropping mass is
-/// cheap because it is a uniform scale on p_acc and p_wgt, which cancels in their ratio; what
-/// does not cancel is that the retained fraction varies with sigma_t (98.5% at 0.4 against 94%
-/// at 1.0), so two projections with different max_res are weighted slightly differently where
-/// they overlap. That spread is 4.5 points here, against 2.5 at 3e-3 and 9.3 at 1e-2.
+/// anchor and 0 clamps to SIGMA_0 everywhere, i.e. plain trilinear.
 ///
-/// Measured, per particle: 1e-6 -> 3e-3 was 335.6 -> 89.4 ms, and 3e-3 -> 5e-3 a further
-/// 89.4 -> 73.2 ms. Verify a reconstruction before raising it again.
-#define SPLAT_W_MIN     5e-3f
+/// The support is not fixed: it follows sigma_t, one cube per source pixel, so a pixel at the
+/// floor pays 3x3x3 while only the widest ones pay 7x7x7. RAD_K is what keeps the truncated
+/// fraction constant across that range. Mass retained inside the box, averaged over sub-voxel
+/// offsets and radial directions:
+///
+///     sigma_t  0.4    0.7    1.0    1.25   1.5    2.0
+///     3x3x3    99.8%   95%    78%     63%   50%    33%
+///     5x5x5     100%  100%  98.4%   93.4% 85.7%  67.4%
+///     7x7x7     100%  100%   100%   99.4% 97.4%  88.5%
+///     9x9x9     100%  100%   100%    100% 99.7%  96.8%
+///
+/// rad = clamp(ceil(RAD_K*sigma_t - 0.5),1,RAD_MAX) at RAD_K = 2.2 tracks the 97% contour of
+/// that table (1 up to 0.68, 2 up to 1.14, 3 beyond), which is what sets SIGMA_MAX: 1.5 is the
+/// most a 7x7x7 box holds at the same quality the old fixed 5x5x5 held 1.0. Raising SIGMA_MAX
+/// further needs RAD_MAX 4 with it, or the truncated remainder rings.
+#define SPLAT_SIGMA_0   0.4f  /// closest match to trilinear over all sub-voxel offsets
+#define SPLAT_SIGMA_MAX 1.5f
+#define SPLAT_RAD_MAX   3     /// 7x7x7
+#define SPLAT_RAD_K     2.2f
+
+/// Taps below this share of the kernel's own peak tap are dropped. Scattered write traffic is
+/// what this kernel costs, so the tap count is by far the most effective knob: at 2e-2 a source
+/// pixel writes 7 taps at sigma_t 0.4 and 83 at 1.5, depositing ~97% of the kernel mass in both
+/// cases. Dropping mass is cheap because it is a uniform scale on p_acc and p_wgt, which cancels
+/// in their ratio; what does not cancel is the retained fraction varying with sigma_t, since two
+/// projections with different max_res then get weighted differently where they overlap. That is
+/// why the threshold is relative and not absolute: measured over sigma_t 0.4 to 1.5 the spread
+/// is ~1 point relative (96.4% to 97.4%), against ~11 points for the old absolute 5e-3.
+///
+/// Applied to the exponent rather than the weight, so a culled tap costs no __expf.
+#define SPLAT_W_REL     2e-2f
 
 /// Warps per block in the main splat kernel, i.e. source pixels handled per block. Only affects
 /// occupancy and scheduling granularity, not results.
@@ -314,6 +329,16 @@ __device__ __forceinline__ float splat_sigma_t(const float R,const float R_ref,c
     return fminf( fmaxf(s,SPLAT_SIGMA_0), SPLAT_SIGMA_MAX );
 }
 
+/// Both kernels must agree on the support exactly: the pre-pass normalizes over the full box,
+/// and a main kernel working off a different box would rescale every affected voxel of the
+/// weight volume, which then feeds a non-linear inversion. They agree by construction here,
+/// because both derive the radius from the same stored sigma_t through this function rather
+/// than recomputing it from the geometry.
+__device__ __forceinline__ int splat_radius(const float sigma_t) {
+    int rad = (int)ceilf( SPLAT_RAD_K*sigma_t - 0.5f );
+    return min( max(rad,1), SPLAT_RAD_MAX );
+}
+
 /// Splatting runs as two kernels.
 ///
 /// The shape below follows from where the time actually goes, which was measured rather than
@@ -322,18 +347,23 @@ __device__ __forceinline__ float splat_sigma_t(const float R,const float R_ref,c
 /// it from 73.2 to 21.4 ms per particle; against ordinary trilinear insertion at 4.9 ms, that
 /// is ~4.3x rather than the ~50x the naive tap count suggests.
 ///
-/// The per-source-pixel setup (landing point, sigma_t, and the 125-tap normalizer) is identical
-/// for every tap, so it is hoisted into a pre-pass and read back by the main kernel. That keeps
-/// the main kernel small enough to give a warp one source pixel instead of one thread, which is
-/// what the memory pattern needs: the cost of this insertion is neither the atomics (2.3% of
-/// runtime, measured) nor the arithmetic, it is that a store instruction fans out to 32 separate
-/// transactions. Consecutive threads walk consecutive source pixels, whose landing points step
-/// by only R.xx along the volume's fastest axis, so nothing coalesces.
+/// The per-source-pixel setup (landing point, sigma_t, the normalizer and the cull threshold) is
+/// identical for every tap, so it is hoisted into a pre-pass and read back by the main kernel.
+/// That keeps the main kernel small enough to give a warp one source pixel instead of one thread,
+/// which is what the memory pattern needs: the cost of this insertion is neither the atomics
+/// (2.3% of runtime, measured) nor the arithmetic, it is that a store instruction fans out to 32
+/// separate transactions. Consecutive threads walk consecutive source pixels, whose landing
+/// points step by only R.xx along the volume's fastest axis, so nothing coalesces.
 ///
-/// One warp per source pixel fixes that. The 125 taps are a compact 5x5x5 neighbourhood, and
-/// indexing them t = dx + 5*dy + 25*dz makes consecutive lanes carry consecutive dx, hence five
+/// One warp per source pixel fixes that. The taps are a compact (2*rad+1)^3 neighbourhood, and
+/// indexing them t = dx + D*dy + D*D*dz makes consecutive lanes carry consecutive dx, hence D
 /// contiguous voxels at a time instead of 32 unrelated ones.
-__global__ void splat_prepass(float4*p_geom,float*p_inorm,
+///
+/// The radius is per source pixel but warp-uniform by construction, so the varying trip count
+/// costs no divergence. A block spans SPLAT_WARPS consecutive i at fixed (j,k), i.e. source
+/// pixels at nearly the same R, so warps in a block almost always share a radius too and the
+/// imbalance stays inside the block.
+__global__ void splat_prepass(float4*p_geom,float2*p_norm,
                               const Proj2D*pTlt, const Defocus*pDef, const float splat_gain,
                               const float3 bandpass,const int M, const int N, const int K)
 {
@@ -346,7 +376,7 @@ __global__ void splat_prepass(float4*p_geom,float*p_inorm,
 
     /// inorm == 0 is how the main kernel learns to skip this source pixel.
     if( pTlt[ss_idx.z].w == 0 ) {
-        p_inorm[idx] = 0;
+        p_norm[idx] = make_float2(0,0);
         return;
     }
 
@@ -361,7 +391,7 @@ __global__ void splat_prepass(float4*p_geom,float*p_inorm,
     /// No bandpass weight: the resolution limit acts through the kernel width instead. The
     /// corners of the box lie outside the nyquist sphere and would be discarded anyway.
     if( R > (float)Nh ) {
-        p_inorm[idx] = 0;
+        p_norm[idx] = make_float2(0,0);
         return;
     }
 
@@ -373,6 +403,7 @@ __global__ void splat_prepass(float4*p_geom,float*p_inorm,
         R_ref = fminf(R_ref,pDef[ss_idx.z].max_res);
 
     float sigma_t = splat_sigma_t(R,R_ref,splat_gain);
+    int   rad     = splat_radius(sigma_t);
 
     float x,y,z;
     rot_pt(x,y,z,pTlt[ss_idx.z].R,pt);
@@ -399,12 +430,16 @@ __global__ void splat_prepass(float4*p_geom,float*p_inorm,
     /// The truncated, off-lattice gaussian does not sum to a constant, and the weight volume
     /// feeds a non-linear inversion downstream, so normalize the taps explicitly. Normalizing
     /// over the full support (not only the in-bounds taps) keeps the inserted mass consistent.
-    float norm = 0;
-    for(int dz=-SPLAT_RAD; dz<=SPLAT_RAD; dz++) {
+    ///
+    /// e_min is the peak tap, i.e. the one nearest the landing point, and it is what makes the
+    /// cull relative: keeping w >= SPLAT_W_REL*w_peak is keeping e <= e_min - log(W_REL).
+    float norm  = 0;
+    float e_min = 1e30f;
+    for(int dz=-rad; dz<=rad; dz++) {
         float ez = iz0 + float(dz) - z;
-        for(int dy=-SPLAT_RAD; dy<=SPLAT_RAD; dy++) {
+        for(int dy=-rad; dy<=rad; dy++) {
             float ey = iy0 + float(dy) - y;
-            for(int dx=-SPLAT_RAD; dx<=SPLAT_RAD; dx++) {
+            for(int dx=-rad; dx<=rad; dx++) {
                 float ex = ix0 + float(dx) - x;
                 float d2 = ex*ex + ey*ey + ez*ez;
                 float e;
@@ -414,24 +449,25 @@ __global__ void splat_prepass(float4*p_geom,float*p_inorm,
                 }
                 else
                     e = d2*inv2_s0;
+                e_min = fminf(e_min,e);
                 norm += __expf(-e);
             }
         }
     }
 
     if( norm <= 1e-12f ) {
-        p_inorm[idx] = 0;
+        p_norm[idx] = make_float2(0,0);
         return;
     }
 
-    p_geom[idx]  = make_float4(x,y,z,sigma_t);
-    p_inorm[idx] = 1.0f/norm;
+    p_geom[idx] = make_float4(x,y,z,sigma_t);
+    p_norm[idx] = make_float2( 1.0f/norm, e_min - logf(SPLAT_W_REL) );
 }
 
 /// One warp per source pixel. blockDim must be (32, warps_per_block, 1).
 __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
                                         cudaTextureObject_t ss_stk, cudaTextureObject_t ss_wgt,
-                                        const float4*p_geom, const float*p_inorm,
+                                        const float4*p_geom, const float2*p_norm,
                                         const Proj2D*pTlt,
                                         const int M, const int N, const int K)
 {
@@ -443,10 +479,14 @@ __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
     if( i >= M || j >= N || k >= K )
         return;
 
-    long  sidx  = get_3d_idx(i,j,k,M,N);
-    float inorm = p_inorm[sidx];
+    long   sidx = get_3d_idx(i,j,k,M,N);
+    float2 nrm  = p_norm[sidx];
+    float  inorm = nrm.x;
     if( inorm <= 0 )
         return;
+
+    /// Largest exponent still worth a tap, i.e. the relative cull of SPLAT_W_REL in log space.
+    float  e_cut = nrm.y;
 
     float4 geom = p_geom[sidx];
     float  x = geom.x, y = geom.y, z = geom.z;
@@ -475,15 +515,19 @@ __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
         rz = z/R;
     }
 
-    /// t = dx + 5*dy + 25*dz, so lanes 0..4 share (dy,dz) and differ only in dx: five voxels
-    /// adjacent in memory. 125 taps over 32 lanes is four rounds, the last one partial.
-    for(int s=0; s<4; s++) {
-        int t = lane + 32*s;
-        if( t >= 125 ) break;
+    /// Same radius the pre-pass normalized over, derived from the same stored sigma_t.
+    int rad  = splat_radius(sigma_t);
+    int D    = 2*rad + 1;
+    int DD   = D*D;
+    int ntap = DD*D;
 
-        int dx = (t     % 5) - SPLAT_RAD;
-        int dy = ((t/5) % 5) - SPLAT_RAD;
-        int dz = (t/25)      - SPLAT_RAD;
+    /// t = dx + D*dy + D*D*dz, so lanes sharing (dy,dz) differ only in dx: D voxels adjacent in
+    /// memory. One round of 32 lanes covers 3x3x3, four cover 5x5x5, eleven cover 7x7x7.
+    for(int t=lane; t<ntap; t+=SUSAN_CUDA_WARP) {
+
+        int dx = (t    % D) - rad;
+        int dy = ((t/D)% D) - rad;
+        int dz = (t/DD)     - rad;
 
         int iz = iz0 + dz;
         int iy = iy0 + dy;
@@ -505,9 +549,9 @@ __global__ void insert_stk_splat_atomic(double2*p_acc,double*p_wgt,
         else
             e = d2*inv2_s0;
 
-        float g_wgt = __expf(-e)*inorm;
-        if( g_wgt < SPLAT_W_MIN ) continue;
-        g_wgt *= prj_w;
+        if( e > e_cut ) continue;
+
+        float g_wgt = __expf(-e)*inorm*prj_w;
 
         /// Insert into hermitian volume
         bool should_conj = false;
