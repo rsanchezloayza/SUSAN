@@ -533,16 +533,11 @@
 <span class="sd">        the per-projection exposure filter</span>
 <span class="sd">        (:attr:`~susan.data.Particles.def_ExFl`).  Useful for calibrating the</span>
 <span class="sd">        auto-estimated dose-weighting against an external reference; see</span>
-<span class="sd">        :func:`susan.utils.dose_from_fsc`.  Default: ``1``.</span>
+<span class="sd">        :func:`susan.utils.dose_from_fsc`.  Default: ``0`` (disabled).</span>
 
-<span class="sd">        Note that the aligner writes ``expfilt_gain * dose`` on every run in</span>
-<span class="sd">        which the dose could be measured, so ``expfilt_gain = 0`` zeroes the</span>
-<span class="sd">        field rather than preserving it, and a hand-set exposure filter cannot</span>
-<span class="sd">        be relied on to survive an alignment.  The dose comes from the width of</span>
-<span class="sd">        the CC peak, which requires the peak to have neighbours on both sides</span>
-<span class="sd">        along at least one axis of the offset grid; when it does not (a</span>
-<span class="sd">        single-point grid, or a peak sitting on the grid boundary) the field is</span>
-<span class="sd">        left untouched rather than being overwritten.  The exposure</span>
+<span class="sd">        Note that the aligner writes ``expfilt_gain * dose`` on **every** run,</span>
+<span class="sd">        so ``expfilt_gain = 0`` zeroes the field rather than preserving it, and</span>
+<span class="sd">        a hand-set exposure filter cannot survive an alignment.  The exposure</span>
 <span class="sd">        filter is *uncompensated* in the reconstruction (it enters the Wiener</span>
 <span class="sd">        numerator only), so whatever gain is used here is baked permanently into</span>
 <span class="sd">        the resulting map.  For an envelope the reconstruction will deconvolve,</span>
@@ -577,7 +572,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">tm_prefix</span>         <span class="o">=</span> <span class="s2">"template_matching"</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tm_sigma</span>          <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dilate</span>            <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">expfilt_gain</span>      <span class="o">=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expfilt_gain</span>      <span class="o">=</span> <span class="mi">0</span>
         
 <div class="viewcode-block" id="Aligner.set_angular_search">
 <a class="viewcode-back" href="../../api/susan.modules.Aligner.html#susan.modules.Aligner.set_angular_search">[docs]</a>
@@ -880,7 +875,7 @@
 <span class="sd">        cutoff and instead set the width of a tangential gaussian insertion</span>
 <span class="sd">        kernel, so every frequency up to Nyquist is inserted, progressively</span>
 <span class="sd">        blurred rather than truncated.  The width is</span>
-<span class="sd">        ``clamp(splat_gain*0.4*R/R_ref, 0.4, 1.0)`` fourier pixels with</span>
+<span class="sd">        ``clamp(splat_gain*0.4*R/R_ref, 0.4, 1.5)`` fourier pixels with</span>
 <span class="sd">        ``R_ref = min(lowpass, def_mres)``, so it is flat (and equivalent to</span>
 <span class="sd">        trilinear) up to ``R_ref/splat_gain`` and then grows.  ``1`` is the</span>
 <span class="sd">        physically anchored value; larger distrusts the stated resolution more</span>
@@ -1397,6 +1392,13 @@
 <span class="sd">        to ``Defocus.ph_shft``.  If ``False``, the phase-shift search is</span>
 <span class="sd">        skipped and ``ph_shft`` is forced to ``0`` for every projection;</span>
 <span class="sd">        defocus refinement still runs normally.  Default: ``True``.</span>
+<span class="sd">    dechirp_cs : bool</span>
+<span class="sd">        If ``True``, the spherical-aberration contribution is removed from the</span>
+<span class="sd">        linearized signal before the peak search.  Under ``r = s**2`` its phase</span>
+<span class="sd">        is exactly quadratic in ``r`` with a coefficient that holds only</span>
+<span class="sd">        microscope constants, so it is removed without knowing the defocus.</span>
+<span class="sd">        This sharpens the peak and removes a bias that grows quickly as</span>
+<span class="sd">        ``resolution_max`` approaches ``2*pix_size``.  Default: ``True``.</span>
 <span class="sd">    est_initial_snr : bool</span>
 <span class="sd">        If ``True``, an initial per-projection weight is estimated from the</span>
 <span class="sd">        depth of the Thon ring modulation and written as a ninth column of</span>
@@ -1425,6 +1427,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">overfocus</span>         <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">est_phase_shift</span>   <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">est_initial_snr</span>   <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dechirp_cs</span>        <span class="o">=</span> <span class="kc">True</span>
         <span class="c1">#self.mpi               = _dt.mpi_params('srun -n %d ',1)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log_level</span>         <span class="o">=</span> <span class="mi">0</span>
@@ -1476,6 +1479,7 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -overfocus </span><span class="si">%d</span><span class="s1">'</span>     <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overfocus</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -est_phase_shift </span><span class="si">%d</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">est_phase_shift</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -est_initial_snr </span><span class="si">%d</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">est_initial_snr</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -dechirp_cs </span><span class="si">%d</span><span class="s1">'</span>      <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dechirp_cs</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -verbosity </span><span class="si">%d</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -log_level </span><span class="si">%d</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_level</span>
         <span class="k">return</span> <span class="n">args</span></div>

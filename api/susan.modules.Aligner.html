@@ -764,15 +764,10 @@ Default: <code class="docutils literal notranslate"><span class="pre">0</span></
 the per-projection exposure filter
 (<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.def_ExFl" title="susan.data.Particles.def_ExFl"><code class="xref py py-attr docutils literal notranslate"><span class="pre">def_ExFl</span></code></a>).  Useful for calibrating the
 auto-estimated dose-weighting against an external reference; see
-<code class="xref py py-func docutils literal notranslate"><span class="pre">susan.utils.dose_from_fsc()</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
-<p>Note that the aligner writes <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">*</span> <span class="pre">dose</span></code> on every run in
-which the dose could be measured, so <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">=</span> <span class="pre">0</span></code> zeroes the
-field rather than preserving it, and a hand-set exposure filter cannot
-be relied on to survive an alignment.  The dose comes from the width of
-the CC peak, which requires the peak to have neighbours on both sides
-along at least one axis of the offset grid; when it does not (a
-single-point grid, or a peak sitting on the grid boundary) the field is
-left untouched rather than being overwritten.  The exposure
+<code class="xref py py-func docutils literal notranslate"><span class="pre">susan.utils.dose_from_fsc()</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
+<p>Note that the aligner writes <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">*</span> <span class="pre">dose</span></code> on <strong>every</strong> run,
+so <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">=</span> <span class="pre">0</span></code> zeroes the field rather than preserving it, and
+a hand-set exposure filter cannot survive an alignment.  The exposure
 filter is <em>uncompensated</em> in the reconstruction (it enters the Wiener
 numerator only), so whatever gain is used here is baked permanently into
 the resulting map.  For an envelope the reconstruction will deconvolve,

@@ -323,6 +323,8 @@
 <span class="sd">Functions here are read-only: they never modify project files.</span>
 <span class="sd">"""</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_os</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.data</span><span class="w">    </span><span class="k">as</span><span class="w"> </span><span class="nn">_ssa_data</span>
@@ -332,16 +334,63 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.project.SubtomoAvg</span><span class="w"> </span><span class="kn">import</span> <span class="n">SubtomoAvgBase</span> <span class="k">as</span> <span class="n">_SubtomoAvgBase</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_uncapped_ptcls</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Write a copy of the iteration's particles with ``def_mres`` cleared.</span>
+
+<span class="sd">    The aligner caps the per-projection lowpass at the stored ``def_mres``</span>
+<span class="sd">    whenever it is positive, so a sweep run on the untouched particles sees a</span>
+<span class="sd">    CC of exactly zero past that cap and can only ever recover the cap it was</span>
+<span class="sd">    given.  Zeroing the field disables the cap and lets the sweep measure the</span>
+<span class="sd">    signal that is actually there, including beyond the current estimate.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of (str, list of str)</span>
+<span class="sd">        Path of the generated ``.ptclsraw``, and every file created, for</span>
+<span class="sd">        cleanup by the caller.</span>
+<span class="sd">    """</span>
+    <span class="n">ptcls</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">sta</span><span class="o">.</span><span class="n">path_ptcls</span><span class="p">(</span><span class="n">ite</span><span class="p">))</span>
+    <span class="n">ptcls</span><span class="o">.</span><span class="n">def_mres</span><span class="p">[:]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">dst</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sta</span><span class="o">.</span><span class="n">iteration_dir</span><span class="p">(</span><span class="n">ite</span><span class="p">),</span><span class="s1">'max_res_cleared.ptclsraw'</span><span class="p">)</span>
+    <span class="n">ptcls</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">dst</span><span class="p">,</span> <span class="p">[</span><span class="n">dst</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sweep_cc</span><span class="p">(</span><span class="n">ali</span><span class="p">,</span> <span class="n">refstxt</span><span class="p">,</span> <span class="n">tomofile</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="n">box_size</span><span class="p">,</span>
+              <span class="n">shell_centres</span><span class="p">,</span> <span class="n">shell_hw</span><span class="p">,</span> <span class="n">rolloff</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Run one bandpass sweep, returning the CC stack and the projection weights."""</span>
+    <span class="n">cc_shells</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prj_w</span>     <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">cen</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">shell_centres</span><span class="p">):</span>
+        <span class="n">ali</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cen</span> <span class="o">-</span> <span class="n">shell_hw</span><span class="p">)</span>
+        <span class="n">ali</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cen</span> <span class="o">+</span> <span class="n">shell_hw</span><span class="p">)</span>
+        <span class="n">ali</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">rolloff</span>  <span class="o">=</span> <span class="n">rolloff</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="n">ali</span><span class="o">.</span><span class="n">bandpass</span><span class="p">)</span>
+
+        <span class="n">out_file</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'ali_shell_</span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s1">03d</span><span class="si">}</span><span class="s1">.ptclsraw'</span>
+        <span class="n">ali</span><span class="o">.</span><span class="n">align</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="n">refstxt</span><span class="p">,</span> <span class="n">tomofile</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="n">box_size</span><span class="p">)</span>
+
+        <span class="n">p</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">out_file</span><span class="p">)</span>
+        <span class="n">cc_shells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">prj_cc</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">prj_w</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">prj_w</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">prj_w</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cc_shells</span><span class="p">),</span> <span class="n">prj_w</span>
+
+
 <div class="viewcode-block" id="bandpass_shell_sweep">
 <a class="viewcode-back" href="../../../api/susan.project.diagnostics.html#susan.project.diagnostics.bandpass_shell_sweep">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">bandpass_shell_sweep</span><span class="p">(</span>
     <span class="n">sta</span><span class="p">:</span> <span class="n">_SubtomoAvgBase</span><span class="p">,</span>
     <span class="n">ite</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">apix</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">shell_hw</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
     <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
     <span class="n">shell_pick</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'first'</span><span class="p">,</span>
-    <span class="n">use_halfsets</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">clear_max_res</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">save_cc</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">fpix_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
@@ -358,18 +407,19 @@
 <span class="sd">    sta : SubtomoAvgBase (or subclass)</span>
 <span class="sd">        Project object.  Only :attr:`~SubtomoAvgBase.box_size`,</span>
 <span class="sd">        :attr:`~SubtomoAvg.list_gpus_ids`, :meth:`~SubtomoAvgBase.path_refstxt`,</span>
-<span class="sd">        :meth:`~SubtomoAvgBase.path_ptcls`, and</span>
-<span class="sd">        :attr:`~SubtomoAvg.tomogram_file` are read.</span>
+<span class="sd">        :meth:`~SubtomoAvgBase.path_ptcls`, :attr:`~SubtomoAvg.tomogram_file`,</span>
+<span class="sd">        :meth:`~SubtomoAvgBase.fpix2A` (for the pixel size) and</span>
+<span class="sd">        ``aligner.halfsets_independ`` are read.  The half-set policy is</span>
+<span class="sd">        inherited from the project's own aligner so the sweep matches how the</span>
+<span class="sd">        iteration was actually aligned.</span>
 <span class="sd">    ite : int</span>
 <span class="sd">        Iteration whose particles and reference are used.</span>
-<span class="sd">    apix : float</span>
-<span class="sd">        Pixel size in Å.</span>
 <span class="sd">    shell_hw : int, optional</span>
 <span class="sd">        Half-width of each bandpass shell in Fourier pixels.  Default: ``5``.</span>
 <span class="sd">    threshold : float, optional</span>
 <span class="sd">        Fraction of the global maximum positive CC used as the "above noise"</span>
 <span class="sd">        cut-off.  The absolute threshold is computed as</span>
-<span class="sd">        ``threshold * max(prj_cc[prj_cc &gt; 0])``.  Default: ``0.1``.</span>
+<span class="sd">        ``threshold * max(prj_cc[prj_cc &gt; 0])``.  Default: ``0.01``.</span>
 <span class="sd">    shell_pick : {'first', 'last'}, optional</span>
 <span class="sd">        Which threshold crossing defines the cut-off, with shells ordered from</span>
 <span class="sd">        low to high frequency.  ``'first'`` (default) reports the last shell</span>
@@ -378,9 +428,15 @@
 <span class="sd">        pull the estimate out; ``'last'`` reports the highest-frequency shell</span>
 <span class="sd">        above the cut-off anywhere in the sweep, ignoring any dips in between.</span>
 <span class="sd">        The two agree when the CC decays monotonically.</span>
-<span class="sd">    use_halfsets : bool, optional</span>
-<span class="sd">        Whether to respect half-set assignments during alignment.</span>
-<span class="sd">        Default: ``False``.</span>
+<span class="sd">    clear_max_res : bool, optional</span>
+<span class="sd">        Run the sweep on a temporary copy of the particles with ``def_mres``</span>
+<span class="sd">        zeroed, deleted afterwards.  The aligner caps the per-projection</span>
+<span class="sd">        lowpass at ``def_mres`` whenever it is positive, so without this the</span>
+<span class="sd">        CC is exactly zero past the cap already stored in the input and the</span>
+<span class="sd">        sweep can only recover the number it was handed: on EMPIAR-10064 the</span>
+<span class="sd">        shell at which the CC first vanishes has a rank correlation of</span>
+<span class="sd">        ``-1.0000`` with the input ``def_mres``.  Turn it off only to check a</span>
+<span class="sd">        sweep against an existing cap on purpose.  Default: ``True``.</span>
 <span class="sd">    save_cc : str, optional</span>
 <span class="sd">        If given, write the full ``(n_shells, n_ptcl, n_proj)`` CC array to</span>
 <span class="sd">        this MRC file path.</span>
@@ -409,7 +465,9 @@
     <span class="n">ali</span><span class="o">.</span><span class="n">ctf_correction</span>   <span class="o">=</span> <span class="s1">'on_reference'</span>
     <span class="n">ali</span><span class="o">.</span><span class="n">normalize_type</span>   <span class="o">=</span> <span class="s1">'zero_mean_one_std'</span>
     <span class="n">ali</span><span class="o">.</span><span class="n">cc_type</span>          <span class="o">=</span> <span class="s1">'cfsc'</span>
-    <span class="n">ali</span><span class="o">.</span><span class="n">use_halfsets</span>     <span class="o">=</span> <span class="n">use_halfsets</span>
+
+    <span class="n">_prj_ali</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span><span class="s1">'aligner'</span><span class="p">,</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">ali</span><span class="o">.</span><span class="n">halfsets_independ</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">_prj_ali</span><span class="p">,</span><span class="s1">'halfsets_independ'</span><span class="p">,</span><span class="kc">False</span><span class="p">))</span>
 
     <span class="n">box_size</span> <span class="o">=</span> <span class="n">sta</span><span class="o">.</span><span class="n">box_size</span>
     <span class="n">rolloff</span>  <span class="o">=</span> <span class="mi">2</span>
@@ -422,30 +480,27 @@
     <span class="n">ptcls</span>    <span class="o">=</span> <span class="n">sta</span><span class="o">.</span><span class="n">path_ptcls</span><span class="p">(</span><span class="n">ite</span><span class="p">)</span>
     <span class="n">tomofile</span> <span class="o">=</span> <span class="n">sta</span><span class="o">.</span><span class="n">tomogram_file</span>
 
-    <span class="n">prj_cc_shells</span> <span class="o">=</span> <span class="p">[]</span>   <span class="c1"># (n_shells, n_ptcl, n_proj)</span>
+    <span class="n">tmp_files</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">clear_max_res</span><span class="p">:</span>
+        <span class="n">ptcls</span><span class="p">,</span> <span class="n">created</span> <span class="o">=</span> <span class="n">_write_uncapped_ptcls</span><span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">ite</span><span class="p">)</span>
+        <span class="n">tmp_files</span> <span class="o">+=</span> <span class="n">created</span>
 
-    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">cen</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">shell_centres</span><span class="p">):</span>
-        <span class="n">ali</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cen</span> <span class="o">-</span> <span class="n">shell_hw</span><span class="p">)</span>
-        <span class="n">ali</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cen</span> <span class="o">+</span> <span class="n">shell_hw</span><span class="p">)</span>
-        <span class="n">ali</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">rolloff</span>  <span class="o">=</span> <span class="n">rolloff</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">prj_cc_shells</span><span class="p">,</span> <span class="n">prj_w</span> <span class="o">=</span> <span class="n">_sweep_cc</span><span class="p">(</span><span class="n">ali</span><span class="p">,</span> <span class="n">refstxt</span><span class="p">,</span> <span class="n">tomofile</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="n">box_size</span><span class="p">,</span>
+                                         <span class="n">shell_centres</span><span class="p">,</span> <span class="n">shell_hw</span><span class="p">,</span> <span class="n">rolloff</span><span class="p">)</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="n">ali</span><span class="o">.</span><span class="n">bandpass</span><span class="p">)</span>
+        <span class="n">shell_res_A</span> <span class="o">=</span> <span class="n">sta</span><span class="o">.</span><span class="n">fpix2A</span><span class="p">(</span><span class="n">shell_centres</span><span class="p">)</span>
 
-        <span class="n">out_file</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'ali_shell_</span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s1">03d</span><span class="si">}</span><span class="s1">.ptclsraw'</span>
-        <span class="n">ali</span><span class="o">.</span><span class="n">align</span><span class="p">(</span><span class="n">out_file</span><span class="p">,</span> <span class="n">refstxt</span><span class="p">,</span> <span class="n">tomofile</span><span class="p">,</span> <span class="n">ptcls</span><span class="p">,</span> <span class="n">box_size</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">save_cc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_ssa_io</span><span class="o">.</span><span class="n">mrc</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">prj_cc_shells</span><span class="p">,</span> <span class="n">save_cc</span><span class="p">)</span>
 
-        <span class="n">p</span> <span class="o">=</span> <span class="n">_ssa_data</span><span class="o">.</span><span class="n">Particles</span><span class="p">(</span><span class="n">out_file</span><span class="p">)</span>
-        <span class="n">prj_cc_shells</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">prj_cc</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-
-    <span class="n">prj_cc_shells</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">prj_cc_shells</span><span class="p">)</span>   <span class="c1"># (n_shells, n_ptcl, n_proj)</span>
-    <span class="n">shell_res_A</span>   <span class="o">=</span> <span class="p">(</span><span class="n">box_size</span> <span class="o">*</span> <span class="n">apix</span><span class="p">)</span> <span class="o">/</span> <span class="n">shell_centres</span>
-
-    <span class="k">if</span> <span class="n">save_cc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">_ssa_io</span><span class="o">.</span><span class="n">mrc</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">prj_cc_shells</span><span class="p">,</span> <span class="n">save_cc</span><span class="p">)</span>
-
-    <span class="n">pos_cc</span> <span class="o">=</span> <span class="n">prj_cc_shells</span><span class="p">[</span><span class="n">prj_cc_shells</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
-    <span class="n">cc_max</span> <span class="o">=</span> <span class="n">pos_cc</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">if</span> <span class="n">pos_cc</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
-    <span class="n">above</span>  <span class="o">=</span> <span class="n">prj_cc_shells</span> <span class="o">&gt;</span> <span class="n">threshold</span> <span class="o">*</span> <span class="n">cc_max</span>
+        <span class="n">pos_cc</span> <span class="o">=</span> <span class="n">prj_cc_shells</span><span class="p">[</span><span class="n">prj_cc_shells</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">cc_max</span> <span class="o">=</span> <span class="n">pos_cc</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">if</span> <span class="n">pos_cc</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="n">above</span>  <span class="o">=</span> <span class="n">prj_cc_shells</span> <span class="o">&gt;</span> <span class="n">threshold</span> <span class="o">*</span> <span class="n">cc_max</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">tmp_files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+                <span class="n">_os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
     <span class="c1"># For each (ptcl, proj): the shell at the chosen threshold crossing.</span>
     <span class="k">if</span> <span class="n">shell_pick</span> <span class="o">==</span> <span class="s1">'first'</span><span class="p">:</span>

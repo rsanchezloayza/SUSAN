@@ -435,7 +435,7 @@ bandpass lowpass and the per-projection <code class="docutils literal notranslat
 cutoff and instead set the width of a tangential gaussian insertion
 kernel, so every frequency up to Nyquist is inserted, progressively
 blurred rather than truncated.  The width is
-<code class="docutils literal notranslate"><span class="pre">clamp(splat_gain*0.4*R/R_ref,</span> <span class="pre">0.4,</span> <span class="pre">1.0)</span></code> fourier pixels with
+<code class="docutils literal notranslate"><span class="pre">clamp(splat_gain*0.4*R/R_ref,</span> <span class="pre">0.4,</span> <span class="pre">1.5)</span></code> fourier pixels with
 <code class="docutils literal notranslate"><span class="pre">R_ref</span> <span class="pre">=</span> <span class="pre">min(lowpass,</span> <span class="pre">def_mres)</span></code>, so it is flat (and equivalent to
 trilinear) up to <code class="docutils literal notranslate"><span class="pre">R_ref/splat_gain</span></code> and then grows.  <code class="docutils literal notranslate"><span class="pre">1</span></code> is the
 physically anchored value; larger distrusts the stated resolution more

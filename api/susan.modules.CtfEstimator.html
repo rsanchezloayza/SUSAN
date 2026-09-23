@@ -401,6 +401,22 @@ defocus refinement still runs normally.  Default: <code class="docutils literal 
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.CtfEstimator.dechirp_cs">
+<span class="sig-name descname"><span class="pre">dechirp_cs</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.dechirp_cs" title="Link to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the spherical-aberration contribution is removed from the
+linearized signal before the peak search.  Under <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">=</span> <span class="pre">s**2</span></code> its phase
+is exactly quadratic in <code class="docutils literal notranslate"><span class="pre">r</span></code> with a coefficient that holds only
+microscope constants, so it is removed without knowing the defocus.
+This sharpens the peak and removes a bias that grows quickly as
+<code class="docutils literal notranslate"><span class="pre">resolution_max</span></code> approaches <code class="docutils literal notranslate"><span class="pre">2*pix_size</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfEstimator.est_initial_snr">
 <span class="sig-name descname"><span class="pre">est_initial_snr</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.est_initial_snr" title="Link to this definition">¶</a></dt>
 <dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, an initial per-projection weight is estimated from the
@@ -569,6 +585,7 @@ defocus values applied for every tomogram.</p>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.resolution_thres"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.resolution_thres</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.overfocus"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.overfocus</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.est_phase_shift"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.est_phase_shift</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfEstimator.dechirp_cs"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.dechirp_cs</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.est_initial_snr"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.est_initial_snr</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.verbosity"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.verbosity</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.log_level"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.log_level</span></code></a></li>
