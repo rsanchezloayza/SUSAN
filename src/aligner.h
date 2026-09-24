@@ -657,6 +657,9 @@ protected:
 
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
 
+                        if( dilate > 0 )
+                            ali_data.apply_cc_blur(ptr->g_def,bandpass,dilate,true,ptr->K,stream);
+
                         ali_data.invert_fourier(ptr->K,stream);
                         
                         Rot33 R_spc;
@@ -665,7 +668,7 @@ protected:
                         else
                             Math::set(R_spc,M33f::Identity());
                         
-                        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,dilate,ptr->K,stream);
+                        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,0,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose cumulative
                         /// deviation from the previous pose is large.  Out-of-plane
@@ -758,9 +761,13 @@ protected:
                         /// - Invert to real space.
 
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+
+                        if( dilate > 0 )
+                            ali_data.apply_cc_blur(ptr->g_def,bandpass,dilate,false,ptr->K,stream);
+
                         ali_data.invert_fourier(ptr->K,stream);
 
-                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,dilate,ptr->K,stream);
+                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,0,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose deviation
                         /// from the previous per-tilt pose is large.  Out-of-plane

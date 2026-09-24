@@ -469,6 +469,16 @@ public:
         GpuKernelsCtf::apply_bandpass_fourier<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ctf_const,p_def.ptr,bandpass,M,N,k);
     }
     
+    void apply_cc_blur(GPU::GArrDefocus&p_def,float3 bandpass,int dilate,bool bspline_sampling,int k,GPU::Stream&stream) {
+        float sigma_t = dilate/sqrtf(2*logf(2));
+        float var_f   = sigma_t*sigma_t;
+        if( bspline_sampling )
+            var_f = fmaxf(var_f-1.0f/3.0f,0.0f);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,M,N,k);
+        GpuKernels::apply_cc_blur<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_def.ptr,bandpass,sqrtf(var_f),sigma_t,M,N,k);
+    }
+
     void apply_radial_wgt_sqrt(float w_total,float crowther_limit,int k,GPU::Stream&stream) {
         int3 ss = make_int3(M,N,k);
         dim3 blk = GPU::get_block_size_2D();

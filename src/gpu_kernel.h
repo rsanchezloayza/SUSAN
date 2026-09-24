@@ -1923,6 +1923,38 @@ __global__ void apply_bandpass_fourier(float2*p_w,const Defocus*p_def,const floa
     }
 }
 
+__global__ void apply_cc_blur(float2*p_w,const Defocus*p_def,const float3 bandpass,const float sigma_f,const float sigma_t,const int M, const int N, const int K)
+{
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < M && ss_idx.y < N && ss_idx.z < K ) {
+
+        long idx = ss_idx.x + M*ss_idx.y + M*N*ss_idx.z;
+
+        float max_R = bandpass.y;
+        if( p_def[ss_idx.z].max_res > 0 )
+            max_R = min(max_R,p_def[ss_idx.z].max_res);
+
+        float a_f = 2*M_PI*M_PI*sigma_f*sigma_f/(N*N);
+        float a_t = 2*M_PI*M_PI*sigma_t*sigma_t/(N*N);
+        float lo2 = bandpass.x*bandpass.x;
+        float hi2 = max_R*max_R;
+
+        float nrm = expf(-a_t*lo2);
+        if( hi2 > lo2 && a_t > 0 )
+            nrm = (expf(-a_t*lo2)-expf(-a_t*hi2))/(a_t*(hi2-lo2));
+
+        float y  = ss_idx.y - N/2;
+        float R2 = ss_idx.x*ss_idx.x + y*y;
+        float g  = expf(-a_f*R2)/nrm;
+
+        float2 val = p_w[ idx ];
+        val.x *= g;
+        val.y *= g;
+        p_w[ idx ] = val;
+    }
+}
+
 __global__ void norm_complex(float2*p_data,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();
