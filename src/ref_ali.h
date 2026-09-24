@@ -516,7 +516,7 @@ public:
         dilate_into_surface(dilate,k,stream);
         dim3 blk(1024,1,1);
         dim3 grd(GPU::div_round_up(n_pts, 1024),1,1);
-        GpuKernelsVol::reconstruct_pts<<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k);
+        GpuKernelsVol::reconstruct_pts_bspline<<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k);
         GPU::download_async(c_cc,g_cc.ptr,n_pts,stream.strm);
     }
 

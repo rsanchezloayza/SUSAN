@@ -1440,6 +1440,73 @@ __global__ void reconstruct_pts(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t
 
 }
 
+/// Cubic B-spline (no prefilter) sampling using 4 bilinear fetches [Sigg & Hadwiger, GPU Gems 2, ch. 20].
+__device__ float tex2DLayered_bspline(cudaTextureObject_t tex,float x,float y,int z) {
+    float px = x - 0.5f;
+    float py = y - 0.5f;
+    float ix = floorf(px);
+    float iy = floorf(py);
+    float fx = px - ix;
+    float fy = py - iy;
+
+    float fx2 = fx*fx, fx3 = fx2*fx;
+    float fy2 = fy*fy, fy3 = fy2*fy;
+
+    float wx0 = (1.0f-fx)*(1.0f-fx)*(1.0f-fx)/6.0f;
+    float wx1 = (3.0f*fx3 - 6.0f*fx2 + 4.0f)/6.0f;
+    float wx2 = (-3.0f*fx3 + 3.0f*fx2 + 3.0f*fx + 1.0f)/6.0f;
+    float wx3 = fx3/6.0f;
+    float wy0 = (1.0f-fy)*(1.0f-fy)*(1.0f-fy)/6.0f;
+    float wy1 = (3.0f*fy3 - 6.0f*fy2 + 4.0f)/6.0f;
+    float wy2 = (-3.0f*fy3 + 3.0f*fy2 + 3.0f*fy + 1.0f)/6.0f;
+    float wy3 = fy3/6.0f;
+
+    float gx0 = wx0 + wx1;
+    float gx1 = wx2 + wx3;
+    float gy0 = wy0 + wy1;
+    float gy1 = wy2 + wy3;
+
+    float hx0 = ix - 0.5f + wx1/gx0;
+    float hx1 = ix + 1.5f + wx3/gx1;
+    float hy0 = iy - 0.5f + wy1/gy0;
+    float hy1 = iy + 1.5f + wy3/gy1;
+
+    return gy0*( gx0*tex2DLayered<float>(tex,hx0,hy0,z) + gx1*tex2DLayered<float>(tex,hx1,hy0,z) )
+         + gy1*( gx0*tex2DLayered<float>(tex,hx0,hy1,z) + gx1*tex2DLayered<float>(tex,hx1,hy1,z) );
+}
+
+__global__ void reconstruct_pts_bspline(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t ss_cc,
+                                        const Rot33 R,const Vec3*p_pts,const int n_pts,
+                                        const int N,const int K) {
+
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < n_pts && ss_idx.y < 1 && ss_idx.z < 1 ) {
+
+        float cc  = 0;
+        float wgt = 0;
+        Vec3  pt = p_pts[ss_idx.x];
+        float rx,ry,rz;
+        rot_inv_pt(rx,ry,rz,R,pt);
+        Vec3  pt_r = {rx,ry,rz};
+        single x,y;
+        single off = (single)(N/2) + 0.5;
+
+        for(int z=0;z<K;z++) {
+            if( pTlt[z].w > SUSAN_FLOAT_TOL  ) {
+                rot_inv_pt_XY(x,y,pTlt[z].R,pt_r);
+                cc  += pTlt[z].w*tex2DLayered_bspline(ss_cc,x+off,y+off,z);
+                wgt += pTlt[z].w;
+            }
+        }
+
+        if( wgt == 0 ) wgt = 1;
+
+        p_cc[ss_idx.x] = cc/wgt;
+    }
+
+}
+
 __global__ void extract_pts(float*p_cc,const float*p_data,const Proj2D*pTlt,const Vec3*p_pts,const int n_pts,const int N,const int K) {
 
     int3 ss_idx = get_th_idx();
