@@ -522,11 +522,11 @@
 <span class="sd">        saving template-matching output.  ``0`` keeps all values, which</span>
 <span class="sd">        writes one row per searched voxel and is rarely practical for a full</span>
 <span class="sd">        run.  3-D only.  Default: ``0``.</span>
-<span class="sd">    dilate : int</span>
-<span class="sd">        Dilation parameter for the sparse reconstruction step used during</span>
-<span class="sd">        alignment scoring.  Controls how many neighbouring grid points each</span>
-<span class="sd">        particle's contribution spreads into.  ``0`` disables dilation.</span>
-<span class="sd">        Default: ``0``.</span>
+<span class="sd">    dilate : float</span>
+<span class="sd">        Tolerance, in pixels, to residual per-projection misalignment when</span>
+<span class="sd">        scoring.  Each projection's CC map is replaced by a Gaussian-weighted</span>
+<span class="sd">        maximum over its neighbourhood, with weight 0.5 at ``dilate`` pixels</span>
+<span class="sd">        (sigma = dilate/sqrt(2 ln 2)).  ``0`` disables it.  Default: ``0``.</span>
 <span class="sd">    expfilt_gain : float</span>
 <span class="sd">        Multiplicative gain applied to the dose estimated by the CC tracker</span>
 <span class="sd">        (from the width of the cross-correlation peak) before it is written to</span>
@@ -755,7 +755,7 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -off_params </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="o">.</span><span class="n">span</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="o">.</span><span class="n">span</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="o">.</span><span class="n">span</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -off_space '</span>       <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset_space</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -type </span><span class="si">%d</span><span class="s1">'</span>          <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensionality</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -dilate </span><span class="si">%d</span><span class="s1">'</span>        <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dilate</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -dilate </span><span class="si">%f</span><span class="s1">'</span>        <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dilate</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -verbosity </span><span class="si">%d</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -tm_type '</span>         <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">tm_type</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -tm_prefix '</span>       <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">tm_prefix</span>

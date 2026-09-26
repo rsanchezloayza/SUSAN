@@ -745,13 +745,13 @@ run.  3-D only.  Default: <code class="docutils literal notranslate"><span class
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.dilate">
 <span class="sig-name descname"><span class="pre">dilate</span></span><a class="headerlink" href="#susan.modules.Aligner.dilate" title="Link to this definition">¶</a></dt>
-<dd><p>Dilation parameter for the sparse reconstruction step used during
-alignment scoring.  Controls how many neighbouring grid points each
-particle’s contribution spreads into.  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables dilation.
-Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dd><p>Tolerance, in pixels, to residual per-projection misalignment when
+scoring.  Each projection’s CC map is replaced by a Gaussian-weighted
+maximum over its neighbourhood, with weight 0.5 at <code class="docutils literal notranslate"><span class="pre">dilate</span></code> pixels
+(sigma = dilate/sqrt(2 ln 2)).  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables it.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>int</p>
+<dd class="field-odd"><p>float</p>
 </dd>
 </dl>
 </dd></dl>
