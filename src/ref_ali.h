@@ -330,13 +330,18 @@ public:
 
     GPU::GTex2DSingle prj_tex;
 
-    AliData(uint32 m, uint32 n, uint32 n_K,const float4&off_params,int off_type,GPU::Stream&stream) {
+    GPU::GArrSingle prj_d;
+
+    AliData(uint32 m, uint32 n, uint32 n_K,const float4&off_params,int off_type,GPU::Stream&stream,float dilate=0) {
         M = m;
         N = n;
         max_K = n_K;
         g_ali.alloc(max_K);
         prj_c.alloc(M*N*max_K);
         prj_r.alloc(N*N*max_K);
+
+        if( dilate > 0 )
+            prj_d.alloc(N*N*max_K);
 
         prj_tex.alloc(n,n,n_K);
         
@@ -469,14 +474,14 @@ public:
         GpuKernelsCtf::apply_bandpass_fourier<<<grd,blk,0,stream.strm>>>(prj_c.ptr,ctf_const,p_def.ptr,bandpass,M,N,k);
     }
     
-    void apply_cc_blur(GPU::GArrDefocus&p_def,float3 bandpass,int dilate,bool bspline_sampling,int k,GPU::Stream&stream) {
-        float sigma_t = dilate/sqrtf(2*logf(2));
-        float var_f   = sigma_t*sigma_t;
-        if( bspline_sampling )
-            var_f = fmaxf(var_f-1.0f/3.0f,0.0f);
+    void kb_prefilter(int k,GPU::Stream&stream) {
+        float3 kb;
+        kb.x = fmaxf(GpuKernelsVol::kb_krn_host(0.0f),0.0f);
+        kb.y = fmaxf(GpuKernelsVol::kb_krn_host(0.5f),0.0f);
+        kb.z = fmaxf(GpuKernelsVol::kb_krn_host(1.0f),0.0f);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,M,N,k);
-        GpuKernels::apply_cc_blur<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_def.ptr,bandpass,sqrtf(var_f),sigma_t,M,N,k);
+        GpuKernels::kb_prefilter<<<grd,blk,0,stream.strm>>>(prj_c.ptr,kb,M,N,k);
     }
 
     void apply_radial_wgt_sqrt(float w_total,float crowther_limit,int k,GPU::Stream&stream) {
@@ -508,29 +513,34 @@ public:
         GpuKernels::intra_multiply_conj<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_data.ptr,ref_z,delta_z,ss);
     }
 
-    void dilate_into_surface(int dilate,int k,GPU::Stream&stream) {
+    void dilate_into_surface(float dilate,int k,GPU::Stream&stream) {
         int3 ss = make_int3(N,N,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,N,N,k);
-        if( dilate == 1 )
-            GpuKernels::load_surf_dilate_1<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_r.ptr,ss);
-        else if( dilate == 2 )
-            GpuKernels::load_surf_dilate_2<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_r.ptr,ss);
-        else if( dilate == 3 )
-            GpuKernels::load_surf_dilate_3<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_r.ptr,ss);
+        if( dilate > 0 ) {
+            float sigma = dilate/sqrtf(2*logf(2));
+            int   rad   = (int)ceilf(2*sigma);
+            GpuKernels::dilate_x<<<grd,blk,0,stream.strm>>>(prj_d.ptr,prj_r.ptr,sigma,rad,ss);
+            GpuKernels::load_surf_dilate_y<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_d.ptr,sigma,rad,ss);
+        }
         else
             GpuKernels::load_surf<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_r.ptr,ss);
     }
 
-    void sparse_reconstruct(GPU::GArrProj2D&ali,const Rot33 R,int dilate,int k,GPU::Stream&stream) {
+    void sparse_reconstruct(GPU::GArrProj2D&ali,const Rot33 R,float dilate,int k,GPU::Stream&stream) {
         dilate_into_surface(dilate,k,stream);
-        dim3 blk(1024,1,1);
-        dim3 grd(GPU::div_round_up(n_pts, 1024),1,1);
-        GpuKernelsVol::reconstruct_pts_bspline<<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k);
+        int L = (n_pts < 1024) ? 32 : ( (n_pts < 5000) ? 16 : 2 );
+        dim3 blk(256,1,1);
+        dim3 grd(GPU::div_round_up(n_pts*L,256),1,1);
+        switch(L) {
+            case 32: GpuKernelsVol::reconstruct_pts_kb<32><<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k); break;
+            case 16: GpuKernelsVol::reconstruct_pts_kb<16><<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k); break;
+            default: GpuKernelsVol::reconstruct_pts_kb< 2><<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k); break;
+        }
         GPU::download_async(c_cc,g_cc.ptr,n_pts,stream.strm);
     }
 
-    void download_cc(GPU::GArrProj2D&ali,int dilate,int k,GPU::Stream&stream) {
+    void download_cc(GPU::GArrProj2D&ali,float dilate,int k,GPU::Stream&stream) {
         dim3 blk(1024,1,1);
         dim3 grd(GPU::div_round_up(n_pts,1024),1,k);
         if( dilate > 0 ) {
@@ -542,7 +552,7 @@ public:
         GPU::download_async(c_cc,g_cc.ptr,n_pts*k,stream.strm);
     }
 
-    void extract_cc(float*p_cc,int*p_ix,GPU::GArrProj2D&ali,int dilate,int k,GPU::Stream&stream) {
+    void extract_cc(float*p_cc,int*p_ix,GPU::GArrProj2D&ali,float dilate,int k,GPU::Stream&stream) {
         download_cc(ali,dilate,k,stream);
         for(int i=0;i<k;i++) {
             get_max_cc(p_cc[i],p_ix[i],c_cc+i*n_pts);

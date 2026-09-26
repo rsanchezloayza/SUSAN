@@ -61,6 +61,16 @@ __device__ double atomic_Add(double* address, double val) {
 }
 #endif
 
+#if defined(__HIP_PLATFORM_AMD__)
+__device__ float lane_shfl_down(float val, int offset, int width) {
+    return __shfl_down(val,offset,width);
+}
+#else
+__device__ float lane_shfl_down(float val, int offset, int width) {
+    return __shfl_down_sync(0xffffffff,val,offset,width);
+}
+#endif
+
 __device__ void SN2(float&a,float&b,float&tmp) {
     tmp = a;
     a = max(b,a);
@@ -525,130 +535,38 @@ __global__ void load_surf(cudaSurfaceObject_t out_surf,const float*p_in,const in
     }
 }
 
-__global__ void load_surf_dilate_1(cudaSurfaceObject_t out_surf,const float*p_in,const int3 ss_siz) {
+__global__ void dilate_x(float*p_out,const float*p_in,const float sigma,const int rad,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();
 
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
 
+        float inv = 1.0f/(2*sigma*sigma);
         float v = p_in[ get_3d_idx(ss_idx,ss_siz) ];
 
-        if( (ss_idx.x > 0) && (ss_idx.x < (ss_siz.x-1)) ) {
-            if( (ss_idx.y > 0) && (ss_idx.y < (ss_siz.y-1)) ) {
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-            }
+        for(int d=-rad;d<=rad;d++) {
+            int x = ss_idx.x+d;
+            if( x >= 0 && x < ss_siz.x )
+                v = fmaxf(v,expf(-d*d*inv)*p_in[ get_3d_idx(x,ss_idx.y,ss_idx.z,ss_siz) ]);
         }
 
-        surf2DLayeredwrite<float>(v,out_surf,ss_idx.x*sizeof(float), ss_idx.y, ss_idx.z);
+        p_out[ get_3d_idx(ss_idx,ss_siz) ] = v;
     }
 }
 
-__global__ void load_surf_dilate_2(cudaSurfaceObject_t out_surf,const float*p_in,const int3 ss_siz) {
+__global__ void load_surf_dilate_y(cudaSurfaceObject_t out_surf,const float*p_in,const float sigma,const int rad,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();
 
     if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
 
+        float inv = 1.0f/(2*sigma*sigma);
         float v = p_in[ get_3d_idx(ss_idx,ss_siz) ];
 
-        if( (ss_idx.x > 1) && (ss_idx.x < (ss_siz.x-2)) ) {
-            if( (ss_idx.y > 1) && (ss_idx.y < (ss_siz.y-2)) ) {
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y-2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y-2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y-2,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-2,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+2,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-2,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+2,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-2,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+2,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y+2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y+2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y+2,ss_idx.z,ss_siz) ]);
-            }
-        }
-
-        surf2DLayeredwrite<float>(v,out_surf,ss_idx.x*sizeof(float), ss_idx.y, ss_idx.z);
-    }
-}
-
-__global__ void load_surf_dilate_3(cudaSurfaceObject_t out_surf,const float*p_in,const int3 ss_siz) {
-
-    int3 ss_idx = get_th_idx();
-
-    if( ss_idx.x < ss_siz.x && ss_idx.y < ss_siz.y && ss_idx.z < ss_siz.z ) {
-
-        float v = p_in[ get_3d_idx(ss_idx,ss_siz) ];
-
-        if( (ss_idx.x > 2) && (ss_idx.x < (ss_siz.x-3)) ) {
-            if( (ss_idx.y > 2) && (ss_idx.y < (ss_siz.y-3)) ) {
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y-3,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y-3,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y-3,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-2,ss_idx.y-2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y-2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y-2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y-2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+2,ss_idx.y-2,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-3,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-2,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+2,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+3,ss_idx.y-1,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-3,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-2,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+2,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+3,ss_idx.y  ,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-3,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-2,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+2,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+3,ss_idx.y+1,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-2,ss_idx.y+2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y+2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y+2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y+2,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+2,ss_idx.y+2,ss_idx.z,ss_siz) ]);
-
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x-1,ss_idx.y+3,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x  ,ss_idx.y+3,ss_idx.z,ss_siz) ]);
-                v = fmaxf(v,p_in[ get_3d_idx(ss_idx.x+1,ss_idx.y+3,ss_idx.z,ss_siz) ]);
-            }
+        for(int d=-rad;d<=rad;d++) {
+            int y = ss_idx.y+d;
+            if( y >= 0 && y < ss_siz.y )
+                v = fmaxf(v,expf(-d*d*inv)*p_in[ get_3d_idx(ss_idx.x,y,ss_idx.z,ss_siz) ]);
         }
 
         surf2DLayeredwrite<float>(v,out_surf,ss_idx.x*sizeof(float), ss_idx.y, ss_idx.z);
@@ -1923,7 +1841,7 @@ __global__ void apply_bandpass_fourier(float2*p_w,const Defocus*p_def,const floa
     }
 }
 
-__global__ void apply_cc_blur(float2*p_w,const Defocus*p_def,const float3 bandpass,const float sigma_f,const float sigma_t,const int M, const int N, const int K)
+__global__ void kb_prefilter(float2*p_w,const float3 kb,const int M, const int N, const int K)
 {
     int3 ss_idx = get_th_idx();
 
@@ -1931,22 +1849,12 @@ __global__ void apply_cc_blur(float2*p_w,const Defocus*p_def,const float3 bandpa
 
         long idx = ss_idx.x + M*ss_idx.y + M*N*ss_idx.z;
 
-        float max_R = bandpass.y;
-        if( p_def[ss_idx.z].max_res > 0 )
-            max_R = min(max_R,p_def[ss_idx.z].max_res);
-
-        float a_f = 2*M_PI*M_PI*sigma_f*sigma_f/(N*N);
-        float a_t = 2*M_PI*M_PI*sigma_t*sigma_t/(N*N);
-        float lo2 = bandpass.x*bandpass.x;
-        float hi2 = max_R*max_R;
-
-        float nrm = expf(-a_t*lo2);
-        if( hi2 > lo2 && a_t > 0 )
-            nrm = (expf(-a_t*lo2)-expf(-a_t*hi2))/(a_t*(hi2-lo2));
-
-        float y  = ss_idx.y - N/2;
-        float R2 = ss_idx.x*ss_idx.x + y*y;
-        float g  = expf(-a_f*R2)/nrm;
+        float u  = (float)ss_idx.x/N;
+        float v  = (float)(ss_idx.y - N/2)/N;
+        float S  = kb.x + 2*kb.y + 2*kb.z;
+        float hx = kb.x + 2*kb.y*cospif(2.0f*u) + 2*kb.z*cospif(4.0f*u);
+        float hy = kb.x + 2*kb.y*cospif(2.0f*v) + 2*kb.z*cospif(4.0f*v);
+        float g  = S*S/(hx*hy);
 
         float2 val = p_w[ idx ];
         val.x *= g;

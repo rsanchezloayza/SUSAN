@@ -297,8 +297,8 @@ public:
     int cc_type;
     int cc_stats;
     int max_K;
-    int dilate;
     bool ali_halves;
+    float dilate;
     float expfilt_gain;
     float3 bandpass;
     float2 ssnr; /// x=F; y=S;
@@ -354,7 +354,7 @@ protected:
 
         AliSubstack ss_data(M,N,max_K,P,stream);
 
-        AliData ali_data(MP,NP,max_K,off_par,off_type,stream);
+        AliData ali_data(MP,NP,max_K,off_par,off_type,stream,dilate);
         
         TemplateMatchingReporter tm_rep(ali_data.c_pts,ali_data.n_pts,max_K,tm_dim,tm_sigma);
         tm_rep.start(worker_id,tm_type,tm_prefix);
@@ -657,8 +657,8 @@ protected:
 
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
 
-                        if( dilate > 0 )
-                            ali_data.apply_cc_blur(ptr->g_def,bandpass,dilate,true,ptr->K,stream);
+                        if( dilate == 0 )
+                            ali_data.kb_prefilter(ptr->K,stream);
 
                         ali_data.invert_fourier(ptr->K,stream);
                         
@@ -668,7 +668,7 @@ protected:
                         else
                             Math::set(R_spc,M33f::Identity());
                         
-                        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,0,ptr->K,stream);
+                        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,dilate,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose cumulative
                         /// deviation from the previous pose is large.  Out-of-plane
@@ -761,13 +761,9 @@ protected:
                         /// - Invert to real space.
 
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-
-                        if( dilate > 0 )
-                            ali_data.apply_cc_blur(ptr->g_def,bandpass,dilate,false,ptr->K,stream);
-
                         ali_data.invert_fourier(ptr->K,stream);
 
-                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,0,ptr->K,stream);
+                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,dilate,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose deviation
                         /// from the previous per-tilt pose is large.  Out-of-plane

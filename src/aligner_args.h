@@ -48,7 +48,7 @@ typedef struct {
     uint32 cc_type;
     uint32 cc_stats;
     uint32 type;
-    uint32 dilate;
+    float  dilate;
     float  ssnr_F;
     float  ssnr_S;
     bool   ali_halves;
@@ -391,7 +391,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 info.verbosity = atoi(optarg);
                 break;
             case DILATE:
-                info.dilate = atoi(optarg);
+                info.dilate = atof(optarg);
                 break;
             case TYPE:
                 info.type = atoi(optarg);

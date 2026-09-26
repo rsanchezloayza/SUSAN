@@ -218,11 +218,11 @@ class Aligner:
         saving template-matching output.  ``0`` keeps all values, which
         writes one row per searched voxel and is rarely practical for a full
         run.  3-D only.  Default: ``0``.
-    dilate : int
-        Dilation parameter for the sparse reconstruction step used during
-        alignment scoring.  Controls how many neighbouring grid points each
-        particle's contribution spreads into.  ``0`` disables dilation.
-        Default: ``0``.
+    dilate : float
+        Tolerance, in pixels, to residual per-projection misalignment when
+        scoring.  Each projection's CC map is replaced by a Gaussian-weighted
+        maximum over its neighbourhood, with weight 0.5 at ``dilate`` pixels
+        (sigma = dilate/sqrt(2 ln 2)).  ``0`` disables it.  Default: ``0``.
     expfilt_gain : float
         Multiplicative gain applied to the dose estimated by the CC tracker
         (from the width of the cross-correlation peak) before it is written to
@@ -443,7 +443,7 @@ class Aligner:
         args = args + ' -off_params %f,%f,%f,%f' % (self.offset.span[0],self.offset.span[1],self.offset.span[2],self.offset.step)
         args = args + ' -off_space '       + self.offset_space
         args = args + ' -type %d'          % self.dimensionality
-        args = args + ' -dilate %d'        % self.dilate
+        args = args + ' -dilate %f'        % self.dilate
         args = args + ' -verbosity %d'     % self.verbosity
         args = args + ' -tm_type '         + self.tm_type
         args = args + ' -tm_prefix '       + self.tm_prefix

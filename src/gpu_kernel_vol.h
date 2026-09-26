@@ -1440,69 +1440,53 @@ __global__ void reconstruct_pts(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t
 
 }
 
-/// Cubic B-spline (no prefilter) sampling using 4 bilinear fetches [Sigg & Hadwiger, GPU Gems 2, ch. 20].
-__device__ float tex2DLayered_bspline(cudaTextureObject_t tex,float x,float y,int z) {
-    float px = x - 0.5f;
-    float py = y - 0.5f;
-    float ix = floorf(px);
-    float iy = floorf(py);
-    float fx = px - ix;
-    float fy = py - iy;
-
-    float fx2 = fx*fx, fx3 = fx2*fx;
-    float fy2 = fy*fy, fy3 = fy2*fy;
-
-    float wx0 = (1.0f-fx)*(1.0f-fx)*(1.0f-fx)/6.0f;
-    float wx1 = (3.0f*fx3 - 6.0f*fx2 + 4.0f)/6.0f;
-    float wx2 = (-3.0f*fx3 + 3.0f*fx2 + 3.0f*fx + 1.0f)/6.0f;
-    float wx3 = fx3/6.0f;
-    float wy0 = (1.0f-fy)*(1.0f-fy)*(1.0f-fy)/6.0f;
-    float wy1 = (3.0f*fy3 - 6.0f*fy2 + 4.0f)/6.0f;
-    float wy2 = (-3.0f*fy3 + 3.0f*fy2 + 3.0f*fy + 1.0f)/6.0f;
-    float wy3 = fy3/6.0f;
-
-    float gx0 = wx0 + wx1;
-    float gx1 = wx2 + wx3;
-    float gy0 = wy0 + wy1;
-    float gy1 = wy2 + wy3;
-
-    float hx0 = ix - 0.5f + wx1/gx0;
-    float hx1 = ix + 1.5f + wx3/gx1;
-    float hy0 = iy - 0.5f + wy1/gy0;
-    float hy1 = iy + 1.5f + wy3/gy1;
-
-    return gy0*( gx0*tex2DLayered<float>(tex,hx0,hy0,z) + gx1*tex2DLayered<float>(tex,hx1,hy0,z) )
-         + gy1*( gx0*tex2DLayered<float>(tex,hx0,hy1,z) + gx1*tex2DLayered<float>(tex,hx1,hy1,z) );
+/// KB sampling (SUSAN projector kernel) using 4 bilinear fetches through g_kb_lut.
+__device__ float tex2DLayered_kb(cudaTextureObject_t tex,float x,float y,int z) {
+    float cx0,ax0,cx1,ax1;  kb_lerp_pair(cx0,ax0,cx1,ax1,x-0.5f);
+    float cy0,ay0,cy1,ay1;  kb_lerp_pair(cy0,ay0,cy1,ay1,y-0.5f);
+    cx0 += 0.5f; cx1 += 0.5f; cy0 += 0.5f; cy1 += 0.5f;
+    return ay0*( ax0*tex2DLayered<float>(tex,cx0,cy0,z) + ax1*tex2DLayered<float>(tex,cx1,cy0,z) )
+         + ay1*( ax0*tex2DLayered<float>(tex,cx0,cy1,z) + ax1*tex2DLayered<float>(tex,cx1,cy1,z) );
 }
 
-__global__ void reconstruct_pts_bspline(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t ss_cc,
-                                        const Rot33 R,const Vec3*p_pts,const int n_pts,
-                                        const int N,const int K) {
+/// L lanes per point, each over K/L tilts; launch with blockDim a multiple of 32.
+template<int L>
+__global__ void reconstruct_pts_kb(float*p_cc,const Proj2D*pTlt,cudaTextureObject_t ss_cc,
+                                   const Rot33 R,const Vec3*p_pts,const int n_pts,
+                                   const int N,const int K) {
 
-    int3 ss_idx = get_th_idx();
+    int th   = blockIdx.x*blockDim.x + threadIdx.x;
+    int i    = th/L;
+    int lane = th%L;
 
-    if( ss_idx.x < n_pts && ss_idx.y < 1 && ss_idx.z < 1 ) {
+    float cc  = 0;
+    float wgt = 0;
 
-        float cc  = 0;
-        float wgt = 0;
-        Vec3  pt = p_pts[ss_idx.x];
+    if( i < n_pts ) {
+        Vec3  pt = p_pts[i];
         float rx,ry,rz;
         rot_inv_pt(rx,ry,rz,R,pt);
         Vec3  pt_r = {rx,ry,rz};
         single x,y;
         single off = (single)(N/2) + 0.5;
 
-        for(int z=0;z<K;z++) {
+        for(int z=lane;z<K;z+=L) {
             if( pTlt[z].w > SUSAN_FLOAT_TOL  ) {
                 rot_inv_pt_XY(x,y,pTlt[z].R,pt_r);
-                cc  += pTlt[z].w*tex2DLayered_bspline(ss_cc,x+off,y+off,z);
+                cc  += pTlt[z].w*tex2DLayered_kb(ss_cc,x+off,y+off,z);
                 wgt += pTlt[z].w;
             }
         }
+    }
 
+    for(int o=L/2;o>0;o>>=1) {
+        cc  += lane_shfl_down(cc ,o,L);
+        wgt += lane_shfl_down(wgt,o,L);
+    }
+
+    if( i < n_pts && lane == 0 ) {
         if( wgt == 0 ) wgt = 1;
-
-        p_cc[ss_idx.x] = cc/wgt;
+        p_cc[i] = cc/wgt;
     }
 
 }
