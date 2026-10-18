@@ -49,6 +49,7 @@ typedef struct {
     uint32 cc_stats;
     uint32 type;
     float  dilate;
+    int    dilate_radius;
     float  ssnr_F;
     float  ssnr_S;
     bool   ali_halves;
@@ -168,6 +169,10 @@ inline bool validate(const Info&info) {
         fprintf(stderr,"Invalid offset_sigma: %f. It cannot be negative (0 disables the prior).\n",info.offset_sigma);
         rslt = false;
     }
+    if( !(info.dilate >= 0) || info.dilate_radius < 0 ) {
+        fprintf(stderr,"Invalid dilate (%f) or dilate_radius (%d). They cannot be negative.\n",info.dilate,info.dilate_radius);
+        rslt = false;
+    }
     return rslt;
 }
 
@@ -185,6 +190,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.norm_type     = NO_NORM;
     info.type          = 3;
     info.dilate        = 0;
+    info.dilate_radius = 0;
     info.ssnr_F        = 0;
     info.ssnr_S        = 0;
     info.ali_halves    = false;
@@ -235,6 +241,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         SSNR,
         BANDPASS,
         DILATE,
+        DILATE_RAD,
         ROLLOFF_F,
         SYMMETRY,
         ALI_HALVES,
@@ -290,6 +297,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"tm_prefix",   1, 0, TM_PREFIX },
         {"tm_sigma",    1, 0, TM_SIGMA  },
         {"dilate",      1, 0, DILATE    },
+        {"dilate_radius",1,0, DILATE_RAD},
         {"type",        1, 0, TYPE      },
         {0, 0, 0, 0}
     };
@@ -388,6 +396,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case DILATE:
                 info.dilate = atof(optarg);
+                break;
+            case DILATE_RAD:
+                info.dilate_radius = atoi(optarg);
                 break;
             case TYPE:
                 info.type = atoi(optarg);
@@ -540,6 +551,14 @@ inline void print_full(const Info&info,FILE*fp) {
         fprintf(fp,"\t\tSubstack normalization policy: VST.\n");
     if( info.norm_type == GAT_NORMAL )
         fprintf(fp,"\t\tSubstack normalization policy: GAT.\n");
+
+    if( info.dilate > 0 ) {
+        float sigma = info.dilate/sqrtf(2*logf(2));
+        int   rad   = (info.dilate_radius > 0) ? info.dilate_radius : (int)ceilf(2*sigma);
+        fprintf(fp,"\t\tCC dilation: tapered max, weight 0.5 at %.2f px (sigma %.2f), radius %d px.\n",info.dilate,sigma,rad);
+    }
+    else
+        fprintf(fp,"\t\tCC dilation: disabled.\n");
 
     fprintf(fp,"\t\tPseudo-symmetry search: %s.\n",info.pseudo_sym);
     fprintf(fp,"\t\tCone search:    Range=%.3f, Step=%.3f.\n",info.cone_range,info.cone_step);

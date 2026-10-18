@@ -334,10 +334,15 @@ public:
     Rot33            *c_lvl;
     GPU::GArr<Rot33>  g_lvl;
 
-    AliData(uint32 m, uint32 n, uint32 n_K,const float4&off_params,int off_type,GPU::Stream&stream,float dilate=0) {
+    float dil_sigma;
+    int   dil_rad;
+
+    AliData(uint32 m, uint32 n, uint32 n_K,const float4&off_params,int off_type,GPU::Stream&stream,float dilate=0,int dilate_radius=0) {
         M = m;
         N = n;
         max_K = n_K;
+        dil_sigma = dilate/sqrtf(2*logf(2));
+        dil_rad   = (dilate > 0) ? ( (dilate_radius > 0) ? dilate_radius : (int)ceilf(2*dil_sigma) ) : 0;
         g_ali.alloc(max_K);
         prj_c.alloc(M*N*max_K);
         prj_r.alloc(N*N*max_K);
@@ -528,22 +533,21 @@ public:
         GpuKernels::intra_multiply_conj<<<grd,blk,0,stream.strm>>>(prj_c.ptr,p_data.ptr,ref_z,delta_z,ss);
     }
 
-    void dilate_into_surface(float dilate,int k,GPU::Stream&stream) {
+    /// Tapered max: max_d CC(x+d) exp(-|d|^2/(2 sigma^2)), |d_x|,|d_y| <= dil_rad.
+    void dilate_into_surface(int k,GPU::Stream&stream) {
         int3 ss = make_int3(N,N,k);
         dim3 blk = GPU::get_block_size_2D();
         dim3 grd = GPU::calc_grid_size(blk,N,N,k);
-        if( dilate > 0 ) {
-            float sigma = dilate/sqrtf(2*logf(2));
-            int   rad   = (int)ceilf(2*sigma);
-            GpuKernels::dilate_x<<<grd,blk,0,stream.strm>>>(prj_d.ptr,prj_r.ptr,sigma,rad,ss);
-            GpuKernels::load_surf_dilate_y<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_d.ptr,sigma,rad,ss);
+        if( dil_rad > 0 ) {
+            GpuKernels::dilate_x<<<grd,blk,0,stream.strm>>>(prj_d.ptr,prj_r.ptr,dil_sigma,dil_rad,ss);
+            GpuKernels::load_surf_dilate_y<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_d.ptr,dil_sigma,dil_rad,ss);
         }
         else
             GpuKernels::load_surf<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_r.ptr,ss);
     }
 
-    void sparse_reconstruct(GPU::GArrProj2D&ali,const Rot33 R,float dilate,int k,GPU::Stream&stream) {
-        dilate_into_surface(dilate,k,stream);
+    void sparse_reconstruct(GPU::GArrProj2D&ali,const Rot33 R,int k,GPU::Stream&stream) {
+        dilate_into_surface(k,stream);
         int L = (n_pts < 1024) ? 32 : ( (n_pts < 5000) ? 16 : 2 );
         dim3 blk(256,1,1);
         dim3 grd(GPU::div_round_up(n_pts*L,256),1,1);
@@ -555,16 +559,16 @@ public:
         GPU::download_async(c_cc,g_cc.ptr,n_pts,stream.strm);
     }
 
-    void download_cc(GPU::GArrProj2D&ali,float dilate,int k,GPU::Stream&stream) {
-        dilate_into_surface(dilate,k,stream);
+    void download_cc(GPU::GArrProj2D&ali,int k,GPU::Stream&stream) {
+        dilate_into_surface(k,stream);
         dim3 blk(1024,1,1);
         dim3 grd(GPU::div_round_up(n_pts,1024),1,k);
         GpuKernelsVol::extract_pts_kb<<<grd,blk,0,stream.strm>>>(g_cc.ptr,prj_tex.texture,ali.ptr,g_pts.ptr,n_pts,N,k);
         GPU::download_async(c_cc,g_cc.ptr,n_pts*k,stream.strm);
     }
 
-    void extract_cc(float*p_cc,int*p_ix,GPU::GArrProj2D&ali,float dilate,int k,GPU::Stream&stream) {
-        download_cc(ali,dilate,k,stream);
+    void extract_cc(float*p_cc,int*p_ix,GPU::GArrProj2D&ali,int k,GPU::Stream&stream) {
+        download_cc(ali,k,stream);
         for(int i=0;i<k;i++) {
             get_max_cc(p_cc[i],p_ix[i],c_cc+i*n_pts);
         }

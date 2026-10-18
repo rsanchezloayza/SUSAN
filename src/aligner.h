@@ -299,6 +299,7 @@ public:
     int max_K;
     bool ali_halves;
     float dilate;
+    int   dilate_radius;
     float3 bandpass;
     float2 ssnr; /// x=F; y=S;
     DoubleBufferHandler *p_buffer;
@@ -360,7 +361,7 @@ protected:
 
         AliSubstack ss_data(M,N,max_K,P,stream);
 
-        AliData ali_data(MP,NP,max_K,off_par,off_type,stream,dilate);
+        AliData ali_data(MP,NP,max_K,off_par,off_type,stream,dilate,dilate_radius);
         
         TemplateMatchingReporter tm_rep(ali_data.c_pts,ali_data.n_pts,max_K,tm_dim,tm_sigma);
         tm_rep.start(worker_id,tm_type,tm_prefix);
@@ -682,7 +683,7 @@ protected:
                         else
                             Math::set(R_spc,M33f::Identity());
                         
-                        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,dilate,ptr->K,stream);
+                        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose cumulative
                         /// deviation from the previous pose is large.  Out-of-plane
@@ -770,7 +771,7 @@ protected:
 
                         ali_data.invert_fourier(ptr->K,stream);
 
-                        ali_data.extract_cc(ite_cc.data(),ite_idx.data(),ptr->g_ali,dilate,ptr->K,stream);
+                        ali_data.extract_cc(ite_cc.data(),ite_idx.data(),ptr->g_ali,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose deviation
                         /// from the previous per-tilt pose is large.  Out-of-plane
@@ -1035,6 +1036,7 @@ protected:
         gpu_worker.tm_dim       = p_info->type;
         gpu_worker.tm_sigma     = p_info->tm_sigma;
         gpu_worker.dilate       = p_info->dilate;
+        gpu_worker.dilate_radius = p_info->dilate_radius;
         gpu_worker.start();
     }
 

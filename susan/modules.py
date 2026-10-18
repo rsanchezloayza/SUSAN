@@ -219,9 +219,14 @@ class Aligner:
         run.  3-D only.  Default: ``0``.
     dilate : float
         Tolerance, in pixels, to residual per-projection misalignment when
-        scoring.  Each projection's CC map is replaced by a Gaussian-weighted
-        maximum over its neighbourhood, with weight 0.5 at ``dilate`` pixels
-        (sigma = dilate/sqrt(2 ln 2)).  ``0`` disables it.  Default: ``0``.
+        scoring.  Each projection's CC map is replaced by its tapered maximum,
+        max_d CC(x + d) exp(-|d|^2 / (2 sigma^2)), sigma = dilate/sqrt(2 ln 2),
+        so a neighbour at ``dilate`` pixels counts with weight 0.5 (at 1.5:
+        0.73 / 0.29 / 0.06 at 1 / 2 / 3 pixels).  It makes template matching
+        tolerant to tilt-series misalignment.  ``0`` disables it.  Default: ``0``.
+    dilate_radius : int
+        Half-size, in pixels, of the neighbourhood of :attr:`dilate`.  ``0``
+        uses ceil(2 sigma).  Default: ``0``.
     """
 
     def __init__(self):
@@ -252,6 +257,7 @@ class Aligner:
         self.tm_prefix         = "template_matching"
         self.tm_sigma          = 0
         self.dilate            = 0
+        self.dilate_radius     = 0
         
     def set_angular_search(self, c_r=0, c_s=1, i_r=0, i_s=1):
         """Set the cone and in-plane angular search parameters.
@@ -345,6 +351,9 @@ class Aligner:
         
         if not self.cc_stats_type in ['none','sigma']:
             raise ValueError('Invalid cc statistic method. Only "none" or "sigma" are valid')
+
+        if self.dilate < 0 or self.dilate_radius < 0 or int(self.dilate_radius) != self.dilate_radius:
+            raise ValueError('dilate must be >= 0 and dilate_radius a non-negative integer')
         
         if not self.offset.step > 0 or not self.cone.step > 0 or not self.inplane.step > 0:
             raise ValueError('The steps values must be larger than 0')
@@ -427,6 +436,7 @@ class Aligner:
         args = args + ' -off_space '       + self.offset_space
         args = args + ' -type %d'          % self.dimensionality
         args = args + ' -dilate %f'        % self.dilate
+        args = args + ' -dilate_radius %d' % self.dilate_radius
         args = args + ' -verbosity %d'     % self.verbosity
         args = args + ' -tm_type '         + self.tm_type
         args = args + ' -tm_prefix '       + self.tm_prefix

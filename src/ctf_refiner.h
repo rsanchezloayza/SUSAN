@@ -400,7 +400,7 @@ protected:
                             ali_data.kb_prefilter(ptr->K,stream);
                             ali_data.invert_fourier(ptr->K,stream);
                             
-                            ali_data.download_cc(ptr->g_ali,0,ptr->K,stream);
+                            ali_data.download_cc(ptr->g_ali,ptr->K,stream);
                             stream.sync();
 
                             cc_tracker_arr.push(ali_data.c_cc, ali_data.n_pts, delta_w);
@@ -429,7 +429,7 @@ protected:
                     ali_data.kb_prefilter(ptr->K,stream);
                     ali_data.invert_fourier(ptr->K,stream);
 
-                    ali_data.download_cc(ptr->g_ali,0,ptr->K,stream);
+                    ali_data.download_cc(ptr->g_ali,ptr->K,stream);
                     stream.sync();
 
                     cc_tracker_arr.push(ali_data.c_cc, ali_data.n_pts, delta_w);
