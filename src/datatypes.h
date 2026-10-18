@@ -198,6 +198,7 @@ typedef enum {
 
 #define W_INV_STD_LINEAR 0.41f
 #define W_INV_STD_KB     0.69f
+#define GRID_CORRECT_KB_MAX 4.0f
 /// Tuned when the splat support was a fixed 5x5x5 capped at sigma_t 1.0. The kernel now widens
 /// to 1.5 where a projection's max_res is tight, so the weight volume it produces is broader
 /// there and this default is likely to be low for aggressive max_res. Re-tune before trusting

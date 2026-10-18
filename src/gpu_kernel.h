@@ -130,17 +130,6 @@ __device__  __forceinline__ float get_kaisser_bessel_kernel_polyfit(const float 
     return rslt;
 }
 
-__device__ __forceinline__ float get_kaisser_bessel_correction_polyfit(const float t) {
-    float t2 = t*t;
-    float t4 = t2*t2;
-    float t6 = t4*t2;
-    float rslt = 1.10650522;
-    rslt -= 0.51809905*t2;
-    rslt += 0.40407865*t4;
-    rslt -= 0.09941299*t6;
-    return rslt;
-}
-
 __device__ __forceinline__ float get_kb_fwd_correction_polyfit(const float t) {
     float t2  = t*t;
     float t4  = t2*t2;

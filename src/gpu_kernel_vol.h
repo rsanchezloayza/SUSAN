@@ -693,7 +693,7 @@ __global__ void insert_stk_kb_atomic(double2*p_acc,double*p_wgt,
 /// = 64 taps into 2x2x2 = 8 fetches.
 ///
 /// The reference must be pre-divided by the kernel's transform before its FFT
-/// (grid_correct_kb in upload_ref), otherwise the projection is of an apodised
+/// (grid_correct_kb_fwd in upload_ref), otherwise the projection is of an apodised
 /// reference and most of the benefit is lost.
 
 /// Everything kb_lerp_pair needs depends only on frac(p), so it is tabulated
@@ -1214,14 +1214,12 @@ __global__ void grid_correct_kb(float*p_data,const int N) {
         float ty = ss_idx.y-center;
         float tz = ss_idx.z-center;
         
-        const float kb_dc = get_kaisser_bessel_correction_polyfit(0.0f);
-
-        float kbx = get_kaisser_bessel_correction_polyfit(tx/center)/kb_dc;
-        float kby = get_kaisser_bessel_correction_polyfit(ty/center)/kb_dc;
-        float kbz = get_kaisser_bessel_correction_polyfit(tz/center)/kb_dc;
+        float kbx = get_kb_fwd_correction_polyfit(tx/center);
+        float kby = get_kb_fwd_correction_polyfit(ty/center);
+        float kbz = get_kb_fwd_correction_polyfit(tz/center);
 
         float wgt = kbx*kby*kbz;
-        wgt = fmaxf(wgt,1e-5f);
+        wgt = fmaxf(wgt,1.0f/GRID_CORRECT_KB_MAX);
         float val = p_data[ix];
         p_data[ix] = val/wgt;
     }
