@@ -1225,7 +1225,6 @@ class SubtomoAvg(SubtomoAvgCore):
 
         self.aligner.ctf_correction    = 'on_reference'
         self.aligner.cc_type           = 'cfsc'
-        self.aligner.expfilt_gain      = 0.0
         self.aligner.halfsets_independ = False
 
         self.averager.ctf_correction    = 'wiener'

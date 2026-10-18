@@ -68,7 +68,6 @@ typedef struct {
     float  off_y;
     float  off_z;
     float  off_s;
-    float  expfilt_gain;
 
     char   pseudo_sym[64];
 
@@ -207,7 +206,6 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.off_y         = 0;
     info.off_z         = 0;
     info.off_s         = 1;
-    info.expfilt_gain  = 0.0;
     info.verbosity     = VERBOSITY_BASIC;
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
@@ -254,7 +252,6 @@ inline bool parse_args(Info&info,int ac,char** av) {
         TM_TYPE,
         TM_PREFIX,
         TM_SIGMA,
-        EXP_FILTER,
         TYPE
     };
 
@@ -293,7 +290,6 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"tm_prefix",   1, 0, TM_PREFIX },
         {"tm_sigma",    1, 0, TM_SIGMA  },
         {"dilate",      1, 0, DILATE    },
-        {"expfilt_gain",1, 0, EXP_FILTER},
         {"type",        1, 0, TYPE      },
         {0, 0, 0, 0}
     };
@@ -404,9 +400,6 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case TM_SIGMA:
                 info.tm_sigma = atof(optarg);
-                break;
-            case EXP_FILTER:
-                info.expfilt_gain = atof(optarg);
                 break;
             default:
                 printf("Unknown parameter %d\n",c);
@@ -535,9 +528,7 @@ inline void print_full(const Info&info,FILE*fp) {
     if( info.cc_stats == CC_STATS_NONE )
         fprintf(fp,"\n");
     if( info.cc_stats == CC_STATS_SIGMA )
-        fprintf(fp,"Measuring: max( (cc_max - cc_mean) / cc_std , 0 ) per angle.\n");
-    if( info.cc_stats == CC_STATS_PROB )
-        fprintf(fp,"Measuring: cc_max / sum( cc ).\n");
+        fprintf(fp,"Measuring: z of the best CC vs the per-orientation max CC.\n");
 
     if( info.norm_type == NO_NORM )
         fprintf(fp,"\t\tSubstack normalization policy: Disabled.\n");
@@ -549,11 +540,6 @@ inline void print_full(const Info&info,FILE*fp) {
         fprintf(fp,"\t\tSubstack normalization policy: VST.\n");
     if( info.norm_type == GAT_NORMAL )
         fprintf(fp,"\t\tSubstack normalization policy: GAT.\n");
-
-    if( info.expfilt_gain > 0 )
-        fprintf(fp,"\t\tExposure filter: writing %.3f * estimated dose.\n",info.expfilt_gain);
-    else
-        fprintf(fp,"\t\tExposure filter: disabled (gain=0).\n");
 
     fprintf(fp,"\t\tPseudo-symmetry search: %s.\n",info.pseudo_sym);
     fprintf(fp,"\t\tCone search:    Range=%.3f, Step=%.3f.\n",info.cone_range,info.cone_step);
@@ -689,9 +675,7 @@ inline void print_basic(const Info&info,FILE*fp) {
         fprintf(fp,"Aligning with CFSC (substack only). ");
 
     if( info.cc_stats == CC_STATS_SIGMA )
-        fprintf(fp,"Measuring (per angle): max( (cc_max - cc_mean) / cc_std , 0 ).");
-    if( info.cc_stats == CC_STATS_PROB )
-        fprintf(fp,"Measuring: cc_max / sum(cc).");
+        fprintf(fp,"Measuring: z of the best CC vs the per-orientation max CC.");
     fprintf(fp,"\n");
 
     fprintf(fp,"    - Angular search: [ %s | ",info.pseudo_sym);

@@ -145,18 +145,11 @@ class Aligner:
         3D reference map; ``'cfsc_substack'`` whitens only the substack and
         leaves the reference untouched.  Default: ``'basic'``.
     cc_stats_type : str
-        Post-CC statistics normalisation: ``'none'``, ``'probability'``, or
-        ``'sigma'``.  Default: ``'none'``.
+        Post-CC statistics normalisation: ``'none'`` or ``'sigma'``.  Default: ``'none'``.
 
-        ``'sigma'`` scores each orientation by the prominence of its CC peak
-        over the offset grid, then reports the z-score of the best orientation
-        against all the others.  The per-orientation prominence needs at least
-        3 offset points to be defined, so with :attr:`offset` spans that yield
-        1 or 2 points (notably ``set_offset_search(0)``) it falls back to the
-        raw peak CC; the across-orientation z-score is unaffected.  Note that
-        prominence is amplitude-invariant by construction, and that it is a
-        weak statistic on very small grids — a 7-point grid
-        (``set_offset_search(1)``) gives it only 7 samples per orientation.
+        The pose is always the one with the maximum CC.  ``'sigma'`` reports
+        the z-score of that CC against the per-orientation maximum CCs of the
+        first refinement level (negative values are set to 0).
     pseudo_symmetry : str
         Symmetry group applied to the angular search grid.  Default:
         ``'c1'``.
@@ -223,21 +216,6 @@ class Aligner:
         scoring.  Each projection's CC map is replaced by a Gaussian-weighted
         maximum over its neighbourhood, with weight 0.5 at ``dilate`` pixels
         (sigma = dilate/sqrt(2 ln 2)).  ``0`` disables it.  Default: ``0``.
-    expfilt_gain : float
-        Multiplicative gain applied to the dose estimated by the CC tracker
-        (from the width of the cross-correlation peak) before it is written to
-        the per-projection exposure filter
-        (:attr:`~susan.data.Particles.def_ExFl`).  Useful for calibrating the
-        auto-estimated dose-weighting against an external reference; see
-        :func:`susan.utils.dose_from_fsc`.  Default: ``0`` (disabled).
-
-        Note that the aligner writes ``expfilt_gain * dose`` on **every** run,
-        so ``expfilt_gain = 0`` zeroes the field rather than preserving it, and
-        a hand-set exposure filter cannot survive an alignment.  The exposure
-        filter is *uncompensated* in the reconstruction (it enters the Wiener
-        numerator only), so whatever gain is used here is baked permanently into
-        the resulting map.  For an envelope the reconstruction will deconvolve,
-        use :attr:`~susan.data.Particles.def_Bfct` instead.  See :doc:`/cryoet`.
     """
 
     def __init__(self):
@@ -268,7 +246,6 @@ class Aligner:
         self.tm_prefix         = "template_matching"
         self.tm_sigma          = 0
         self.dilate            = 0
-        self.expfilt_gain      = 0
         
     def set_angular_search(self, c_r=0, c_s=1, i_r=0, i_s=1):
         """Set the cone and in-plane angular search parameters.
@@ -360,8 +337,8 @@ class Aligner:
         if not self.cc_type in ['basic','cfsc','cfsc_substack']:
             raise ValueError('Invalid cc type. Only "basic", "cfsc" or "cfsc_substack" are valid')
         
-        if not self.cc_stats_type in ['none','probability','sigma']:
-            raise ValueError('Invalid cc statistic method. Only "none", "probability" or "sigma" are valid')
+        if not self.cc_stats_type in ['none','sigma']:
+            raise ValueError('Invalid cc statistic method. Only "none" or "sigma" are valid')
         
         if not self.offset.step > 0 or not self.cone.step > 0 or not self.inplane.step > 0:
             raise ValueError('The steps values must be larger than 0')
@@ -448,7 +425,6 @@ class Aligner:
         args = args + ' -tm_type '         + self.tm_type
         args = args + ' -tm_prefix '       + self.tm_prefix
         args = args + ' -tm_sigma %f'      % self.tm_sigma
-        args = args + ' -expfilt_gain %f'  % self.expfilt_gain
         return args
     
     def align(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):

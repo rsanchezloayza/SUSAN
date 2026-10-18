@@ -864,10 +864,7 @@ def dose_from_fsc(fsc, apix, freq_range=(0.1, 0.8), fsc_min=0.1):
 
         dose = −4 · d(ln FSC)/d(s²)
 
-    This can be compared to the mean of ``ptcls.def_ExFl`` (excluding failures
-    marked as 9999) to calibrate ``aligner.expfilt_gain``:
-
-        expfilt_gain = dose_from_fsc(fsc, apix) / mean_estimated_dose
+    The result can be used to set ``ptcls.def_ExFl``.
 
     Parameters
     ----------

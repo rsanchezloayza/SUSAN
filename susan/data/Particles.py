@@ -189,21 +189,6 @@ class Particles:
        permanently attenuates that projection.  Use this field for an envelope
        that the reconstruction should *keep*, such as dose weighting.
 
-       .. warning::
-
-          This field is an **output of the aligner**, not a user input.  Every
-          alignment overwrites it with ``expfilt_gain * dose``, where the dose
-          is estimated from the width of the cross-correlation peak.  Setting
-          ``expfilt_gain = 0`` writes zeros rather than preserving the field, so
-          a hand-set value cannot survive an alignment; it is only meaningful
-          between an alignment and a reconstruction.  For a user-owned envelope,
-          use :attr:`def_Bfct` instead.
-
-          A value of ``9999`` is the sentinel written when the CC peak width
-          cannot be measured.  It zeroes the projection's contribution to the
-          numerator while that projection still carries its full weight in the
-          denominator.
-
        Only the ``'wiener'``, ``'pre_wiener'`` and ``'wiener_ssnr'``
        reconstruction policies apply it; ``'none'`` and ``'phase_flip'`` ignore
        it.

@@ -299,7 +299,6 @@ public:
     int max_K;
     bool ali_halves;
     float dilate;
-    float expfilt_gain;
     float3 bandpass;
     float2 ssnr; /// x=F; y=S;
     DoubleBufferHandler *p_buffer;
@@ -336,6 +335,10 @@ public:
 protected:
     int NP;
     int MP;
+    std::vector<single> max_cc;
+    std::vector<single> ite_cc;
+    std::vector<int>    ite_idx;
+    std::vector<single> cc_placeholder;
 
     void main() {
 
@@ -361,6 +364,13 @@ protected:
 
         RadialAverager rad_avgr(MP,NP,max_K);
 
+        CcTrackerAlignment    cc_tracker    ((CcStatsType_t)cc_stats,ali_data.c_pts,ali_data.n_pts,offset_sigma);
+        CcTrackerAlignmentArr cc_tracker_arr((CcStatsType_t)cc_stats,max_K,ali_data.c_pts,ali_data.n_pts,offset_sigma);
+        max_cc.resize(max_K);
+        ite_cc.resize(max_K);
+        ite_idx.resize(max_K);
+        cc_placeholder.resize(max_K*ali_data.n_pts);
+
         GPU::GArrSingle ctf_wgt;
         ctf_wgt.alloc(MP*NP*max_K);
 
@@ -384,10 +394,10 @@ protected:
         while( (current_cmd = worker_cmd->read_command()) >= 0 ) {
             switch(current_cmd) {
                 case ALI_3D:
-                    align3D(vols,ctf_wgt,ss_data,ali_data,rad_avgr,tm_rep,stream);
+                    align3D(vols,ctf_wgt,ss_data,ali_data,rad_avgr,tm_rep,cc_tracker,stream);
                     break;
                 case ALI_2D:
-                    align2D(vols,ctf_wgt,ss_data,ali_data,rad_avgr,tm_rep,stream);
+                    align2D(vols,ctf_wgt,ss_data,ali_data,rad_avgr,tm_rep,cc_tracker_arr,stream);
                     break;
                 default:
                     break;
@@ -464,14 +474,14 @@ protected:
         GpuKernels::divide<<<grdC,blk>>>(g_fou.ptr,NP*NP*NP,ss);
     }
 
-    void align3D(AliRef*vols,GPU::GArrSingle&ctf_wgt,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,GPU::Stream&stream) {
+    void align3D(AliRef*vols,GPU::GArrSingle&ctf_wgt,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,CcTrackerAlignment&cc_tracker,GPU::Stream&stream) {
         p_buffer->RO_sync();
         while( p_buffer->RO_get_status() > DONE ) {
             if( p_buffer->RO_get_status() == READY ) {
                 AliBuffer*ptr = (AliBuffer*)p_buffer->RO_get_buffer();
                 create_ctf(ctf_wgt,ptr,stream);
                 add_data(ss_data,ctf_wgt,ptr,rad_avgr,true,stream);
-                angular_search_3D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,stream);
+                angular_search_3D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,cc_tracker,stream);
                 stream.sync();
             }
             p_buffer->RO_sync();
@@ -517,14 +527,14 @@ protected:
         Mrc::write(buffer.ptr,MP,NP,max_K,filename);
     }
 
-    void align2D(AliRef*vols,GPU::GArrSingle&ctf_wgt,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,GPU::Stream&stream) {
+    void align2D(AliRef*vols,GPU::GArrSingle&ctf_wgt,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,CcTrackerAlignmentArr&cc_tracker_arr,GPU::Stream&stream) {
         p_buffer->RO_sync();
         while( p_buffer->RO_get_status() > DONE ) {
             if( p_buffer->RO_get_status() == READY ) {
                 AliBuffer*ptr = (AliBuffer*)p_buffer->RO_get_buffer();
                 create_ctf(ctf_wgt,ptr,stream);
                 add_data(ss_data,ctf_wgt,ptr,rad_avgr,false,stream);
-                angular_search_2D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,stream);
+                angular_search_2D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,cc_tracker_arr,stream);
                 stream.sync();
             }
             p_buffer->RO_sync();
@@ -602,15 +612,13 @@ protected:
         stream.sync();
     }
 
-    void angular_search_3D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,GPU::Stream&stream) {
+    void angular_search_3D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,CcTrackerAlignment&cc_tracker,GPU::Stream&stream) {
 
         M33f max_R;
 
         Rot33 Rot;
         M33f R_lvl = Eigen::MatrixXf::Identity(3,3);
         M33f R_ite,R_tmp,R_ali;
-
-        CcTrackerAlignment cc_tracker((CcStatsType_t)cc_stats,ali_data.c_pts,ali_data.n_pts,max_ang,ptr->ctf_vals.apix,offset_sigma);
 
         Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
 
@@ -619,11 +627,11 @@ protected:
         /// Reference half of the split WBP ramp; constant across orientations.
         const float w_total = total_proj_weight(ptr);
 
-        // Note: for template matching, use levels=0. With multiple refinement levels,
-        // sigma statistics are reset per level to avoid mixing coarse and fine angle
-        // distributions, but c_cc (max) accumulates across all levels.
-        for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next() ) {
-            cc_tracker.clear();
+        cc_tracker.clear();
+        int lvl = 0;
+        for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
+            if( lvl > 0 )
+                cc_tracker.next_level();
             tm_rep.reset_stats();
             for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
                 for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
@@ -690,51 +698,35 @@ protected:
             R_lvl = cc_tracker.get_rot();
         } // REFINE
 
-        // Save the averaged rotation before the optional extra pass clears the tracker.
         M33f R_final = cc_tracker.get_rot();
 
         update_particle_3D( ptr->ptcl,
                            R_final,cc_tracker.get_vec(),cc_tracker.get_cc(),
                            ptr->class_ix,ptr->ctf_vals.apix);
 
-        if( cc_tracker.has_dose() ) {
-            float dose = expfilt_gain * cc_tracker.get_dose();
-            for(int i = 0; i < ptr->K; i++)
-                ptr->ptcl.def[i].ExpFilt = dose;
-        }
-
         tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w);
     }
 
-    void angular_search_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,GPU::Stream&stream) {
+    void angular_search_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,CcTrackerAlignmentArr&cc_tracker_arr,GPU::Stream&stream) {
         
         Rot33 Rot;
         M33f  R_ite,R_ali;
 
-        CcTrackerAlignmentArr cc_tracker_arr((CcStatsType_t)cc_stats,ptr->K,ali_data.c_pts,ali_data.n_pts,max_ang,ptr->ctf_vals.apix,offset_sigma);
-
-        single max_cc [ptr->K];
-        single ite_cc [ptr->K];
-        int    max_idx[ptr->K];
-        int    ite_idx[ptr->K];
-        Rot33  R_rslt [ptr->K];
-        M33f   max_R  [ptr->K];
-        // single := float //
-        single cc_placeholder[(ptr->K)*(ali_data.n_pts)];
-
         Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
 
-        for(int i=0;i<ptr->K;i++) max_cc[i] = -INFINITY;
-        memset(max_idx,        0, sizeof(int)*ptr->K);
-        memset(cc_placeholder, 0, sizeof(single)*(ptr->K)*(ali_data.n_pts));
+        std::fill_n(max_cc.data(),ptr->K,-INFINITY);
+        std::fill(cc_placeholder.begin(),cc_placeholder.end(),0.0f);
 
         tm_rep.clear_cc();
 
         Math::set(Rot,R_ali.transpose());
         ali_data.pre_rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
         
-        for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next() ) {
-            cc_tracker_arr.clear();
+        cc_tracker_arr.clear(ptr->K);
+        int lvl = 0;
+        for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
+            if( lvl > 0 )
+                cc_tracker_arr.next_level();
             for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
                 for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
                     for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next() ) {
@@ -763,7 +755,7 @@ protected:
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
                         ali_data.invert_fourier(ptr->K,stream);
 
-                        ali_data.extract_cc(ite_cc,ite_idx,ptr->g_ali,dilate,ptr->K,stream);
+                        ali_data.extract_cc(ite_cc.data(),ite_idx.data(),ptr->g_ali,dilate,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose deviation
                         /// from the previous per-tilt pose is large.  Out-of-plane
@@ -777,9 +769,7 @@ protected:
 
                         for(int i=0;i<ptr->K;i++) {
                             if( ite_cc[i] > max_cc[i] ) {
-                                max_idx[i] = ite_idx[i];
                                 max_cc[i]  = ite_cc[i];
-                                max_R[i]   = R_ite;
                                 // cc_placeholder stores cc-map (offset->cc) only for the best orientation
                                 for(int j=0;j<ali_data.n_pts;j++){
                                     cc_placeholder[i*ali_data.n_pts + j] = ali_data.c_cc[i*ali_data.n_pts + j];
@@ -791,10 +781,7 @@ protected:
             } // SYMMETRY
         } // REFINE
 
-        for(int i=0;i<ptr->K;i++)
-            Math::set(R_rslt[i],cc_tracker_arr.get_rot(i));
-
-        tm_rep.push_cc(cc_placeholder);
+        tm_rep.push_cc(cc_placeholder.data());
 
         single cc_acc=0,wgt_acc=0,cc_cur=0;
         for(int i=0;i<ptr->K;i++) {
@@ -809,12 +796,9 @@ protected:
             cc_cur   = cc_tracker_arr.get_cc(i);
             cc_acc  += cc_cur;
             wgt_acc += ptr->ptcl.prj_w[i];
-            Math::set(max_R[i],R_rslt[i]);
             update_particle_2D(ptr->ptcl,
-                               max_R[i],cc_tracker_arr.get_vec(i),cc_cur,
+                               cc_tracker_arr.get_rot(i),cc_tracker_arr.get_vec(i),cc_cur,
                                i,ptr->ctf_vals.apix);
-            if( cc_tracker_arr.has_dose(i) )
-                ptr->ptcl.def[i].ExpFilt = expfilt_gain * cc_tracker_arr.get_dose(i);
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
         tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w);
@@ -1031,7 +1015,6 @@ protected:
         gpu_worker.tm_dim       = p_info->type;
         gpu_worker.tm_sigma     = p_info->tm_sigma;
         gpu_worker.dilate       = p_info->dilate;
-        gpu_worker.expfilt_gain = p_info->expfilt_gain;
         gpu_worker.start();
     }
 

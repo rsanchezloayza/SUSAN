@@ -187,8 +187,7 @@ class Tomograms:
        :math:`e^{-s^2 D/4}`.  Despite sharing its form with :attr:`def_Bfct`,
        it is *uncompensated*: it enters the Wiener numerator only, so it
        persists in the reconstructed map.  Seeds
-       :attr:`susan.data.Particles.def_ExFl`, which the aligner then overwrites
-       on every run.  See :doc:`/cryoet`.
+       :attr:`susan.data.Particles.def_ExFl`.  See :doc:`/cryoet`.
 
     .. attribute:: def_mres
        :type: ndarray, float32, shape (N, P)

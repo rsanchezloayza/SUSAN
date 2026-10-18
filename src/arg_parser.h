@@ -77,11 +77,10 @@ namespace ArgParser {
         bool all_ok = false;
 
         check_arg_and_set(type,all_ok,arg,"none"        ,CC_STATS_NONE);
-        check_arg_and_set(type,all_ok,arg,"probability" ,CC_STATS_PROB);
         check_arg_and_set(type,all_ok,arg,"sigma"       ,CC_STATS_SIGMA);
 
         if( !all_ok )
-            fprintf(stderr,"Invalid cc statistics type %s. Options are: none, probability or sigma. Defaulting to none.\n",arg);
+            fprintf(stderr,"Invalid cc statistics type %s. Options are: none or sigma. Defaulting to none.\n",arg);
 
         return type;
     }
