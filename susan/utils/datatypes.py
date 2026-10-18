@@ -73,10 +73,13 @@ class ssnr:
 
 @_dc
 class bandpass:
-    """Bandpass filter descriptor with cosine-decay edges.
+    """Bandpass filter descriptor with cosine-decay edges, in Fourier pixels of the box.
 
-    The filter is flat between ``highpass`` and ``lowpass`` and uses a
-    cosine rolloff of width ``rolloff`` at both edges.
+    The weight is 1 from ``highpass - rolloff/2`` to ``lowpass + rolloff/2``
+    (the flat band extends ``rolloff/2`` beyond both cut-offs) and decays to 0
+    with a half-cosine of width ``sqrt(rolloff)`` (at least 1 pixel) beyond
+    that.  The aligner applies it squared.  Per projection, the lowpass is
+    further limited by the CTF ``max_res`` when set.
 
     .. image:: ../images/bandpass_def_light.svg
         :align: center
@@ -95,7 +98,8 @@ class bandpass:
     lowpass : float
         Low-pass cutoff in Fourier pixels.
     rolloff : float
-        Width of the cosine taper at each edge, in Fourier pixels.
+        Rolloff ``r``, in Fourier pixels: widens the flat band by ``r/2`` on
+        each side and sets the cosine taper width to ``sqrt(r)``.
     """
     highpass: float
     lowpass:  float

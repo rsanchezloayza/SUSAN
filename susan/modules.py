@@ -26,7 +26,19 @@ def _get_gpu_str(list_gpus_ids):
 
 ###############################################################################
 
-class Aligner:
+class _BandpassFpix:
+    """``bandpass`` is an alias of ``bandpass_fpix`` (the bandpass in Fourier pixels)."""
+
+    @property
+    def bandpass(self):
+        return self.bandpass_fpix
+
+    @bandpass.setter
+    def bandpass(self, value):
+        self.bandpass_fpix = value
+
+
+class Aligner(_BandpassFpix):
     """Particle alignment engine for 3-D and 2-D subtomogram averaging.
 
     Wraps the ``susan_aligner`` binary.  Configure the attributes, then call
@@ -38,9 +50,11 @@ class Aligner:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    bandpass : :class:`~susan.utils.datatypes.bandpass`
-        Frequency bandpass applied to both particle and reference.
-        Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).
+    bandpass_fpix : :class:`~susan.utils.datatypes.bandpass`
+        Bandpass in Fourier pixels of the box, applied to both particle and reference.  See
+        :class:`~susan.utils.datatypes.bandpass` for the exact shape.  A
+        lowpass <= 0 means the full range.  ``bandpass`` is an alias.
+        Default: ``bandpass(0, -1, 2)``.
     dimensionality : int
         Alignment search space: ``3`` for full 3-D, ``2`` for in-plane only.
         Default: ``3``.
@@ -231,7 +245,7 @@ class Aligner:
 
     def __init__(self):
         self.list_gpus_ids     = [0]
-        self.bandpass          = _dt.bandpass(0,-1,2)
+        self.bandpass_fpix     = _dt.bandpass(0,-1,2)
         self.dimensionality    = 3
         self.extra_padding     = 0
         self.allow_drift       = True
@@ -402,8 +416,8 @@ class Aligner:
             ``susan_aligner`` command.
         """
         self._validate()
-        if self.bandpass.lowpass <= 0:
-            self.bandpass.lowpass = (box_size/2) - 1
+        if self.bandpass_fpix.lowpass <= 0:
+            self.bandpass_fpix.lowpass = (box_size/2) - 1
         n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
@@ -420,8 +434,8 @@ class Aligner:
         args = args + ' -norm_type '       + self.normalize_type
         args = args + ' -ctf_type '        + self.ctf_correction
         args = args + ' -ssnr_param %f,%f' % (self.ssnr.F,self.ssnr.S)
-        args = args + ' -bandpass %f,%f'   % (self.bandpass.highpass,self.bandpass.lowpass)
-        args = args + ' -rolloff_f %f'     % self.bandpass.rolloff
+        args = args + ' -bandpass %f,%f'   % (self.bandpass_fpix.highpass,self.bandpass_fpix.lowpass)
+        args = args + ' -rolloff_f %f'     % self.bandpass_fpix.rolloff
         args = args + ' -p_symmetry '      + self.pseudo_symmetry
         args = args + ' -ali_halves %d'    % self.halfsets_independ
         args = args + ' -ignore_ref %d'    % self.ignore_classes
@@ -499,7 +513,7 @@ class Aligner:
 
 ###############################################################################
 
-class Averager:
+class Averager(_BandpassFpix):
     """Map reconstruction (averaging) engine for subtomogram averaging.
 
     Wraps the ``susan_reconstruct`` binary.  Configure the attributes, then
@@ -512,9 +526,11 @@ class Averager:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    bandpass : :class:`~susan.utils.datatypes.bandpass`
-        Frequency bandpass applied during back-projection.
-        Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).
+    bandpass_fpix : :class:`~susan.utils.datatypes.bandpass`
+        Bandpass in Fourier pixels of the box, applied during back-projection.  See
+        :class:`~susan.utils.datatypes.bandpass` for the exact shape.  A
+        lowpass <= 0 means the full range.  ``bandpass`` is an alias.
+        Default: ``bandpass(0, -1, 2)``.
     extra_padding : int
         Extra zero-padding (pixels) added on each side before FFT.
         Default: ``0``.
@@ -610,7 +626,7 @@ class Averager:
 
     def __init__(self):
         self.list_gpus_ids     = [0]
-        self.bandpass          = _dt.bandpass(0,-1,2)
+        self.bandpass_fpix     = _dt.bandpass(0,-1,2)
         self.extra_padding     = 0
         self.rec_halfsets      = False
         self.padding_type      = 'noise'
@@ -669,8 +685,8 @@ class Averager:
             ``susan_reconstruct`` command.
         """
         self._validate()
-        if self.bandpass.lowpass <= 0:
-            self.bandpass.lowpass = (box_size/2) - 1
+        if self.bandpass_fpix.lowpass <= 0:
+            self.bandpass_fpix.lowpass = (box_size/2) - 1
         n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
@@ -689,8 +705,8 @@ class Averager:
         args = args + ' -ssnr_param %f,%f' % (self.ssnr.F,self.ssnr.S)
         args = args + ' -w_inv_iter %d'    % self.inversion.ite
         args = args + ' -w_inv_gstd %f'    % self.inversion.std
-        args = args + ' -bandpass %f,%f'   % (self.bandpass.highpass,self.bandpass.lowpass)
-        args = args + ' -rolloff_f %f'     % self.bandpass.rolloff
+        args = args + ' -bandpass %f,%f'   % (self.bandpass_fpix.highpass,self.bandpass_fpix.lowpass)
+        args = args + ' -rolloff_f %f'     % self.bandpass_fpix.rolloff
         args = args + ' -symmetry '        + self.symmetry
         args = args + ' -rec_halves %d'    % self.rec_halfsets
         args = args + ' -ignore_ref %d'    % self.ignore_classes
@@ -751,7 +767,7 @@ class Averager:
 
 ###############################################################################
 
-class SubtomoRec:
+class SubtomoRec(_BandpassFpix):
     """Subtomogram reconstruction engine.
 
     Wraps the ``susan_rec_subtomos`` binary.  Each selected particle is
@@ -764,9 +780,11 @@ class SubtomoRec:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    bandpass : :class:`~susan.utils.datatypes.bandpass`
-        Frequency bandpass applied during back-projection.
-        Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).
+    bandpass_fpix : :class:`~susan.utils.datatypes.bandpass`
+        Bandpass in Fourier pixels of the box, applied during back-projection.  See
+        :class:`~susan.utils.datatypes.bandpass` for the exact shape.  A
+        lowpass <= 0 means the full range.  ``bandpass`` is an alias.
+        Default: ``bandpass(0, -1, 2)``.
     extra_padding : int
         Extra zero-padding (pixels) added on each side before FFT.
         Default: ``0``.
@@ -815,7 +833,7 @@ class SubtomoRec:
 
     def __init__(self):
         self.list_gpus_ids     = [0]
-        self.bandpass          = _dt.bandpass(0,-1,2)
+        self.bandpass_fpix     = _dt.bandpass(0,-1,2)
         self.extra_padding     = 0
         self.padding_type      = 'noise'
         self.normalize_type    = 'none'
@@ -864,8 +882,8 @@ class SubtomoRec:
             ``susan_rec_subtomos`` command.
         """
         self._validate()
-        if self.bandpass.lowpass <= 0:
-            self.bandpass.lowpass = box_size/2-1
+        if self.bandpass_fpix.lowpass <= 0:
+            self.bandpass_fpix.lowpass = box_size/2-1
         n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
@@ -879,8 +897,8 @@ class SubtomoRec:
         args = args + ' -norm_type '       + self.normalize_type
         args = args + ' -ctf_type '        + self.ctf_correction
         args = args + ' -format '          + self.format
-        args = args + ' -bandpass %f,%f'   % (self.bandpass.highpass,self.bandpass.lowpass)
-        args = args + ' -rolloff_f %f'     % self.bandpass.rolloff
+        args = args + ' -bandpass %f,%f'   % (self.bandpass_fpix.highpass,self.bandpass_fpix.lowpass)
+        args = args + ' -rolloff_f %f'     % self.bandpass_fpix.rolloff
         args = args + ' -ssnr_param %f,%f' % (self.ssnr.F,self.ssnr.S)
         args = args + ' -w_inv_iter %d'    % self.inversion.ite
         args = args + ' -w_inv_gstd %f'    % self.inversion.std
@@ -1185,7 +1203,7 @@ class CtfEstimator:
 
 ###############################################################################
 
-class CtfRefiner:
+class CtfRefiner(_BandpassFpix):
     """Per-particle CTF refinement engine.
 
     Wraps the ``susan_ctf_refiner`` binary.  Jointly refines defocus, tilt
@@ -1199,9 +1217,11 @@ class CtfRefiner:
     ----------
     list_gpus_ids : list of int
         GPU device IDs to use.  Default: ``[0]``.
-    bandpass : :class:`~susan.utils.datatypes.bandpass`
-        Frequency bandpass applied during refinement.
-        Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).
+    bandpass_fpix : :class:`~susan.utils.datatypes.bandpass`
+        Bandpass in Fourier pixels of the box, applied during refinement.  See
+        :class:`~susan.utils.datatypes.bandpass` for the exact shape.  A
+        lowpass <= 0 means the full range.  ``bandpass`` is an alias.
+        Default: ``bandpass(0, -1, 2)``.
     extra_padding : int
         Extra zero-padding (pixels) added on each side before FFT.
         Default: ``0``.
@@ -1289,7 +1309,7 @@ class CtfRefiner:
 
     def __init__(self):
         self.list_gpus_ids      = [0]
-        self.bandpass           = _dt.bandpass(0,-1,2)
+        self.bandpass_fpix      = _dt.bandpass(0,-1,2)
         self.extra_padding      = 0
         self.padding_type       = 'noise'
         self.normalize_type     = 'zero_mean_one_std'
@@ -1388,8 +1408,8 @@ class CtfRefiner:
             ``susan_ctf_refiner`` command.
         """
         self._validate()
-        if self.bandpass.lowpass <= 0:
-            self.bandpass.lowpass = (box_size/2) - 1
+        if self.bandpass_fpix.lowpass <= 0:
+            self.bandpass_fpix.lowpass = (box_size/2) - 1
         n_threads = len(self.list_gpus_ids)
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
@@ -1404,8 +1424,8 @@ class CtfRefiner:
         args = args + ' -norm_type '       + self.normalize_type
         args = args + ' -cc_type '         + self.cc_type
         args = args + ' -ssnr_param %f,%f' % (self.ssnr.F,self.ssnr.S)
-        args = args + ' -bandpass %f,%f'   % (self.bandpass.highpass,self.bandpass.lowpass)
-        args = args + ' -rolloff_f %f'     % self.bandpass.rolloff
+        args = args + ' -bandpass %f,%f'   % (self.bandpass_fpix.highpass,self.bandpass_fpix.lowpass)
+        args = args + ' -rolloff_f %f'     % self.bandpass_fpix.rolloff
         args = args + ' -def_search %f,%f' % (self.defocus_angstroms.span,self.defocus_angstroms.step)
         args = args + ' -ang_search %f,%f' % (self.angles.span,self.angles.step)
         args = args + ' -phase_shift_search %f,%f' % (_math.radians(self.phase_shift_deg.span),_math.radians(self.phase_shift_deg.step))
