@@ -1473,7 +1473,7 @@ __global__ void reconstruct_pts_kb(float*p_cc,const Proj2D*pTlt,cudaTextureObjec
         for(int z=lane;z<K;z+=L) {
             if( pTlt[z].w > SUSAN_FLOAT_TOL  ) {
                 rot_inv_pt_XY(x,y,pTlt[z].R,pt_r);
-                cc  += pTlt[z].w*tex2DLayered_kb(ss_cc,x+off,y+off,z);
+                cc  += pTlt[z].w*tex2DLayered_kb(ss_cc,x+pTlt[z].t.x+off,y+pTlt[z].t.y+off,z);
                 wgt += pTlt[z].w;
             }
         }
@@ -1500,7 +1500,7 @@ __global__ void extract_pts_kb(float*p_cc,cudaTextureObject_t ss_cc,const Proj2D
         Vec3  pt  = p_pts[ss_idx.x];
         single off = (single)(N/2) + 0.5;
 
-        float cc = tex2DLayered_kb(ss_cc,pt.x+off,pt.y+off,ss_idx.z);
+        float cc = tex2DLayered_kb(ss_cc,pt.x+pTlt[ss_idx.z].t.x+off,pt.y+pTlt[ss_idx.z].t.y+off,ss_idx.z);
 
         p_cc[ss_idx.x + n_pts*ss_idx.z] = pTlt[ss_idx.z].w*cc;
 

@@ -209,7 +209,6 @@ public:
         fft2.exec(ss_fourier.ptr,ss_padded.ptr);
         GpuKernels::sampling_correction_2D<<<grd_fou,blk,0,stream.strm>>>(ss_fourier.ptr,2.0,ss_fou);
         GpuKernels::fftshift2D<<<grd_fou,blk,0,stream.strm>>>(ss_fourier.ptr,ss_fou);
-        GpuKernels::subpixel_shift<<<grd_fou,blk,0,stream.strm>>>(ss_fourier.ptr,g_ali.ptr,ss_fou);
         GpuKernels::divide<<<grd_fou,blk,0,stream.strm>>>(ss_fourier.ptr,NP*NP,ss_fou);
     }
 
