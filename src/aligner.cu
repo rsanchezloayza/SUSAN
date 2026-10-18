@@ -45,7 +45,7 @@ int main(int ac, char** av) {
         Tomograms tomos(info.tomo_file);
         DataInfo::print_loaded(info.verbosity);
         DataInfo::print_data_info(ptcls,tomos,info.verbosity);
-        StackReader stkrdr(&ptcls,&tomos,&barrier);
+        StackReader stkrdr(&ptcls,&tomos,&barrier,info.norm_type);
         AliPool pool(&info,&refs,tomos.num_proj,ptcls.n_ptcl,stkrdr,info.n_threads);
 
         stkrdr.start();

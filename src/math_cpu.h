@@ -44,6 +44,7 @@
 #include <cstdint>
 #include <cmath>
 #include <random>
+#include <algorithm>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -686,44 +687,105 @@ inline bool normalize_masked(float*ptr,const float*msk,const uint32 length, cons
     return true;
 }
 
-inline void anscombe_transform(float*ptr,const uint32 length) {
-    /// Applies the Anscombe transform (Poisson -> Normal)
-    /// https:/doi.org/10.1093/biomet/35.3-4.246
-    /// TODO: Speed this up!
-    uint32 i;
-    float avg = 0;
-    for(i=0;i<length;i++) {
-        float x = ptr[i] + (3.0f/8.0f);
-        ptr[i]  = 2*sqrtf( fmaxf(x,0.0f) );
-        avg    += ptr[i];
-    }
-
-    avg = avg/((float)length);
-
-    for(i=0;i<length;i++) {
-        ptr[i] = ptr[i] - avg;
-    }
+/// Generalized Anscombe transform, (2/a) sqrt(a x + 3/8 a^2 + b); a = 1, b = 0 is the Anscombe transform.
+/// https:/doi.org/10.1093/biomet/35.3-4.246, https:/doi.org/10.1109/TIP.2012.2202675
+inline void gat_transform(float*ptr,const uint32 length,const float a,const float b) {
+    const float s = 2.0f/a;
+    const float c = 0.375f*a*a + b;
+    for(uint32 i=0;i<length;i++)
+        ptr[i] = s*sqrtf( fmaxf(a*ptr[i]+c,0.0f) );
 }
 
-inline void generalized_anscombe_transform_zero_mean(float*ptr,const uint32 length) {
-    /// Modified from: https:/doi.org/10.1109/TIP.2012.2202675
-    /// TODO: Speed this up!
-    //vv = vv + (3.0/8.0) + 1
-    //vv = 2*np.sqrt( np.maximum(vv,0.0) )
+inline bool is_fill(const float v,const float fill) {
+    return fabsf(v-fill) <= FILL_TOL*fmaxf(fabsf(fill),1.0f);
+}
 
-    uint32 i;
-    float avg = 0;
-    for(i=0;i<length;i++) {
-        float x = ptr[i] + (3.0f/8.0f) + 1.0f;
-        ptr[i]  = 2*sqrtf( fmaxf(x,0.0f) );
-        avg    += ptr[i];
+/// Constant fill along the frame border: the value of the longest run of equal pixels (within
+/// FILL_TOL, >= FILL_MIN_RUN) walking the perimeter.
+inline bool detect_fill_border(float&fill,const float*img,const int W,const int H) {
+    int   best_run = 0;
+    float best_val = 0;
+    int   run = 0;
+    float cur = 0;
+    const int L = 2*(W+H)-4;
+    for(int n=0;n<L;n++) {
+        int x,y;
+        if( n < W )              { x = n;               y = 0;               }
+        else if( n < W+H-1 )     { x = W-1;             y = n-W+1;           }
+        else if( n < 2*W+H-2 )   { x = W-1-(n-W-H+2);   y = H-1;             }
+        else                     { x = 0;               y = H-1-(n-2*W-H+3); }
+        float v = img[x+(size_t)y*W];
+        if( n > 0 && is_fill(v,cur) ) run++;
+        else { cur = v; run = 1; }
+        if( run > best_run ) { best_run = run; best_val = cur; }
     }
+    fill = best_val;
+    return best_run >= FILL_MIN_RUN;
+}
 
-    avg = avg/((float)length);
-
-    for(i=0;i<length;i++) {
-        ptr[i] = ptr[i] - avg;
+/// Robust (Huber) line fit y = a x + b. Returns the standard error of a in se_a.
+/// p_r and p_w are work buffers of length n.
+inline bool fit_line_huber(float&a,float&b,float&se_a,const double*x,const double*y,const int n,double*p_r,double*p_w) {
+    if( n < 3 ) return false;
+    for(int i=0;i<n;i++) p_w[i] = 1;
+    double A=0,B=0,se=0;
+    for(int it=0;it<30;it++) {
+        double sw=0,sx=0,sy=0;
+        for(int i=0;i<n;i++) { sw += p_w[i]; sx += p_w[i]*x[i]; sy += p_w[i]*y[i]; }
+        double mx = sx/sw, my = sy/sw, sxx=0, sxy=0;
+        for(int i=0;i<n;i++) { sxx += p_w[i]*(x[i]-mx)*(x[i]-mx); sxy += p_w[i]*(x[i]-mx)*(y[i]-my); }
+        if( sxx <= 0 ) return false;
+        double A_new = sxy/sxx, B_new = my - A_new*mx;
+        double srr = 0;
+        for(int i=0;i<n;i++) { p_r[i] = y[i] - A_new*x[i] - B_new; srr += p_w[i]*p_r[i]*p_r[i]; }
+        se = sqrt( srr/fmax(sw-2,1.0)/sxx );
+        bool done = it > 0 && fabs(A_new-A) <= 1e-7*fabs(A_new) && fabs(B_new-B) <= 1e-7*(fabs(B_new)+fabs(A_new*mx));
+        A = A_new; B = B_new;
+        if( done ) break;
+        for(int i=0;i<n;i++) p_w[i] = fabs(p_r[i]);
+        std::nth_element(p_w,p_w+n/2,p_w+n);
+        double k = 1.345*1.4826*p_w[n/2];
+        for(int i=0;i<n;i++) {
+            double ar = fabs(p_r[i]);
+            p_w[i] = (k > 0 && ar > k) ? k/ar : 1.0;
+        }
     }
+    a = (float)A; b = (float)B; se_a = (float)se;
+    return true;
+}
+
+/// Camera gain a and b = sigma^2 - a mu (Var = a E + b) of one projection: GAT_TILE tiles (up to
+/// GAT_MAX_TILES, skipping fill), tile mean vs half the variance of horizontal neighbour
+/// differences, robust line fit. Work buffers: 4 x GAT_MAX_TILES doubles.
+inline bool estimate_gat_ab(float&a,float&b,const float*img,const int W,const int H,const bool has_fill,const float fill,double*p_work) {
+    double *p_m = p_work, *p_v = p_work+GAT_MAX_TILES, *p_r = p_work+2*GAT_MAX_TILES, *p_w = p_work+3*GAT_MAX_TILES;
+    const int nx = W/GAT_TILE, ny = H/GAT_TILE;
+    if( nx*ny < GAT_MIN_TILES ) return false;
+    int stride = (int)ceil( sqrt( (double)nx*ny/GAT_MAX_TILES ) );
+    int n = 0;
+    for(int ty=0;ty<ny && n<GAT_MAX_TILES;ty+=stride) {
+        for(int tx=0;tx<nx && n<GAT_MAX_TILES;tx+=stride) {
+            double s=0,sd=0,sd2=0;
+            bool ok = true;
+            for(int j=0;j<GAT_TILE && ok;j++) {
+                const float*row = img + (size_t)(ty*GAT_TILE+j)*W + tx*GAT_TILE;
+                for(int i=0;i<GAT_TILE;i++) {
+                    if( has_fill && is_fill(row[i],fill) ) { ok = false; break; }
+                    s += row[i];
+                    if( i > 0 ) { double d = row[i]-row[i-1]; sd += d; sd2 += d*d; }
+                }
+            }
+            if( !ok ) continue;
+            const double nd = (double)GAT_TILE*(GAT_TILE-1);
+            p_m[n] = s/((double)GAT_TILE*GAT_TILE);
+            p_v[n] = 0.5*( sd2/nd - (sd/nd)*(sd/nd) );
+            n++;
+        }
+    }
+    if( n < GAT_MIN_TILES ) return false;
+    float se_a;
+    if( !fit_line_huber(a,b,se_a,p_m,p_v,n,p_r,p_w) ) return false;
+    return a > 0 && se_a < 0.25f*a;
 }
 
 inline void vst(float*ptr,const uint32 length,const float std=1.0) {

@@ -90,7 +90,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.fpix_max    = 30;
     info.fpix_roll   = 4;
     info.pad_size    = 0;
-    info.pad_type    = PAD_ZERO;
+    info.pad_type    = PAD_GAUSSIAN;
     info.ctf_type    = INV_WIENER;
     info.norm_type   = NO_NORM;
     info.out_fmt     = CROP_MRC;

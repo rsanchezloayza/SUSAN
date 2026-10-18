@@ -271,6 +271,8 @@ public:
         R = n_refs;
         P = info->pad_size;
 
+        ss_cropper.init(N,info->norm_type,pad_type);
+
         NP = N + P;
         MP = (NP/2)+1;
 
@@ -282,11 +284,11 @@ public:
         }
     }
 
-    void setup_working_data(float*stack,ParticlesSubset*ptcls,Tomogram*tomo) {
+    void setup_working_data(float*stack,const ProjStats*proj_stats,ParticlesSubset*ptcls,Tomogram*tomo) {
         p_stack = stack;
         p_ptcls = ptcls;
         p_tomo  = tomo;
-        ss_cropper.setup(tomo,N);
+        ss_cropper.setup(tomo,proj_stats);
         work_progress=0;
     }
 
@@ -459,61 +461,22 @@ protected:
                 Math::set( ptr->c_ali.ptr[k].R, R_gpu );
 
                 /// Crop
-                if( ss_cropper.check_point(pt_crop) ) {
-                    ss_cropper.crop(ptr->c_stk.ptr,p_stack,pt_crop,k);
-                    float avg,std;
-                    float *ss_ptr = ptr->c_stk.ptr+(k*N*N);
-                    Math::get_avg_std(avg,std,ss_ptr,N*N);
-
-                    if( std < SUSAN_FLOAT_TOL || isnan(std) || isinf(std) ) {
-                        ptr->c_pad.ptr[k].x = 0;
-                        ptr->c_pad.ptr[k].y = 1;
-                        ptr->c_ali.ptr[k].w = 0;
-                    }
-                    else {
-                        if( p_info->norm_type == NO_NORM ) {
-                            ptr->c_pad.ptr[k].x = avg;
-                            ptr->c_pad.ptr[k].y = std;
-                        }
-                        else {
-                            if( p_info->norm_type == ::ZERO_MEAN ) {
-                                Math::normalize(ss_ptr,N*N,avg,1.0);
-                                ptr->c_pad.ptr[k].x = 0;
-                                ptr->c_pad.ptr[k].y = std;
-                            }
-
-                            if( p_info->norm_type == ::ZERO_MEAN_1_STD ) {
-                                Math::normalize(ss_ptr,N*N,avg,std);
-                                ptr->c_pad.ptr[k].x = 0;
-                                ptr->c_pad.ptr[k].y = 1.0;
-                            }
-
-                            if( p_info->norm_type == GAT_NORMAL ) {
-                                Math::generalized_anscombe_transform_zero_mean(ss_ptr,N*N);
-                                ptr->c_pad.ptr[k].x = 0;
-                                ptr->c_pad.ptr[k].y = 1;
-                            }
-                        }
-
-                        /// Set projection weight
-                        if( p_info->wgt_type == WGT_NONE )
-                            ptr->c_ali.ptr[k].w = (ptr->ptcl.prj_w[k] > 0);
-                        if( p_info->wgt_type == WGT_3D )
-                            ptr->c_ali.ptr[k].w = ptr->ptcl.ali_w[r];
-                        if( p_info->wgt_type == WGT_2D )
-                            ptr->c_ali.ptr[k].w = ptr->ptcl.prj_w[k];
-                        if( p_info->wgt_type == WGT_3DCC )
-                            ptr->c_ali.ptr[k].w = ptr->ptcl.ali_cc[r];
-                        if( p_info->wgt_type == WGT_2DCC )
-                            ptr->c_ali.ptr[k].w = ptr->ptcl.prj_cc[k];
-
-
-                    } /// if( std < SUSAN_FLOAT_TOL || isnan(std) || isinf(std) )
-
+                if( ss_cropper.crop(ptr->c_stk.ptr+(k*N*N),ptr->c_pad.ptr[k],p_stack,pt_crop,k,ptr->ptcl.ptcl_id()) ) {
+                    /// Set projection weight
+                    if( p_info->wgt_type == WGT_NONE )
+                        ptr->c_ali.ptr[k].w = (ptr->ptcl.prj_w[k] > 0);
+                    if( p_info->wgt_type == WGT_3D )
+                        ptr->c_ali.ptr[k].w = ptr->ptcl.ali_w[r];
+                    if( p_info->wgt_type == WGT_2D )
+                        ptr->c_ali.ptr[k].w = ptr->ptcl.prj_w[k];
+                    if( p_info->wgt_type == WGT_3DCC )
+                        ptr->c_ali.ptr[k].w = ptr->ptcl.ali_cc[r];
+                    if( p_info->wgt_type == WGT_2DCC )
+                        ptr->c_ali.ptr[k].w = ptr->ptcl.prj_cc[k];
                 }
                 else {
                     ptr->c_ali.ptr[k].w = 0;
-                } /// if( ss_cropper.check_point(pt_crop) )
+                }
             }
             else {
                 ptr->c_ali.ptr[k].w = 0;
@@ -624,7 +587,7 @@ protected:
 
         w_cmd.presend_sync();
         for(int i=0;i<p_info->n_threads;i++) {
-            workers[i].setup_working_data(stack,&ptcls,&tomo);
+            workers[i].setup_working_data(stack,proj_stats,&ptcls,&tomo);
         }
         w_cmd.send_command(RecCmd::REC_EXEC);
 

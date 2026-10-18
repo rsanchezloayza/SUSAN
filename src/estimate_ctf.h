@@ -175,14 +175,15 @@ public:
         for(int k=0;k<max_K;k++) {
             base_defocus[k] = 1.0f;
         }
+        ss_cropper.init(info->box_size,ZERO_MEAN_1_STD,PAD_GAUSSIAN);
 
     }
 
-    void setup_working_data(float*stack,ParticlesSubset*ptcls,Tomogram*tomo) {
+    void setup_working_data(float*stack,const ProjStats*proj_stats,ParticlesSubset*ptcls,Tomogram*tomo) {
         p_stack = stack;
         p_ptcls = ptcls;
         p_tomo  = tomo;
-        ss_cropper.setup(tomo,p_info->box_size);
+        ss_cropper.setup(tomo,proj_stats);
         work_progress = 0;
     }
 
@@ -236,7 +237,7 @@ protected:
             p_ptcls->get(ptr->ptcl,i);
             ptr->apix = p_tomo->pix_size;
             ptr->K    = p_tomo->stk_dim.z;
-            crop_substack(ptr->c_substack.ptr,ptr->c_factor.ptr,pi_lambda,ptr->ptcl.pos(),ptr->K);
+            crop_substack(ptr->c_substack.ptr,ptr->c_factor.ptr,pi_lambda,ptr->ptcl.pos(),ptr->K,ptr->ptcl.ptcl_id());
             work_progress++;
             if( check_substack(ptr->c_factor.ptr,ptr->K) ) {
                 GPU::upload_async(ptr->g_substack.ptr,ptr->c_substack.ptr,p_info->box_size*p_info->box_size*ptr->K,stream.strm);
@@ -248,7 +249,7 @@ protected:
         stack_buffer.WO_sync(DONE);
     }
 
-    void crop_substack(single*p_substack,float2*p_factor,const float pi_lambda,Vec3&pt_ptcl,int K) {
+    void crop_substack(single*p_substack,float2*p_factor,const float pi_lambda,Vec3&pt_ptcl,int K,uint32 ptcl_id) {
         V3f pt_tomo,pt_stack,pt_crop,pt_subpix,eu_ZYZ;
 
         pt_tomo(0) = pt_ptcl.x;
@@ -276,24 +277,9 @@ protected:
             p_factor[k].y = 1;
 
             /// Crop
-            if( ss_cropper.check_point(pt_crop) ) {
-                ss_cropper.crop(p_substack,p_stack,pt_crop,k);
-
-                int N = p_info->box_size;
-                float avg,std;
-                float *ss_ptr = p_substack+(k*N*N);
-                Math::get_avg_std(avg,std,ss_ptr,N*N);
-
-                if( std < SUSAN_FLOAT_TOL || isnan(std) || isinf(std) ) {
-                    p_factor[k].x = 0;
-                    p_factor[k].y = 0;
-                }
-                else {
-                    Math::normalize(ss_ptr,N*N,avg,std);
-                }
-
-            }
-            else {
+            float2 pad;
+            int N = p_info->box_size;
+            if( !ss_cropper.crop(p_substack+(k*N*N),pad,p_stack,pt_crop,k,ptcl_id) ) {
                 p_factor[k].x = 0;
                 p_factor[k].y = 0;
             }
@@ -355,7 +341,7 @@ protected:
 
         w_cmd.presend_sync();
         for(int i=0;i<p_info->n_threads;i++) {
-            workers[i].setup_working_data(stack,&ptcls,&tomo);
+            workers[i].setup_working_data(stack,proj_stats,&ptcls,&tomo);
         }
         w_cmd.send_command(CtfCmd::CTF_AVG);
 

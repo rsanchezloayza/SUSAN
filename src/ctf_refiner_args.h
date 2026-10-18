@@ -154,7 +154,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.fpix_max    = 40;
     info.fpix_roll   = 4;
     info.pad_size    = 0;
-    info.pad_type    = PAD_ZERO;
+    info.pad_type    = PAD_GAUSSIAN;
     info.norm_type   = NO_NORM;
     info.cc_type     = CC_TYPE_CFSC_SUBSTACK;
     info.def_range   = 1000;

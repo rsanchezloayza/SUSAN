@@ -42,7 +42,7 @@ int main(int ac, char** av) {
         Tomograms tomos(info.tomos_in);
         DataInfo::print_loaded(VERBOSITY_BASIC);
         DataInfo::print_data_info(ptcls,tomos,VERBOSITY_BASIC);
-        StackReader stkrdr(&ptcls,&tomos,&barrier);
+        StackReader stkrdr(&ptcls,&tomos,&barrier,info.norm_type);
         RecSubtomoPool pool(&info,tomos.num_proj,ptcls.n_ptcl,stkrdr,info.n_threads);
 
         stkrdr.start();

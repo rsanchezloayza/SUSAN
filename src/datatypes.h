@@ -128,6 +128,13 @@ typedef struct {
     float w;
 } Proj2D;
 
+typedef struct {
+    float fill;
+    bool  has_fill;
+    float gat_a;
+    float gat_b;
+} ProjStats;
+
 typedef enum {
 	DONE  = -1,
     EMPTY = 0,
@@ -198,6 +205,13 @@ typedef enum {
 #define W_INV_STD_LINEAR 0.41f
 #define W_INV_STD_KB     0.69f
 #define GRID_CORRECT_KB_MAX 4.0f
+#define EDGE_ERODE          1
+#define EDGE_MIN_VALID      16
+#define FILL_MIN_RUN        8
+#define FILL_TOL            1e-5f
+#define GAT_TILE            32
+#define GAT_MAX_TILES       256
+#define GAT_MIN_TILES       16
 /// Tuned when the splat support was a fixed 5x5x5 capped at sigma_t 1.0. The kernel now widens
 /// to 1.5 where a projection's max_res is tight, so the weight volume it produces is broader
 /// there and this default is likely to be low for aggressive max_res. Re-tune before trusting

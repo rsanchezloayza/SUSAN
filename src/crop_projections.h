@@ -92,13 +92,15 @@ public:
 
         N = info->box_size;
         M = (N/2)+1;
+
+        ss_cropper.init(N,info->norm_type,PAD_GAUSSIAN);
     }
 
-    void setup_working_data(float*stack,ParticlesSubset*ptcls,Tomogram*tomo) {
+    void setup_working_data(float*stack,const ProjStats*proj_stats,ParticlesSubset*ptcls,Tomogram*tomo) {
         p_stack = stack;
         p_ptcls = ptcls;
         p_tomo  = tomo;
-        ss_cropper.setup(tomo,N);
+        ss_cropper.setup(tomo,proj_stats);
         work_progress=0;
     }
 
@@ -144,7 +146,7 @@ protected:
         V3f pt_tomo,pt_crop,eu_ZYZ;
         M33f R_2D,R_3D,R_base,R_gpu;
 
-        float avg,std;
+        float2 pad;
         float *ss_ptr;
 
         int r = ptr.ptcl.ref_cix();
@@ -164,20 +166,10 @@ protected:
             pt_crop = project_tomo_position(pt_tomo,p_tomo->R[k],p_tomo->t[k],ptr.ptcl.prj_t[k]);
             pt_crop = pt_crop/p_tomo->pix_size + p_tomo->stk_center; /// Angstroms -> pixels
 
-            if( !ss_cropper.check_point(pt_crop) )
-                continue;
-
-            ss_cropper.crop(ptr.c_stk.ptr,p_stack,pt_crop,k);
             ss_ptr = ptr.c_stk.ptr+(k*N*N);
-            Math::get_avg_std(avg,std,ss_ptr,N*N);
-
-            if( std < SUSAN_FLOAT_TOL || isnan(std) || isinf(std) )
+            if( !ss_cropper.crop(ss_ptr,pad,p_stack,pt_crop,k,ptr.ptcl.ptcl_id()) )
                 continue;
 
-            if( p_info->norm_type == NO_NORM )         std = -1.0;
-            if( p_info->norm_type == ZERO_MEAN )       std =  1.0;
-
-            if( std > 0 )        Math::normalize(ss_ptr,N*N,avg,std);
             if( p_info->invert ) Math::mul(ss_ptr,-1.0f,N*N);
 
             /// SAVE
@@ -305,7 +297,7 @@ protected:
 
         w_cmd.presend_sync();
         for(int i=0;i<p_info->n_threads;i++) {
-            workers[i].setup_working_data(stack,&ptcls,&tomo);
+            workers[i].setup_working_data(stack,proj_stats,&ptcls,&tomo);
         }
         w_cmd.send_command(CropCmd::CROP_EXEC);
 

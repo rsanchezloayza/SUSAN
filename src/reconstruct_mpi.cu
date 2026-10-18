@@ -149,7 +149,7 @@ int main(int ac, char** av) {
             DataInfo::print_data_info(ptcls_io,tomos,info.verbosity);
         }
 
-        StackReader stkrdr(ptcls,&tomos,&barrier);
+        StackReader stkrdr(ptcls,&tomos,&barrier,info.norm_type);
         RecPoolMpi pool(&info,ptcls->n_refs,tomos.num_proj,ptcls->n_ptcl,stkrdr,info.n_threads);
         pool.set_mpi(&mpi_iface,&mpi_progress,ptcls_io);
 

@@ -99,18 +99,21 @@ class StackBuffer {
 
 public:
     float *stack;
+    ProjStats *proj_stats;
     ParticlesSubset ptcls;
     int tomo_ix;
     long numel;
 
-    StackBuffer(long in_numel) {
+    StackBuffer(long in_numel,int max_k) {
         numel = in_numel;
         stack = new float[numel];
+        proj_stats = new ProjStats[max_k];
         tomo_ix = 0;
     }
 
     ~StackBuffer() {
         delete [] stack;
+        delete [] proj_stats;
     }
 
     /// Release the (large) stack buffer once no more stacks will be read.

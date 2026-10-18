@@ -136,9 +136,8 @@ class offset_params:
     span : list of float
         Offset range in 3-D, ordered ``[X, Y, Z]``.
     step : float
-        Offset step size in pixels.  For 3-D searches defaults to 1 but
-        also accepts sub-pixel values such as 0.5 or 0.25.  For 2-D
-        searches it is fixed to 1.
+        Offset step size in pixels.  Defaults to 1 but also accepts
+        sub-pixel values such as 0.5 or 0.25.
     kind : str
         Shape of the search volume.  Valid options for 3-D searches:
         ``'ellipsoid'`` (default), ``'cylinder'``, ``'cuboid'``.

@@ -127,13 +127,19 @@ class Aligner:
         Coordinate frame for the offset search: ``'reference'`` or
         ``'tomogram'``.  Default: ``'reference'``.
     padding_type : str
-        Fill value for the padded region: ``'zero'`` or ``'noise'``.
-        Default: ``'zero'``.
+        Fill of the padded region and of the box pixels outside the stack
+        frame or on its alignment fill: ``'noise'`` (gaussian with the mean
+        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.
     normalize_type : str
         Per-substack normalisation applied before correlation.  One of
         ``'none'``, ``'zero_mean'``, ``'zero_mean_one_std'``,
         ``'zero_mean_unit_var'``, ``'poisson_raw'``,
         ``'poisson_normal'``.  Default: ``'zero_mean_one_std'``.
+        ``'poisson_raw'`` (Anscombe transform) and ``'poisson_normal'``
+        (generalized Anscombe transform with the camera gain and offset
+        estimated per projection) are experimental: only for stacks of
+        detector counts or a linear scaling of them, not for dose-weighted,
+        binned by averaging or interpolated stacks.
     ctf_correction : str
         CTF correction strategy.  One of ``'none'``, ``'phase_flip'``,
         ``'on_reference'``, ``'on_substack'``, ``'wiener_ssnr'``.
@@ -233,7 +239,7 @@ class Aligner:
         self.offset_sigma      = 0.0
         self.offset            = _dt.offset_params([4,4,4],1,'ellipsoid')
         self.offset_space      = 'reference'
-        self.padding_type      = 'zero'
+        self.padding_type      = 'noise'
         self.normalize_type    = 'zero_mean_one_std'
         self.ctf_correction    = 'on_reference'
         self.cc_type           = 'basic'
@@ -506,12 +512,18 @@ class Averager:
         If ``True``, reconstruct separate half-maps (needed for FSC).
         Default: ``False``.
     padding_type : str
-        Fill value for the padded region: ``'zero'`` or ``'noise'``.
-        Default: ``'zero'``.
+        Fill of the padded region and of the box pixels outside the stack
+        frame or on its alignment fill: ``'noise'`` (gaussian with the mean
+        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
-        ``'zero_mean_one_std'`` and ``'zero_mean_unit_var'``.
-        Default: ``'zero_mean_one_std'``.
+        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'poisson_raw'``,
+        ``'poisson_normal'``.  Default: ``'zero_mean_one_std'``.
+        ``'poisson_raw'`` (Anscombe transform) and ``'poisson_normal'``
+        (generalized Anscombe transform with the camera gain and offset
+        estimated per projection) are experimental: only for stacks of
+        detector counts or a linear scaling of them, not for dose-weighted,
+        binned by averaging or interpolated stacks.
     weighting_type : str
         Particle weighting scheme.  One of ``'none'``, ``'particle'``,
         ``'projection'``, ``'3DCC'``, ``'2DCC'``.  Default: ``'none'``.
@@ -591,7 +603,7 @@ class Averager:
         self.bandpass          = _dt.bandpass(0,-1,2)
         self.extra_padding     = 0
         self.rec_halfsets      = False
-        self.padding_type      = 'zero'
+        self.padding_type      = 'noise'
         self.normalize_type    = 'zero_mean_one_std'
         self.weighting_type    = 'none'
         self.ctf_correction    = 'wiener'
@@ -616,8 +628,8 @@ class Averager:
         if self.splat_gain < 0:
             raise ValueError('Invalid splat gain. Must be 0 (disabled) or positive')
 
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
 
         if not self.weighting_type in ['none','particle','projection','3DCC','2DCC']:
             raise ValueError('Invalid weighting type. Only "none", "particle", "projection", "3DCC" or "2DCC" are valid')
@@ -749,12 +761,18 @@ class SubtomoRec:
         Extra zero-padding (pixels) added on each side before FFT.
         Default: ``0``.
     padding_type : str
-        Fill value for the padded region: ``'zero'`` or ``'noise'``.
-        Default: ``'zero'``.
+        Fill of the padded region and of the box pixels outside the stack
+        frame or on its alignment fill: ``'noise'`` (gaussian with the mean
+        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
-        ``'zero_mean_one_std'`` and ``'zero_mean_unit_var'``.
-        Default: ``'none'``.
+        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'poisson_raw'``,
+        ``'poisson_normal'``.  Default: ``'none'``.
+        ``'poisson_raw'`` (Anscombe transform) and ``'poisson_normal'``
+        (generalized Anscombe transform with the camera gain and offset
+        estimated per projection) are experimental: only for stacks of
+        detector counts or a linear scaling of them, not for dose-weighted,
+        binned by averaging or interpolated stacks.
     ctf_correction : str
         CTF correction applied during back-projection.  One of ``'none'``,
         ``'phase_flip'``, ``'wiener'``, ``'wiener_ssnr'``, ``'pre_wiener'``.
@@ -789,7 +807,7 @@ class SubtomoRec:
         self.list_gpus_ids     = [0]
         self.bandpass          = _dt.bandpass(0,-1,2)
         self.extra_padding     = 0
-        self.padding_type      = 'zero'
+        self.padding_type      = 'noise'
         self.normalize_type    = 'none'
         self.ctf_correction    = 'phase_flip'
         self.format            = 'mrc'
@@ -806,8 +824,8 @@ class SubtomoRec:
         if not self.padding_type in ['zero','noise']:
             raise ValueError('Invalid padding type. Only "zero" or "noise" are valid')
 
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
 
         if not self.ctf_correction in ['none','phase_flip','wiener','wiener_ssnr', 'pre_wiener']:
             raise ValueError('Invalid ctf correction type. Only "none", "phase_flip", "wiener", "pre_wiener" or "wiener_ssnr" are valid')
@@ -916,8 +934,8 @@ class CropProjection:
         self.invert_contrast   = False
 
     def _validate(self):
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
 
     def get_args(self, out_dir, tomos_file, ptcls_in, box_size):
         """Build the command-line argument string for ``susan_crop_projections``.
@@ -1178,12 +1196,18 @@ class CtfRefiner:
         Extra zero-padding (pixels) added on each side before FFT.
         Default: ``0``.
     padding_type : str
-        Fill value for the padded region: ``'zero'`` or ``'noise'``.
-        Default: ``'zero'``.
+        Fill of the padded region and of the box pixels outside the stack
+        frame or on its alignment fill: ``'noise'`` (gaussian with the mean
+        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
         ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``,
         ``'poisson_raw'``, ``'poisson_normal'``.
+        ``'poisson_raw'`` (Anscombe transform) and ``'poisson_normal'``
+        (generalized Anscombe transform with the camera gain and offset
+        estimated per projection) are experimental: only for stacks of
+        detector counts or a linear scaling of them, not for dose-weighted,
+        binned by averaging or interpolated stacks.
         Default: ``'zero_mean_one_std'``.
     cc_type : str
         Cross-correlation variant used for scoring: ``'basic'``, ``'cfsc'``
@@ -1257,7 +1281,7 @@ class CtfRefiner:
         self.list_gpus_ids      = [0]
         self.bandpass           = _dt.bandpass(0,-1,2)
         self.extra_padding      = 0
-        self.padding_type       = 'zero'
+        self.padding_type       = 'noise'
         self.normalize_type     = 'zero_mean_one_std'
         self.cc_type            = 'cfsc_substack'
         self.halfsets_independ  = False

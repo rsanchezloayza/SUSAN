@@ -38,9 +38,10 @@ public:
 public:
     StackReader &stkrdr;
     int num_threads;
+    const ProjStats *proj_stats;
 
     PoolCoordinator(StackReader&in_stkrdr,int in_num_threads)
-        : stkrdr(in_stkrdr), num_threads(in_num_threads)
+        : stkrdr(in_stkrdr), num_threads(in_num_threads), proj_stats(NULL)
     {
     }
 
@@ -51,6 +52,7 @@ protected:
         while( s > DONE ) {
             if( s == READY ) {
                 StackBuffer*ptr = (StackBuffer*)stkrdr.double_buffer->RO_get_buffer();
+                proj_stats = ptr->proj_stats;
                 coord_main(ptr->stack,ptr->ptcls,stkrdr.tomos->at(ptr->tomo_ix));
             }
             stkrdr.double_buffer->RO_sync();

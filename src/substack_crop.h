@@ -22,6 +22,9 @@
 #define SUBSTACK_CROP_H
 
 #include <pthread.h>
+#include <random>
+#include <vector>
+#include <algorithm>
 #include "datatypes.h"
 #include "thread_sharing.h"
 #include "thread_base.h"
@@ -29,101 +32,153 @@
 #include "tomogram.h"
 #include "mrc.h"
 
+/// Crop that may leave the frame: a projection is used when the box centre is inside the frame
+/// and not on the fill value. Normalization over the valid pixels (eroded by EDGE_ERODE); the
+/// invalid ones are filled as the padding: noise with the valid mean / std, or 0.
 class SubstackCrop {
 
 public:
-    Tomogram *tomo;
-    float x_min;
-    float x_max;
-    float y_min;
-    float y_max;
-    int   N;
+    Tomogram        *tomo;
+    const ProjStats *stats;
+    int N;
+    int norm_type;
+    int pad_type;
 
     SubstackCrop() {
-        tomo = NULL;
-        N = 200;
+        tomo  = NULL;
+        stats = NULL;
+        N = 0;
+        norm_type = NO_NORM;
+        pad_type  = PAD_ZERO;
     }
 
-    void setup(Tomogram*tomos_in,int box_size) {
-        if( tomos_in == NULL ) {
-            fprintf(stderr,"SubstackCrop::setup: NULL tomogram pointer.\n");
-            exit(1);
-        }
-        tomo = tomos_in;
+    void init(int box_size,int in_norm_type,int in_pad_type) {
         N = box_size;
-        float Nh = box_size/2;
-        x_min = Nh;
-        x_max = float(tomo->stk_dim.x)-Nh;
-        y_min = Nh;
-        y_max = float(tomo->stk_dim.y)-Nh;
+        norm_type = in_norm_type;
+        pad_type  = in_pad_type;
+        valid.resize((size_t)N*N);
+        tmp.resize((size_t)N*N);
     }
 
-    ~SubstackCrop() {
+    void setup(Tomogram*tomo_in,const ProjStats*stats_in) {
+        tomo  = tomo_in;
+        stats = stats_in;
     }
 
-    bool project_point(V3f&pt_out,const V3f&p_tomo,const int k) {
-        if( tomo == NULL )
+    bool crop(float*ss,float2&pad,const float*stack,const V3f&p_proj,const int k,const uint32 seed_id) {
+        const int W = tomo->stk_dim.x;
+        const int H = tomo->stk_dim.y;
+        const int cx = (int)floorf(p_proj(0));
+        const int cy = (int)floorf(p_proj(1));
+        pad.x = 0;
+        pad.y = 1;
+        if( cx < 0 || cy < 0 || cx >= W || cy >= H )
             return false;
-        if( k < 0 || k >= tomo->stk_dim.z )
+
+        const ProjStats&ps = stats[k];
+        const float*img = stack + (size_t)k*W*H;
+        const int x0 = cx - N/2;
+        const int y0 = cy - N/2;
+        const int xs = std::max(x0,0)   - x0;
+        const int xe = std::min(x0+N,W) - x0;
+        int n_bad = 0;
+        for(int j=0;j<N;j++) {
+            float*out = ss + j*N;
+            unsigned char*vld = valid.data() + j*N;
+            const int Y = y0 + j;
+            if( Y < 0 || Y >= H ) {
+                memset(out,0,sizeof(float)*N);
+                memset(vld,0,N);
+                n_bad += N;
+                continue;
+            }
+            for(int i=0;i<xs;i++) { out[i] = 0; vld[i] = 0; }
+            for(int i=xe;i<N;i++) { out[i] = 0; vld[i] = 0; }
+            n_bad += N - (xe-xs);
+            memcpy(out+xs,img+(size_t)Y*W+x0+xs,sizeof(float)*(xe-xs));
+            memset(vld+xs,1,xe-xs);
+            if( ps.has_fill ) {
+                for(int i=xs;i<xe;i++) {
+                    if( Math::is_fill(out[i],ps.fill) ) { vld[i] = 0; n_bad++; }
+                }
+            }
+        }
+
+        if( n_bad > 0 ) {
+            erode();
+            if( !valid[N/2 + (N/2)*N] )
+                return false;
+        }
+
+        if( norm_type == GAT_RAW || norm_type == GAT_NORMAL )
+            Math::gat_transform(ss,N*N,ps.gat_a,ps.gat_b);
+
+        float avg,std;
+        if( n_bad == 0 ) {
+            Math::get_avg_std(avg,std,ss,N*N);
+        }
+        else {
+            double s=0,s2=0;
+            int count=0;
+            for(int i=0;i<N*N;i++) {
+                if( valid[i] ) { s += ss[i]; s2 += (double)ss[i]*ss[i]; count++; }
+            }
+            if( count < EDGE_MIN_VALID )
+                return false;
+            avg = (float)(s/count);
+            std = (float)sqrt( fmax(s2/count - (s/count)*(s/count),0.0) );
+        }
+        if( std < SUSAN_FLOAT_TOL || std::isnan(std) || std::isinf(std) )
             return false;
-        if( tomo->pix_size == 0 )
-            return false;
-        pt_out = (tomo->R[k]*p_tomo) + tomo->t[k];
-        pt_out = (pt_out/tomo->pix_size) + tomo->stk_center;
-        return check_point(pt_out);
-    }
 
-    void get_subpix_shift(Vec3&p_subpix,const V3f&p_proj) {
-        p_subpix.x = p_proj(0) - floorf(p_proj(0));
-        p_subpix.y = p_proj(1) - floorf(p_proj(1));
-        p_subpix.z = 0.0f;
-    }
+        if( norm_type == NO_NORM ) {
+            pad.x = avg;
+            pad.y = std;
+        }
+        else if( norm_type == ZERO_MEAN_1_STD ) {
+            Math::normalize(ss,N*N,avg,std);
+        }
+        else {
+            Math::normalize(ss,N*N,avg,1.0);
+            pad.y = std;
+        }
 
-    bool check_point(const V3f&p_proj) {
-        return ( p_proj(0) >= x_min && p_proj(0) <= x_max && p_proj(1) >= y_min && p_proj(1) <= y_max );
+        if( n_bad > 0 ) {
+            if( pad_type == PAD_GAUSSIAN ) {
+                rng.seed( seed_id*1000003u + (uint32)k );
+                nrm.reset();
+                for(int i=0;i<N*N;i++)
+                    if( !valid[i] ) ss[i] = pad.x + pad.y*nrm(rng);
+            }
+            else {
+                for(int i=0;i<N*N;i++)
+                    if( !valid[i] ) ss[i] = 0;
+            }
+        }
+        return true;
     }
-
-    void crop(float*substack,float*stack,const V3f&p_proj,const int k) {
-        internal_crop( substack+(size_t)k*N*N, stack+(size_t)k*tomo->stk_dim.x*tomo->stk_dim.y, (int)floorf(p_proj(0)), (int)floorf(p_proj(1)) );
-    }
-
-    float normalize_zero_mean(float*substack,const int k) {
-        return internal_normalize_zero_mean( substack+k*N*N );
-    }
-
-    void normalize_zero_mean_one_std(float*substack,const int k) {
-        internal_normalize_zero_mean_new_std( substack+k*N*N, 1.0f );
-    }
-
 
 protected:
+    std::vector<unsigned char> valid;
+    std::vector<unsigned char> tmp;
+    std::mt19937 rng;
+    std::normal_distribution<float> nrm{0.0f,1.0f};
 
-    void internal_crop(float*substack,float*stack,const int x,const int y) {
-        int w = tomo->stk_dim.x;
-        float *out = substack;
-        float *in = stack + x-(N/2) + (y-(N/2))*w;
-        for(int j=0;j<N;j++) {
-            memcpy((void*)out,(void*)in,N*sizeof(float));
-            out += N;
-            in  += w;
+    void erode() {
+        for(int it=0;it<EDGE_ERODE;it++) {
+            memcpy(tmp.data(),valid.data(),(size_t)N*N);
+            for(int j=0;j<N;j++) {
+                for(int i=0;i<N;i++) {
+                    int ix = i + j*N;
+                    if( !tmp[ix] ) continue;
+                    if( (i>0 && !tmp[ix-1]) || (i<N-1 && !tmp[ix+1]) || (j>0 && !tmp[ix-N]) || (j<N-1 && !tmp[ix+N]) )
+                        valid[ix] = 0;
+                }
+            }
         }
-    }
-
-    float internal_normalize_zero_mean(float*substack) {
-        float avg,std;
-        Math::get_avg_std(avg,std,substack,N*N);
-        Math::zero_mean(substack,N*N,avg);
-        return std;
-    }
-
-    void internal_normalize_zero_mean_new_std(float*substack,float new_std) {
-        float avg,std;
-        Math::get_avg_std(avg,std,substack,N*N);
-        Math::normalize(substack,N*N,avg,std,new_std);
     }
 
 };
-
 
 #endif /// SUBSTACK_CROP_H
 
