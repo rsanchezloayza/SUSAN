@@ -80,6 +80,20 @@ void get_dirname(char*out,const char*path) {
     }
 }
 
+/// The path as given (absolute, or relative to the working directory) if it exists, otherwise
+/// relative to base_dir. Returns false if neither exists (path unchanged).
+bool resolve_path(char*path,const char*base_dir) {
+    if( exists(path) ) return true;
+    if( path[0] == '/' ) return false;
+    char buffer[ SUSAN_FILENAME_LENGTH ];
+    int n = snprintf(buffer,SUSAN_FILENAME_LENGTH,"%s/%s",base_dir,path);
+    if( n > 0 && n < SUSAN_FILENAME_LENGTH && exists(buffer) ) {
+        strcpy(path,buffer);
+        return true;
+    }
+    return false;
+}
+
 bool check_file_extension(const char*filename,const char*extension) {
 
     int fn_len  = strlen(filename);

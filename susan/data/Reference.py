@@ -16,6 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
+import os as _os
 import susan.utils.txt_parser as _prsr
 from susan.utils import is_extension as _is_ext
 from susan.utils import force_extension as _force_ext
@@ -27,7 +28,10 @@ class Reference:
     a soft mask, and the two independent half-maps.  The half-maps are
     used for FSC-based resolution estimation and as N2N training pairs.
 
-    File format: plain-text ``.refstxt``.
+    File format: plain-text ``.refstxt``.  A listed path is used as given
+    (absolute, or relative to the working directory) if it exists, otherwise
+    relative to the folder of the ``.refstxt`` file.  The binaries stop with an
+    error when a listed file is found in neither place.
 
     .. rubric:: Attributes
 
@@ -65,14 +69,15 @@ class Reference:
         self.h2.clear()
         
         if isinstance(filename,str):
+            base_dir = _os.path.dirname(filename) or '.'
             fp = open(filename,"rb")
             num_refs = int(_prsr.parse_args(fp)['num_ref'])
             for i in range(num_refs):
                 args = _prsr.parse_args(fp)
-                self.ref.append(args['map' ])
-                self.msk.append(args['mask'])
-                self.h1.append( args['h1'  ])
-                self.h2.append( args['h2'  ])
+                self.ref.append(Reference._resolve_path(args['map' ],base_dir))
+                self.msk.append(Reference._resolve_path(args['mask'],base_dir))
+                self.h1.append( Reference._resolve_path(args['h1'  ],base_dir))
+                self.h2.append( Reference._resolve_path(args['h2'  ],base_dir))
         elif( n_refs>0 ):
             for i in range(n_refs):
                 self.ref.append('')
@@ -86,6 +91,15 @@ class Reference:
     
     n_refs = property(get_n_refs)
     
+    @staticmethod
+    def _resolve_path(path,base_dir):
+        # As given (absolute, or relative to the working directory) if it exists,
+        # otherwise relative to base_dir (the folder of the refstxt file).
+        if not path or _os.path.isabs(path) or _os.path.exists(path):
+            return path
+        candidate = _os.path.join(base_dir,path)
+        return candidate if _os.path.exists(candidate) else path
+
     @staticmethod
     def _check_filename(filename):
         if not _is_ext(filename,'refstxt'):

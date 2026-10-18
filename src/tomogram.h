@@ -168,16 +168,7 @@ public:
     /// working directory, try to resolve it relative to base_dir (the location
     /// of the tomostxt file). Absolute paths are left untouched.
     void resolve_stack_path(const char*base_dir) {
-        if( stk_name[0] == '/'      ) return;
-        if( IO::exists( stk_name  ) ) return;
-
-        char buffer[ SUSAN_FILENAME_LENGTH ];
-        int n = snprintf(buffer,SUSAN_FILENAME_LENGTH,"%s/%s",base_dir,stk_name);
-
-        if( n > 0 && n < SUSAN_FILENAME_LENGTH ) {
-            if( IO::exists(buffer) )
-                strcpy(stk_name,buffer);
-        }
+        IO::resolve_path(stk_name,base_dir);
     }
 
     bool check() {

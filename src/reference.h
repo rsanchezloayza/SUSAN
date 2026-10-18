@@ -54,11 +54,18 @@ public:
 
         refs = new Reference[num_refs];
 
+        char base_dir[ SUSAN_FILENAME_LENGTH ];
+        IO::get_dirname(base_dir,filename);
+
         for(int n=0;n<num_refs;n++) {
             parser.get_str( refs[n].map , "map"  );
             parser.get_str( refs[n].mask, "mask" );
             parser.get_str( refs[n].h1  , "h1"   );
             parser.get_str( refs[n].h2  , "h2"   );
+            resolve(refs[n].map ,base_dir,filename);
+            resolve(refs[n].mask,base_dir,filename);
+            resolve(refs[n].h1  ,base_dir,filename);
+            resolve(refs[n].h2  ,base_dir,filename);
         }
 
     }
@@ -66,6 +73,18 @@ public:
     ~References() {
         free_array(refs);
     }
+
+protected:
+    void resolve(char*path,const char*base_dir,const char*filename) {
+        if( path[0] == 0 )
+            return;
+        if( !IO::resolve_path(path,base_dir) ) {
+            fprintf(stderr,"%s: file %s not found (as given, nor relative to %s).\n",filename,path,base_dir);
+            exit(1);
+        }
+    }
+
+public:
 
     Reference& operator[](int ix) {
         if( ix >= num_refs ) {
