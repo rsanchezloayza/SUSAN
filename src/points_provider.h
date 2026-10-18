@@ -231,5 +231,12 @@ public:
     static Vec3 *circle(uint32&counter, const float x_range, const float y_range, const float step) {
         return ellipsoid(counter, x_range, y_range, 0.0f, step);
     }
+    static Vec3 *create(uint32&counter, const int off_type, const float x_range, const float y_range, const float z_range, const float step) {
+        if( off_type == CYLINDER  ) return cylinder (counter, x_range, y_range, z_range, step);
+        if( off_type == CUBOID    ) return cuboid   (counter, x_range, y_range, z_range, step);
+        if( off_type == CIRCLE    ) return circle   (counter, x_range, y_range, step);
+        if( off_type == RECTANGLE ) return rectangle(counter, x_range, y_range, step);
+        return ellipsoid(counter, x_range, y_range, z_range, step);
+    }
 };
 #endif /// POINTS_PROVIDER_H

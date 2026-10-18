@@ -206,31 +206,25 @@ class Aligner(_BandpassFpix):
         Default: ``mpi_params('srun -n %d ', 1)``.
     verbosity : int
         Verbosity level passed to the binary (0 = silent).  Default: ``0``.
-    tm_type : str
-        Template-matching output mode.  When not ``'none'``, per-voxel
-        cross-correlation statistics are written to disk for use by
-        downstream template-matching workflows.  One of ``'none'`` or
-        ``'csv'``; ``'matlab'`` and ``'python'`` are deprecated aliases of
-        ``'csv'``.  Default: ``'none'``.
-
-        Requires :attr:`refine` levels ``= 0``: the report holds one peak per
-        voxel, and angular refinement only refines the single best angle.
-
-        In 3-D the CSV columns are ``TID,PartID,RID,X,Y,Z,CC,CC_SIGMA,EU1,
-        EU2,EU3,BlockID``.  ``CC`` is the maximum over the angular search,
-        ``CC_SIGMA`` its z-score against that voxel's own distribution over
-        angles, and ``EU1..EU3`` the ZYZ Euler angles (radians, same
-        convention as :attr:`~susan.data.Particles.ali_eu`) of the winning
-        orientation.  ``CC_SIGMA`` can only be computed during the search,
-        as the angular spread is not recoverable from the saved maximum.
-    tm_prefix : str
-        Filename prefix for the template-matching output files (only used
-        when :attr:`tm_type` ≠ ``'none'``).  Default: ``'template_matching'``.
-    tm_sigma : float
-        Threshold on ``CC_SIGMA`` below which voxels are discarded when
-        saving template-matching output.  ``0`` keeps all values, which
-        writes one row per searched voxel and is rarely practical for a full
-        run.  3-D only.  Default: ``0``.
+    output_type : str
+        ``'alignment'`` (default): the aligned particles are written to the
+        output file.  ``'dense'``: no particles are written and no pose is
+        updated; with :attr:`dimensionality` 3 every particle is a block, and
+        the search writes per block the volumes ``{output}_b{ptcl_id:07d}_cc.mrc``
+        (best CC over the orientations), ``_z.mrc`` (its z-score against the
+        voxel's own distribution over the orientations) and ``_ang.mrc`` (index
+        into the angle table), NaN where not sampled, with the block corner in
+        the MRC header; plus ``{output}.json`` with the run parameters, the
+        angle table (SUSAN ZYZ, radians) and the blocks.  The pose of a voxel
+        is R(ali_eu of its block) R(table[ang]).  Requires one reference,
+        :attr:`refine` levels ``= 0`` and :attr:`offset_space` ``'tomogram'``.
+        With :attr:`dimensionality` 2, ``'dense'`` writes the legacy CSV
+        ``{output}_{host}_{thread}.csv`` (``TID,PartID,RID,ProjID,ProjW,X,Y,CC``:
+        per projection, the CC map of the orientation with the highest peak).
+    dense_reduce : str
+        How the sub-voxel offset samples of a voxel are reduced in
+        ``'dense'`` 3-D output: ``'max'`` (the sample with the highest z) or
+        ``'mean'`` (cc and z averaged).  Default: ``'max'``.
     dilate : float
         Tolerance, in pixels, to residual per-projection misalignment when
         scoring.  Each projection's CC map is replaced by its tapered maximum,
@@ -267,9 +261,8 @@ class Aligner(_BandpassFpix):
         self.ssnr              = _dt.ssnr(0,0.001)
         self.mpi               = _dt.mpi_params('srun -n %d ',1)
         self.verbosity         = 0
-        self.tm_type           = "none"
-        self.tm_prefix         = "template_matching"
-        self.tm_sigma          = 0
+        self.output_type       = 'alignment'
+        self.dense_reduce      = 'max'
         self.dilate            = 0
         self.dilate_radius     = 0
         
@@ -366,6 +359,15 @@ class Aligner(_BandpassFpix):
         if not self.cc_stats_type in ['none','sigma']:
             raise ValueError('Invalid cc statistic method. Only "none" or "sigma" are valid')
 
+        if not self.output_type in ['alignment','dense']:
+            raise ValueError('Invalid output type. Only "alignment" or "dense" are valid')
+
+        if not self.dense_reduce in ['max','mean']:
+            raise ValueError('Invalid dense reduction. Only "max" or "mean" are valid')
+
+        if self.output_type == 'dense' and self.refine.levels != 0:
+            raise ValueError('output_type "dense" requires refine levels = 0')
+
         if self.dilate < 0 or self.dilate_radius < 0 or int(self.dilate_radius) != self.dilate_radius:
             raise ValueError('dilate must be >= 0 and dilate_radius a non-negative integer')
         
@@ -393,13 +395,14 @@ class Aligner(_BandpassFpix):
         if self.offset_sigma < 0:
             raise ValueError('offset_sigma must be >= 0 (0 disables the translational prior).')
 
-    def get_args(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):
+    def get_args(self, output, refs_file, tomos_file, ptcls_in, box_size):
         """Build the command-line argument string for ``susan_aligner``.
 
         Parameters
         ----------
-        ptcls_out : str
-            Path for the output ``.ptclsraw`` file with updated alignments.
+        output : str
+            Output ``.ptclsraw`` file (``output_type='alignment'``) or prefix
+            of the output files (``'dense'``).
         refs_file : str
             Path to the input ``.refstxt`` references file.
         tomos_file : str
@@ -422,7 +425,9 @@ class Aligner(_BandpassFpix):
         gpu_str   = _get_gpu_str(self.list_gpus_ids)
         args =        ' -tomos_file '      + tomos_file
         args = args + ' -ptcls_in '        + ptcls_in
-        args = args + ' -ptcls_out '       + ptcls_out
+        args = args + ' -output '          + output
+        args = args + ' -output_type '     + self.output_type
+        args = args + ' -dense_reduce '    + self.dense_reduce
         args = args + ' -refs_file '       + refs_file
         args = args + ' -n_threads %d'     % n_threads
         args = args + ' -gpu_list '        + gpu_str
@@ -452,18 +457,16 @@ class Aligner(_BandpassFpix):
         args = args + ' -dilate %f'        % self.dilate
         args = args + ' -dilate_radius %d' % self.dilate_radius
         args = args + ' -verbosity %d'     % self.verbosity
-        args = args + ' -tm_type '         + self.tm_type
-        args = args + ' -tm_prefix '       + self.tm_prefix
-        args = args + ' -tm_sigma %f'      % self.tm_sigma
         return args
     
-    def align(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):
+    def align(self, output, refs_file, tomos_file, ptcls_in, box_size):
         """Execute the alignment on a single node.
 
         Parameters
         ----------
-        ptcls_out : str
-            Path for the output ``.ptclsraw`` file.
+        output : str
+            Output ``.ptclsraw`` file, or the prefix of the files for
+            ``output_type='dense'``.
         refs_file : str
             Path to the ``.refstxt`` references file.
         tomos_file : str
@@ -478,20 +481,21 @@ class Aligner(_BandpassFpix):
         RuntimeError
             If the ``susan_aligner`` binary returns a non-zero exit code.
         """
-        cmd = 'susan_aligner ' + self.get_args(ptcls_out, refs_file, tomos_file, ptcls_in, box_size)
+        cmd = 'susan_aligner ' + self.get_args(output, refs_file, tomos_file, ptcls_in, box_size)
         rslt = _os.system(cmd)
         if not rslt == 0:
             raise RuntimeError('Error executing the alignment: ' + cmd)
 
-    def align_mpi(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):
+    def align_mpi(self, output, refs_file, tomos_file, ptcls_in, box_size):
         """Execute the alignment using MPI across multiple nodes.
 
         The MPI command is taken from :attr:`mpi`.
 
         Parameters
         ----------
-        ptcls_out : str
-            Path for the output ``.ptclsraw`` file.
+        output : str
+            Output ``.ptclsraw`` file, or the prefix of the files for
+            ``output_type='dense'``.
         refs_file : str
             Path to the ``.refstxt`` references file.
         tomos_file : str
@@ -506,7 +510,7 @@ class Aligner(_BandpassFpix):
         RuntimeError
             If the MPI binary returns a non-zero exit code.
         """
-        cmd = self.mpi.gen_cmd() + ' ' + _os.path.dirname(_os.path.abspath(__file__)) + '/bin/susan_aligner_mpi ' + self.get_args(ptcls_out, refs_file, tomos_file, ptcls_in, box_size)
+        cmd = self.mpi.gen_cmd() + ' ' + _os.path.dirname(_os.path.abspath(__file__)) + '/bin/susan_aligner_mpi ' + self.get_args(output, refs_file, tomos_file, ptcls_in, box_size)
         rslt = _os.system(cmd)
         if not rslt == 0:
             raise RuntimeError('Error executing the alignment: ' + cmd)

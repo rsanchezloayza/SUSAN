@@ -73,13 +73,12 @@ typedef struct {
     char   pseudo_sym[64];
 
     char   refs_file[SUSAN_FILENAME_LENGTH];
-    char   ptcls_out[SUSAN_FILENAME_LENGTH];
+    char   output   [SUSAN_FILENAME_LENGTH];
     char   ptcls_in [SUSAN_FILENAME_LENGTH];
     char   tomo_file[SUSAN_FILENAME_LENGTH];
-    
-    char   tm_type[SUSAN_FILENAME_LENGTH];
-    char   tm_pfx [SUSAN_FILENAME_LENGTH];
-    float  tm_sigma;
+
+    uint32 output_type;
+    uint32 dense_reduce;
     
     int verbosity;
 } Info;
@@ -107,6 +106,10 @@ inline bool validate(const Info&info) {
         if( !refs.check_fields(info.ali_halves) ) {
             rslt = false;
         }
+        if( info.output_type == ALI_OUTPUT_DENSE && refs.num_refs != 1 ) {
+            fprintf(stderr,"output_type dense requires exactly one reference (got %d).\n",refs.num_refs);
+            rslt = false;
+        }
         if( !refs.check_size(info.box_size,info.ali_halves) ) {
             rslt = false;
         }
@@ -115,8 +118,8 @@ inline bool validate(const Info&info) {
         fprintf(stderr,"Tomos file %s does not exist.\n",info.tomo_file);
         rslt = false;
     }
-    if( strlen(info.ptcls_out) == 0 ) {
-        fprintf(stderr,"Particles output is missing.\n");
+    if( strlen(info.output) == 0 ) {
+        fprintf(stderr,"Output is missing.\n");
         rslt = false;
     }
     if( !AnglesSymmetry::check_available_symmetry(info.pseudo_sym) ) {
@@ -127,15 +130,19 @@ inline bool validate(const Info&info) {
         fprintf(stderr,"Error with CUDA devices.\n");
         rslt = false;
     }
-    if( strcmp(info.tm_type,"none") && strcmp(info.tm_type,"matlab") && strcmp(info.tm_type,"python") && strcmp(info.tm_type,"csv") ) {
-        fprintf(stderr,"Invalid template matching type [tm_type] value: %s. [none,csv] (matlab/python are deprecated aliases of csv).\n",info.tm_type);
-        rslt = false;
-    }
-    /// TM reports one peak per voxel; refinement levels refine only the single
-    /// best angle, which has no per-voxel meaning.
-    if( strcmp(info.tm_type,"none") != 0 && info.refine_level > 0 ) {
-        fprintf(stderr,"Template matching requires refine levels = 0 (got %d).\n",info.refine_level);
-        rslt = false;
+    if( info.output_type == ALI_OUTPUT_DENSE ) {
+        if( info.refine_level > 0 ) {
+            fprintf(stderr,"output_type dense requires refine levels = 0 (got %d).\n",info.refine_level);
+            rslt = false;
+        }
+        if( info.ali_halves || info.ignore_ref ) {
+            fprintf(stderr,"output_type dense does not support ali_halves or ignore_ref.\n");
+            rslt = false;
+        }
+        if( info.type == 3 && info.off_space != TOMOGRAM_SPACE ) {
+            fprintf(stderr,"output_type dense (type 3) requires off_space tomogram.\n");
+            rslt = false;
+        }
     }
     if( !(info.cone_step > 0) ) {
         fprintf(stderr,"Invalid cone search step: %f. It must be larger than 0.\n",info.cone_step);
@@ -215,18 +222,17 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.verbosity     = VERBOSITY_BASIC;
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
-    memset(info.ptcls_out,0,SUSAN_FILENAME_LENGTH*sizeof(char));
+    memset(info.output   ,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     memset(info.ptcls_in ,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     memset(info.tomo_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     strcpy(info.pseudo_sym,"c1");
-    strcpy(info.tm_type,"none");
-    strcpy(info.tm_pfx ,"template_matching");
-    info.tm_sigma = 0;
+    info.output_type  = ALI_OUTPUT_ALIGNMENT;
+    info.dense_reduce = DENSE_REDUCE_MAX;
 
     /// Parse inputs:
     enum {
         TOMOS_FILE,
-        PTCLS_OUT,
+        OUTPUT,
         PTCLS_IN,
         REFS_FILE,
         N_THREADS,
@@ -256,9 +262,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
         OFF_SPACE,
         OFF_PARAM,
         VERBOSITY,
-        TM_TYPE,
-        TM_PREFIX,
-        TM_SIGMA,
+        OUTPUT_TYPE,
+        DENSE_REDUCE,
         TYPE
     };
 
@@ -266,7 +271,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
     static struct option long_options[] = {
         {"tomos_file",  1, 0, TOMOS_FILE},
         {"ptcls_in",    1, 0, PTCLS_IN  },
-        {"ptcls_out",   1, 0, PTCLS_OUT },
+        {"output",      1, 0, OUTPUT    },
+        {"output_type", 1, 0, OUTPUT_TYPE},
+        {"dense_reduce",1, 0, DENSE_REDUCE},
         {"refs_file",   1, 0, REFS_FILE },
         {"n_threads",   1, 0, N_THREADS },
         {"gpu_list",    1, 0, GPU_LIST  },
@@ -293,9 +300,6 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"off_space",   1, 0, OFF_SPACE },
         {"off_params",  1, 0, OFF_PARAM },
         {"verbosity",   1, 0, VERBOSITY },
-        {"tm_type",     1, 0, TM_TYPE   },
-        {"tm_prefix",   1, 0, TM_PREFIX },
-        {"tm_sigma",    1, 0, TM_SIGMA  },
         {"dilate",      1, 0, DILATE    },
         {"dilate_radius",1,0, DILATE_RAD},
         {"type",        1, 0, TYPE      },
@@ -307,8 +311,18 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case TOMOS_FILE:
                 strcpy(info.tomo_file,optarg);
                 break;
-            case PTCLS_OUT:
-                strcpy(info.ptcls_out,optarg);
+            case OUTPUT:
+                strcpy(info.output,optarg);
+                break;
+            case OUTPUT_TYPE:
+                if( strcmp(optarg,"alignment") == 0 ) info.output_type = ALI_OUTPUT_ALIGNMENT;
+                else if( strcmp(optarg,"dense") == 0 ) info.output_type = ALI_OUTPUT_DENSE;
+                else { fprintf(stderr,"Invalid output_type %s. Options are: alignment or dense.\n",optarg); exit(1); }
+                break;
+            case DENSE_REDUCE:
+                if( strcmp(optarg,"max") == 0 ) info.dense_reduce = DENSE_REDUCE_MAX;
+                else if( strcmp(optarg,"mean") == 0 ) info.dense_reduce = DENSE_REDUCE_MEAN;
+                else { fprintf(stderr,"Invalid dense_reduce %s. Options are: max or mean.\n",optarg); exit(1); }
                 break;
             case PTCLS_IN:
                 strcpy(info.ptcls_in,optarg);
@@ -403,15 +417,6 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case TYPE:
                 info.type = atoi(optarg);
                 break;
-            case TM_TYPE:
-                strcpy(info.tm_type,optarg);
-                break;
-            case TM_PREFIX:
-                strcpy(info.tm_pfx,optarg);
-                break;
-            case TM_SIGMA:
-                info.tm_sigma = atof(optarg);
-                break;
             default:
                 printf("Unknown parameter %d\n",c);
                 exit(1);
@@ -480,7 +485,10 @@ inline void print_full(const Info&info,FILE*fp) {
     fprintf(fp,"\t\tParticles in:   %s.\n",info.ptcls_in);
     fprintf(fp,"\t\tTomograms file: %s.\n",info.tomo_file);
     fprintf(fp,"\t\tReference file: %s.\n",info.refs_file);
-    fprintf(fp,"\t\tParticles out:  %s.\n",info.ptcls_out);
+    if( info.output_type == ALI_OUTPUT_DENSE )
+        fprintf(fp,"\t\tOutput: dense, prefix %s (%s).\n",info.output,(info.type==3)?((info.dense_reduce==DENSE_REDUCE_MEAN)?"block volumes, mean reduction":"block volumes, max reduction"):"legacy 2D CSV");
+    else
+        fprintf(fp,"\t\tParticles out:  %s.\n",info.output);
 
     fprintf(fp,"\t\tVolume size: %dx%dx%d",info.box_size,info.box_size,info.box_size);
     if( info.pad_size > 0 ) {
@@ -606,14 +614,6 @@ inline void print_full(const Info&info,FILE*fp) {
         fprintf(fp,"Range=[%.2f,%.2f]. Total points: %d\n",info.off_x,info.off_y,total_points);
     }
     
-    if( strcmp(info.tm_type,"none") != 0 ) {
-        fprintf(fp,"\t\tSaving Cross Correlation in %s format. Prefix: %s.",info.tm_type,info.tm_pfx);
-        if( info.tm_sigma > 0 ) {
-            fprintf(fp," Discard CC < %.1fσ.",info.tm_sigma);
-        }
-        fprintf(fp,"\n");
-    }
-
     if( info.ignore_ref )
         fprintf(fp,"\t\tAligning each particle to its class/reference only.\n");
 }
@@ -630,7 +630,7 @@ inline void print_basic(const Info&info,FILE*fp) {
     fprintf(fp,"\n");
 
     fprintf(fp,"    - Input files: %s | %s\n",info.tomo_file,info.refs_file);
-    fprintf(fp,"    - Particles In/Out: %s | %s\n",info.ptcls_in,info.ptcls_out);
+    fprintf(fp,"    - Particles In / Output (%s): %s | %s\n",(info.output_type==ALI_OUTPUT_DENSE)?"dense":"alignment",info.ptcls_in,info.output);
     
     if( info.n_gpu > 1 ) {
         fprintf(fp,"    - %d GPUs (GPU ids: %d",info.n_gpu,info.p_gpu[0]);
@@ -740,14 +740,6 @@ inline void print_basic(const Info&info,FILE*fp) {
         fprintf(fp,"[%.2f,%.2f]. Points: %d\n",info.off_x,info.off_y,total_points);
     }
     
-    if( strcmp(info.tm_type,"none") != 0 ) {
-        fprintf(fp,"    - Saving Cross Correlation in %s format. Prefix: %s.",info.tm_type,info.tm_pfx);
-        if( info.tm_sigma > 0 ) {
-            fprintf(fp," Discard CC < %.1fσ.",info.tm_sigma);
-        }
-        fprintf(fp,"\n");
-    }
-
     if( info.ignore_ref )
         fprintf(fp,"    - Aligning each particle to its class/reference only.\n");
 }
@@ -763,7 +755,7 @@ inline void print_minimal(const Info&info,FILE*fp) {
     fprintf(fp,"]:");
 
     fprintf(fp," %s | %s | %s ",info.ptcls_in,info.tomo_file,info.refs_file);
-    fprintf(fp,"-> %s",info.ptcls_out);
+    fprintf(fp,"-> %s",info.output);
 
     if( info.n_gpu > 1 )
         fprintf(fp," on %d GPUs.\n",info.n_gpu);

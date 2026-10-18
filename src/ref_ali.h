@@ -357,16 +357,7 @@ public:
         ifft2.alloc(M,N,max_K);
         ifft2.set_stream(stream.strm);
 
-        if( off_type == ELLIPSOID )
-            c_pts = PointsProvider::ellipsoid(n_pts,off_params.x,off_params.y,off_params.z,off_params.w);
-        if( off_type == CYLINDER )
-            c_pts = PointsProvider::cylinder(n_pts,off_params.x,off_params.y,off_params.z,off_params.w);
-        if( off_type == CUBOID )
-            c_pts = PointsProvider::cuboid(n_pts,off_params.x,off_params.y,off_params.z,off_params.w);
-        if( off_type == CIRCLE )
-            c_pts = PointsProvider::circle(n_pts,off_params.x,off_params.y,off_params.w);
-        if( off_type == RECTANGLE )
-            c_pts = PointsProvider::rectangle(n_pts,off_params.x,off_params.y,off_params.w);
+        c_pts = PointsProvider::create(n_pts,off_type,off_params.x,off_params.y,off_params.z,off_params.w);
         
         if( (off_type == CIRCLE)  || (off_type == RECTANGLE) ) {
             c_cc = new float[n_pts*max_K];
@@ -546,7 +537,7 @@ public:
             GpuKernels::load_surf<<<grd,blk,0,stream.strm>>>(prj_tex.surface,prj_r.ptr,ss);
     }
 
-    void sparse_reconstruct(GPU::GArrProj2D&ali,const Rot33 R,int k,GPU::Stream&stream) {
+    void sparse_reconstruct(GPU::GArrProj2D&ali,const Rot33 R,int k,GPU::Stream&stream,bool to_host=true) {
         dilate_into_surface(k,stream);
         int L = (n_pts < 1024) ? 32 : ( (n_pts < 5000) ? 16 : 2 );
         dim3 blk(256,1,1);
@@ -556,7 +547,8 @@ public:
             case 16: GpuKernelsVol::reconstruct_pts_kb<16><<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k); break;
             default: GpuKernelsVol::reconstruct_pts_kb< 2><<<grd,blk,0,stream.strm>>>(g_cc.ptr,ali.ptr,prj_tex.texture,R,g_pts.ptr,n_pts,N,k); break;
         }
-        GPU::download_async(c_cc,g_cc.ptr,n_pts,stream.strm);
+        if( to_host )
+            GPU::download_async(c_cc,g_cc.ptr,n_pts,stream.strm);
     }
 
     void download_cc(GPU::GArrProj2D&ali,int k,GPU::Stream&stream) {

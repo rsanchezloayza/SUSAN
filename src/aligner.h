@@ -38,6 +38,8 @@
 #include "aligner_args.h"
 #include "progress.h"
 #include "cc_tracker.h"
+#include "dense_reporter.h"
+#include <memory>
 
 #include "Eigen/Geometry"
 #include <Eigen/Eigenvalues>
@@ -47,11 +49,6 @@ typedef enum {
     ALI_3D=1,
     ALI_2D
 } AliCmd;
-
-typedef enum {
-    TM_NONE=0,
-    TM_CSV
-} TEMPLATE_MATCHING_OUTPUT;
 
 class AliBuffer {
 
@@ -98,192 +95,6 @@ public:
     }
 };
 
-class TemplateMatchingReporter {
-
-    int  tm_type;
-    int  tm_dim;
-    FILE *fp;
-
-    float *c_cc;
-    int   num_points;
-    int   max_K;
-    int   n_cc;
-    float sigma;
-
-    float *p_avg;
-    float *p_std;
-    float *p_cnt;
-
-    /// ZYZ Euler angles (radians) of the orientation that produced c_cc.
-    /// 3D only; left zeroed in 2D.
-    Vec3 *p_eu;
-
-    int *p_x;
-    int *p_y;
-    int *p_z;
-
-    int block_id;
-
-public:
-    TemplateMatchingReporter(const Vec3*c_pts,int n_pts, int K, int dim, const float in_sigma=0) {
-        tm_type    = TM_NONE;
-        tm_dim     = dim;
-        num_points = n_pts;
-        max_K      = K;
-        block_id   = 0;
-
-        if(dim==2){       //2D alignment
-            n_cc = n_pts * K;
-        }
-        else if (dim==3){ //3D alignment
-            n_cc = n_pts;
-        }
-
-        c_cc  = new float[n_cc];
-        p_avg = new float[n_cc];
-        p_std = new float[n_cc];
-        p_cnt = new float[n_cc];
-        p_eu  = new Vec3 [n_cc];
-        sigma = in_sigma;
-
-        p_x = new int[n_pts];
-        p_y = new int[n_pts];
-        p_z = new int[n_pts];
-
-        for(int i=0;i<n_pts;i++) {
-            p_x[i] = (int)roundf(c_pts[i].x);
-            p_y[i] = (int)roundf(c_pts[i].y);
-            p_z[i] = (int)roundf(c_pts[i].z);
-        }
-    }
-
-    ~TemplateMatchingReporter() {
-        delete [] c_cc;
-        delete [] p_avg;
-        delete [] p_std;
-        delete [] p_cnt;
-        delete [] p_eu;
-        delete [] p_x;
-        delete [] p_y;
-        delete [] p_z;
-    }
-
-    void start(int id,const char*type,const char*prefix) {
-        if( strcmp(type,"none") == 0 ) {
-            tm_type = TM_NONE;
-        }
-        else {
-            /// "matlab" and "python" are deprecated aliases: both parse CSV.
-            if( strcmp(type,"csv") != 0 )
-                fprintf(stderr,"Warning: tm_type '%s' is deprecated, writing CSV instead.\n",type);
-            tm_type = TM_CSV;
-        }
-
-        if( tm_type == TM_CSV ) {
-            char tm_file[SUSAN_FILENAME_LENGTH];
-            sprintf(tm_file,"%s_worker%02d.csv",prefix,id);
-            fp = fopen(tm_file,"w");
-            if (tm_dim == 2){
-                fprintf(fp,"TID,PartID,RID,ProjID,ProjW,X,Y,CC\n");
-            }
-            else if (tm_dim == 3){
-                fprintf(fp,"TID,PartID,RID,X,Y,Z,CC,CC_SIGMA,EU1,EU2,EU3,BlockID\n");
-                block_id = 0;
-            }
-        }
-    }
-
-    void finish() {
-        if( tm_type == TM_CSV ) {
-            fclose(fp);
-        }
-    }
-
-    void clear_cc() {
-        memset(c_cc ,0,n_cc*sizeof(float));
-        memset(p_eu ,0,n_cc*sizeof(Vec3 ));
-        memset(p_avg,0,n_cc*sizeof(float));
-        memset(p_std,0,n_cc*sizeof(float));
-        memset(p_cnt,0,n_cc*sizeof(float));
-    }
-
-    void reset_stats() {
-        memset(p_avg,0,n_cc*sizeof(float));
-        memset(p_std,0,n_cc*sizeof(float));
-        memset(p_cnt,0,n_cc*sizeof(float));
-    }
-
-    /// 2D entry point: no orientation is tracked.
-    void push_cc(const float*p_cc) {
-        push_cc(p_cc,NULL);
-    }
-
-    /// R_abs is the absolute pose of the reference at this iteration, i.e. the
-    /// same composition update_particle_3D() stores into ptcl.ali_eu.
-    void push_cc(const float*p_cc,const M33f*R_abs) {
-        if( tm_type == TM_NONE )
-            return;
-
-        /// One matrix->Euler conversion per angle, not per point.
-        Vec3 eu = {0,0,0};
-        if( R_abs != NULL )
-            Math::Rmat_eZYZ(eu,*R_abs);
-
-        // TODO: Welford online algorithm uses float for p_cnt; exact up to 2^24 iterations.
-        //       For very large angle sets consider switching p_cnt to int.
-        //       This could be vectorized with SIMD intrinsics for better performance, but currently not a bottleneck.
-        for(int cc_index=0;cc_index<n_cc;cc_index++) {
-            float cc = p_cc[cc_index];
-            if( cc > c_cc[cc_index] ) {
-                c_cc[cc_index] = cc;
-                p_eu[cc_index] = eu;
-            }
-            p_cnt[cc_index] += 1;
-            float delta  = cc - p_avg[cc_index];
-            p_avg[cc_index] += delta / p_cnt[cc_index];
-            float delta2 = cc - p_avg[cc_index];
-            p_std[cc_index] += delta * delta2;
-        }
-    }
-
-    void save_cc(int tid,int rid,int pid,int tx,int ty,int tz,float *prj_w) {
-        if( tm_type == TM_NONE )
-            return;
-
-        for(int cc_index=0;cc_index<n_cc;cc_index++){
-            if( p_cnt[cc_index] == 0 )
-                continue;
-
-            if (tm_dim == 2){
-                int   point_id = cc_index % num_points;
-                int   proj_id  = cc_index / num_points;
-                float proj_w   = prj_w[proj_id];
-                fprintf(fp,"%d,%d,%d,%d,%f,%d,%d,%.15lf\n", tid, pid, rid, proj_id, proj_w,
-                        p_x[point_id], p_y[point_id], c_cc[cc_index]);
-            }
-            else if (tm_dim == 3){
-                /// Prominence: peak against this voxel's own distribution over angles.
-                /// Only computable here; the angular spread is lost once c_cc is written.
-                float cc_std   = sqrtf(p_std[cc_index] / p_cnt[cc_index]);
-                float cc_sigma = ( cc_std > SUSAN_FLOAT_TOL )
-                                 ? (c_cc[cc_index]-p_avg[cc_index])/cc_std : 0.0f;
-
-                /// tm_sigma: drop voxels whose peak is not prominent enough. Without
-                /// this the output is one row per searched voxel.
-                if( sigma > 0 && cc_sigma < sigma )
-                    continue;
-
-                fprintf(fp,"%d,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%d\n", tid, pid, rid,
-                        (p_x[cc_index]+tx), (p_y[cc_index]+ty), (p_z[cc_index]+tz),
-                        c_cc[cc_index], cc_sigma,
-                        p_eu[cc_index].x, p_eu[cc_index].y, p_eu[cc_index].z, block_id);
-            }
-        }
-        block_id++;
-    }
-
-};
-
 class AliGpuWorker : public Worker {
 
 public:
@@ -322,10 +133,10 @@ public:
     AnglesProvider ang_prov;
     int max_ang;
 
-    const char *tm_type;
-    const char *tm_prefix;
-    int         tm_dim;
-    float       tm_sigma;
+    int         ali_type;
+    int         output_type;
+    int         dense_reduce;
+    const char *output;
 
     AliGpuWorker() {
     }
@@ -343,6 +154,10 @@ protected:
     std::vector<M33f>   R_lvl;
     std::vector<M33f>   R_cum;
     std::vector<float>  prior_w;
+    std::unique_ptr<CcTrackerAlignment>    cc_tracker;
+    std::unique_ptr<CcTrackerAlignmentArr> cc_tracker_arr;
+    std::unique_ptr<DenseVolumes>          dense_vol;
+    std::unique_ptr<CsvReporter>           csv_rep;
 
     void main() {
 
@@ -362,21 +177,32 @@ protected:
         AliSubstack ss_data(M,N,max_K,P,stream);
 
         AliData ali_data(MP,NP,max_K,off_par,off_type,stream,dilate,dilate_radius);
-        
-        TemplateMatchingReporter tm_rep(ali_data.c_pts,ali_data.n_pts,max_K,tm_dim,tm_sigma);
-        tm_rep.start(worker_id,tm_type,tm_prefix);
 
         RadialAverager rad_avgr(MP,NP,max_K);
 
-        CcTrackerAlignment    cc_tracker    ((CcStatsType_t)cc_stats,ali_data.c_pts,ali_data.n_pts,offset_sigma);
-        CcTrackerAlignmentArr cc_tracker_arr((CcStatsType_t)cc_stats,max_K,ali_data.c_pts,ali_data.n_pts,offset_sigma);
-        max_cc.resize(max_K);
-        ite_cc.resize(max_K);
-        ite_idx.resize(max_K);
-        cc_placeholder.resize(max_K*ali_data.n_pts);
-        R_lvl.resize(max_K);
-        R_cum.resize(max_K);
-        prior_w.resize(max_K);
+        if( output_type == ALI_OUTPUT_DENSE ) {
+            if( ali_type == 3 ) {
+                dense_vol.reset(new DenseVolumes(ali_data.c_pts,ali_data.n_pts,dense_reduce));
+            }
+            else {
+                csv_rep.reset(new CsvReporter(ali_data.c_pts,ali_data.n_pts,worker_id,output));
+                max_cc.resize(max_K);
+                ite_cc.resize(max_K);
+                ite_idx.resize(max_K);
+                cc_placeholder.resize(max_K*ali_data.n_pts);
+            }
+        }
+        else {
+            if( ali_type == 3 ) {
+                cc_tracker.reset(new CcTrackerAlignment((CcStatsType_t)cc_stats,ali_data.c_pts,ali_data.n_pts,offset_sigma));
+            }
+            else {
+                cc_tracker_arr.reset(new CcTrackerAlignmentArr((CcStatsType_t)cc_stats,max_K,ali_data.c_pts,ali_data.n_pts,offset_sigma));
+                R_lvl.resize(max_K);
+                R_cum.resize(max_K);
+                prior_w.resize(max_K);
+            }
+        }
 
         GPU::GArrSingle ctf_wgt;
         ctf_wgt.alloc(MP*NP*max_K);
@@ -401,10 +227,10 @@ protected:
         while( (current_cmd = worker_cmd->read_command()) >= 0 ) {
             switch(current_cmd) {
                 case ALI_3D:
-                    align3D(vols,ctf_wgt,ss_data,ali_data,rad_avgr,tm_rep,cc_tracker,stream);
+                    align3D(vols,ctf_wgt,ss_data,ali_data,rad_avgr,stream);
                     break;
                 case ALI_2D:
-                    align2D(vols,ctf_wgt,ss_data,ali_data,rad_avgr,tm_rep,cc_tracker_arr,stream);
+                    align2D(vols,ctf_wgt,ss_data,ali_data,rad_avgr,stream);
                     break;
                 default:
                     break;
@@ -412,7 +238,7 @@ protected:
         }
 
         GPU::sync();
-        tm_rep.finish();
+        csv_rep.reset();
         delete [] vols;
     }
 
@@ -481,14 +307,17 @@ protected:
         GpuKernels::divide<<<grdC,blk>>>(g_fou.ptr,NP*NP*NP,ss);
     }
 
-    void align3D(AliRef*vols,GPU::GArrSingle&ctf_wgt,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,CcTrackerAlignment&cc_tracker,GPU::Stream&stream) {
+    void align3D(AliRef*vols,GPU::GArrSingle&ctf_wgt,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
         p_buffer->RO_sync();
         while( p_buffer->RO_get_status() > DONE ) {
             if( p_buffer->RO_get_status() == READY ) {
                 AliBuffer*ptr = (AliBuffer*)p_buffer->RO_get_buffer();
                 create_ctf(ctf_wgt,ptr,stream);
                 add_data(ss_data,ctf_wgt,ptr,rad_avgr,true,stream);
-                angular_search_3D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,cc_tracker,stream);
+                if( output_type == ALI_OUTPUT_DENSE )
+                    angular_search_dense(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,stream);
+                else
+                    angular_search_3D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,stream);
                 stream.sync();
             }
             p_buffer->RO_sync();
@@ -534,14 +363,17 @@ protected:
         Mrc::write(buffer.ptr,MP,NP,max_K,filename);
     }
 
-    void align2D(AliRef*vols,GPU::GArrSingle&ctf_wgt,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,CcTrackerAlignmentArr&cc_tracker_arr,GPU::Stream&stream) {
+    void align2D(AliRef*vols,GPU::GArrSingle&ctf_wgt,AliSubstack&ss_data,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
         p_buffer->RO_sync();
         while( p_buffer->RO_get_status() > DONE ) {
             if( p_buffer->RO_get_status() == READY ) {
                 AliBuffer*ptr = (AliBuffer*)p_buffer->RO_get_buffer();
                 create_ctf(ctf_wgt,ptr,stream);
                 add_data(ss_data,ctf_wgt,ptr,rad_avgr,false,stream);
-                angular_search_2D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,tm_rep,cc_tracker_arr,stream);
+                if( output_type == ALI_OUTPUT_DENSE )
+                    angular_search_csv(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,stream);
+                else
+                    angular_search_2D(vols[ptr->r_ix],ss_data,ctf_wgt,ptr,ali_data,rad_avgr,stream);
                 stream.sync();
             }
             p_buffer->RO_sync();
@@ -619,71 +451,87 @@ protected:
         stream.sync();
     }
 
-    void angular_search_3D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,CcTrackerAlignment&cc_tracker,GPU::Stream&stream) {
-
-        M33f max_R;
-
+    /// Steps per orientation:
+    /// - Calculate new rotation matrices.
+    /// - Project the reference.
+    /// - [optional] Apply FRC-based spectral weighting and bandpass.
+    /// - [optional] Apply CTF.
+    /// - [3D] Apply the reference half of the WBP ramp, sqrt(w).
+    /// - Normalize reference projections.
+    /// - Multiply in fourier space, [dilate 0] KB prefilter, invert to real space.
+    void correlate_3D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,
+                      const M33f&R_tmp,const float w_total,const bool to_host,GPU::Stream&stream) {
         Rot33 Rot;
+        Math::set(Rot,R_tmp);
+
+        ali_data.rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
+        ali_data.project(vol.ref,ptr->g_def,bandpass,ptr->K,stream);
+
+        if( ctf_type == ALI_CTF_ON_REFERENCE )
+            ali_data.multiply(ctf_wgt,ptr->K,stream);
+
+        ali_data.apply_radial_wgt_sqrt(w_total,ptr->crowther_limit,ptr->K,stream);
+
+        rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
+
+        ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+
+        if( dilate == 0 )
+            ali_data.kb_prefilter(ptr->K,stream);
+
+        ali_data.invert_fourier(ptr->K,stream);
+
+        Rot33 R_spc;
+        if( off_space == REFERENCE_SPACE )
+            Math::set(R_spc,R_tmp);
+        else
+            Math::set(R_spc,M33f::Identity());
+
+        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,ptr->K,stream,to_host);
+    }
+
+    void correlate_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,
+                      Rot33&Rot,const bool per_projection,GPU::Stream&stream) {
+        if( per_projection )
+            ali_data.rotate_projections_lvl(Rot,ptr->g_ali,ptr->K,stream);
+        else
+            ali_data.rotate_projections(Rot,ptr->g_ali,ptr->K,stream);
+        ali_data.project(vol.ref,ptr->g_def,bandpass,ptr->K,stream);
+
+        if( ctf_type == ALI_CTF_ON_REFERENCE )
+            ali_data.multiply(ctf_wgt,ptr->K,stream);
+
+        rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
+
+        ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+
+        if( dilate == 0 )
+            ali_data.kb_prefilter(ptr->K,stream);
+
+        ali_data.invert_fourier(ptr->K,stream);
+    }
+
+    void angular_search_3D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
+
         M33f R_lvl = Eigen::MatrixXf::Identity(3,3);
-        M33f R_ite,R_tmp,R_ali;
+        M33f R_ite,R_ali;
 
         Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
-
-        tm_rep.clear_cc();
 
         /// Reference half of the split WBP ramp; constant across orientations.
         const float w_total = total_proj_weight(ptr);
 
-        cc_tracker.clear();
+        cc_tracker->clear();
         int lvl = 0;
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
             if( lvl > 0 )
-                cc_tracker.next_level();
-            tm_rep.reset_stats();
+                cc_tracker->next_level();
             for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
                 for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
                     for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next() ) {
 
-                        /// Steps:
-                        /// - Calculate new rotation matrices.
-                        /// - Project the reference.
-                        /// - [optional] Apply FRC-based spectral weighting and bandpass.
-                        /// - [optional] Apply CTF.
-                        /// - Apply the reference half of the WBP ramp, sqrt(w).
-                        /// - Normalize reference projections.
-
                         ang_prov.get_current_R(R_ite);
-                        R_tmp = (R_ali*R_lvl*R_ite).transpose();
-                        Math::set(Rot,R_tmp);
-
-                        ali_data.rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
-                        ali_data.project(vol.ref,ptr->g_def,bandpass,ptr->K,stream);
-
-                        if( ctf_type == ALI_CTF_ON_REFERENCE )
-                            ali_data.multiply(ctf_wgt,ptr->K,stream);
-
-                        ali_data.apply_radial_wgt_sqrt(w_total,ptr->crowther_limit,ptr->K,stream);
-
-                        rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
-
-                        /// - Multiply in fourier space.
-                        /// - Invert to real space.
-                        /// - Localized reconstruction of CC.
-
-                        ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-
-                        if( dilate == 0 )
-                            ali_data.kb_prefilter(ptr->K,stream);
-
-                        ali_data.invert_fourier(ptr->K,stream);
-                        
-                        Rot33 R_spc;
-                        if( off_space == REFERENCE_SPACE )
-                            Math::set(R_spc,R_tmp);
-                        else
-                            Math::set(R_spc,M33f::Identity());
-                        
-                        ali_data.sparse_reconstruct(ptr->g_ali,R_spc,ptr->K,stream);
+                        correlate_3D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,(R_ali*R_lvl*R_ite).transpose(),w_total,true,stream);
 
                         /// Orientation prior: down-weight candidates whose cumulative
                         /// deviation from the previous pose is large.  Out-of-plane
@@ -694,48 +542,60 @@ protected:
                         const float weight = orientation_prior_weight_deg(cone_theta_deg(R_cum)   ,angle_sigma)
                                            * orientation_prior_weight_deg(inplane_theta_deg(R_cum),angle_sigma);
 
-                        cc_tracker.push(ali_data.c_cc,ali_data.n_pts,R_cum,weight);
-
-                        /// Absolute pose, matching what update_particle_3D() writes to ali_eu.
-                        const M33f R_abs = R_cum*R_ali;
-                        tm_rep.push_cc(ali_data.c_cc,&R_abs);
+                        cc_tracker->push(ali_data.c_cc,ali_data.n_pts,R_cum,weight);
                     } // INPLANE
                 } // CONE
             } // SYMMETRY
-            R_lvl = cc_tracker.get_rot();
+            R_lvl = cc_tracker->get_rot();
         } // REFINE
 
-        M33f R_final = cc_tracker.get_rot();
-
         update_particle_3D( ptr->ptcl,
-                           R_final,cc_tracker.get_vec(),cc_tracker.get_cc(),
+                           cc_tracker->get_rot(),cc_tracker->get_vec(),cc_tracker->get_cc(),
                            ptr->class_ix,ptr->ctf_vals.apix);
-
-        tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w);
     }
 
-    void angular_search_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,TemplateMatchingReporter&tm_rep,CcTrackerAlignmentArr&cc_tracker_arr,GPU::Stream&stream) {
+    /// output_type dense, 3D: level-0 search, the CC stays on the GPU (DenseVolumes); the angle
+    /// index follows the order of DenseIO::write_manifest's angle table.
+    void angular_search_dense(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
+
+        M33f R_ite,R_ali;
+        Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
+        const float w_total = total_proj_weight(ptr);
+
+        dense_vol->clear(stream);
+        int ang = 0;
+        for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next() ) {
+            for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
+                for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
+                    for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next(), ang++ ) {
+                        ang_prov.get_current_R(R_ite);
+                        correlate_3D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,(R_ali*R_ite).transpose(),w_total,false,stream);
+                        dense_vol->update(ali_data.g_cc.ptr,ang,stream);
+                    }
+                }
+            }
+        }
+
+        dense_vol->save(output,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ctf_vals.apix,stream);
+    }
+
+    void angular_search_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
         
         Rot33 Rot;
         M33f  R_ite,R_ali;
 
         Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
 
-        std::fill_n(max_cc.data(),ptr->K,-INFINITY);
-        std::fill(cc_placeholder.begin(),cc_placeholder.end(),0.0f);
-
-        tm_rep.clear_cc();
-
         Math::set(Rot,R_ali.transpose());
         ali_data.pre_rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
         
-        cc_tracker_arr.clear(ptr->K);
+        cc_tracker_arr->clear(ptr->K);
         int lvl = 0;
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
             if( lvl > 0 )
-                cc_tracker_arr.next_level();
+                cc_tracker_arr->next_level();
             for(int i=0;i<ptr->K;i++) {
-                R_lvl[i] = cc_tracker_arr.get_rot(i);
+                R_lvl[i] = cc_tracker_arr->get_rot(i);
                 Math::set(ali_data.c_lvl[i],R_lvl[i].transpose());
             }
             ali_data.upload_level_rotations(ptr->K,stream);
@@ -743,35 +603,10 @@ protected:
                 for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
                     for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next() ) {
 
-                        /// Steps:
-                        /// - Calculate new rotation matrices.
-                        /// - Project the reference.
-                        /// - [optional] Apply FRC-based spectral weighting and bandpass.
-                        /// - [optional] Apply CTF.
-                        /// - Normalize reference projections.
-
                         ang_prov.get_current_R(R_ite);
                         Math::set(Rot,R_ite.transpose());
-
-                        ali_data.rotate_projections_lvl(Rot,ptr->g_ali,ptr->K,stream);
-                        ali_data.project(vol.ref,ptr->g_def,bandpass,ptr->K,stream);
-
-                        if( ctf_type == ALI_CTF_ON_REFERENCE )
-                            ali_data.multiply(ctf_wgt,ptr->K,stream);
-
-                        rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
-
-                        /// - Multiply in fourier space.
-                        /// - Invert to real space.
-
-                        ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
-
-                        if( dilate == 0 )
-                            ali_data.kb_prefilter(ptr->K,stream);
-
-                        ali_data.invert_fourier(ptr->K,stream);
-
-                        ali_data.extract_cc(ite_cc.data(),ite_idx.data(),ptr->g_ali,ptr->K,stream);
+                        correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,true,stream);
+                        ali_data.download_cc(ptr->g_ali,ptr->K,stream);
 
                         /// Orientation prior: down-weight candidates whose deviation
                         /// from the previous per-tilt pose is large.  Out-of-plane
@@ -784,23 +619,11 @@ protected:
                                        * orientation_prior_weight_deg(inplane_theta_deg(R_cum[i]),angle_sigma);
                         }
 
-                        cc_tracker_arr.push(ali_data.c_cc,ali_data.n_pts,R_cum.data(),prior_w.data());
-
-                        for(int i=0;i<ptr->K;i++) {
-                            if( ite_cc[i] > max_cc[i] ) {
-                                max_cc[i]  = ite_cc[i];
-                                // cc_placeholder stores cc-map (offset->cc) only for the best orientation
-                                for(int j=0;j<ali_data.n_pts;j++){
-                                    cc_placeholder[i*ali_data.n_pts + j] = ali_data.c_cc[i*ali_data.n_pts + j];
-                                }
-                            }
-                        }
+                        cc_tracker_arr->push(ali_data.c_cc,ali_data.n_pts,R_cum.data(),prior_w.data());
                     } // INPLANE
                 } // CONE
             } // SYMMETRY
         } // REFINE
-
-        tm_rep.push_cc(cc_placeholder.data());
 
         single cc_acc=0,wgt_acc=0,cc_cur=0;
         for(int i=0;i<ptr->K;i++) {
@@ -812,15 +635,54 @@ protected:
                 continue;
             }
 
-            cc_cur   = cc_tracker_arr.get_cc(i);
+            cc_cur   = cc_tracker_arr->get_cc(i);
             cc_acc  += cc_cur;
             wgt_acc += ptr->ptcl.prj_w[i];
             update_particle_2D(ptr->ptcl,
-                               cc_tracker_arr.get_rot(i),cc_tracker_arr.get_vec(i),cc_cur,
+                               cc_tracker_arr->get_rot(i),cc_tracker_arr->get_vec(i),cc_cur,
                                i,ptr->ctf_vals.apix);
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
-        tm_rep.save_cc(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ptcl.prj_w);
+    }
+
+    /// output_type dense, 2D (legacy CSV): per projection, the CC map of the orientation with the
+    /// highest peak. No tracker, no particle update.
+    void angular_search_csv(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
+
+        Rot33 Rot;
+        M33f  R_ite,R_ali;
+        const int n_pts = ali_data.n_pts;
+
+        Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
+
+        std::fill_n(max_cc.data(),ptr->K,-INFINITY);
+        std::fill_n(cc_placeholder.data(),ptr->K*n_pts,0.0f);
+
+        Math::set(Rot,R_ali.transpose());
+        ali_data.pre_rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
+
+        for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next() ) {
+            for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
+                for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
+                    for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next() ) {
+
+                        ang_prov.get_current_R(R_ite);
+                        Math::set(Rot,R_ite.transpose());
+                        correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,false,stream);
+                        ali_data.extract_cc(ite_cc.data(),ite_idx.data(),ptr->g_ali,ptr->K,stream);
+
+                        for(int i=0;i<ptr->K;i++) {
+                            if( ite_cc[i] > max_cc[i] ) {
+                                max_cc[i] = ite_cc[i];
+                                memcpy(cc_placeholder.data()+i*n_pts,ali_data.c_cc+i*n_pts,sizeof(float)*n_pts);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        csv_rep->save(ptr->ptcl.tomo_id(),ptr->ptcl.ref_cix()+1,ptr->ptcl.ptcl_id(),ptr->K,ptr->ptcl.prj_w,cc_placeholder.data());
     }
 
     void update_particle_3D(Particle&ptcl,const M33f&Rot,const Vec3&t,const single cc, const int ref_ix,const float apix) {
@@ -1031,10 +893,10 @@ protected:
         gpu_worker.off_par.z    = p_info->off_z;
         gpu_worker.off_par.w    = p_info->off_s;
         gpu_worker.psym         = p_info->pseudo_sym;
-        gpu_worker.tm_type      = p_info->tm_type;
-        gpu_worker.tm_prefix    = p_info->tm_pfx;
-        gpu_worker.tm_dim       = p_info->type;
-        gpu_worker.tm_sigma     = p_info->tm_sigma;
+        gpu_worker.ali_type     = p_info->type;
+        gpu_worker.output_type  = p_info->output_type;
+        gpu_worker.dense_reduce = p_info->dense_reduce;
+        gpu_worker.output       = p_info->output;
         gpu_worker.dilate       = p_info->dilate;
         gpu_worker.dilate_radius = p_info->dilate_radius;
         gpu_worker.start();

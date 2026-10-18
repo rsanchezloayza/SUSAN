@@ -239,6 +239,16 @@ typedef enum {
 } CtfProjectionType_t;
 
 typedef enum {
+    ALI_OUTPUT_ALIGNMENT=0,
+    ALI_OUTPUT_DENSE
+} AliOutputType_t;
+
+typedef enum {
+    DENSE_REDUCE_MAX=0,
+    DENSE_REDUCE_MEAN
+} DenseReduce_t;
+
+typedef enum {
     ELLIPSOID,
     CYLINDER,
     CIRCLE,

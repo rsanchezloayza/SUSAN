@@ -120,6 +120,8 @@ int main(int ac, char** av) {
 
         if( mpi_iface.is_main_node() ) {
             ptcls_io = new ParticlesRW(info.ptcls_in);
+            if( info.output_type == ALI_OUTPUT_DENSE && info.type == 3 )
+                DenseIO::write_manifest(info,*ptcls_io,tomos);
         }
 
         Particles*ptcls = mpi_iface.scatter_particles(scatter_info,ptcls_io);
@@ -143,17 +145,19 @@ int main(int ac, char** av) {
         stkrdr.wait();
         pool.wait();
 
-        if( mpi_iface.is_main_node() ) {
-            printf("\tGathering data files...");
-            fflush(stdout);
-        }
+        if( info.output_type == ALI_OUTPUT_ALIGNMENT ) {
+            if( mpi_iface.is_main_node() ) {
+                printf("\tGathering data files...");
+                fflush(stdout);
+            }
 
-        mpi_iface.gather_particles(ptcls,scatter_info,ptcls_io);
+            mpi_iface.gather_particles(ptcls,scatter_info,ptcls_io);
 
-        if( mpi_iface.is_main_node() ) {
-            ptcls_io->save(info.ptcls_out);
-            printf(" Done\n");
-            fflush(stdout);
+            if( mpi_iface.is_main_node() ) {
+                ptcls_io->save(info.output);
+                printf(" Done\n");
+                fflush(stdout);
+            }
         }
 
         mpi_iface.delete_scattered_ptcls(ptcls);
