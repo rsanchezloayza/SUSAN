@@ -339,6 +339,9 @@ protected:
     std::vector<single> ite_cc;
     std::vector<int>    ite_idx;
     std::vector<single> cc_placeholder;
+    std::vector<M33f>   R_lvl;
+    std::vector<M33f>   R_cum;
+    std::vector<float>  prior_w;
 
     void main() {
 
@@ -370,6 +373,9 @@ protected:
         ite_cc.resize(max_K);
         ite_idx.resize(max_K);
         cc_placeholder.resize(max_K*ali_data.n_pts);
+        R_lvl.resize(max_K);
+        R_cum.resize(max_K);
+        prior_w.resize(max_K);
 
         GPU::GArrSingle ctf_wgt;
         ctf_wgt.alloc(MP*NP*max_K);
@@ -727,6 +733,11 @@ protected:
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
             if( lvl > 0 )
                 cc_tracker_arr.next_level();
+            for(int i=0;i<ptr->K;i++) {
+                R_lvl[i] = cc_tracker_arr.get_rot(i);
+                Math::set(ali_data.c_lvl[i],R_lvl[i].transpose());
+            }
+            ali_data.upload_level_rotations(ptr->K,stream);
             for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
                 for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
                     for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next() ) {
@@ -741,7 +752,7 @@ protected:
                         ang_prov.get_current_R(R_ite);
                         Math::set(Rot,R_ite.transpose());
 
-                        ali_data.rotate_projections(Rot,ptr->g_ali,ptr->K,stream);
+                        ali_data.rotate_projections_lvl(Rot,ptr->g_ali,ptr->K,stream);
                         ali_data.project(vol.ref,ptr->g_def,bandpass,ptr->K,stream);
 
                         if( ctf_type == ALI_CTF_ON_REFERENCE )
@@ -753,6 +764,10 @@ protected:
                         /// - Invert to real space.
 
                         ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+
+                        if( dilate == 0 )
+                            ali_data.kb_prefilter(ptr->K,stream);
+
                         ali_data.invert_fourier(ptr->K,stream);
 
                         ali_data.extract_cc(ite_cc.data(),ite_idx.data(),ptr->g_ali,dilate,ptr->K,stream);
@@ -762,10 +777,13 @@ protected:
                         /// (cone) and in-plane (twist) deviations are penalised
                         /// independently with the same angle_sigma and multiplied.
                         /// Disabled (w=1) when angle_sigma <= 0.
-                        const float weight = orientation_prior_weight_deg(cone_theta_deg(R_ite)   ,angle_sigma)
-                                           * orientation_prior_weight_deg(inplane_theta_deg(R_ite),angle_sigma);
+                        for(int i=0;i<ptr->K;i++) {
+                            R_cum[i]   = R_lvl[i]*R_ite;
+                            prior_w[i] = orientation_prior_weight_deg(cone_theta_deg(R_cum[i])   ,angle_sigma)
+                                       * orientation_prior_weight_deg(inplane_theta_deg(R_cum[i]),angle_sigma);
+                        }
 
-                        cc_tracker_arr.push(ali_data.c_cc,ali_data.n_pts,R_ite,weight);
+                        cc_tracker_arr.push(ali_data.c_cc,ali_data.n_pts,R_cum.data(),prior_w.data());
 
                         for(int i=0;i<ptr->K;i++) {
                             if( ite_cc[i] > max_cc[i] ) {

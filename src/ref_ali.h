@@ -332,6 +332,9 @@ public:
 
     GPU::GArrSingle prj_d;
 
+    Rot33            *c_lvl;
+    GPU::GArr<Rot33>  g_lvl;
+
     AliData(uint32 m, uint32 n, uint32 n_K,const float4&off_params,int off_type,GPU::Stream&stream,float dilate=0) {
         M = m;
         N = n;
@@ -339,6 +342,8 @@ public:
         g_ali.alloc(max_K);
         prj_c.alloc(M*N*max_K);
         prj_r.alloc(N*N*max_K);
+        c_lvl = new Rot33[max_K];
+        g_lvl.alloc(max_K);
 
         if( dilate > 0 )
             prj_d.alloc(N*N*max_K);
@@ -374,6 +379,7 @@ public:
     ~AliData() {
         delete [] c_cc;
         delete [] c_pts;
+        delete [] c_lvl;
     }
 
     void pre_rotate_reference(Rot33&R,GPU::GArrProj2D&ali_in,int k,GPU::Stream&stream) {
@@ -414,6 +420,16 @@ public:
         grd.z = 1;
 
         GpuKernels::rotate_pre<<<grd,blk,0,stream.strm>>>(g_ali.ptr,R,ali_in.ptr,k);
+    }
+
+    void upload_level_rotations(int k,GPU::Stream&stream) {
+        cudaMemcpyAsync((void*)g_lvl.ptr,(const void*)c_lvl,sizeof(Rot33)*k,cudaMemcpyHostToDevice,stream.strm);
+    }
+
+    void rotate_projections_lvl(Rot33&R,GPU::GArrProj2D&ali_in,int k,GPU::Stream&stream) {
+        dim3 blk(1024,1,1);
+        dim3 grd(GPU::div_round_up(9*k,1024),1,1);
+        GpuKernels::rotate_pre_lvl<<<grd,blk,0,stream.strm>>>(g_ali.ptr,R,g_lvl.ptr,ali_in.ptr,k);
     }
 
     /// Uses the Kaiser-Bessel gridding kernel, which pairs with the
@@ -541,14 +557,10 @@ public:
     }
 
     void download_cc(GPU::GArrProj2D&ali,float dilate,int k,GPU::Stream&stream) {
+        dilate_into_surface(dilate,k,stream);
         dim3 blk(1024,1,1);
         dim3 grd(GPU::div_round_up(n_pts,1024),1,k);
-        if( dilate > 0 ) {
-            dilate_into_surface(dilate,k,stream);
-            GpuKernelsVol::extract_pts<<<grd,blk,0,stream.strm>>>(g_cc.ptr,prj_tex.texture,ali.ptr,g_pts.ptr,n_pts,N,k);
-        }
-        else
-            GpuKernelsVol::extract_pts<<<grd,blk,0,stream.strm>>>(g_cc.ptr,prj_r.ptr,ali.ptr,g_pts.ptr,n_pts,N,k);
+        GpuKernelsVol::extract_pts_kb<<<grd,blk,0,stream.strm>>>(g_cc.ptr,prj_tex.texture,ali.ptr,g_pts.ptr,n_pts,N,k);
         GPU::download_async(c_cc,g_cc.ptr,n_pts*k,stream.strm);
     }
 

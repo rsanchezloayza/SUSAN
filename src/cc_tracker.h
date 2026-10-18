@@ -159,32 +159,14 @@ public:
 
     void push(const float*p_cc,const int n_pts,const M33f&Rot,float prior_weight=1.0f) {
         const int n = std::min(n_pts,n_pts_);
-        if( n < 1 )
-            return;
-        for(int k=0;k<k_;k++) {
-            const float*c = p_cc + k*n_pts;
-            Entry&e = e_[k];
-            float max_w = (c[0] > 0.f) ? c[0]*pts_w_[0] : c[0];
-            int   max_i = 0;
-            for(int i=1;i<n;i++) {
-                const float v_w = (c[i] > 0.f) ? c[i]*pts_w_[i] : c[i];
-                if( v_w > max_w ) { max_w = v_w; max_i = i; }
-            }
-            const float vmax = c[max_i];
-            if( sigma_stats_ && !frozen_ ) {
-                e.count++;
-                const double d = vmax - e.mean;
-                e.mean += d/e.count;
-                e.m2   += d*(vmax - e.mean);
-            }
-            const float joint = (vmax > 0.f) ? max_w*prior_weight : vmax;
-            if( joint > e.cc_w ) {
-                e.cc_w = joint;
-                e.cc   = vmax;
-                e.vec  = pts_[max_i];
-                e.rot  = Rot;
-            }
-        }
+        for(int k=0;k<k_;k++)
+            push_entry(e_[k],p_cc + k*n_pts,n,Rot,prior_weight);
+    }
+
+    void push(const float*p_cc,const int n_pts,const M33f*Rots,const float*prior_weights) {
+        const int n = std::min(n_pts,n_pts_);
+        for(int k=0;k<k_;k++)
+            push_entry(e_[k],p_cc + k*n_pts,n,Rots[k],prior_weights[k]);
     }
 
     float get_cc(const int idx) const {
@@ -204,6 +186,32 @@ public:
     Vec3 get_vec(const int idx) const { return e_[idx].vec; }
     M33f get_rot(const int idx) const { return e_[idx].rot; }
     int  size() const { return k_; }
+
+private:
+    void push_entry(Entry&e,const float*c,const int n,const M33f&Rot,const float prior_weight) {
+        if( n < 1 )
+            return;
+        float max_w = (c[0] > 0.f) ? c[0]*pts_w_[0] : c[0];
+        int   max_i = 0;
+        for(int i=1;i<n;i++) {
+            const float v_w = (c[i] > 0.f) ? c[i]*pts_w_[i] : c[i];
+            if( v_w > max_w ) { max_w = v_w; max_i = i; }
+        }
+        const float vmax = c[max_i];
+        if( sigma_stats_ && !frozen_ ) {
+            e.count++;
+            const double d = vmax - e.mean;
+            e.mean += d/e.count;
+            e.m2   += d*(vmax - e.mean);
+        }
+        const float joint = (vmax > 0.f) ? max_w*prior_weight : vmax;
+        if( joint > e.cc_w ) {
+            e.cc_w = joint;
+            e.cc   = vmax;
+            e.vec  = pts_[max_i];
+            e.rot  = Rot;
+        }
+    }
 };
 
 class CcTrackerAlignment {

@@ -1727,6 +1727,43 @@ __global__ void rotate_pre(Proj2D*g_tlt,Rot33 R,Proj2D*g_tlt_in,const int in_K) 
 
 }
 
+__global__ void rotate_pre_lvl(Proj2D*g_tlt,Rot33 R,const Rot33*p_lvl,Proj2D*g_tlt_in,const int in_K) {
+
+    /// R_out = R_in @ R @ R_lvl[z]
+    int3 ss_idx = get_th_idx();
+
+    if( ss_idx.x < in_K*9 && ss_idx.y == 0 && ss_idx.z == 0 ) {
+
+        int mod_z = ss_idx.x%9;
+        int z = (ss_idx.x - mod_z)/9;
+        int x = mod_z % 3;
+        int y = (mod_z - x)/3;
+
+        const float *pR = &(R.xx);
+        const float *pL = &(p_lvl[z].xx);
+        float *r_out = &(g_tlt[z].R.xx);
+        float *r_in  = &(g_tlt_in[z].R.xx);
+
+        float m0 = pR[0]*pL[x] + pR[1]*pL[x+3] + pR[2]*pL[x+6];
+        float m1 = pR[3]*pL[x] + pR[4]*pL[x+3] + pR[5]*pL[x+6];
+        float m2 = pR[6]*pL[x] + pR[7]*pL[x+3] + pR[8]*pL[x+6];
+
+        float rslt = 0;
+        rslt += r_in[y*3  ]*m0;
+        rslt += r_in[y*3+1]*m1;
+        rslt += r_in[y*3+2]*m2;
+
+        r_out[mod_z] = rslt;
+    }
+
+    __syncthreads();
+
+    if( ss_idx.x < in_K && ss_idx.y == 0 && ss_idx.z == 0 ) {
+        g_tlt[ss_idx.x].w = g_tlt_in[ss_idx.x].w;
+    }
+
+}
+
 __global__ void apply_radial_wgt(float2*p_data,const float w_total,float crowther_limit,const int3 ss_siz) {
 
     int3 ss_idx = get_th_idx();

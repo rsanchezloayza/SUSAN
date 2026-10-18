@@ -397,6 +397,7 @@ protected:
                             /// - Multiply in fourier space.
                             /// - Invert to real space.
                             ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+                            ali_data.kb_prefilter(ptr->K,stream);
                             ali_data.invert_fourier(ptr->K,stream);
                             
                             ali_data.download_cc(ptr->g_ali,0,ptr->K,stream);
@@ -425,6 +426,7 @@ protected:
                     /// - Multiply in fourier space.
                     /// - Invert to real space.
                     ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+                    ali_data.kb_prefilter(ptr->K,stream);
                     ali_data.invert_fourier(ptr->K,stream);
 
                     ali_data.download_cc(ptr->g_ali,0,ptr->K,stream);
