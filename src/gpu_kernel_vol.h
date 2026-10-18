@@ -1316,13 +1316,15 @@ __global__ void add_symmetry(double2*p_val,double*p_wgt,
             float   w;
 
             read_idx = get_ix_3d(should_read,should_conj,p_x  ,p_y  ,p_z  ,M,N);
-            read_val = t_val[read_idx];
-            read_wgt = t_wgt[read_idx];
-            if(should_conj) read_val.y = -read_val.y;
-            w = (1-w_x)*(1-w_y)*(1-w_z);
-            val.x += w*read_val.x;
-            val.y += w*read_val.y;
-            wgt   += w*read_wgt;
+            if( should_read ) {
+                read_val = t_val[read_idx];
+                read_wgt = t_wgt[read_idx];
+                if(should_conj) read_val.y = -read_val.y;
+                w = (1-w_x)*(1-w_y)*(1-w_z);
+                val.x += w*read_val.x;
+                val.y += w*read_val.y;
+                wgt   += w*read_wgt;
+            }
 
             read_idx = get_ix_3d(should_read,should_conj,p_x+1,p_y  ,p_z  ,M,N);
             if( should_read ) {

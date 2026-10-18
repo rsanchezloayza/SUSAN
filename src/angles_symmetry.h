@@ -73,11 +73,11 @@ public:
         else if( (strcmp(sym_str,"cbo") == 0) || (strcmp(sym_str,"CBO") == 0) ) {
             return cuboctahedral();
         }
-        else if( (strcmp(sym_str,"ico") == 0) || (strcmp(sym_str,"ICO") == 0) || (strcmp(sym_str,"i2") == 0) || (strcmp(sym_str,"I2") == 0) ) {
-            return I2();
-        }
-        else if( (strcmp(sym_str,"i1") == 0) || (strcmp(sym_str,"I1") == 0) ) {
+        else if( (strcmp(sym_str,"ico") == 0) || (strcmp(sym_str,"ICO") == 0) || (strcmp(sym_str,"i1") == 0) || (strcmp(sym_str,"I1") == 0) ) {
             return I1();
+        }
+        else if( (strcmp(sym_str,"i2") == 0) || (strcmp(sym_str,"I2") == 0) ) {
+            return I2();
         }
         else if( (strcmp(sym_str,"i3") == 0) || (strcmp(sym_str,"I3") == 0) ) {
             return I3();
@@ -311,43 +311,32 @@ protected:
         return group_generator({r4z, r4x});
     }
 
-    // Icosahedral rotation group I (order 60) — four RELION conventions.
-    // I2 matches the existing hardcoded table (C2 along X, Y, Z).
-    // Verify I1/I3/I4 against RELION's symmetry operators before use.
+    // Icosahedral groups (order 60), RELION settings: 2-, 5- and 3-fold axes from symmetries.cpp.
+    static std::vector<M33f> I_from_axes(const V3f&a2,const V3f&a5,const V3f&a3) {
+        M33f r2 = AngleAxisf(float(M_PI),         a2.normalized()).toRotationMatrix();
+        M33f r5 = AngleAxisf(2.0f*float(M_PI)/5.0f, a5.normalized()).toRotationMatrix();
+        M33f r3 = AngleAxisf(2.0f*float(M_PI)/3.0f, a3.normalized()).toRotationMatrix();
+        return group_generator({r2, r5, r3});
+    }
 
     static std::vector<M33f> I1() {
-        // 5-fold along Z, C2 along X
-        M33f r5 = AngleAxisf(2.0f*float(M_PI)/5.0f, V3f::UnitZ()).toRotationMatrix();
-        M33f r2 = AngleAxisf(float(M_PI), V3f::UnitX()).toRotationMatrix();
-        return group_generator({r5, r2});
+        return I_from_axes(V3f(1,0,0),V3f(0.85065080702670f,0,-0.5257311142635f),V3f(0.9341723640f,0.3568220765f,0));
     }
 
     static std::vector<M33f> I2() {
-        // C2 along X, Y, Z; 5-fold through (0, 1, phi).
-        // Matches existing hardcoded icosahedral() table.
-        const float phi = (1.0f + sqrtf(5.0f)) / 2.0f;
-        M33f r2 = AngleAxisf(float(M_PI), V3f::UnitZ()).toRotationMatrix();
-        M33f r5 = AngleAxisf(2.0f*float(M_PI)/5.0f, V3f(0.0f, 1.0f, phi).normalized()).toRotationMatrix();
-        return group_generator({r2, r5});
+        return I_from_axes(V3f(0,0,1),V3f(0.525731114f,0,0.850650807f),V3f(0,0.356822076f,0.934172364f));
     }
 
     static std::vector<M33f> I3() {
-        // 5-fold along Y, C2 along X
-        M33f r5 = AngleAxisf(2.0f*float(M_PI)/5.0f, V3f::UnitY()).toRotationMatrix();
-        M33f r2 = AngleAxisf(float(M_PI), V3f::UnitX()).toRotationMatrix();
-        return group_generator({r5, r2});
+        return I_from_axes(V3f(-0.5257311143f,0,0.8506508070f),V3f(0,0,1),V3f(-0.4911234778630044f,0.3568220764705179f,0.7946544753759428f));
     }
 
     static std::vector<M33f> I4() {
-        // C2 along Y; 5-fold through (phi, 0, 1)
-        const float phi = (1.0f + sqrtf(5.0f)) / 2.0f;
-        M33f r2 = AngleAxisf(float(M_PI), V3f::UnitY()).toRotationMatrix();
-        M33f r5 = AngleAxisf(2.0f*float(M_PI)/5.0f, V3f(phi, 0.0f, 1.0f).normalized()).toRotationMatrix();
-        return group_generator({r2, r5});
+        return I_from_axes(V3f(0.5257311143f,0,0.8506508070f),V3f(0.8944271932547096f,0,0.4472135909903704f),V3f(0.4911234778630044f,0.3568220764705179f,0.7946544753759428f));
     }
 
     static std::vector<M33f> icosahedral() {
-        return I2();
+        return I1();
     }
 };
 

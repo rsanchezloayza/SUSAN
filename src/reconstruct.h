@@ -182,6 +182,8 @@ protected:
             ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,working_bandpass,ptr->K,stream,use_max_res);
         if( ctf_type == INV_WIENER_LOGISTIC )
             ss_data.set_wiener(ptr->ctf_vals,ptr->g_def,working_bandpass,ptr->K,stream,use_max_res);
+        if( ctf_type == INV_PRE_WIENER )
+            ss_data.set_pre_wiener(ptr->ctf_vals,ptr->g_def,working_bandpass,ptr->K,stream,use_max_res);
     }
 
     void insert_vol(RecAcc&vol,RecSubstack&ss_data,RecBuffer*ptr,GPU::Stream&stream) {
@@ -362,8 +364,9 @@ protected:
 
     void crop_loop_ignore_ref(DoubleBufferHandler&stack_buffer,GPU::Stream&stream) {
         stack_buffer.WO_sync(EMPTY);
+        int n_cls = p_info->rec_halves ? R/2 : R;
         for(int i=worker_id;i<p_ptcls->n_ptcl;i+=p_info->n_threads) {
-            for(int r=0;r<R;r++) {
+            for(int r=0;r<n_cls;r++) {
                 RecBuffer*ptr = (RecBuffer*)stack_buffer.WO_get_buffer();
                 p_ptcls->get(ptr->ptcl,i);
                 if( check_reference(ptr,r) ) {
