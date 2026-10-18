@@ -234,11 +234,16 @@ public:
     }
 
     ~RecRdrWorker() {
+        free_accumulators();
+    }
+
+    void free_accumulators() {
         if( c_acc != NULL ) {
             for(int r=0;r<R;r++) {
                 delete [] c_acc[r];
             }
             delete [] c_acc;
+            c_acc = NULL;
         }
 
         if( c_wgt != NULL ) {
@@ -246,6 +251,7 @@ public:
                 delete [] c_wgt[r];
             }
             delete [] c_wgt;
+            c_wgt = NULL;
         }
     }
 
@@ -684,6 +690,7 @@ protected:
                 Math::sum(workers[0].c_acc[r],workers[i].c_acc[r],l);
                 Math::sum(workers[0].c_wgt[r],workers[i].c_wgt[r],l);
             }
+            workers[i].free_accumulators();
         }
     }
 

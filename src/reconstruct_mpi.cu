@@ -91,23 +91,23 @@ protected:
     }
 
     void reconstruct_results() {
-        double *tmp = new double[(size_t)2*MP*NP*NP];
-
+        bool is_main = mpi_iface->is_main_node();
         for(int r=0;r<R;r++) {
-            MPI_Reduce(workers[0].c_acc[r],tmp,2*MP*NP*NP,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-            if( mpi_iface->is_main_node() ) {
-                memcpy(workers[0].c_acc[r],tmp,sizeof(double)*2*MP*NP*NP);
+            if( is_main ) {
+                MPI_Reduce(MPI_IN_PLACE,workers[0].c_acc[r],2*MP*NP*NP,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+                MPI_Reduce(MPI_IN_PLACE,workers[0].c_wgt[r],  MP*NP*NP,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
             }
-
-            MPI_Reduce(workers[0].c_wgt[r],tmp,MP*NP*NP,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-            if( mpi_iface->is_main_node() ) {
-                memcpy(workers[0].c_wgt[r],tmp,sizeof(double)*MP*NP*NP);
+            else {
+                MPI_Reduce(workers[0].c_acc[r],NULL,2*MP*NP*NP,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+                MPI_Reduce(workers[0].c_wgt[r],NULL,  MP*NP*NP,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
             }
         }
-        delete [] tmp;
 
-        if( mpi_iface->is_main_node() ) {
+        if( is_main ) {
             RecPool::reconstruct_results();
+        }
+        else {
+            workers[0].free_accumulators();
         }
     }
 
