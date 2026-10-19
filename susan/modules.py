@@ -222,9 +222,14 @@ class Aligner(_BandpassFpix):
         ``{output}_{host}_{thread}.csv`` (``TID,PartID,RID,ProjID,ProjW,X,Y,CC``:
         per projection, the CC map of the orientation with the highest peak).
     dense_reduce : str
-        How the sub-voxel offset samples of a voxel are reduced in
-        ``'dense'`` 3-D output: ``'max'`` (the sample with the highest z) or
-        ``'mean'`` (cc and z averaged).  Default: ``'max'``.
+        How the offset samples of an output voxel are reduced in ``'dense'``
+        3-D output: ``'max'`` (the sample with the highest z) or ``'mean'``
+        (cc and z averaged).  Default: ``'max'``.
+    dense_bin : int
+        Binning of the ``'dense'`` 3-D output: the samples of b x b x b
+        voxels are reduced into one output voxel.  Block centres are moved to
+        the nearest multiple of ``dense_bin`` (the manifest holds the moved
+        centres).  Default: ``1``.
     dilate : float
         Tolerance, in pixels, to residual per-projection misalignment when
         scoring.  Each projection's CC map is replaced by its tapered maximum,
@@ -263,6 +268,7 @@ class Aligner(_BandpassFpix):
         self.verbosity         = 0
         self.output_type       = 'alignment'
         self.dense_reduce      = 'max'
+        self.dense_bin         = 1
         self.dilate            = 0
         self.dilate_radius     = 0
         
@@ -428,6 +434,7 @@ class Aligner(_BandpassFpix):
         args = args + ' -output '          + output
         args = args + ' -output_type '     + self.output_type
         args = args + ' -dense_reduce '    + self.dense_reduce
+        args = args + ' -dense_bin %d'     % self.dense_bin
         args = args + ' -refs_file '       + refs_file
         args = args + ' -n_threads %d'     % n_threads
         args = args + ' -gpu_list '        + gpu_str

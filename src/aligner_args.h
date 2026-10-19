@@ -79,6 +79,7 @@ typedef struct {
 
     uint32 output_type;
     uint32 dense_reduce;
+    int    dense_bin;
     
     int verbosity;
 } Info;
@@ -137,6 +138,10 @@ inline bool validate(const Info&info) {
         }
         if( info.ali_halves || info.ignore_ref ) {
             fprintf(stderr,"output_type dense does not support ali_halves or ignore_ref.\n");
+            rslt = false;
+        }
+        if( info.dense_bin < 1 ) {
+            fprintf(stderr,"Invalid dense_bin %d. It must be >= 1.\n",info.dense_bin);
             rslt = false;
         }
         if( info.type == 3 && info.off_space != TOMOGRAM_SPACE ) {
@@ -228,6 +233,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     strcpy(info.pseudo_sym,"c1");
     info.output_type  = ALI_OUTPUT_ALIGNMENT;
     info.dense_reduce = DENSE_REDUCE_MAX;
+    info.dense_bin    = 1;
 
     /// Parse inputs:
     enum {
@@ -264,6 +270,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         VERBOSITY,
         OUTPUT_TYPE,
         DENSE_REDUCE,
+        DENSE_BIN,
         TYPE
     };
 
@@ -274,6 +281,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"output",      1, 0, OUTPUT    },
         {"output_type", 1, 0, OUTPUT_TYPE},
         {"dense_reduce",1, 0, DENSE_REDUCE},
+        {"dense_bin",   1, 0, DENSE_BIN },
         {"refs_file",   1, 0, REFS_FILE },
         {"n_threads",   1, 0, N_THREADS },
         {"gpu_list",    1, 0, GPU_LIST  },
@@ -323,6 +331,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 if( strcmp(optarg,"max") == 0 ) info.dense_reduce = DENSE_REDUCE_MAX;
                 else if( strcmp(optarg,"mean") == 0 ) info.dense_reduce = DENSE_REDUCE_MEAN;
                 else { fprintf(stderr,"Invalid dense_reduce %s. Options are: max or mean.\n",optarg); exit(1); }
+                break;
+            case DENSE_BIN:
+                info.dense_bin = atoi(optarg);
                 break;
             case PTCLS_IN:
                 strcpy(info.ptcls_in,optarg);
@@ -486,7 +497,7 @@ inline void print_full(const Info&info,FILE*fp) {
     fprintf(fp,"\t\tTomograms file: %s.\n",info.tomo_file);
     fprintf(fp,"\t\tReference file: %s.\n",info.refs_file);
     if( info.output_type == ALI_OUTPUT_DENSE )
-        fprintf(fp,"\t\tOutput: dense, prefix %s (%s).\n",info.output,(info.type==3)?((info.dense_reduce==DENSE_REDUCE_MEAN)?"block volumes, mean reduction":"block volumes, max reduction"):"legacy 2D CSV");
+        fprintf(fp,"\t\tOutput: dense, prefix %s (%s, bin %d).\n",info.output,(info.type==3)?((info.dense_reduce==DENSE_REDUCE_MEAN)?"block volumes, mean reduction":"block volumes, max reduction"):"legacy 2D CSV",info.dense_bin);
     else
         fprintf(fp,"\t\tParticles out:  %s.\n",info.output);
 

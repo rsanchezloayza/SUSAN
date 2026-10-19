@@ -136,6 +136,7 @@ public:
     int         ali_type;
     int         output_type;
     int         dense_reduce;
+    int         dense_bin;
     const char *output;
 
     AliGpuWorker() {
@@ -182,7 +183,7 @@ protected:
 
         if( output_type == ALI_OUTPUT_DENSE ) {
             if( ali_type == 3 ) {
-                dense_vol.reset(new DenseVolumes(ali_data.c_pts,ali_data.n_pts,dense_reduce));
+                dense_vol.reset(new DenseVolumes(ali_data.c_pts,ali_data.n_pts,dense_reduce,dense_bin));
             }
             else {
                 csv_rep.reset(new CsvReporter(ali_data.c_pts,ali_data.n_pts,worker_id,output));
@@ -576,7 +577,7 @@ protected:
             }
         }
 
-        dense_vol->save(output,ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ctf_vals.apix,stream);
+        dense_vol->save(output,ptr->ptcl.tomo_id(),ptr->ptcl.ptcl_id(),ptr->tomo_pos_x,ptr->tomo_pos_y,ptr->tomo_pos_z,ptr->ctf_vals.apix,stream);
     }
 
     void angular_search_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
@@ -896,6 +897,7 @@ protected:
         gpu_worker.ali_type     = p_info->type;
         gpu_worker.output_type  = p_info->output_type;
         gpu_worker.dense_reduce = p_info->dense_reduce;
+        gpu_worker.dense_bin    = p_info->dense_bin;
         gpu_worker.output       = p_info->output;
         gpu_worker.dilate       = p_info->dilate;
         gpu_worker.dilate_radius = p_info->dilate_radius;
@@ -975,6 +977,8 @@ protected:
 
         pt_tomo = get_tomo_position(ptr->ptcl.pos(),ptr->ptcl.ali_t[ptr->class_ix],drift3D);
         pt_tomo = pt_tomo - p_tomo->tomo_position;
+        if( p_info->output_type == ALI_OUTPUT_DENSE && p_info->type == 3 )
+            DenseIO::snap_centre(pt_tomo,*p_tomo,p_info->dense_bin);
         ptr->set_tomo_pos(pt_tomo,p_tomo->tomo_center,p_tomo->pix_size);
 
         for(int k=0;k<ptr->K;k++) {

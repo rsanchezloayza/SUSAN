@@ -833,6 +833,9 @@ class Particles:
         Returns
         -------
         Particles
+            Sorted by (``tomo_id``, ``ptcl_id``), so its rows may not follow
+            the input order; ``ptcl_id`` maps each row back to its input
+            (with the default ``ptcls_id`` it is the input row index).
         """
         if ptcls_id is None:
             ptcls_id = _np.arange(tomos_id.shape[0])

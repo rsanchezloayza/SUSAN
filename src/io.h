@@ -62,6 +62,20 @@ void create_dir(const char*filename) {
         mkdir(filename, 0755);
 }
 
+/// mkdir -p of the folder part of a path prefix ("a/b/name" creates a/b).
+void create_prefix_dir(const char*prefix) {
+    char buffer[ SUSAN_FILENAME_LENGTH ];
+    strncpy(buffer,prefix,SUSAN_FILENAME_LENGTH-1);
+    buffer[SUSAN_FILENAME_LENGTH-1] = 0;
+    char*end = strrchr(buffer,'/');
+    if( end == NULL ) return;
+    *end = 0;
+    for(char*c=buffer+1;*c;c++) {
+        if( *c == '/' ) { *c = 0; create_dir(buffer); *c = '/'; }
+    }
+    create_dir(buffer);
+}
+
 void delete_dir(const char*filename) {
     if( exists(filename) )
         nftw(filename, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
