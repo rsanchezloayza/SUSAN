@@ -391,9 +391,12 @@ reaches half power at roughly <span class="math notranslate nohighlight">\(16 \c
 <dt class="sig sig-object py" id="susan.utils.datatypes.bandpass">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">susan.utils.datatypes.</span></span><span class="sig-name descname"><span class="pre">bandpass</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">highpass</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lowpass</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rolloff</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/datatypes.html#bandpass"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils.datatypes.bandpass" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Bandpass filter descriptor with cosine-decay edges.</p>
-<p>The filter is flat between <code class="docutils literal notranslate"><span class="pre">highpass</span></code> and <code class="docutils literal notranslate"><span class="pre">lowpass</span></code> and uses a
-cosine rolloff of width <code class="docutils literal notranslate"><span class="pre">rolloff</span></code> at both edges.</p>
+<p>Bandpass filter descriptor with cosine-decay edges, in Fourier pixels of the box.</p>
+<p>The weight is 1 from <code class="docutils literal notranslate"><span class="pre">highpass</span> <span class="pre">-</span> <span class="pre">rolloff/2</span></code> to <code class="docutils literal notranslate"><span class="pre">lowpass</span> <span class="pre">+</span> <span class="pre">rolloff/2</span></code>
+(the flat band extends <code class="docutils literal notranslate"><span class="pre">rolloff/2</span></code> beyond both cut-offs) and decays to 0
+with a half-cosine of width <code class="docutils literal notranslate"><span class="pre">sqrt(rolloff)</span></code> (at least 1 pixel) beyond
+that.  The aligner applies it squared.  Per projection, the lowpass is
+further limited by the CTF <code class="docutils literal notranslate"><span class="pre">max_res</span></code> when set.</p>
 <img alt="../_images/bandpass_def_light.svg" class="align-center only-light" src="../_images/bandpass_def_light.svg" />
 <img alt="../_images/bandpass_def_dark.svg" class="align-center only-dark" src="../_images/bandpass_def_dark.svg" />
 <p class="rubric">Attributes</p>
@@ -422,7 +425,8 @@ cosine rolloff of width <code class="docutils literal notranslate"><span class="
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.utils.datatypes.bandpass.rolloff">
 <span class="sig-name descname"><span class="pre">rolloff</span></span><a class="headerlink" href="#susan.utils.datatypes.bandpass.rolloff" title="Link to this definition">¶</a></dt>
-<dd><p>Width of the cosine taper at each edge, in Fourier pixels.</p>
+<dd><p>Rolloff <code class="docutils literal notranslate"><span class="pre">r</span></code>, in Fourier pixels: widens the flat band by <code class="docutils literal notranslate"><span class="pre">r/2</span></code> on
+each side and sets the cosine taper width to <code class="docutils literal notranslate"><span class="pre">sqrt(r)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -484,9 +488,8 @@ cosine rolloff of width <code class="docutils literal notranslate"><span class="
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.utils.datatypes.offset_params.step">
 <span class="sig-name descname"><span class="pre">step</span></span><a class="headerlink" href="#susan.utils.datatypes.offset_params.step" title="Link to this definition">¶</a></dt>
-<dd><p>Offset step size in pixels.  For 3-D searches defaults to 1 but
-also accepts sub-pixel values such as 0.5 or 0.25.  For 2-D
-searches it is fixed to 1.</p>
+<dd><p>Offset step size in pixels.  Defaults to 1 but also accepts
+sub-pixel values such as 0.5 or 0.25.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>

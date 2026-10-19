@@ -316,7 +316,10 @@
 <p>Each reference entry holds paths to four MRC files: the full map,
 a soft mask, and the two independent half-maps.  The half-maps are
 used for FSC-based resolution estimation and as N2N training pairs.</p>
-<p>File format: plain-text <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code>.</p>
+<p>File format: plain-text <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code>.  A listed path is used as given
+(absolute, or relative to the working directory) if it exists, otherwise
+relative to the folder of the <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> file.  The binaries stop with an
+error when a listed file is found in neither place.</p>
 <p class="rubric">Attributes</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Reference.ref">

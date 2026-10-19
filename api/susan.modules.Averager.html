@@ -311,7 +311,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="susan.modules.Averager">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">susan.modules.</span></span><span class="sig-name descname"><span class="pre">Averager</span></span><a class="reference internal" href="../_modules/susan/modules.html#Averager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Averager" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_BandpassFpix</span></code></p>
 <p>Map reconstruction (averaging) engine for subtomogram averaging.</p>
 <p>Wraps the <code class="docutils literal notranslate"><span class="pre">susan_reconstruct</span></code> binary.  Configure the attributes, then
 call <a class="reference internal" href="#susan.modules.Averager.reconstruct" title="susan.modules.Averager.reconstruct"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reconstruct()</span></code></a> (single-node) or <a class="reference internal" href="#susan.modules.Averager.reconstruct_mpi" title="susan.modules.Averager.reconstruct_mpi"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reconstruct_mpi()</span></code></a>
@@ -329,10 +329,12 @@ call <a class="reference internal" href="#susan.modules.Averager.reconstruct" ti
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.Averager.bandpass">
-<span class="sig-name descname"><span class="pre">bandpass</span></span><a class="headerlink" href="#susan.modules.Averager.bandpass" title="Link to this definition">¶</a></dt>
-<dd><p>Frequency bandpass applied during back-projection.
-Default: <code class="docutils literal notranslate"><span class="pre">bandpass(0,</span> <span class="pre">-1,</span> <span class="pre">2)</span></code> (full range, 2-pixel rolloff).</p>
+<dt class="sig sig-object py" id="susan.modules.Averager.bandpass_fpix">
+<span class="sig-name descname"><span class="pre">bandpass_fpix</span></span><a class="headerlink" href="#susan.modules.Averager.bandpass_fpix" title="Link to this definition">¶</a></dt>
+<dd><p>Bandpass in Fourier pixels of the box, applied during back-projection.  See
+<a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.bandpass" title="susan.utils.datatypes.bandpass"><code class="xref py py-class docutils literal notranslate"><span class="pre">bandpass</span></code></a> for the exact shape.  A
+lowpass &lt;= 0 means the full range.  <code class="docutils literal notranslate"><span class="pre">bandpass</span></code> is an alias.
+Default: <code class="docutils literal notranslate"><span class="pre">bandpass(0,</span> <span class="pre">-1,</span> <span class="pre">2)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.bandpass" title="susan.utils.datatypes.bandpass"><code class="xref py py-class docutils literal notranslate"><span class="pre">bandpass</span></code></a></p>
@@ -367,8 +369,9 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Averager.padding_type">
 <span class="sig-name descname"><span class="pre">padding_type</span></span><a class="headerlink" href="#susan.modules.Averager.padding_type" title="Link to this definition">¶</a></dt>
-<dd><p>Fill value for the padded region: <code class="docutils literal notranslate"><span class="pre">'zero'</span></code> or <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.
-Default: <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>.</p>
+<dd><p>Fill of the padded region and of the box pixels outside the stack
+frame or on its alignment fill: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code> (gaussian with the mean
+and std of the valid pixels) or <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -380,8 +383,13 @@ Default: <code class="docutils literal notranslate"><span class="pre">'zero'</sp
 <dt class="sig sig-object py" id="susan.modules.Averager.normalize_type">
 <span class="sig-name descname"><span class="pre">normalize_type</span></span><a class="headerlink" href="#susan.modules.Averager.normalize_type" title="Link to this definition">¶</a></dt>
 <dd><p>Per-substack normalisation.  One of <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'zero_mean'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code> and <code class="docutils literal notranslate"><span class="pre">'zero_mean_unit_var'</span></code>.
-Default: <code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>, <code class="docutils literal notranslate"><span class="pre">'zero_mean_unit_var'</span></code>, <code class="docutils literal notranslate"><span class="pre">'poisson_raw'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'poisson_normal'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>.
+<code class="docutils literal notranslate"><span class="pre">'poisson_raw'</span></code> (Anscombe transform) and <code class="docutils literal notranslate"><span class="pre">'poisson_normal'</span></code>
+(generalized Anscombe transform with the camera gain and offset
+estimated per projection) are experimental: only for stacks of
+detector counts or a linear scaling of them, not for dose-weighted,
+binned by averaging or interpolated stacks.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -712,7 +720,7 @@ etc.</p></li>
 <li><a class="reference internal" href="#">susan.modules.Averager</a><ul>
 <li><a class="reference internal" href="#susan.modules.Averager"><code class="docutils literal notranslate"><span class="pre">Averager</span></code></a><ul>
 <li><a class="reference internal" href="#susan.modules.Averager.list_gpus_ids"><code class="docutils literal notranslate"><span class="pre">Averager.list_gpus_ids</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.Averager.bandpass"><code class="docutils literal notranslate"><span class="pre">Averager.bandpass</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Averager.bandpass_fpix"><code class="docutils literal notranslate"><span class="pre">Averager.bandpass_fpix</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Averager.extra_padding"><code class="docutils literal notranslate"><span class="pre">Averager.extra_padding</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Averager.rec_halfsets"><code class="docutils literal notranslate"><span class="pre">Averager.rec_halfsets</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Averager.padding_type"><code class="docutils literal notranslate"><span class="pre">Averager.padding_type</span></code></a></li>

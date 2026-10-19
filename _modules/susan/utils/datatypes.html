@@ -383,10 +383,13 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.bandpass">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">bandpass</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Bandpass filter descriptor with cosine-decay edges.</span>
+<span class="w">    </span><span class="sd">"""Bandpass filter descriptor with cosine-decay edges, in Fourier pixels of the box.</span>
 
-<span class="sd">    The filter is flat between ``highpass`` and ``lowpass`` and uses a</span>
-<span class="sd">    cosine rolloff of width ``rolloff`` at both edges.</span>
+<span class="sd">    The weight is 1 from ``highpass - rolloff/2`` to ``lowpass + rolloff/2``</span>
+<span class="sd">    (the flat band extends ``rolloff/2`` beyond both cut-offs) and decays to 0</span>
+<span class="sd">    with a half-cosine of width ``sqrt(rolloff)`` (at least 1 pixel) beyond</span>
+<span class="sd">    that.  The aligner applies it squared.  Per projection, the lowpass is</span>
+<span class="sd">    further limited by the CTF ``max_res`` when set.</span>
 
 <span class="sd">    .. image:: ../images/bandpass_def_light.svg</span>
 <span class="sd">        :align: center</span>
@@ -405,7 +408,8 @@
 <span class="sd">    lowpass : float</span>
 <span class="sd">        Low-pass cutoff in Fourier pixels.</span>
 <span class="sd">    rolloff : float</span>
-<span class="sd">        Width of the cosine taper at each edge, in Fourier pixels.</span>
+<span class="sd">        Rolloff ``r``, in Fourier pixels: widens the flat band by ``r/2`` on</span>
+<span class="sd">        each side and sets the cosine taper width to ``sqrt(r)``.</span>
 <span class="sd">    """</span>
     <span class="n">highpass</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">lowpass</span><span class="p">:</span>  <span class="nb">float</span>
@@ -452,9 +456,8 @@
 <span class="sd">    span : list of float</span>
 <span class="sd">        Offset range in 3-D, ordered ``[X, Y, Z]``.</span>
 <span class="sd">    step : float</span>
-<span class="sd">        Offset step size in pixels.  For 3-D searches defaults to 1 but</span>
-<span class="sd">        also accepts sub-pixel values such as 0.5 or 0.25.  For 2-D</span>
-<span class="sd">        searches it is fixed to 1.</span>
+<span class="sd">        Offset step size in pixels.  Defaults to 1 but also accepts</span>
+<span class="sd">        sub-pixel values such as 0.5 or 0.25.</span>
 <span class="sd">    kind : str</span>
 <span class="sd">        Shape of the search volume.  Valid options for 3-D searches:</span>
 <span class="sd">        ``'ellipsoid'`` (default), ``'cylinder'``, ``'cuboid'``.</span>

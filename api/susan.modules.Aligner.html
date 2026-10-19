@@ -311,7 +311,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="susan.modules.Aligner">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">susan.modules.</span></span><span class="sig-name descname"><span class="pre">Aligner</span></span><a class="reference internal" href="../_modules/susan/modules.html#Aligner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_BandpassFpix</span></code></p>
 <p>Particle alignment engine for 3-D and 2-D subtomogram averaging.</p>
 <p>Wraps the <code class="docutils literal notranslate"><span class="pre">susan_aligner</span></code> binary.  Configure the attributes, then call
 <a class="reference internal" href="#susan.modules.Aligner.align" title="susan.modules.Aligner.align"><code class="xref py py-meth docutils literal notranslate"><span class="pre">align()</span></code></a> (single-node) or <a class="reference internal" href="#susan.modules.Aligner.align_mpi" title="susan.modules.Aligner.align_mpi"><code class="xref py py-meth docutils literal notranslate"><span class="pre">align_mpi()</span></code></a> (multi-node MPI).</p>
@@ -328,10 +328,12 @@
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.Aligner.bandpass">
-<span class="sig-name descname"><span class="pre">bandpass</span></span><a class="headerlink" href="#susan.modules.Aligner.bandpass" title="Link to this definition">¶</a></dt>
-<dd><p>Frequency bandpass applied to both particle and reference.
-Default: <code class="docutils literal notranslate"><span class="pre">bandpass(0,</span> <span class="pre">-1,</span> <span class="pre">2)</span></code> (full range, 2-pixel rolloff).</p>
+<dt class="sig sig-object py" id="susan.modules.Aligner.bandpass_fpix">
+<span class="sig-name descname"><span class="pre">bandpass_fpix</span></span><a class="headerlink" href="#susan.modules.Aligner.bandpass_fpix" title="Link to this definition">¶</a></dt>
+<dd><p>Bandpass in Fourier pixels of the box, applied to both particle and reference.  See
+<a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.bandpass" title="susan.utils.datatypes.bandpass"><code class="xref py py-class docutils literal notranslate"><span class="pre">bandpass</span></code></a> for the exact shape.  A
+lowpass &lt;= 0 means the full range.  <code class="docutils literal notranslate"><span class="pre">bandpass</span></code> is an alias.
+Default: <code class="docutils literal notranslate"><span class="pre">bandpass(0,</span> <span class="pre">-1,</span> <span class="pre">2)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.bandpass" title="susan.utils.datatypes.bandpass"><code class="xref py py-class docutils literal notranslate"><span class="pre">bandpass</span></code></a></p>
@@ -531,8 +533,9 @@ Default: <code class="docutils literal notranslate"><span class="pre">offset_par
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.padding_type">
 <span class="sig-name descname"><span class="pre">padding_type</span></span><a class="headerlink" href="#susan.modules.Aligner.padding_type" title="Link to this definition">¶</a></dt>
-<dd><p>Fill value for the padded region: <code class="docutils literal notranslate"><span class="pre">'zero'</span></code> or <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.
-Default: <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>.</p>
+<dd><p>Fill of the padded region and of the box pixels outside the stack
+frame or on its alignment fill: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code> (gaussian with the mean
+and std of the valid pixels) or <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -546,7 +549,12 @@ Default: <code class="docutils literal notranslate"><span class="pre">'zero'</sp
 <dd><p>Per-substack normalisation applied before correlation.  One of
 <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'zero_mean'</span></code>, <code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>,
 <code class="docutils literal notranslate"><span class="pre">'zero_mean_unit_var'</span></code>, <code class="docutils literal notranslate"><span class="pre">'poisson_raw'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'poisson_normal'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">'poisson_normal'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>.
+<code class="docutils literal notranslate"><span class="pre">'poisson_raw'</span></code> (Anscombe transform) and <code class="docutils literal notranslate"><span class="pre">'poisson_normal'</span></code>
+(generalized Anscombe transform with the camera gain and offset
+estimated per projection) are experimental: only for stacks of
+detector counts or a linear scaling of them, not for dose-weighted,
+binned by averaging or interpolated stacks.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -585,17 +593,10 @@ leaves the reference untouched.  Default: <code class="docutils literal notransl
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.cc_stats_type">
 <span class="sig-name descname"><span class="pre">cc_stats_type</span></span><a class="headerlink" href="#susan.modules.Aligner.cc_stats_type" title="Link to this definition">¶</a></dt>
-<dd><p>Post-CC statistics normalisation: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'probability'</span></code>, or
-<code class="docutils literal notranslate"><span class="pre">'sigma'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">'sigma'</span></code> scores each orientation by the prominence of its CC peak
-over the offset grid, then reports the z-score of the best orientation
-against all the others.  The per-orientation prominence needs at least
-3 offset points to be defined, so with <a class="reference internal" href="#susan.modules.Aligner.offset" title="susan.modules.Aligner.offset"><code class="xref py py-attr docutils literal notranslate"><span class="pre">offset</span></code></a> spans that yield
-1 or 2 points (notably <code class="docutils literal notranslate"><span class="pre">set_offset_search(0)</span></code>) it falls back to the
-raw peak CC; the across-orientation z-score is unaffected.  Note that
-prominence is amplitude-invariant by construction, and that it is a
-weak statistic on very small grids — a 7-point grid
-(<code class="docutils literal notranslate"><span class="pre">set_offset_search(1)</span></code>) gives it only 7 samples per orientation.</p>
+<dd><p>Post-CC statistics normalisation: <code class="docutils literal notranslate"><span class="pre">'none'</span></code> or <code class="docutils literal notranslate"><span class="pre">'sigma'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
+<p>The pose is always the one with the maximum CC.  <code class="docutils literal notranslate"><span class="pre">'sigma'</span></code> reports
+the z-score of that CC against the per-orientation maximum CCs of the
+first refinement level (negative values are set to 0).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -693,22 +694,22 @@ Default: <code class="docutils literal notranslate"><span class="pre">mpi_params
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.Aligner.tm_type">
-<span class="sig-name descname"><span class="pre">tm_type</span></span><a class="headerlink" href="#susan.modules.Aligner.tm_type" title="Link to this definition">¶</a></dt>
-<dd><p>Template-matching output mode.  When not <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, per-voxel
-cross-correlation statistics are written to disk for use by
-downstream template-matching workflows.  One of <code class="docutils literal notranslate"><span class="pre">'none'</span></code> or
-<code class="docutils literal notranslate"><span class="pre">'csv'</span></code>; <code class="docutils literal notranslate"><span class="pre">'matlab'</span></code> and <code class="docutils literal notranslate"><span class="pre">'python'</span></code> are deprecated aliases of
-<code class="docutils literal notranslate"><span class="pre">'csv'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
-<p>Requires <a class="reference internal" href="#susan.modules.Aligner.refine" title="susan.modules.Aligner.refine"><code class="xref py py-attr docutils literal notranslate"><span class="pre">refine</span></code></a> levels <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">0</span></code>: the report holds one peak per
-voxel, and angular refinement only refines the single best angle.</p>
-<p>In 3-D the CSV columns are <code class="docutils literal notranslate"><span class="pre">TID,PartID,RID,X,Y,Z,CC,CC_SIGMA,EU1,</span>
-<span class="pre">EU2,EU3,BlockID</span></code>.  <code class="docutils literal notranslate"><span class="pre">CC</span></code> is the maximum over the angular search,
-<code class="docutils literal notranslate"><span class="pre">CC_SIGMA</span></code> its z-score against that voxel’s own distribution over
-angles, and <code class="docutils literal notranslate"><span class="pre">EU1..EU3</span></code> the ZYZ Euler angles (radians, same
-convention as <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.ali_eu" title="susan.data.Particles.ali_eu"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ali_eu</span></code></a>) of the winning
-orientation.  <code class="docutils literal notranslate"><span class="pre">CC_SIGMA</span></code> can only be computed during the search,
-as the angular spread is not recoverable from the saved maximum.</p>
+<dt class="sig sig-object py" id="susan.modules.Aligner.output_type">
+<span class="sig-name descname"><span class="pre">output_type</span></span><a class="headerlink" href="#susan.modules.Aligner.output_type" title="Link to this definition">¶</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">'alignment'</span></code> (default): the aligned particles are written to the
+output file.  <code class="docutils literal notranslate"><span class="pre">'dense'</span></code>: no particles are written and no pose is
+updated; with <a class="reference internal" href="#susan.modules.Aligner.dimensionality" title="susan.modules.Aligner.dimensionality"><code class="xref py py-attr docutils literal notranslate"><span class="pre">dimensionality</span></code></a> 3 every particle is a block, and
+the search writes per block the volumes <code class="docutils literal notranslate"><span class="pre">{output}_b{ptcl_id:07d}_cc.mrc</span></code>
+(best CC over the orientations), <code class="docutils literal notranslate"><span class="pre">_z.mrc</span></code> (its z-score against the
+voxel’s own distribution over the orientations) and <code class="docutils literal notranslate"><span class="pre">_ang.mrc</span></code> (index
+into the angle table), NaN where not sampled, with the block corner in
+the MRC header; plus <code class="docutils literal notranslate"><span class="pre">{output}.json</span></code> with the run parameters, the
+angle table (SUSAN ZYZ, radians) and the blocks.  The pose of a voxel
+is R(ali_eu of its block) R(table[ang]).  Requires one reference,
+<a class="reference internal" href="#susan.modules.Aligner.refine" title="susan.modules.Aligner.refine"><code class="xref py py-attr docutils literal notranslate"><span class="pre">refine</span></code></a> levels <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">0</span></code> and <a class="reference internal" href="#susan.modules.Aligner.offset_space" title="susan.modules.Aligner.offset_space"><code class="xref py py-attr docutils literal notranslate"><span class="pre">offset_space</span></code></a> <code class="docutils literal notranslate"><span class="pre">'tomogram'</span></code>.
+With <a class="reference internal" href="#susan.modules.Aligner.dimensionality" title="susan.modules.Aligner.dimensionality"><code class="xref py py-attr docutils literal notranslate"><span class="pre">dimensionality</span></code></a> 2, <code class="docutils literal notranslate"><span class="pre">'dense'</span></code> writes the legacy CSV
+<code class="docutils literal notranslate"><span class="pre">{output}_{host}_{thread}.csv</span></code> (<code class="docutils literal notranslate"><span class="pre">TID,PartID,RID,ProjID,ProjW,X,Y,CC</span></code>:
+per projection, the CC map of the orientation with the highest peak).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -717,10 +718,11 @@ as the angular spread is not recoverable from the saved maximum.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.Aligner.tm_prefix">
-<span class="sig-name descname"><span class="pre">tm_prefix</span></span><a class="headerlink" href="#susan.modules.Aligner.tm_prefix" title="Link to this definition">¶</a></dt>
-<dd><p>Filename prefix for the template-matching output files (only used
-when <a class="reference internal" href="#susan.modules.Aligner.tm_type" title="susan.modules.Aligner.tm_type"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tm_type</span></code></a> ≠ <code class="docutils literal notranslate"><span class="pre">'none'</span></code>).  Default: <code class="docutils literal notranslate"><span class="pre">'template_matching'</span></code>.</p>
+<dt class="sig sig-object py" id="susan.modules.Aligner.dense_reduce">
+<span class="sig-name descname"><span class="pre">dense_reduce</span></span><a class="headerlink" href="#susan.modules.Aligner.dense_reduce" title="Link to this definition">¶</a></dt>
+<dd><p>How the offset samples of an output voxel are reduced in <code class="docutils literal notranslate"><span class="pre">'dense'</span></code>
+3-D output: <code class="docutils literal notranslate"><span class="pre">'max'</span></code> (the sample with the highest z) or <code class="docutils literal notranslate"><span class="pre">'mean'</span></code>
+(cc and z averaged).  Default: <code class="docutils literal notranslate"><span class="pre">'max'</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -729,15 +731,15 @@ when <a class="reference internal" href="#susan.modules.Aligner.tm_type" title="
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.Aligner.tm_sigma">
-<span class="sig-name descname"><span class="pre">tm_sigma</span></span><a class="headerlink" href="#susan.modules.Aligner.tm_sigma" title="Link to this definition">¶</a></dt>
-<dd><p>Threshold on <code class="docutils literal notranslate"><span class="pre">CC_SIGMA</span></code> below which voxels are discarded when
-saving template-matching output.  <code class="docutils literal notranslate"><span class="pre">0</span></code> keeps all values, which
-writes one row per searched voxel and is rarely practical for a full
-run.  3-D only.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dt class="sig sig-object py" id="susan.modules.Aligner.dense_bin">
+<span class="sig-name descname"><span class="pre">dense_bin</span></span><a class="headerlink" href="#susan.modules.Aligner.dense_bin" title="Link to this definition">¶</a></dt>
+<dd><p>Binning of the <code class="docutils literal notranslate"><span class="pre">'dense'</span></code> 3-D output: the samples of b x b x b
+voxels are reduced into one output voxel.  Block centres are moved to
+the nearest multiple of <code class="docutils literal notranslate"><span class="pre">dense_bin</span></code> (the manifest holds the moved
+centres).  Default: <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float</p>
+<dd class="field-odd"><p>int</p>
 </dd>
 </dl>
 </dd></dl>
@@ -746,9 +748,11 @@ run.  3-D only.  Default: <code class="docutils literal notranslate"><span class
 <dt class="sig sig-object py" id="susan.modules.Aligner.dilate">
 <span class="sig-name descname"><span class="pre">dilate</span></span><a class="headerlink" href="#susan.modules.Aligner.dilate" title="Link to this definition">¶</a></dt>
 <dd><p>Tolerance, in pixels, to residual per-projection misalignment when
-scoring.  Each projection’s CC map is replaced by a Gaussian-weighted
-maximum over its neighbourhood, with weight 0.5 at <code class="docutils literal notranslate"><span class="pre">dilate</span></code> pixels
-(sigma = dilate/sqrt(2 ln 2)).  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables it.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+scoring.  Each projection’s CC map is replaced by its tapered maximum,
+<code class="docutils literal notranslate"><span class="pre">max_d</span> <span class="pre">CC(x</span> <span class="pre">+</span> <span class="pre">d)</span> <span class="pre">exp(-|d|^2</span> <span class="pre">/</span> <span class="pre">(2</span> <span class="pre">sigma^2))</span></code>, <code class="docutils literal notranslate"><span class="pre">sigma</span> <span class="pre">=</span> <span class="pre">dilate/sqrt(2</span> <span class="pre">ln</span> <span class="pre">2)</span></code>,
+so a neighbour at <code class="docutils literal notranslate"><span class="pre">dilate</span></code> pixels counts with weight 0.5 (at 1.5:
+0.73 / 0.29 / 0.06 at 1 / 2 / 3 pixels).  It makes template matching
+tolerant to tilt-series misalignment.  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables it.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -757,24 +761,13 @@ maximum over its neighbourhood, with weight 0.5 at <code class="docutils literal
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.modules.Aligner.expfilt_gain">
-<span class="sig-name descname"><span class="pre">expfilt_gain</span></span><a class="headerlink" href="#susan.modules.Aligner.expfilt_gain" title="Link to this definition">¶</a></dt>
-<dd><p>Multiplicative gain applied to the dose estimated by the CC tracker
-(from the width of the cross-correlation peak) before it is written to
-the per-projection exposure filter
-(<a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.def_ExFl" title="susan.data.Particles.def_ExFl"><code class="xref py py-attr docutils literal notranslate"><span class="pre">def_ExFl</span></code></a>).  Useful for calibrating the
-auto-estimated dose-weighting against an external reference; see
-<code class="xref py py-func docutils literal notranslate"><span class="pre">susan.utils.dose_from_fsc()</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
-<p>Note that the aligner writes <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">*</span> <span class="pre">dose</span></code> on <strong>every</strong> run,
-so <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">=</span> <span class="pre">0</span></code> zeroes the field rather than preserving it, and
-a hand-set exposure filter cannot survive an alignment.  The exposure
-filter is <em>uncompensated</em> in the reconstruction (it enters the Wiener
-numerator only), so whatever gain is used here is baked permanently into
-the resulting map.  For an envelope the reconstruction will deconvolve,
-use <a class="reference internal" href="susan.data.Particles.html#susan.data.Particles.def_Bfct" title="susan.data.Particles.def_Bfct"><code class="xref py py-attr docutils literal notranslate"><span class="pre">def_Bfct</span></code></a> instead.  See <a class="reference internal" href="../cryoet.html"><span class="doc">CryoET Background</span></a>.</p>
+<dt class="sig sig-object py" id="susan.modules.Aligner.dilate_radius">
+<span class="sig-name descname"><span class="pre">dilate_radius</span></span><a class="headerlink" href="#susan.modules.Aligner.dilate_radius" title="Link to this definition">¶</a></dt>
+<dd><p>Half-size, in pixels, of the neighbourhood of <a class="reference internal" href="#susan.modules.Aligner.dilate" title="susan.modules.Aligner.dilate"><code class="xref py py-attr docutils literal notranslate"><span class="pre">dilate</span></code></a>.  <code class="docutils literal notranslate"><span class="pre">0</span></code>
+uses ceil(2 sigma).  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float</p>
+<dd class="field-odd"><p>int</p>
 </dd>
 </dl>
 </dd></dl>
@@ -831,12 +824,13 @@ axis.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.modules.Aligner.get_args">
-<span class="sig-name descname"><span class="pre">get_args</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ptcls_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.get_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.get_args" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_args</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.get_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.get_args" title="Link to this definition">¶</a></dt>
 <dd><p>Build the command-line argument string for <code class="docutils literal notranslate"><span class="pre">susan_aligner</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ptcls_out</strong> (<em>str</em>) – Path for the output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file with updated alignments.</p></li>
+<li><p><strong>output</strong> (<em>str</em>) – Output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file (<code class="docutils literal notranslate"><span class="pre">output_type='alignment'</span></code>) or prefix
+of the output files (<code class="docutils literal notranslate"><span class="pre">'dense'</span></code>).</p></li>
 <li><p><strong>refs_file</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> references file.</p></li>
 <li><p><strong>tomos_file</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code> tomograms file.</p></li>
 <li><p><strong>ptcls_in</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> particles file.</p></li>
@@ -855,12 +849,13 @@ axis.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.modules.Aligner.align">
-<span class="sig-name descname"><span class="pre">align</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ptcls_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.align"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.align" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">align</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.align"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.align" title="Link to this definition">¶</a></dt>
 <dd><p>Execute the alignment on a single node.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ptcls_out</strong> (<em>str</em>) – Path for the output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file.</p></li>
+<li><p><strong>output</strong> (<em>str</em>) – Output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file, or the prefix of the files for
+<code class="docutils literal notranslate"><span class="pre">output_type='dense'</span></code>.</p></li>
 <li><p><strong>refs_file</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> references file.</p></li>
 <li><p><strong>tomos_file</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code> tomograms file.</p></li>
 <li><p><strong>ptcls_in</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> particles file.</p></li>
@@ -875,13 +870,14 @@ axis.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.modules.Aligner.align_mpi">
-<span class="sig-name descname"><span class="pre">align_mpi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ptcls_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.align_mpi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.align_mpi" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">align_mpi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refs_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tomos_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptcls_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/modules.html#Aligner.align_mpi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.modules.Aligner.align_mpi" title="Link to this definition">¶</a></dt>
 <dd><p>Execute the alignment using MPI across multiple nodes.</p>
 <p>The MPI command is taken from <a class="reference internal" href="#susan.modules.Aligner.mpi" title="susan.modules.Aligner.mpi"><code class="xref py py-attr docutils literal notranslate"><span class="pre">mpi</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ptcls_out</strong> (<em>str</em>) – Path for the output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file.</p></li>
+<li><p><strong>output</strong> (<em>str</em>) – Output <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> file, or the prefix of the files for
+<code class="docutils literal notranslate"><span class="pre">output_type='dense'</span></code>.</p></li>
 <li><p><strong>refs_file</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.refstxt</span></code> references file.</p></li>
 <li><p><strong>tomos_file</strong> (<em>str</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">.tomostxt</span></code> tomograms file.</p></li>
 <li><p><strong>ptcls_in</strong> (<em>str</em>) – Path to the input <code class="docutils literal notranslate"><span class="pre">.ptclsraw</span></code> particles file.</p></li>
@@ -956,7 +952,7 @@ axis.</p></li>
 <li><a class="reference internal" href="#">susan.modules.Aligner</a><ul>
 <li><a class="reference internal" href="#susan.modules.Aligner"><code class="docutils literal notranslate"><span class="pre">Aligner</span></code></a><ul>
 <li><a class="reference internal" href="#susan.modules.Aligner.list_gpus_ids"><code class="docutils literal notranslate"><span class="pre">Aligner.list_gpus_ids</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.Aligner.bandpass"><code class="docutils literal notranslate"><span class="pre">Aligner.bandpass</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.bandpass_fpix"><code class="docutils literal notranslate"><span class="pre">Aligner.bandpass_fpix</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.dimensionality"><code class="docutils literal notranslate"><span class="pre">Aligner.dimensionality</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.extra_padding"><code class="docutils literal notranslate"><span class="pre">Aligner.extra_padding</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.allow_drift"><code class="docutils literal notranslate"><span class="pre">Aligner.allow_drift</span></code></a></li>
@@ -978,11 +974,11 @@ axis.</p></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.ssnr"><code class="docutils literal notranslate"><span class="pre">Aligner.ssnr</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.mpi"><code class="docutils literal notranslate"><span class="pre">Aligner.mpi</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.verbosity"><code class="docutils literal notranslate"><span class="pre">Aligner.verbosity</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.Aligner.tm_type"><code class="docutils literal notranslate"><span class="pre">Aligner.tm_type</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.Aligner.tm_prefix"><code class="docutils literal notranslate"><span class="pre">Aligner.tm_prefix</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.Aligner.tm_sigma"><code class="docutils literal notranslate"><span class="pre">Aligner.tm_sigma</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.output_type"><code class="docutils literal notranslate"><span class="pre">Aligner.output_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.dense_reduce"><code class="docutils literal notranslate"><span class="pre">Aligner.dense_reduce</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.dense_bin"><code class="docutils literal notranslate"><span class="pre">Aligner.dense_bin</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.dilate"><code class="docutils literal notranslate"><span class="pre">Aligner.dilate</span></code></a></li>
-<li><a class="reference internal" href="#susan.modules.Aligner.expfilt_gain"><code class="docutils literal notranslate"><span class="pre">Aligner.expfilt_gain</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.dilate_radius"><code class="docutils literal notranslate"><span class="pre">Aligner.dilate_radius</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.set_angular_search"><code class="docutils literal notranslate"><span class="pre">Aligner.set_angular_search()</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.set_offset_search"><code class="docutils literal notranslate"><span class="pre">Aligner.set_offset_search()</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.get_args"><code class="docutils literal notranslate"><span class="pre">Aligner.get_args()</span></code></a></li>

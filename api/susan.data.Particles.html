@@ -478,20 +478,6 @@ with <a class="reference internal" href="#susan.data.Particles.def_ExFl" title="
 is <em>not</em> compensated: it survives into the reconstructed map and
 permanently attenuates that projection.  Use this field for an envelope
 that the reconstruction should <em>keep</em>, such as dose weighting.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>This field is an <strong>output of the aligner</strong>, not a user input.  Every
-alignment overwrites it with <code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">*</span> <span class="pre">dose</span></code>, where the dose
-is estimated from the width of the cross-correlation peak.  Setting
-<code class="docutils literal notranslate"><span class="pre">expfilt_gain</span> <span class="pre">=</span> <span class="pre">0</span></code> writes zeros rather than preserving the field, so
-a hand-set value cannot survive an alignment; it is only meaningful
-between an alignment and a reconstruction.  For a user-owned envelope,
-use <a class="reference internal" href="#susan.data.Particles.def_Bfct" title="susan.data.Particles.def_Bfct"><code class="xref py py-attr docutils literal notranslate"><span class="pre">def_Bfct</span></code></a> instead.</p>
-<p>A value of <code class="docutils literal notranslate"><span class="pre">9999</span></code> is the sentinel written when the CC peak width
-cannot be measured.  It zeroes the projection’s contribution to the
-numerator while that projection still carries its full weight in the
-denominator.</p>
-</div>
 <p>Only the <code class="docutils literal notranslate"><span class="pre">'wiener'</span></code>, <code class="docutils literal notranslate"><span class="pre">'pre_wiener'</span></code> and <code class="docutils literal notranslate"><span class="pre">'wiener_ssnr'</span></code>
 reconstruction policies apply it; <code class="docutils literal notranslate"><span class="pre">'none'</span></code> and <code class="docutils literal notranslate"><span class="pre">'phase_flip'</span></code> ignore
 it.</p>
@@ -588,8 +574,13 @@ initialises defocus from the Tomograms metadata.</p>
 Default False.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="#susan.data.Particles" title="susan.data.Particles.Particles">Particles</a></p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Sorted by (<code class="docutils literal notranslate"><span class="pre">tomo_id</span></code>, <code class="docutils literal notranslate"><span class="pre">ptcl_id</span></code>), so its rows may not follow
+the input order; <code class="docutils literal notranslate"><span class="pre">ptcl_id</span></code> maps each row back to its input
+(with the default <code class="docutils literal notranslate"><span class="pre">ptcls_id</span></code> it is the input row index).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#susan.data.Particles" title="susan.data.Particles.Particles">Particles</a></p>
 </dd>
 </dl>
 </dd></dl>

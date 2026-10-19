@@ -328,9 +328,21 @@
 
 <span class="c1">###############################################################################</span>
 
+<span class="k">class</span><span class="w"> </span><span class="nc">_BandpassFpix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""``bandpass`` is an alias of ``bandpass_fpix`` (the bandpass in Fourier pixels)."""</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bandpass</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span>
+
+    <span class="nd">@bandpass</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bandpass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span> <span class="o">=</span> <span class="n">value</span>
+
+
 <div class="viewcode-block" id="Aligner">
 <a class="viewcode-back" href="../../api/susan.modules.Aligner.html#susan.modules.Aligner">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">Aligner</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Aligner</span><span class="p">(</span><span class="n">_BandpassFpix</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Particle alignment engine for 3-D and 2-D subtomogram averaging.</span>
 
 <span class="sd">    Wraps the ``susan_aligner`` binary.  Configure the attributes, then call</span>
@@ -342,9 +354,11 @@
 <span class="sd">    ----------</span>
 <span class="sd">    list_gpus_ids : list of int</span>
 <span class="sd">        GPU device IDs to use.  Default: ``[0]``.</span>
-<span class="sd">    bandpass : :class:`~susan.utils.datatypes.bandpass`</span>
-<span class="sd">        Frequency bandpass applied to both particle and reference.</span>
-<span class="sd">        Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).</span>
+<span class="sd">    bandpass_fpix : :class:`~susan.utils.datatypes.bandpass`</span>
+<span class="sd">        Bandpass in Fourier pixels of the box, applied to both particle and reference.  See</span>
+<span class="sd">        :class:`~susan.utils.datatypes.bandpass` for the exact shape.  A</span>
+<span class="sd">        lowpass &lt;= 0 means the full range.  ``bandpass`` is an alias.</span>
+<span class="sd">        Default: ``bandpass(0, -1, 2)``.</span>
 <span class="sd">    dimensionality : int</span>
 <span class="sd">        Alignment search space: ``3`` for full 3-D, ``2`` for in-plane only.</span>
 <span class="sd">        Default: ``3``.</span>
@@ -431,13 +445,19 @@
 <span class="sd">        Coordinate frame for the offset search: ``'reference'`` or</span>
 <span class="sd">        ``'tomogram'``.  Default: ``'reference'``.</span>
 <span class="sd">    padding_type : str</span>
-<span class="sd">        Fill value for the padded region: ``'zero'`` or ``'noise'``.</span>
-<span class="sd">        Default: ``'zero'``.</span>
+<span class="sd">        Fill of the padded region and of the box pixels outside the stack</span>
+<span class="sd">        frame or on its alignment fill: ``'noise'`` (gaussian with the mean</span>
+<span class="sd">        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation applied before correlation.  One of</span>
 <span class="sd">        ``'none'``, ``'zero_mean'``, ``'zero_mean_one_std'``,</span>
 <span class="sd">        ``'zero_mean_unit_var'``, ``'poisson_raw'``,</span>
 <span class="sd">        ``'poisson_normal'``.  Default: ``'zero_mean_one_std'``.</span>
+<span class="sd">        ``'poisson_raw'`` (Anscombe transform) and ``'poisson_normal'``</span>
+<span class="sd">        (generalized Anscombe transform with the camera gain and offset</span>
+<span class="sd">        estimated per projection) are experimental: only for stacks of</span>
+<span class="sd">        detector counts or a linear scaling of them, not for dose-weighted,</span>
+<span class="sd">        binned by averaging or interpolated stacks.</span>
 <span class="sd">    ctf_correction : str</span>
 <span class="sd">        CTF correction strategy.  One of ``'none'``, ``'phase_flip'``,</span>
 <span class="sd">        ``'on_reference'``, ``'on_substack'``, ``'wiener_ssnr'``.</span>
@@ -449,18 +469,11 @@
 <span class="sd">        3D reference map; ``'cfsc_substack'`` whitens only the substack and</span>
 <span class="sd">        leaves the reference untouched.  Default: ``'basic'``.</span>
 <span class="sd">    cc_stats_type : str</span>
-<span class="sd">        Post-CC statistics normalisation: ``'none'``, ``'probability'``, or</span>
-<span class="sd">        ``'sigma'``.  Default: ``'none'``.</span>
+<span class="sd">        Post-CC statistics normalisation: ``'none'`` or ``'sigma'``.  Default: ``'none'``.</span>
 
-<span class="sd">        ``'sigma'`` scores each orientation by the prominence of its CC peak</span>
-<span class="sd">        over the offset grid, then reports the z-score of the best orientation</span>
-<span class="sd">        against all the others.  The per-orientation prominence needs at least</span>
-<span class="sd">        3 offset points to be defined, so with :attr:`offset` spans that yield</span>
-<span class="sd">        1 or 2 points (notably ``set_offset_search(0)``) it falls back to the</span>
-<span class="sd">        raw peak CC; the across-orientation z-score is unaffected.  Note that</span>
-<span class="sd">        prominence is amplitude-invariant by construction, and that it is a</span>
-<span class="sd">        weak statistic on very small grids — a 7-point grid</span>
-<span class="sd">        (``set_offset_search(1)``) gives it only 7 samples per orientation.</span>
+<span class="sd">        The pose is always the one with the maximum CC.  ``'sigma'`` reports</span>
+<span class="sd">        the z-score of that CC against the per-orientation maximum CCs of the</span>
+<span class="sd">        first refinement level (negative values are set to 0).</span>
 <span class="sd">    pseudo_symmetry : str</span>
 <span class="sd">        Symmetry group applied to the angular search grid.  Default:</span>
 <span class="sd">        ``'c1'``.</span>
@@ -497,56 +510,45 @@
 <span class="sd">        Default: ``mpi_params('srun -n %d ', 1)``.</span>
 <span class="sd">    verbosity : int</span>
 <span class="sd">        Verbosity level passed to the binary (0 = silent).  Default: ``0``.</span>
-<span class="sd">    tm_type : str</span>
-<span class="sd">        Template-matching output mode.  When not ``'none'``, per-voxel</span>
-<span class="sd">        cross-correlation statistics are written to disk for use by</span>
-<span class="sd">        downstream template-matching workflows.  One of ``'none'`` or</span>
-<span class="sd">        ``'csv'``; ``'matlab'`` and ``'python'`` are deprecated aliases of</span>
-<span class="sd">        ``'csv'``.  Default: ``'none'``.</span>
-
-<span class="sd">        Requires :attr:`refine` levels ``= 0``: the report holds one peak per</span>
-<span class="sd">        voxel, and angular refinement only refines the single best angle.</span>
-
-<span class="sd">        In 3-D the CSV columns are ``TID,PartID,RID,X,Y,Z,CC,CC_SIGMA,EU1,</span>
-<span class="sd">        EU2,EU3,BlockID``.  ``CC`` is the maximum over the angular search,</span>
-<span class="sd">        ``CC_SIGMA`` its z-score against that voxel's own distribution over</span>
-<span class="sd">        angles, and ``EU1..EU3`` the ZYZ Euler angles (radians, same</span>
-<span class="sd">        convention as :attr:`~susan.data.Particles.ali_eu`) of the winning</span>
-<span class="sd">        orientation.  ``CC_SIGMA`` can only be computed during the search,</span>
-<span class="sd">        as the angular spread is not recoverable from the saved maximum.</span>
-<span class="sd">    tm_prefix : str</span>
-<span class="sd">        Filename prefix for the template-matching output files (only used</span>
-<span class="sd">        when :attr:`tm_type` ≠ ``'none'``).  Default: ``'template_matching'``.</span>
-<span class="sd">    tm_sigma : float</span>
-<span class="sd">        Threshold on ``CC_SIGMA`` below which voxels are discarded when</span>
-<span class="sd">        saving template-matching output.  ``0`` keeps all values, which</span>
-<span class="sd">        writes one row per searched voxel and is rarely practical for a full</span>
-<span class="sd">        run.  3-D only.  Default: ``0``.</span>
+<span class="sd">    output_type : str</span>
+<span class="sd">        ``'alignment'`` (default): the aligned particles are written to the</span>
+<span class="sd">        output file.  ``'dense'``: no particles are written and no pose is</span>
+<span class="sd">        updated; with :attr:`dimensionality` 3 every particle is a block, and</span>
+<span class="sd">        the search writes per block the volumes ``{output}_b{ptcl_id:07d}_cc.mrc``</span>
+<span class="sd">        (best CC over the orientations), ``_z.mrc`` (its z-score against the</span>
+<span class="sd">        voxel's own distribution over the orientations) and ``_ang.mrc`` (index</span>
+<span class="sd">        into the angle table), NaN where not sampled, with the block corner in</span>
+<span class="sd">        the MRC header; plus ``{output}.json`` with the run parameters, the</span>
+<span class="sd">        angle table (SUSAN ZYZ, radians) and the blocks.  The pose of a voxel</span>
+<span class="sd">        is R(ali_eu of its block) R(table[ang]).  Requires one reference,</span>
+<span class="sd">        :attr:`refine` levels ``= 0`` and :attr:`offset_space` ``'tomogram'``.</span>
+<span class="sd">        With :attr:`dimensionality` 2, ``'dense'`` writes the legacy CSV</span>
+<span class="sd">        ``{output}_{host}_{thread}.csv`` (``TID,PartID,RID,ProjID,ProjW,X,Y,CC``:</span>
+<span class="sd">        per projection, the CC map of the orientation with the highest peak).</span>
+<span class="sd">    dense_reduce : str</span>
+<span class="sd">        How the offset samples of an output voxel are reduced in ``'dense'``</span>
+<span class="sd">        3-D output: ``'max'`` (the sample with the highest z) or ``'mean'``</span>
+<span class="sd">        (cc and z averaged).  Default: ``'max'``.</span>
+<span class="sd">    dense_bin : int</span>
+<span class="sd">        Binning of the ``'dense'`` 3-D output: the samples of b x b x b</span>
+<span class="sd">        voxels are reduced into one output voxel.  Block centres are moved to</span>
+<span class="sd">        the nearest multiple of ``dense_bin`` (the manifest holds the moved</span>
+<span class="sd">        centres).  Default: ``1``.</span>
 <span class="sd">    dilate : float</span>
 <span class="sd">        Tolerance, in pixels, to residual per-projection misalignment when</span>
-<span class="sd">        scoring.  Each projection's CC map is replaced by a Gaussian-weighted</span>
-<span class="sd">        maximum over its neighbourhood, with weight 0.5 at ``dilate`` pixels</span>
-<span class="sd">        (sigma = dilate/sqrt(2 ln 2)).  ``0`` disables it.  Default: ``0``.</span>
-<span class="sd">    expfilt_gain : float</span>
-<span class="sd">        Multiplicative gain applied to the dose estimated by the CC tracker</span>
-<span class="sd">        (from the width of the cross-correlation peak) before it is written to</span>
-<span class="sd">        the per-projection exposure filter</span>
-<span class="sd">        (:attr:`~susan.data.Particles.def_ExFl`).  Useful for calibrating the</span>
-<span class="sd">        auto-estimated dose-weighting against an external reference; see</span>
-<span class="sd">        :func:`susan.utils.dose_from_fsc`.  Default: ``0`` (disabled).</span>
-
-<span class="sd">        Note that the aligner writes ``expfilt_gain * dose`` on **every** run,</span>
-<span class="sd">        so ``expfilt_gain = 0`` zeroes the field rather than preserving it, and</span>
-<span class="sd">        a hand-set exposure filter cannot survive an alignment.  The exposure</span>
-<span class="sd">        filter is *uncompensated* in the reconstruction (it enters the Wiener</span>
-<span class="sd">        numerator only), so whatever gain is used here is baked permanently into</span>
-<span class="sd">        the resulting map.  For an envelope the reconstruction will deconvolve,</span>
-<span class="sd">        use :attr:`~susan.data.Particles.def_Bfct` instead.  See :doc:`/cryoet`.</span>
+<span class="sd">        scoring.  Each projection's CC map is replaced by its tapered maximum,</span>
+<span class="sd">        ``max_d CC(x + d) exp(-|d|^2 / (2 sigma^2))``, ``sigma = dilate/sqrt(2 ln 2)``,</span>
+<span class="sd">        so a neighbour at ``dilate`` pixels counts with weight 0.5 (at 1.5:</span>
+<span class="sd">        0.73 / 0.29 / 0.06 at 1 / 2 / 3 pixels).  It makes template matching</span>
+<span class="sd">        tolerant to tilt-series misalignment.  ``0`` disables it.  Default: ``0``.</span>
+<span class="sd">    dilate_radius : int</span>
+<span class="sd">        Half-size, in pixels, of the neighbourhood of :attr:`dilate`.  ``0``</span>
+<span class="sd">        uses ceil(2 sigma).  Default: ``0``.</span>
 <span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span>          <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">bandpass</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span>     <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">bandpass</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dimensionality</span>    <span class="o">=</span> <span class="mi">3</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">extra_padding</span>     <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">allow_drift</span>       <span class="o">=</span> <span class="kc">True</span>
@@ -559,7 +561,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">offset_sigma</span>      <span class="o">=</span> <span class="mf">0.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">offset</span>            <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">offset_params</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">],</span><span class="mi">1</span><span class="p">,</span><span class="s1">'ellipsoid'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">offset_space</span>      <span class="o">=</span> <span class="s1">'reference'</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>      <span class="o">=</span> <span class="s1">'zero'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>      <span class="o">=</span> <span class="s1">'noise'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>    <span class="o">=</span> <span class="s1">'zero_mean_one_std'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">'on_reference'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cc_type</span>           <span class="o">=</span> <span class="s1">'basic'</span>
@@ -568,11 +570,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span>              <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">ssnr</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mf">0.001</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span>               <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">mpi_params</span><span class="p">(</span><span class="s1">'srun -n </span><span class="si">%d</span><span class="s1"> '</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>         <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">tm_type</span>           <span class="o">=</span> <span class="s2">"none"</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">tm_prefix</span>         <span class="o">=</span> <span class="s2">"template_matching"</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">tm_sigma</span>          <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span>       <span class="o">=</span> <span class="s1">'alignment'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense_reduce</span>      <span class="o">=</span> <span class="s1">'max'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense_bin</span>         <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dilate</span>            <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">expfilt_gain</span>      <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dilate_radius</span>     <span class="o">=</span> <span class="mi">0</span>
         
 <div class="viewcode-block" id="Aligner.set_angular_search">
 <a class="viewcode-back" href="../../api/susan.modules.Aligner.html#susan.modules.Aligner.set_angular_search">[docs]</a>
@@ -670,8 +672,20 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'basic'</span><span class="p">,</span><span class="s1">'cfsc'</span><span class="p">,</span><span class="s1">'cfsc_substack'</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid cc type. Only "basic", "cfsc" or "cfsc_substack" are valid'</span><span class="p">)</span>
         
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_stats_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'probability'</span><span class="p">,</span><span class="s1">'sigma'</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid cc statistic method. Only "none", "probability" or "sigma" are valid'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_stats_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'sigma'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid cc statistic method. Only "none" or "sigma" are valid'</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'alignment'</span><span class="p">,</span><span class="s1">'dense'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid output type. Only "alignment" or "dense" are valid'</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">dense_reduce</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'max'</span><span class="p">,</span><span class="s1">'mean'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid dense reduction. Only "max" or "mean" are valid'</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s1">'dense'</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">refine</span><span class="o">.</span><span class="n">levels</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'output_type "dense" requires refine levels = 0'</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dilate</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">dilate_radius</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dilate_radius</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dilate_radius</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'dilate must be &gt;= 0 and dilate_radius a non-negative integer'</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cone</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">inplane</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The steps values must be larger than 0'</span><span class="p">)</span>
@@ -699,13 +713,14 @@
 
 <div class="viewcode-block" id="Aligner.get_args">
 <a class="viewcode-back" href="../../api/susan.modules.Aligner.html#susan.modules.Aligner.get_args">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls_out</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Build the command-line argument string for ``susan_aligner``.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        ptcls_out : str</span>
-<span class="sd">            Path for the output ``.ptclsraw`` file with updated alignments.</span>
+<span class="sd">        output : str</span>
+<span class="sd">            Output ``.ptclsraw`` file (``output_type='alignment'``) or prefix</span>
+<span class="sd">            of the output files (``'dense'``).</span>
 <span class="sd">        refs_file : str</span>
 <span class="sd">            Path to the input ``.refstxt`` references file.</span>
 <span class="sd">        tomos_file : str</span>
@@ -722,13 +737,16 @@
 <span class="sd">            ``susan_aligner`` command.</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="p">(</span><span class="n">box_size</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="p">(</span><span class="n">box_size</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
         <span class="n">n_threads</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
         <span class="n">gpu_str</span>   <span class="o">=</span> <span class="n">_get_gpu_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span>        <span class="s1">' -tomos_file '</span>      <span class="o">+</span> <span class="n">tomos_file</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ptcls_in '</span>        <span class="o">+</span> <span class="n">ptcls_in</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ptcls_out '</span>       <span class="o">+</span> <span class="n">ptcls_out</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -output '</span>          <span class="o">+</span> <span class="n">output</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -output_type '</span>     <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -dense_reduce '</span>    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dense_reduce</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -dense_bin </span><span class="si">%d</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dense_bin</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -refs_file '</span>       <span class="o">+</span> <span class="n">refs_file</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -n_threads </span><span class="si">%d</span><span class="s1">'</span>     <span class="o">%</span> <span class="n">n_threads</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -gpu_list '</span>        <span class="o">+</span> <span class="n">gpu_str</span>
@@ -740,8 +758,8 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -norm_type '</span>       <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ctf_type '</span>        <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ssnr_param </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">F</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">S</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">rolloff</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">rolloff</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -p_symmetry '</span>      <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pseudo_symmetry</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ali_halves </span><span class="si">%d</span><span class="s1">'</span>    <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">halfsets_independ</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ignore_ref </span><span class="si">%d</span><span class="s1">'</span>    <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ignore_classes</span>
@@ -756,23 +774,21 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -off_space '</span>       <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset_space</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -type </span><span class="si">%d</span><span class="s1">'</span>          <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensionality</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -dilate </span><span class="si">%f</span><span class="s1">'</span>        <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dilate</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -dilate_radius </span><span class="si">%d</span><span class="s1">'</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dilate_radius</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -verbosity </span><span class="si">%d</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -tm_type '</span>         <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">tm_type</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -tm_prefix '</span>       <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">tm_prefix</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -tm_sigma </span><span class="si">%f</span><span class="s1">'</span>      <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">tm_sigma</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -expfilt_gain </span><span class="si">%f</span><span class="s1">'</span>  <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">expfilt_gain</span>
         <span class="k">return</span> <span class="n">args</span></div>
 
     
 <div class="viewcode-block" id="Aligner.align">
 <a class="viewcode-back" href="../../api/susan.modules.Aligner.html#susan.modules.Aligner.align">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">align</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls_out</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">align</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Execute the alignment on a single node.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        ptcls_out : str</span>
-<span class="sd">            Path for the output ``.ptclsraw`` file.</span>
+<span class="sd">        output : str</span>
+<span class="sd">            Output ``.ptclsraw`` file, or the prefix of the files for</span>
+<span class="sd">            ``output_type='dense'``.</span>
 <span class="sd">        refs_file : str</span>
 <span class="sd">            Path to the ``.refstxt`` references file.</span>
 <span class="sd">        tomos_file : str</span>
@@ -787,7 +803,7 @@
 <span class="sd">        RuntimeError</span>
 <span class="sd">            If the ``susan_aligner`` binary returns a non-zero exit code.</span>
 <span class="sd">        """</span>
-        <span class="n">cmd</span> <span class="o">=</span> <span class="s1">'susan_aligner '</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_args</span><span class="p">(</span><span class="n">ptcls_out</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="s1">'susan_aligner '</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_args</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">)</span>
         <span class="n">rslt</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">rslt</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">'Error executing the alignment: '</span> <span class="o">+</span> <span class="n">cmd</span><span class="p">)</span></div>
@@ -795,15 +811,16 @@
 
 <div class="viewcode-block" id="Aligner.align_mpi">
 <a class="viewcode-back" href="../../api/susan.modules.Aligner.html#susan.modules.Aligner.align_mpi">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">align_mpi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcls_out</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">align_mpi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Execute the alignment using MPI across multiple nodes.</span>
 
 <span class="sd">        The MPI command is taken from :attr:`mpi`.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        ptcls_out : str</span>
-<span class="sd">            Path for the output ``.ptclsraw`` file.</span>
+<span class="sd">        output : str</span>
+<span class="sd">            Output ``.ptclsraw`` file, or the prefix of the files for</span>
+<span class="sd">            ``output_type='dense'``.</span>
 <span class="sd">        refs_file : str</span>
 <span class="sd">            Path to the ``.refstxt`` references file.</span>
 <span class="sd">        tomos_file : str</span>
@@ -818,7 +835,7 @@
 <span class="sd">        RuntimeError</span>
 <span class="sd">            If the MPI binary returns a non-zero exit code.</span>
 <span class="sd">        """</span>
-        <span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">gen_cmd</span><span class="p">()</span> <span class="o">+</span> <span class="s1">' '</span> <span class="o">+</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span> <span class="o">+</span> <span class="s1">'/bin/susan_aligner_mpi '</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_args</span><span class="p">(</span><span class="n">ptcls_out</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">gen_cmd</span><span class="p">()</span> <span class="o">+</span> <span class="s1">' '</span> <span class="o">+</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span> <span class="o">+</span> <span class="s1">'/bin/susan_aligner_mpi '</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_args</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">refs_file</span><span class="p">,</span> <span class="n">tomos_file</span><span class="p">,</span> <span class="n">ptcls_in</span><span class="p">,</span> <span class="n">box_size</span><span class="p">)</span>
         <span class="n">rslt</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">rslt</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">'Error executing the alignment: '</span> <span class="o">+</span> <span class="n">cmd</span><span class="p">)</span></div>
@@ -829,7 +846,7 @@
 
 <div class="viewcode-block" id="Averager">
 <a class="viewcode-back" href="../../api/susan.modules.Averager.html#susan.modules.Averager">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">Averager</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Averager</span><span class="p">(</span><span class="n">_BandpassFpix</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Map reconstruction (averaging) engine for subtomogram averaging.</span>
 
 <span class="sd">    Wraps the ``susan_reconstruct`` binary.  Configure the attributes, then</span>
@@ -842,9 +859,11 @@
 <span class="sd">    ----------</span>
 <span class="sd">    list_gpus_ids : list of int</span>
 <span class="sd">        GPU device IDs to use.  Default: ``[0]``.</span>
-<span class="sd">    bandpass : :class:`~susan.utils.datatypes.bandpass`</span>
-<span class="sd">        Frequency bandpass applied during back-projection.</span>
-<span class="sd">        Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).</span>
+<span class="sd">    bandpass_fpix : :class:`~susan.utils.datatypes.bandpass`</span>
+<span class="sd">        Bandpass in Fourier pixels of the box, applied during back-projection.  See</span>
+<span class="sd">        :class:`~susan.utils.datatypes.bandpass` for the exact shape.  A</span>
+<span class="sd">        lowpass &lt;= 0 means the full range.  ``bandpass`` is an alias.</span>
+<span class="sd">        Default: ``bandpass(0, -1, 2)``.</span>
 <span class="sd">    extra_padding : int</span>
 <span class="sd">        Extra zero-padding (pixels) added on each side before FFT.</span>
 <span class="sd">        Default: ``0``.</span>
@@ -852,12 +871,18 @@
 <span class="sd">        If ``True``, reconstruct separate half-maps (needed for FSC).</span>
 <span class="sd">        Default: ``False``.</span>
 <span class="sd">    padding_type : str</span>
-<span class="sd">        Fill value for the padded region: ``'zero'`` or ``'noise'``.</span>
-<span class="sd">        Default: ``'zero'``.</span>
+<span class="sd">        Fill of the padded region and of the box pixels outside the stack</span>
+<span class="sd">        frame or on its alignment fill: ``'noise'`` (gaussian with the mean</span>
+<span class="sd">        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,</span>
-<span class="sd">        ``'zero_mean_one_std'`` and ``'zero_mean_unit_var'``.</span>
-<span class="sd">        Default: ``'zero_mean_one_std'``.</span>
+<span class="sd">        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'poisson_raw'``,</span>
+<span class="sd">        ``'poisson_normal'``.  Default: ``'zero_mean_one_std'``.</span>
+<span class="sd">        ``'poisson_raw'`` (Anscombe transform) and ``'poisson_normal'``</span>
+<span class="sd">        (generalized Anscombe transform with the camera gain and offset</span>
+<span class="sd">        estimated per projection) are experimental: only for stacks of</span>
+<span class="sd">        detector counts or a linear scaling of them, not for dose-weighted,</span>
+<span class="sd">        binned by averaging or interpolated stacks.</span>
 <span class="sd">    weighting_type : str</span>
 <span class="sd">        Particle weighting scheme.  One of ``'none'``, ``'particle'``,</span>
 <span class="sd">        ``'projection'``, ``'3DCC'``, ``'2DCC'``.  Default: ``'none'``.</span>
@@ -934,10 +959,10 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span>          <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">bandpass</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span>     <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">bandpass</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">extra_padding</span>     <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rec_halfsets</span>      <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>      <span class="o">=</span> <span class="s1">'zero'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>      <span class="o">=</span> <span class="s1">'noise'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>    <span class="o">=</span> <span class="s1">'zero_mean_one_std'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weighting_type</span>    <span class="o">=</span> <span class="s1">'none'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">'wiener'</span>
@@ -962,8 +987,8 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">splat_gain</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid splat gain. Must be 0 (disabled) or positive'</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'zero_mean'</span><span class="p">,</span><span class="s1">'zero_mean_one_std'</span><span class="p">,</span><span class="s1">'zero_mean_unit_var'</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'zero_mean'</span><span class="p">,</span><span class="s1">'zero_mean_one_std'</span><span class="p">,</span><span class="s1">'zero_mean_unit_var'</span><span class="p">,</span><span class="s1">'poisson_raw'</span><span class="p">,</span><span class="s1">'poisson_normal'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid'</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">weighting_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'particle'</span><span class="p">,</span><span class="s1">'projection'</span><span class="p">,</span><span class="s1">'3DCC'</span><span class="p">,</span><span class="s1">'2DCC'</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid weighting type. Only "none", "particle", "projection", "3DCC" or "2DCC" are valid'</span><span class="p">)</span>
@@ -995,8 +1020,8 @@
 <span class="sd">            ``susan_reconstruct`` command.</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="p">(</span><span class="n">box_size</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="p">(</span><span class="n">box_size</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
         <span class="n">n_threads</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
         <span class="n">gpu_str</span>   <span class="o">=</span> <span class="n">_get_gpu_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span>        <span class="s1">' -tomos_file '</span>      <span class="o">+</span> <span class="n">tomos_file</span>
@@ -1015,8 +1040,8 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ssnr_param </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">F</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">S</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -w_inv_iter </span><span class="si">%d</span><span class="s1">'</span>    <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">inversion</span><span class="o">.</span><span class="n">ite</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -w_inv_gstd </span><span class="si">%f</span><span class="s1">'</span>    <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">inversion</span><span class="o">.</span><span class="n">std</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">rolloff</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">rolloff</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -symmetry '</span>        <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rec_halves </span><span class="si">%d</span><span class="s1">'</span>    <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">rec_halfsets</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ignore_ref </span><span class="si">%d</span><span class="s1">'</span>    <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ignore_classes</span>
@@ -1087,7 +1112,7 @@
 
 <div class="viewcode-block" id="SubtomoRec">
 <a class="viewcode-back" href="../../api/susan.modules.SubtomoRec.html#susan.modules.SubtomoRec">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">SubtomoRec</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SubtomoRec</span><span class="p">(</span><span class="n">_BandpassFpix</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Subtomogram reconstruction engine.</span>
 
 <span class="sd">    Wraps the ``susan_rec_subtomos`` binary.  Each selected particle is</span>
@@ -1100,19 +1125,27 @@
 <span class="sd">    ----------</span>
 <span class="sd">    list_gpus_ids : list of int</span>
 <span class="sd">        GPU device IDs to use.  Default: ``[0]``.</span>
-<span class="sd">    bandpass : :class:`~susan.utils.datatypes.bandpass`</span>
-<span class="sd">        Frequency bandpass applied during back-projection.</span>
-<span class="sd">        Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).</span>
+<span class="sd">    bandpass_fpix : :class:`~susan.utils.datatypes.bandpass`</span>
+<span class="sd">        Bandpass in Fourier pixels of the box, applied during back-projection.  See</span>
+<span class="sd">        :class:`~susan.utils.datatypes.bandpass` for the exact shape.  A</span>
+<span class="sd">        lowpass &lt;= 0 means the full range.  ``bandpass`` is an alias.</span>
+<span class="sd">        Default: ``bandpass(0, -1, 2)``.</span>
 <span class="sd">    extra_padding : int</span>
 <span class="sd">        Extra zero-padding (pixels) added on each side before FFT.</span>
 <span class="sd">        Default: ``0``.</span>
 <span class="sd">    padding_type : str</span>
-<span class="sd">        Fill value for the padded region: ``'zero'`` or ``'noise'``.</span>
-<span class="sd">        Default: ``'zero'``.</span>
+<span class="sd">        Fill of the padded region and of the box pixels outside the stack</span>
+<span class="sd">        frame or on its alignment fill: ``'noise'`` (gaussian with the mean</span>
+<span class="sd">        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,</span>
-<span class="sd">        ``'zero_mean_one_std'`` and ``'zero_mean_unit_var'``.</span>
-<span class="sd">        Default: ``'none'``.</span>
+<span class="sd">        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'poisson_raw'``,</span>
+<span class="sd">        ``'poisson_normal'``.  Default: ``'none'``.</span>
+<span class="sd">        ``'poisson_raw'`` (Anscombe transform) and ``'poisson_normal'``</span>
+<span class="sd">        (generalized Anscombe transform with the camera gain and offset</span>
+<span class="sd">        estimated per projection) are experimental: only for stacks of</span>
+<span class="sd">        detector counts or a linear scaling of them, not for dose-weighted,</span>
+<span class="sd">        binned by averaging or interpolated stacks.</span>
 <span class="sd">    ctf_correction : str</span>
 <span class="sd">        CTF correction applied during back-projection.  One of ``'none'``,</span>
 <span class="sd">        ``'phase_flip'``, ``'wiener'``, ``'wiener_ssnr'``, ``'pre_wiener'``.</span>
@@ -1145,9 +1178,9 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>     <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span>          <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">bandpass</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span>     <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">bandpass</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">extra_padding</span>     <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>      <span class="o">=</span> <span class="s1">'zero'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>      <span class="o">=</span> <span class="s1">'noise'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>    <span class="o">=</span> <span class="s1">'none'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span>    <span class="o">=</span> <span class="s1">'phase_flip'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">format</span>            <span class="o">=</span> <span class="s1">'mrc'</span>
@@ -1164,8 +1197,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'zero'</span><span class="p">,</span><span class="s1">'noise'</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid padding type. Only "zero" or "noise" are valid'</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'zero_mean'</span><span class="p">,</span><span class="s1">'zero_mean_one_std'</span><span class="p">,</span><span class="s1">'zero_mean_unit_var'</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'zero_mean'</span><span class="p">,</span><span class="s1">'zero_mean_one_std'</span><span class="p">,</span><span class="s1">'zero_mean_unit_var'</span><span class="p">,</span><span class="s1">'poisson_raw'</span><span class="p">,</span><span class="s1">'poisson_normal'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid'</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'phase_flip'</span><span class="p">,</span><span class="s1">'wiener'</span><span class="p">,</span><span class="s1">'wiener_ssnr'</span><span class="p">,</span> <span class="s1">'pre_wiener'</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid ctf correction type. Only "none", "phase_flip", "wiener", "pre_wiener" or "wiener_ssnr" are valid'</span><span class="p">)</span>
@@ -1196,8 +1229,8 @@
 <span class="sd">            ``susan_rec_subtomos`` command.</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="n">box_size</span><span class="o">/</span><span class="mi">2</span><span class="o">-</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="n">box_size</span><span class="o">/</span><span class="mi">2</span><span class="o">-</span><span class="mi">1</span>
         <span class="n">n_threads</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
         <span class="n">gpu_str</span>   <span class="o">=</span> <span class="n">_get_gpu_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span>        <span class="s1">' -tomos_file '</span>      <span class="o">+</span> <span class="n">tomos_file</span>
@@ -1211,8 +1244,8 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -norm_type '</span>       <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ctf_type '</span>        <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctf_correction</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -format '</span>          <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">rolloff</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">rolloff</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ssnr_param </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">F</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">S</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -w_inv_iter </span><span class="si">%d</span><span class="s1">'</span>    <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">inversion</span><span class="o">.</span><span class="n">ite</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -w_inv_gstd </span><span class="si">%f</span><span class="s1">'</span>    <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">inversion</span><span class="o">.</span><span class="n">std</span>
@@ -1283,8 +1316,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">invert_contrast</span>   <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'zero_mean'</span><span class="p">,</span><span class="s1">'zero_mean_one_std'</span><span class="p">,</span><span class="s1">'zero_mean_unit_var'</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std" or "zero_mean_unit_var" are valid'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'zero_mean'</span><span class="p">,</span><span class="s1">'zero_mean_one_std'</span><span class="p">,</span><span class="s1">'zero_mean_unit_var'</span><span class="p">,</span><span class="s1">'poisson_raw'</span><span class="p">,</span><span class="s1">'poisson_normal'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid'</span><span class="p">)</span>
 
 <div class="viewcode-block" id="CropProjection.get_args">
 <a class="viewcode-back" href="../../api/susan.modules.CropProjection.html#susan.modules.CropProjection.get_args">[docs]</a>
@@ -1542,7 +1575,7 @@
 
 <div class="viewcode-block" id="CtfRefiner">
 <a class="viewcode-back" href="../../api/susan.modules.CtfRefiner.html#susan.modules.CtfRefiner">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">CtfRefiner</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CtfRefiner</span><span class="p">(</span><span class="n">_BandpassFpix</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Per-particle CTF refinement engine.</span>
 
 <span class="sd">    Wraps the ``susan_ctf_refiner`` binary.  Jointly refines defocus, tilt</span>
@@ -1556,19 +1589,27 @@
 <span class="sd">    ----------</span>
 <span class="sd">    list_gpus_ids : list of int</span>
 <span class="sd">        GPU device IDs to use.  Default: ``[0]``.</span>
-<span class="sd">    bandpass : :class:`~susan.utils.datatypes.bandpass`</span>
-<span class="sd">        Frequency bandpass applied during refinement.</span>
-<span class="sd">        Default: ``bandpass(0, -1, 2)`` (full range, 2-pixel rolloff).</span>
+<span class="sd">    bandpass_fpix : :class:`~susan.utils.datatypes.bandpass`</span>
+<span class="sd">        Bandpass in Fourier pixels of the box, applied during refinement.  See</span>
+<span class="sd">        :class:`~susan.utils.datatypes.bandpass` for the exact shape.  A</span>
+<span class="sd">        lowpass &lt;= 0 means the full range.  ``bandpass`` is an alias.</span>
+<span class="sd">        Default: ``bandpass(0, -1, 2)``.</span>
 <span class="sd">    extra_padding : int</span>
 <span class="sd">        Extra zero-padding (pixels) added on each side before FFT.</span>
 <span class="sd">        Default: ``0``.</span>
 <span class="sd">    padding_type : str</span>
-<span class="sd">        Fill value for the padded region: ``'zero'`` or ``'noise'``.</span>
-<span class="sd">        Default: ``'zero'``.</span>
+<span class="sd">        Fill of the padded region and of the box pixels outside the stack</span>
+<span class="sd">        frame or on its alignment fill: ``'noise'`` (gaussian with the mean</span>
+<span class="sd">        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,</span>
 <span class="sd">        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``,</span>
 <span class="sd">        ``'poisson_raw'``, ``'poisson_normal'``.</span>
+<span class="sd">        ``'poisson_raw'`` (Anscombe transform) and ``'poisson_normal'``</span>
+<span class="sd">        (generalized Anscombe transform with the camera gain and offset</span>
+<span class="sd">        estimated per projection) are experimental: only for stacks of</span>
+<span class="sd">        detector counts or a linear scaling of them, not for dose-weighted,</span>
+<span class="sd">        binned by averaging or interpolated stacks.</span>
 <span class="sd">        Default: ``'zero_mean_one_std'``.</span>
 <span class="sd">    cc_type : str</span>
 <span class="sd">        Cross-correlation variant used for scoring: ``'basic'``, ``'cfsc'``</span>
@@ -1640,9 +1681,9 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span>      <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span>           <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">bandpass</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span>      <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">bandpass</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">extra_padding</span>      <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>       <span class="o">=</span> <span class="s1">'zero'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">padding_type</span>       <span class="o">=</span> <span class="s1">'noise'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>     <span class="o">=</span> <span class="s1">'zero_mean_one_std'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cc_type</span>            <span class="o">=</span> <span class="s1">'cfsc_substack'</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">halfsets_independ</span>  <span class="o">=</span> <span class="kc">False</span>
@@ -1744,8 +1785,8 @@
 <span class="sd">            ``susan_ctf_refiner`` command.</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="p">(</span><span class="n">box_size</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span> <span class="o">=</span> <span class="p">(</span><span class="n">box_size</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
         <span class="n">n_threads</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
         <span class="n">gpu_str</span>   <span class="o">=</span> <span class="n">_get_gpu_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_gpus_ids</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span>        <span class="s1">' -tomos_file '</span>      <span class="o">+</span> <span class="n">tomos_file</span>
@@ -1760,8 +1801,8 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -norm_type '</span>       <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_type</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -cc_type '</span>         <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_type</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ssnr_param </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">F</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">ssnr</span><span class="o">.</span><span class="n">S</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass</span><span class="o">.</span><span class="n">rolloff</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -bandpass </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>   <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">highpass</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">lowpass</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -rolloff_f </span><span class="si">%f</span><span class="s1">'</span>     <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bandpass_fpix</span><span class="o">.</span><span class="n">rolloff</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -def_search </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">span</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -ang_search </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">angles</span><span class="o">.</span><span class="n">span</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">angles</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -phase_shift_search </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="n">_math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_shift_deg</span><span class="o">.</span><span class="n">span</span><span class="p">),</span><span class="n">_math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_shift_deg</span><span class="o">.</span><span class="n">step</span><span class="p">))</span>

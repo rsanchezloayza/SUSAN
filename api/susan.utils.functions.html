@@ -318,11 +318,7 @@ Gaussian envelope, so fitting ln(FSC) vs s² gives slope = −dose/4, and:</p>
 <blockquote>
 <div><p>dose = −4 · d(ln FSC)/d(s²)</p>
 </div></blockquote>
-<p>This can be compared to the mean of <code class="docutils literal notranslate"><span class="pre">ptcls.def_ExFl</span></code> (excluding failures
-marked as 9999) to calibrate <code class="docutils literal notranslate"><span class="pre">aligner.expfilt_gain</span></code>:</p>
-<blockquote>
-<div><p>expfilt_gain = dose_from_fsc(fsc, apix) / mean_estimated_dose</p>
-</div></blockquote>
+<p>The result can be used to set <code class="docutils literal notranslate"><span class="pre">ptcls.def_ExFl</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

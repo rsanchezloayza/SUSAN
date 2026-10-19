@@ -318,6 +318,7 @@
 <span class="c1"># along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span>
 <span class="c1">###########################################################################</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">susan.utils.txt_parser</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_prsr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_extension</span> <span class="k">as</span> <span class="n">_is_ext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">force_extension</span> <span class="k">as</span> <span class="n">_force_ext</span>
@@ -331,7 +332,10 @@
 <span class="sd">    a soft mask, and the two independent half-maps.  The half-maps are</span>
 <span class="sd">    used for FSC-based resolution estimation and as N2N training pairs.</span>
 
-<span class="sd">    File format: plain-text ``.refstxt``.</span>
+<span class="sd">    File format: plain-text ``.refstxt``.  A listed path is used as given</span>
+<span class="sd">    (absolute, or relative to the working directory) if it exists, otherwise</span>
+<span class="sd">    relative to the folder of the ``.refstxt`` file.  The binaries stop with an</span>
+<span class="sd">    error when a listed file is found in neither place.</span>
 
 <span class="sd">    .. rubric:: Attributes</span>
 
@@ -369,14 +373,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="nb">str</span><span class="p">):</span>
+            <span class="n">base_dir</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">'.'</span>
             <span class="n">fp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s2">"rb"</span><span class="p">)</span>
             <span class="n">num_refs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_prsr</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">fp</span><span class="p">)[</span><span class="s1">'num_ref'</span><span class="p">])</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_refs</span><span class="p">):</span>
                 <span class="n">args</span> <span class="o">=</span> <span class="n">_prsr</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'map'</span> <span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'mask'</span><span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">args</span><span class="p">[</span><span class="s1">'h1'</span>  <span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">args</span><span class="p">[</span><span class="s1">'h2'</span>  <span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Reference</span><span class="o">.</span><span class="n">_resolve_path</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'map'</span> <span class="p">],</span><span class="n">base_dir</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">msk</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Reference</span><span class="o">.</span><span class="n">_resolve_path</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'mask'</span><span class="p">],</span><span class="n">base_dir</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">h1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">Reference</span><span class="o">.</span><span class="n">_resolve_path</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'h1'</span>  <span class="p">],</span><span class="n">base_dir</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">h2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">Reference</span><span class="o">.</span><span class="n">_resolve_path</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s1">'h2'</span>  <span class="p">],</span><span class="n">base_dir</span><span class="p">))</span>
         <span class="k">elif</span><span class="p">(</span> <span class="n">n_refs</span><span class="o">&gt;</span><span class="mi">0</span> <span class="p">):</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_refs</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">ref</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span>
@@ -390,6 +395,15 @@
     
     <span class="n">n_refs</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">get_n_refs</span><span class="p">)</span>
     
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_path</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">base_dir</span><span class="p">):</span>
+        <span class="c1"># As given (absolute, or relative to the working directory) if it exists,</span>
+        <span class="c1"># otherwise relative to base_dir (the folder of the refstxt file).</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span> <span class="ow">or</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">path</span>
+        <span class="n">candidate</span> <span class="o">=</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_dir</span><span class="p">,</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">candidate</span> <span class="k">if</span> <span class="n">_os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span> <span class="k">else</span> <span class="n">path</span>
+
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'refstxt'</span><span class="p">):</span>

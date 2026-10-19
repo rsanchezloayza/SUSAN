@@ -493,21 +493,6 @@
 <span class="sd">       permanently attenuates that projection.  Use this field for an envelope</span>
 <span class="sd">       that the reconstruction should *keep*, such as dose weighting.</span>
 
-<span class="sd">       .. warning::</span>
-
-<span class="sd">          This field is an **output of the aligner**, not a user input.  Every</span>
-<span class="sd">          alignment overwrites it with ``expfilt_gain * dose``, where the dose</span>
-<span class="sd">          is estimated from the width of the cross-correlation peak.  Setting</span>
-<span class="sd">          ``expfilt_gain = 0`` writes zeros rather than preserving the field, so</span>
-<span class="sd">          a hand-set value cannot survive an alignment; it is only meaningful</span>
-<span class="sd">          between an alignment and a reconstruction.  For a user-owned envelope,</span>
-<span class="sd">          use :attr:`def_Bfct` instead.</span>
-
-<span class="sd">          A value of ``9999`` is the sentinel written when the CC peak width</span>
-<span class="sd">          cannot be measured.  It zeroes the projection's contribution to the</span>
-<span class="sd">          numerator while that projection still carries its full weight in the</span>
-<span class="sd">          denominator.</span>
-
 <span class="sd">       Only the ``'wiener'``, ``'pre_wiener'`` and ``'wiener_ssnr'``</span>
 <span class="sd">       reconstruction policies apply it; ``'none'`` and ``'phase_flip'`` ignore</span>
 <span class="sd">       it.</span>
@@ -1202,6 +1187,9 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Particles</span>
+<span class="sd">            Sorted by (``tomo_id``, ``ptcl_id``), so its rows may not follow</span>
+<span class="sd">            the input order; ``ptcl_id`` maps each row back to its input</span>
+<span class="sd">            (with the default ``ptcls_id`` it is the input row index).</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="n">ptcls_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ptcls_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">tomos_id</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
@@ -1288,13 +1276,16 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">export_artiax</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tomograms</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">tomo_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
                       <span class="n">save_extra1</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">extra1_name</span><span class="o">=</span><span class="s1">'extra_1'</span><span class="p">,</span>
-                      <span class="n">save_extra2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">extra2_name</span><span class="o">=</span><span class="s1">'extra_2'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                      <span class="n">save_extra2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">extra2_name</span><span class="o">=</span><span class="s1">'extra_2'</span><span class="p">,</span>
+                      <span class="n">scale_to_tomo</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Export one tomogram's particles as an ArtiaX *Generic Particle List*.</span>
 
 <span class="sd">        The file is the tab-separated ``.tsv`` list read by the ArtiaX plugin</span>
 <span class="sd">        for ChimeraX (also loadable as a Dynamo table, which uses the same</span>
 <span class="sd">        angular convention).  One file describes one tomogram, because the</span>
-<span class="sd">        positions are voxel coordinates of that tomogram.</span>
+<span class="sd">        positions are coordinates of that tomogram, measured from its corner:</span>
+<span class="sd">        in angstroms (default, what ArtiaX expects), or in voxels of the</span>
+<span class="sd">        tomogram with ``scale_to_tomo=True``.</span>
 
 <span class="sd">        Angles are converted from SUSAN's ZYZ (``R = Rz(α)·Ry(β)·Rz(γ)``,</span>
 <span class="sd">        radians) to ArtiaX's ZXZ (``M = Rz(psi)·Rx(the)·Rz(phi)``, degrees).</span>
@@ -1323,8 +1314,9 @@
 <span class="sd">        The alignment shift is folded into ``pos_*`` (as in</span>
 <span class="sd">        :meth:`export_positions`) and the ``shift_*`` columns are zero, so the</span>
 <span class="sd">        result does not depend on the *translation* pixel size set in ArtiaX.</span>
-<span class="sd">        Set the *origin* pixel size in ArtiaX to the tomogram's pixel size,</span>
-<span class="sd">        printed by this method.</span>
+<span class="sd">        Set the *origin* pixel size in ArtiaX to 1 (angstroms, default) or to</span>
+<span class="sd">        the tomogram's pixel size (voxels, ``scale_to_tomo=True``); this method</span>
+<span class="sd">        prints which.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1345,6 +1337,10 @@
 <span class="sd">            Column names for those fields.  Defaults ``'extra_1'`` and</span>
 <span class="sd">            ``'extra_2'``, which :meth:`import_artiax` reads without further</span>
 <span class="sd">            configuration; pass any other name back to it explicitly.</span>
+<span class="sd">        scale_to_tomo : bool, optional</span>
+<span class="sd">            Write the positions in voxels of the tomogram instead of angstroms</span>
+<span class="sd">            (angstroms = voxels from the corner times the tomogram's pixel</span>
+<span class="sd">            size).  Default False (angstroms).</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -1384,8 +1380,10 @@
 
         <span class="n">apix</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tomograms</span><span class="o">.</span><span class="n">pix_size</span><span class="p">[</span><span class="n">tomograms</span><span class="o">.</span><span class="n">get_cix</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)])</span>
 
-        <span class="c1"># Angstroms from the tomogram centre -&gt; voxels from its corner.</span>
+        <span class="c1"># Angstroms from the tomogram centre -&gt; voxels from its corner (-&gt; angstroms).</span>
         <span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">export_positions</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="n">ref_cix</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">scale_to_tomo</span><span class="p">:</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="o">*</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">apix</span><span class="p">)</span>
 
         <span class="n">eu</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">rad2deg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,</span><span class="n">mask</span><span class="p">,:])</span>
         <span class="n">wrap</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="p">((</span><span class="n">a</span> <span class="o">+</span> <span class="mf">180.0</span><span class="p">)</span> <span class="o">%</span> <span class="mf">360.0</span><span class="p">)</span> <span class="o">-</span> <span class="mf">180.0</span>
@@ -1420,11 +1418,15 @@
               <span class="o">%</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">filename</span><span class="p">))</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extras</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s1">'  Extra columns: '</span> <span class="o">+</span> <span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">_</span> <span class="ow">in</span> <span class="n">extras</span><span class="p">)</span> <span class="o">+</span> <span class="s1">'.'</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">'  In ArtiaX, set the origin pixel size to </span><span class="si">%.3f</span><span class="s1"> angstroms.'</span><span class="o">%</span><span class="n">apix</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scale_to_tomo</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'  Positions in voxels: in ArtiaX, set the origin pixel size to </span><span class="si">%.3f</span><span class="s1"> angstroms.'</span><span class="o">%</span><span class="n">apix</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">'  Positions in angstroms: in ArtiaX, set the origin pixel size to 1.'</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">import_artiax</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">tomo_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                      <span class="n">extra1_name</span><span class="o">=</span><span class="s1">'extra_1'</span><span class="p">,</span> <span class="n">extra2_name</span><span class="o">=</span><span class="s1">'extra_2'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
+                      <span class="n">extra1_name</span><span class="o">=</span><span class="s1">'extra_1'</span><span class="p">,</span> <span class="n">extra2_name</span><span class="o">=</span><span class="s1">'extra_2'</span><span class="p">,</span>
+                      <span class="n">scale_to_tomo</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Create a Particles object from an ArtiaX *Generic Particle List*.</span>
 
 <span class="sd">        Inverse of :meth:`export_artiax`.  Reads the tab-separated ``.tsv``</span>
@@ -1441,10 +1443,12 @@
 <span class="sd">        using ``(α, β, γ) ≡ (α+π, -β, γ+π)``, so lists produced by other tools</span>
 <span class="sd">        are handled too.</span>
 
-<span class="sd">        The positions are read as ``pos_* + shift_*``, which assumes the two</span>
-<span class="sd">        pixel sizes in ArtiaX were both set to the tomogram's pixel size (the</span>
-<span class="sd">        files written by :meth:`export_artiax` carry zero shifts, so this is</span>
-<span class="sd">        automatic for a round trip).</span>
+<span class="sd">        The positions are read as ``pos_* + shift_*``, measured from the</span>
+<span class="sd">        tomogram corner, in angstroms (default) or, with ``scale_to_tomo=True``,</span>
+<span class="sd">        in voxels of the tomogram.  This assumes the two</span>
+<span class="sd">        pixel sizes in ArtiaX were set alike (the files written by</span>
+<span class="sd">        :meth:`export_artiax` carry zero shifts, so this is automatic for a</span>
+<span class="sd">        round trip with the same ``scale_to_tomo``).</span>
 
 <span class="sd">        The optional columns ``cc``, ``half_id``, ``class`` and ``tomo_id`` are</span>
 <span class="sd">        read when present.  Particles picked inside ArtiaX carry zeros in all</span>
@@ -1473,6 +1477,9 @@
 <span class="sd">            ``'extra_1'`` and ``'extra_2'``, matching :meth:`export_artiax`;</span>
 <span class="sd">            pass the names used there if they were customised.  Missing columns</span>
 <span class="sd">            are ignored.</span>
+<span class="sd">        scale_to_tomo : bool, optional</span>
+<span class="sd">            The positions in the file are in voxels of the tomogram, not</span>
+<span class="sd">            angstroms.  Default False (angstroms).</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1544,6 +1551,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">tomograms</span><span class="o">.</span><span class="n">has_tomo</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'tomo_id </span><span class="si">%d</span><span class="s1"> not found in the tomograms.'</span><span class="o">%</span><span class="n">tomo_id</span><span class="p">)</span>
         <span class="n">tomos_id</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">N</span><span class="p">,</span><span class="n">tomo_id</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">scale_to_tomo</span><span class="p">:</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="o">/</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="n">tomograms</span><span class="o">.</span><span class="n">pix_size</span><span class="p">[</span><span class="n">tomograms</span><span class="o">.</span><span class="n">get_cix</span><span class="p">(</span><span class="n">tomo_id</span><span class="p">)])</span>
 
         <span class="n">ptcls</span> <span class="o">=</span> <span class="n">Particles</span><span class="o">.</span><span class="n">import_data</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="n">pos</span><span class="p">,</span><span class="n">tomos_id</span><span class="p">,</span>
                                       <span class="n">ptcls_id</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">))</span>
