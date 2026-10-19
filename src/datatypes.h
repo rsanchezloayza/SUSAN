@@ -212,6 +212,8 @@ typedef enum {
 #define GAT_TILE            32
 #define GAT_MAX_TILES       256
 #define GAT_MIN_TILES       16
+#define GAT_RAW_A_TOL       0.25f
+#define GAT_RAW_B_TOL       1.0f
 /// Tuned when the splat support was a fixed 5x5x5 capped at sigma_t 1.0. The kernel now widens
 /// to 1.5 where a projection's max_res is tight, so the weight volume it produces is broader
 /// there and this default is likely to be low for aggressive max_res. Re-tune before trusting

@@ -91,7 +91,7 @@ public:
                 p_stats[k].gat_b = gat_b[k];
             }
         }
-        else if( fabsf(med_a-1) > 0.25f || fabsf(med_b) > 1.0f ) {
+        else if( fabsf(med_a-1) > GAT_RAW_A_TOL || fabsf(med_b) > GAT_RAW_B_TOL ) {
             fprintf(stderr," TomoID %d: the stack does not look like raw counts (a=%.3f, b=%.3f); consider poisson_normal.\n",tomo_id,med_a,med_b);
         }
     }
