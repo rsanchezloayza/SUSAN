@@ -72,6 +72,19 @@ namespace Mrc {
         fclose(fp);
     }
 
+    /// Origin in angstroms (header words 50-52).
+    void set_origin(const char*mapname, const float x, const float y, const float z) {
+        FILE*fp=fopen(mapname,"r+");
+        if( fp == NULL ) {
+            fprintf(stderr,"Error opening file %s.\n",mapname);
+            exit(1);
+        }
+        float origin[3] = {x,y,z};
+        fseek(fp,196,SEEK_SET);
+        fwrite(origin,sizeof(float),3,fp);
+        fclose(fp);
+    }
+
     void set_ispg (const char*mapname, const uint32 value) {
         FILE*fp=fopen(mapname,"r+");
         if( fp == NULL ) {
@@ -179,6 +192,19 @@ namespace Mrc {
         if(fill_statistics) {
             float stats[4];
             Math::get_min_max_avg_std(stats[0],stats[1],stats[2],stats[3],data,(size_t)X*Y*Z);
+            if( std::isnan(stats[2]) || std::isnan(stats[3]) ) {
+                double s=0,s2=0;
+                size_t cnt=0;
+                stats[0] = INFINITY; stats[1] = -INFINITY;
+                for(size_t i=0;i<(size_t)X*Y*Z;i++) {
+                    if( std::isnan(data[i]) ) continue;
+                    stats[0] = fminf(stats[0],data[i]); stats[1] = fmaxf(stats[1],data[i]);
+                    s += data[i]; s2 += (double)data[i]*data[i]; cnt++;
+                }
+                if( cnt == 0 ) { stats[0] = stats[1] = 0; }
+                stats[2] = cnt ? (float)(s/cnt) : 0;
+                stats[3] = cnt ? (float)sqrt(fmax(s2/cnt - (s/cnt)*(s/cnt),0.0)) : 0;
+            }
             uint32*tmp = (uint32*)stats;
             header[19] = tmp[0];
             header[20] = tmp[1];

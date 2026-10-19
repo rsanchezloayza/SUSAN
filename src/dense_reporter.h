@@ -138,48 +138,14 @@ inline int3 snap_centre(V3f&pt_tomo,const Tomogram&tomo,const int bin) {
 }
 
 inline void block_file(char*out,const char*prefix,const uint32 tomo_id,const uint32 ptcl_id,const char*name) {
-    snprintf(out,SUSAN_FILENAME_LENGTH,"%s_t%03d_b%07d_%s.mrc",prefix,tomo_id,ptcl_id,name);
+    snprintf(out,SUSAN_FILENAME_LENGTH,"%s_t%03u_b%07u_%s.mrc",prefix,tomo_id,ptcl_id,name);
 }
 
-/// MRC with the block corner in nxstart/nystart/nzstart and the origin; statistics skip NaN.
+/// MRC of a block: its corner (output voxels) as the origin, in angstroms.
 inline void write_block(const float*data,const int3 shape,const char*filename,const float apix,const int3 corner) {
-    FILE*fp = fopen(filename,"wb");
-    if( fp == NULL ) {
-        fprintf(stderr,"Error creating file %s.\n",filename);
-        exit(1);
-    }
-    size_t n = (size_t)shape.x*shape.y*shape.z;
-    double s=0,s2=0;
-    float vmin=INFINITY,vmax=-INFINITY;
-    size_t cnt=0;
-    for(size_t i=0;i<n;i++) {
-        if( std::isnan(data[i]) ) continue;
-        vmin = fminf(vmin,data[i]); vmax = fmaxf(vmax,data[i]);
-        s += data[i]; s2 += (double)data[i]*data[i]; cnt++;
-    }
-    float avg = cnt ? (float)(s/cnt) : 0, rms = cnt ? (float)sqrt(fmax(s2/cnt-(s/cnt)*(s/cnt),0.0)) : 0;
-    if( !cnt ) { vmin = vmax = 0; }
-
-    uint32 header[256];
-    memset(header,0,sizeof(header));
-    int32_t*ih = (int32_t*)header;
-    float  *fh = (float*)header;
-    ih[0] = shape.x; ih[1] = shape.y; ih[2] = shape.z;
-    ih[3] = 2;
-    ih[4] = corner.x; ih[5] = corner.y; ih[6] = corner.z;
-    ih[7] = shape.x; ih[8] = shape.y; ih[9] = shape.z;
-    fh[10] = apix*shape.x; fh[11] = apix*shape.y; fh[12] = apix*shape.z;
-    fh[13] = fh[14] = fh[15] = 90.0f;
-    ih[16] = 1; ih[17] = 2; ih[18] = 3;
-    fh[19] = vmin; fh[20] = vmax; fh[21] = avg;
-    ih[27] = 20140;
-    fh[49] = apix*corner.x; fh[50] = apix*corner.y; fh[51] = apix*corner.z;
-    header[52] = 0x2050414D;
-    header[53] = 0x00004444;
-    fh[54] = rms;
-    fwrite(header,sizeof(uint32),256,fp);
-    fwrite(data,sizeof(float),n,fp);
-    fclose(fp);
+    Mrc::write(data,shape.x,shape.y,shape.z,filename);
+    Mrc::set_apix(filename,apix,shape.x,shape.y,shape.z);
+    Mrc::set_origin(filename,apix*corner.x,apix*corner.y,apix*corner.z);
 }
 
 /// One {prefix}_t{tomo_id}.json per tomogram: run parameters, the tomogram, the angle table
@@ -230,7 +196,7 @@ inline void write_manifest(const ArgsAli::Info&info,Particles&ptcls,Tomograms&to
     char f_cc[SUSAN_FILENAME_LENGTH],f_z[SUSAN_FILENAME_LENGTH],f_ang[SUSAN_FILENAME_LENGTH];
     for(uint32 tid : tids) {
         Tomogram&tomo = tomos.at(tomos.get_cix(tid));
-        snprintf(filename,SUSAN_FILENAME_LENGTH,"%s_t%03d.json",info.output,tid);
+        snprintf(filename,SUSAN_FILENAME_LENGTH,"%s_t%03u.json",info.output,tid);
         FILE*fp = fopen(filename,"w");
         if( fp == NULL ) {
             fprintf(stderr,"Error creating file %s.\n",filename);
@@ -247,7 +213,7 @@ inline void write_manifest(const ArgsAli::Info&info,Particles&ptcls,Tomograms&to
                 info.cc_type,info.ctf_type,info.norm_type,info.pad_type,(info.dense_reduce==DENSE_REDUCE_MEAN)?"mean":"max");
         fprintf(fp,"\"refs_file\": \"%s\", \"tomos_file\": \"%s\", \"ptcls_in\": \"%s\", \"pose\": \"R(ali_eu) @ R(table[ang])\"},\n",
                 info.refs_file,info.tomo_file,info.ptcls_in);
-        fprintf(fp," \"tomogram\": {\"tomo_id\": %d, \"size_xyz\": [%d, %d, %d], \"apix\": %.6g, \"bin\": %d, \"apix_out\": %.6g, \"size_out_xyz\": [%d, %d, %d]},\n",
+        fprintf(fp," \"tomogram\": {\"tomo_id\": %u, \"size_xyz\": [%d, %d, %d], \"apix\": %.6g, \"bin\": %d, \"apix_out\": %.6g, \"size_out_xyz\": [%d, %d, %d]},\n",
                 tid,tomo.tomo_dim.x,tomo.tomo_dim.y,tomo.tomo_dim.z,tomo.pix_size,bin,tomo.pix_size*bin,
                 (tomo.tomo_dim.x+bin-1)/bin,(tomo.tomo_dim.y+bin-1)/bin,(tomo.tomo_dim.z+bin-1)/bin);
         fprintf(fp," \"angle_table\": [");
@@ -270,7 +236,7 @@ inline void write_manifest(const ArgsAli::Info&info,Particles&ptcls,Tomograms&to
             block_file(f_cc ,info.output,tid,ptcl.ptcl_id(),"cc");
             block_file(f_z  ,info.output,tid,ptcl.ptcl_id(),"z");
             block_file(f_ang,info.output,tid,ptcl.ptcl_id(),"ang");
-            fprintf(fp,"%s\n  {\"ptcl_id\": %d, \"centre_xyz\": [%d, %d, %d], \"corner_xyz\": [%d, %d, %d], \"shape_xyz\": [%d, %d, %d], ",
+            fprintf(fp,"%s\n  {\"ptcl_id\": %u, \"centre_xyz\": [%d, %d, %d], \"corner_xyz\": [%d, %d, %d], \"shape_xyz\": [%d, %d, %d], ",
                     (n_blk>0)?",":"",ptcl.ptcl_id(),c.x,c.y,c.z,c.x/bin+lo.x,c.y/bin+lo.y,c.z/bin+lo.z,shape.x,shape.y,shape.z);
             fprintf(fp,"\"ali_eu\": [%.9g, %.9g, %.9g], \"ali_t\": [%.9g, %.9g, %.9g], ",
                     ptcl.ali_eu[r].x,ptcl.ali_eu[r].y,ptcl.ali_eu[r].z,ptcl.ali_t[r].x,ptcl.ali_t[r].y,ptcl.ali_t[r].z);
