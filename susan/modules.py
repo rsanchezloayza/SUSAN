@@ -233,7 +233,7 @@ class Aligner(_BandpassFpix):
     dilate : float
         Tolerance, in pixels, to residual per-projection misalignment when
         scoring.  Each projection's CC map is replaced by its tapered maximum,
-        max_d CC(x + d) exp(-|d|^2 / (2 sigma^2)), sigma = dilate/sqrt(2 ln 2),
+        ``max_d CC(x + d) exp(-|d|^2 / (2 sigma^2))``, ``sigma = dilate/sqrt(2 ln 2)``,
         so a neighbour at ``dilate`` pixels counts with weight 0.5 (at 1.5:
         0.73 / 0.29 / 0.06 at 1 / 2 / 3 pixels).  It makes template matching
         tolerant to tilt-series misalignment.  ``0`` disables it.  Default: ``0``.

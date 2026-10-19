@@ -918,13 +918,16 @@ class Particles:
 
     def export_artiax(self, tomograms, filename, tomo_id=None, ref_cix=0,
                       save_extra1=False, extra1_name='extra_1',
-                      save_extra2=False, extra2_name='extra_2') -> None:
+                      save_extra2=False, extra2_name='extra_2',
+                      scale_to_tomo=False) -> None:
         """Export one tomogram's particles as an ArtiaX *Generic Particle List*.
 
         The file is the tab-separated ``.tsv`` list read by the ArtiaX plugin
         for ChimeraX (also loadable as a Dynamo table, which uses the same
         angular convention).  One file describes one tomogram, because the
-        positions are voxel coordinates of that tomogram.
+        positions are coordinates of that tomogram, measured from its corner:
+        in angstroms (default, what ArtiaX expects), or in voxels of the
+        tomogram with ``scale_to_tomo=True``.
 
         Angles are converted from SUSAN's ZYZ (``R = Rz(α)·Ry(β)·Rz(γ)``,
         radians) to ArtiaX's ZXZ (``M = Rz(psi)·Rx(the)·Rz(phi)``, degrees).
@@ -953,8 +956,9 @@ class Particles:
         The alignment shift is folded into ``pos_*`` (as in
         :meth:`export_positions`) and the ``shift_*`` columns are zero, so the
         result does not depend on the *translation* pixel size set in ArtiaX.
-        Set the *origin* pixel size in ArtiaX to the tomogram's pixel size,
-        printed by this method.
+        Set the *origin* pixel size in ArtiaX to 1 (angstroms, default) or to
+        the tomogram's pixel size (voxels, ``scale_to_tomo=True``); this method
+        prints which.
 
         Parameters
         ----------
@@ -975,6 +979,10 @@ class Particles:
             Column names for those fields.  Defaults ``'extra_1'`` and
             ``'extra_2'``, which :meth:`import_artiax` reads without further
             configuration; pass any other name back to it explicitly.
+        scale_to_tomo : bool, optional
+            Write the positions in voxels of the tomogram instead of angstroms
+            (angstroms = voxels from the corner times the tomogram's pixel
+            size).  Default False (angstroms).
 
         Examples
         --------
@@ -1014,8 +1022,10 @@ class Particles:
 
         apix = float(tomograms.pix_size[tomograms.get_cix(tomo_id)])
 
-        # Angstroms from the tomogram centre -> voxels from its corner.
+        # Angstroms from the tomogram centre -> voxels from its corner (-> angstroms).
         pos = self.export_positions(tomograms,ref_cix,tomo_id)
+        if not scale_to_tomo:
+            pos = pos*_np.float32(apix)
 
         eu  = _np.rad2deg(self.ali_eu[ref_cix,mask,:])
         wrap = lambda a: ((a + 180.0) % 360.0) - 180.0
@@ -1050,11 +1060,15 @@ class Particles:
               %(pos.shape[0],tomo_id,filename))
         if len(extras) > 0:
             print('  Extra columns: ' + ', '.join(name for name,_ in extras) + '.')
-        print('  In ArtiaX, set the origin pixel size to %.3f angstroms.'%apix)
+        if scale_to_tomo:
+            print('  Positions in voxels: in ArtiaX, set the origin pixel size to %.3f angstroms.'%apix)
+        else:
+            print('  Positions in angstroms: in ArtiaX, set the origin pixel size to 1.')
 
     @staticmethod
     def import_artiax(tomograms, filename, tomo_id=None,
-                      extra1_name='extra_1', extra2_name='extra_2') -> Particles:
+                      extra1_name='extra_1', extra2_name='extra_2',
+                      scale_to_tomo=False) -> Particles:
         """Create a Particles object from an ArtiaX *Generic Particle List*.
 
         Inverse of :meth:`export_artiax`.  Reads the tab-separated ``.tsv``
@@ -1071,10 +1085,12 @@ class Particles:
         using ``(α, β, γ) ≡ (α+π, -β, γ+π)``, so lists produced by other tools
         are handled too.
 
-        The positions are read as ``pos_* + shift_*``, which assumes the two
-        pixel sizes in ArtiaX were both set to the tomogram's pixel size (the
-        files written by :meth:`export_artiax` carry zero shifts, so this is
-        automatic for a round trip).
+        The positions are read as ``pos_* + shift_*``, measured from the
+        tomogram corner, in angstroms (default) or, with ``scale_to_tomo=True``,
+        in voxels of the tomogram.  This assumes the two
+        pixel sizes in ArtiaX were set alike (the files written by
+        :meth:`export_artiax` carry zero shifts, so this is automatic for a
+        round trip with the same ``scale_to_tomo``).
 
         The optional columns ``cc``, ``half_id``, ``class`` and ``tomo_id`` are
         read when present.  Particles picked inside ArtiaX carry zeros in all
@@ -1103,6 +1119,9 @@ class Particles:
             ``'extra_1'`` and ``'extra_2'``, matching :meth:`export_artiax`;
             pass the names used there if they were customised.  Missing columns
             are ignored.
+        scale_to_tomo : bool, optional
+            The positions in the file are in voxels of the tomogram, not
+            angstroms.  Default False (angstroms).
 
         Returns
         -------
@@ -1174,6 +1193,8 @@ class Particles:
         if not tomograms.has_tomo(tomo_id):
             raise ValueError('tomo_id %d not found in the tomograms.'%tomo_id)
         tomos_id = _np.full(N,tomo_id,_np.uint32)
+        if not scale_to_tomo:
+            pos = pos/_np.float32(tomograms.pix_size[tomograms.get_cix(tomo_id)])
 
         ptcls = Particles.import_data(tomograms,pos,tomos_id,
                                       ptcls_id=_np.arange(N))
