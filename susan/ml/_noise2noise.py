@@ -158,6 +158,7 @@ class Noise2Noise(_nn.Module):
             n_blocks = len(blocks)
             n_parts  = len(self.devices)
             splits   = _torch.linspace(0, n_blocks, n_parts + 1, dtype=_torch.int32)
+            self._splits = [int(s) for s in splits]
             self.parts = _nn.ModuleList()
             for i in range(n_parts):
                 part_blocks = blocks[splits[i]:splits[i + 1]]
@@ -171,6 +172,7 @@ class Noise2Noise(_nn.Module):
 
         else:  # unet — keep on devices[0]; no multi-GPU split
             self._unet = _UNet3d(n_feat, depth).to(self.devices[0])
+            self._splits = None
             self.parts = _nn.ModuleList()
             out_feat   = self._unet.out_feat
 
@@ -224,18 +226,36 @@ class Noise2Noise(_nn.Module):
         """Total number of trainable parameters."""
         return sum(p.numel() for p in self.parameters())
 
+    def _split_state(self, sd: dict) -> dict:
+        """Map ``blocks.<g>.`` keys (see :func:`_canonical_state`) onto this model's GPU split."""
+        if self._splits is None:
+            return sd
+        out = {}
+        for k, v in sd.items():
+            if k.startswith('blocks.'):
+                f = k.split('.')
+                g = int(f[1])
+                i = next(i for i in range(len(self._splits) - 1) if self._splits[i] <= g < self._splits[i + 1])
+                k = 'parts.%d.%d.%s' % (i, g - self._splits[i], '.'.join(f[2:]))
+            out[k] = v
+        return out
+
     def save(self, path: str):
-        """Save architecture hyperparameters and weights."""
+        """Save architecture hyperparameters and weights.
+
+        The weights are stored independently of the GPU split, so the file loads with any ``gpus`` list.
+        """
         _torch.save({
             'arch':       self.arch,
             'depth':      self.depth,
             'n_feat':     self.n_feat,
-            'state_dict': self.state_dict(),
+            'state_dict': _canonical_state(self.state_dict()),
         }, path)
 
     @classmethod
     def load(cls, path: str, gpus: list = [0]) -> 'Noise2Noise':
-        """Reconstruct model from a file saved with :meth:`save`."""
+        """Reconstruct model from a file saved with :meth:`save`, on ``gpus`` (any number of GPUs, also for
+        files saved with a different split)."""
         ckpt  = _torch.load(path, map_location='cpu', weights_only=True)
         model = cls(
             arch   = str(ckpt['arch']),
@@ -243,8 +263,23 @@ class Noise2Noise(_nn.Module):
             n_feat = int(ckpt['n_feat']),
             gpus   = gpus,
         )
-        model.load_state_dict(ckpt['state_dict'])
+        model.load_state_dict(model._split_state(_canonical_state(ckpt['state_dict'])))
         return model
+
+
+def _canonical_state(sd: dict) -> dict:
+    """State dict with the convnet blocks keyed by their index in the whole network (``blocks.<g>.``) instead of
+    their GPU part (``parts.<gpu>.<j>.``). The parts are contiguous slices of the blocks, in order, so g is the
+    rank of (gpu, j) whatever split the dict comes from."""
+    pairs = sorted({(int(k.split('.')[1]), int(k.split('.')[2])) for k in sd if k.startswith('parts.')})
+    rank  = {p: g for g, p in enumerate(pairs)}
+    out = {}
+    for k, v in sd.items():
+        if k.startswith('parts.'):
+            f = k.split('.')
+            k = 'blocks.%d.%s' % (rank[(int(f[1]), int(f[2]))], '.'.join(f[3:]))
+        out[k] = v
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -483,7 +518,7 @@ class Noise2NoiseTrainer:
             Destination file path.
         """
         _torch.save({
-            'model_state': self.model.state_dict(),
+            'model_state': _canonical_state(self.model.state_dict()),
             'model_arch':  self.model.arch,
             'model_depth': self.model.depth,
             'model_feat':  self.model.n_feat,
@@ -500,7 +535,7 @@ class Noise2NoiseTrainer:
             Path to a file written by :meth:`save`.
         """
         ckpt = _torch.load(path, map_location='cpu', weights_only=True)
-        self.model.load_state_dict(ckpt['model_state'])
+        self.model.load_state_dict(self.model._split_state(_canonical_state(ckpt['model_state'])))
         self.loss = str(ckpt['loss'])
         if ckpt['optimizer'] is not None:
             opt = self._get_optimizer(1e-4)

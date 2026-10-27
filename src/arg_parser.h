@@ -283,20 +283,29 @@ namespace ArgParser {
         }
     }
 
-    int get_list_integers(unsigned int p_int[],const char*arg) {
-        int len_arg = strlen(arg);
-        char buffer[len_arg+1];
-        for(int i=0;i<len_arg;i++){
-            buffer[i] = arg[i];
-            if(arg[i]==',')
-                buffer[i] = ' ';
-        }
+    /// Comma- and/or space-separated unsigned integers into p_int; the capacity is the array size. Exits on a
+    /// character that is not a digit, space or comma, and on more values than fit.
+    template<size_t N>
+    int get_list_integers(unsigned int (&p_int)[N],const char*arg) {
         int rslt = 0;
-        int offset = 0;
-        char*p_buffer = (char*)buffer;
-        while (sscanf(p_buffer," %u%n", p_int+rslt, &offset) == 1) {
-            p_buffer += offset;
-            rslt++;
+        const char*p = arg;
+        while( *p ) {
+            if( *p == ' ' || *p == ',' ) {
+                p++;
+                continue;
+            }
+            char*end = NULL;
+            unsigned long val = (*p >= '0' && *p <= '9') ? strtoul(p,&end,10) : 0;
+            if( end == NULL || end == p ) {
+                fprintf(stderr,"Error parsing integer list: %s\n",arg);
+                exit(1);
+            }
+            if( rslt >= (int)N ) {
+                fprintf(stderr,"Error parsing integer list: %s (at most %d values)\n",arg,(int)N);
+                exit(1);
+            }
+            p_int[rslt++] = (unsigned int)val;
+            p = end;
         }
         return rslt;
     }
