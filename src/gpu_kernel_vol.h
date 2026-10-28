@@ -286,7 +286,7 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
 /// anchor and 0 clamps to SIGMA_0 everywhere, i.e. plain trilinear.
 ///
 /// The support is not fixed: it follows sigma_t, one cube per source pixel, so a pixel at the
-/// floor pays 3x3x3 while only the widest ones pay 7x7x7. RAD_K is what keeps the truncated
+/// floor pays 3x3x3 while only the widest ones pay 9x9x9. RAD_K is what keeps the truncated
 /// fraction constant across that range. Mass retained inside the box, averaged over sub-voxel
 /// offsets and radial directions:
 ///
@@ -297,29 +297,26 @@ __global__ void insert_stk_atomic(double2*p_acc,double*p_wgt,
 ///     9x9x9     100%  100%   100%    100% 99.7%  96.8%
 ///
 /// rad = clamp(ceil(RAD_K*sigma_t - 0.5),1,RAD_MAX) at RAD_K = 2.2 tracks the 97% contour of
-/// that table (1 up to 0.68, 2 up to 1.14, 3 beyond), which is what sets SIGMA_MAX: 1.5 is the
-/// most a 7x7x7 box holds at the same quality the old fixed 5x5x5 held 1.0. Raising SIGMA_MAX
-/// further needs RAD_MAX 4 with it, or the truncated remainder rings.
-#define SPLAT_SIGMA_0   0.4f  /// closest match to trilinear over all sub-voxel offsets
-#define SPLAT_SIGMA_MAX 1.5f
-#define SPLAT_RAD_MAX   3     /// 7x7x7
-#define SPLAT_RAD_K     2.2f
-
-/// Taps below this share of the kernel's own peak tap are dropped. Scattered write traffic is
-/// what this kernel costs, so the tap count is by far the most effective knob: at 2e-2 a source
-/// pixel writes 7 taps at sigma_t 0.4 and 83 at 1.5, depositing ~97% of the kernel mass in both
-/// cases. Dropping mass is cheap because it is a uniform scale on p_acc and p_wgt, which cancels
-/// in their ratio; what does not cancel is the retained fraction varying with sigma_t, since two
-/// projections with different max_res then get weighted differently where they overlap. That is
-/// why the threshold is relative and not absolute: measured over sigma_t 0.4 to 1.5 the spread
-/// is ~1 point relative (96.4% to 97.4%), against ~11 points for the old absolute 5e-3.
+/// that table (1 up to 0.68, 2 up to 1.14, 3 up to 1.59, 4 beyond), which is what sets
+/// SIGMA_MAX: 2.0 is the most a 9x9x9 box holds at that quality. Raising SIGMA_MAX further
+/// needs RAD_MAX 5 with it, or the truncated remainder rings. The cap was 1.5 (7x7x7): on
+/// EMPIAR-10064 the gain then plateaued from splat_gain 4, while 2.0 kept improving it at the
+/// same insertion time as KB gridding (2.5 / 11x11x11 gained one more Fourier pixel for 50% more
+/// time; the map-to-model FSC does not support a wider blur).
 ///
-/// Applied to the exponent rather than the weight, so a culled tap costs no __expf.
-#define SPLAT_W_REL     2e-2f
-
-/// Warps per block in the main splat kernel, i.e. source pixels handled per block. Only affects
-/// occupancy and scheduling granularity, not results.
-#define SPLAT_WARPS     8
+/// Taps below SPLAT_W_REL of the kernel's own peak tap are dropped. Scattered write traffic is
+/// what this kernel costs, so the tap count is by far the most effective knob: at 2e-2 a source
+/// pixel writes 7 taps at sigma_t 0.4 and 83 at 1.5. Dropping mass is cheap because it is a
+/// uniform scale on p_acc and p_wgt, which cancels in their ratio; what does not cancel is the
+/// retained fraction varying with sigma_t, since two projections with different max_res then
+/// get weighted differently where they overlap. That is why the threshold is relative and not
+/// absolute: over sigma_t 0.4 to 1.5 the spread is ~1 point relative (96.4% to 97.4%), against
+/// ~11 points for the old absolute 5e-3; extending to 2.0 adds about half a point (numerical
+/// check against the continuous kernel: 97.1% at 0.4, 94.8% at 1.5, 94.3% at 2.0). Applied to
+/// the exponent rather than the weight, so a culled tap costs no __expf.
+///
+/// The constants (SPLAT_SIGMA_0, SPLAT_SIGMA_MAX, SPLAT_RAD_MAX, SPLAT_RAD_K, SPLAT_W_REL,
+/// SPLAT_WARPS) are in datatypes.h.
 
 
 __device__ __forceinline__ float splat_sigma_t(const float R,const float R_ref,const float gain) {

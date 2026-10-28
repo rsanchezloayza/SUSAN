@@ -578,12 +578,16 @@ class Averager(_BandpassFpix):
         cutoff and instead set the width of a tangential gaussian insertion
         kernel, so every frequency up to Nyquist is inserted, progressively
         blurred rather than truncated.  The width is
-        ``clamp(splat_gain*0.4*R/R_ref, 0.4, 1.5)`` fourier pixels with
-        ``R_ref = min(lowpass, def_mres)``, so it is flat (and equivalent to
-        trilinear) up to ``R_ref/splat_gain`` and then grows.  ``1`` is the
-        physically anchored value; larger distrusts the stated resolution more
-        and starts blurring earlier.  Overrides ``gridding_type``.  Costs
-        roughly 4x more time in the insertion stage than linear gridding.
+        ``clamp(splat_gain*0.4*R/R_ref, 0.4, 2.0)`` fourier pixels of the padded
+        box (support up to 9x9x9) with ``R_ref = min(lowpass, def_mres)``, so it
+        is flat (and equivalent to trilinear) up to ``R_ref/splat_gain`` and then
+        grows.  ``1`` is the physically anchored value; larger distrusts the
+        stated resolution more and starts blurring earlier.  Overrides
+        ``gridding_type`` (insertion, and the linear gridding correction,
+        which matches the splat's radial width).  Costs about the same time as KB
+        gridding at gains where most pixels reach the cap less below. The half-map
+        FSC overstates its gain (each half matches a blurred map better); check 
+        the gain against a model.
         Default: ``0`` (disabled, ordinary reconstruction).
     symmetry : str
         Point-group symmetry applied to the reconstructed map.  Default:

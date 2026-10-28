@@ -803,7 +803,7 @@ protected:
                                    p_info->boost_low_fq_value*factor,
                                    p_info->boost_low_fq_decay*factor);
         }
-        inv_vol.invert_and_extract(p_vol,p_info->grid_type);
+        inv_vol.invert_and_extract(p_vol,(p_info->splat_gain > 0) ? GRIDDING_LINEAR_FWD : p_info->grid_type);
     }
 
     void reconstruct_download(float*vol,GPU::GArrSingle&p_vol) {
