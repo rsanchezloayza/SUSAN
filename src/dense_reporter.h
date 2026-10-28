@@ -138,7 +138,7 @@ inline int3 snap_centre(V3f&pt_tomo,const Tomogram&tomo,const int bin) {
 }
 
 inline void block_file(char*out,const char*prefix,const uint32 tomo_id,const uint32 ptcl_id,const char*name) {
-    snprintf(out,SUSAN_FILENAME_LENGTH,"%s_t%03u_b%07u_%s.mrc",prefix,tomo_id,ptcl_id,name);
+    snprintf(out,SUSAN_FILENAME_LENGTH,"%s_t%05u_b%07u_%s.mrc",prefix,tomo_id,ptcl_id,name);
 }
 
 /// MRC of a block: its corner (output voxels) as the origin, in angstroms.
@@ -196,7 +196,7 @@ inline void write_manifest(const ArgsAli::Info&info,Particles&ptcls,Tomograms&to
     char f_cc[SUSAN_FILENAME_LENGTH],f_z[SUSAN_FILENAME_LENGTH],f_ang[SUSAN_FILENAME_LENGTH];
     for(uint32 tid : tids) {
         Tomogram&tomo = tomos.at(tomos.get_cix(tid));
-        snprintf(filename,SUSAN_FILENAME_LENGTH,"%s_t%03u.json",info.output,tid);
+        snprintf(filename,SUSAN_FILENAME_LENGTH,"%s_t%05u.json",info.output,tid);
         FILE*fp = fopen(filename,"w");
         if( fp == NULL ) {
             fprintf(stderr,"Error creating file %s.\n",filename);
