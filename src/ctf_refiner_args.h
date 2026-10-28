@@ -52,7 +52,7 @@ typedef struct {
     float  ssnr_S;
     bool   use_halves;
     bool   phase_flip;
-    bool   astigmatism;
+    bool   refine_astig;
     float  off_x;
     float  off_y;
     float  off_z;
@@ -166,7 +166,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.ssnr_S      = 0;
     info.phase_flip  = false;
     info.use_halves  = false;
-    info.astigmatism = false;
+    info.refine_astig = false;
     info.off_x       = 0;
     info.off_y       = 0;
     info.off_z       = 0;
@@ -199,7 +199,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         NORM_TYPE,
         CC_TYPE,
         SSNR,
-        ASTIGMATISM,
+        REFINE_ASTIG,
         BANDPASS,
         ROLLOFF_F,
         USE_HALVES,
@@ -233,7 +233,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"def_search", 1, 0, DEF_SEARCH },
         {"ang_search", 1, 0, ANG_SEARCH },
         {"use_halves", 1, 0, USE_HALVES },
-        {"astigmatism",1, 0, ASTIGMATISM},
+        {"refine_astig",1, 0, REFINE_ASTIG},
         {"phase_flip", 1, 0, PHASE_FLIP },
         {"verbosity",  1, 0, VERBOSITY  },
         {"off_params", 1, 0, OFF_PARAM  },
@@ -300,8 +300,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case USE_HALVES:
                 info.use_halves = ArgParser::get_bool(optarg);
                 break;
-            case ASTIGMATISM:
-                info.astigmatism = ArgParser::get_bool(optarg);
+            case REFINE_ASTIG:
+                info.refine_astig = ArgParser::get_bool(optarg);
                 break;
             case PHASE_FLIP:
                 info.phase_flip = ArgParser::get_bool(optarg);
@@ -468,7 +468,7 @@ inline void print_basic(const Info&info,FILE*fp=stdout) {
 
     fprintf(fp,"    - Defocus search: Range=%.2f (+-%.2f), Step=%.2f.",info.def_range,info.def_range/2,info.def_step);
     fprintf(fp," Angle: Range=%.2f (+-%.2f), Step=%.2f.",info.ang_range,info.ang_range/2,info.ang_step);
-    if( info.astigmatism )
+    if( info.refine_astig )
         fprintf(fp," Astigmatism.");
     if( info.offset_sigma > 0 || info.defocus_sigma > 0 || info.phase_sigma > 0 ) {
         fprintf(fp," Priors:");

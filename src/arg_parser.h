@@ -180,6 +180,21 @@ namespace ArgParser {
         return type;
     }
 
+    CtfAstigmatismType_t get_astig_type(const char*arg) {
+        CtfAstigmatismType_t type = ASTIG_MAGNITUDE;
+        bool all_ok = false;
+
+        check_arg_and_set(type,all_ok,arg,"none"      ,ASTIG_NONE      );
+        check_arg_and_set(type,all_ok,arg,"magnitude" ,ASTIG_MAGNITUDE );
+        check_arg_and_set(type,all_ok,arg,"series"    ,ASTIG_SERIES    );
+        check_arg_and_set(type,all_ok,arg,"projection",ASTIG_PROJECTION);
+
+        if( !all_ok )
+            fprintf(stderr,"Invalid astigmatism type %s. Options are: none, magnitude, series and projection. Defaulting to magnitude.\n",arg);
+
+        return type;
+    }
+
     OffsetType_t get_offset_type(const char*arg) {
         OffsetType_t type = ELLIPSOID;
         bool all_ok = false;

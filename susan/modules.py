@@ -1048,11 +1048,20 @@ class CtfEstimator:
         to be underfocus and the defocus is returned as a positive value.
         Default: ``False``.
     est_phase_shift : bool
-        If ``True``, the hybrid refinement searches for an additional
-        per-projection phase shift (Volta phase plate use case) and writes it
-        to ``Defocus.ph_shft``.  If ``False``, the phase-shift search is
-        skipped and ``ph_shft`` is forced to ``0`` for every projection;
-        defocus refinement still runs normally.  Default: ``True``.
+        If ``True``, the per-projection defocus sweep also scans a phase shift
+        in [0, pi) (Volta phase plate use case) and writes it to
+        ``Defocus.ph_shft``.  If ``False``, ``ph_shft`` is ``0`` for every
+        projection; the defocus sweep runs normally.  Default: ``False``.
+    astigmatism : str
+        Astigmatism model, from the ring of each projection's linearized
+        spectrum (r = m + a cos 2theta + b sin 2theta):
+
+        * ``'magnitude'`` (default): one U - V for the tilt series (the
+          objective lens), kept only when significant; the angle per
+          projection, where that projection's own astigmatism is significant.
+        * ``'series'``: one U - V and one angle for the series.
+        * ``'projection'``: U - V and angle fitted per projection.
+        * ``'none'``: U = V.
     dechirp_cs : bool
         If ``True``, the spherical-aberration contribution is removed from the
         linearized signal before the peak search.  Under ``r = s**2`` its phase
@@ -1065,11 +1074,13 @@ class CtfEstimator:
         depth of the Thon ring modulation and written as a ninth column of
         ``defocus.txt``, which :meth:`susan.data.Tomograms.set_defocus` loads
         into ``proj_wgt`` (and ``update_defocus`` then copies into the
-        per-particle ``prj_w``).  The weight is proportional to the SSNR of
-        the projection and normalised so the best tilt of each stack is
-        ``1``; empty projections get ``0``.  If ``False``, the column is
-        written as ``1`` for every projection, preserving the previous
-        behaviour of uniform weights.  Default: ``False``.
+        per-particle ``prj_w``).  The weight is sqrt(SSNR) of the projection
+        (the weight enters linearly, so the amplitude ratio is the optimum),
+        normalised so the best tilt of each stack is ``1``; empty projections
+        get ``0``.  If ``False``, the column is written as ``1`` for every
+        projection.  Either way, projections whose estimate failed (no ring
+        past the first zero follows the fitted CTF) get ``0``.
+        Default: ``True``.
     verbosity : int
         Amount of progress information printed to the console, as in every
         other module: ``0`` silent, ``1`` basic, ``2`` full.  Default: ``1``.
@@ -1080,6 +1091,8 @@ class CtfEstimator:
         This is what ``verbose`` used to control.  Default: ``0``.
     """
 
+    _ASTIG = ('none','magnitude','series','projection')
+
     def __init__(self):
         self.list_gpus_ids     = [0]
         self.resolution_max    = 7
@@ -1089,6 +1102,7 @@ class CtfEstimator:
         self.est_phase_shift   = False
         self.est_initial_snr   = True
         self.dechirp_cs        = True
+        self.astigmatism       = 'magnitude'
         #self.mpi               = _dt.mpi_params('srun -n %d ',1)
         self.verbosity         = 1
         self.log_level         = 0
@@ -1099,6 +1113,9 @@ class CtfEstimator:
 
         if self.defocus_angstroms.max_val < self.defocus_angstroms.min_val:
             raise ValueError('Defocus (angstroms): min is larger than max')
+
+        if self.astigmatism not in self._ASTIG:
+            raise ValueError('astigmatism: one of %s' % ', '.join("'%s'" % a for a in self._ASTIG))
             
     def get_args(self, out_dir, tomos_file, ptcls_in, box_size):
         """Build the command-line argument string for ``susan_estimate_ctf``.
@@ -1138,6 +1155,7 @@ class CtfEstimator:
         args = args + ' -overfocus %d'     % (1 if self.overfocus else 0)
         args = args + ' -est_phase_shift %d' % (1 if self.est_phase_shift else 0)
         args = args + ' -est_initial_snr %d' % (1 if self.est_initial_snr else 0)
+        args = args + ' -astig_type '      + self.astigmatism
         args = args + ' -dechirp_cs %d'      % (1 if self.dechirp_cs else 0)
         args = args + ' -verbosity %d'     % self.verbosity
         args = args + ' -log_level %d'     % self.log_level
@@ -1424,7 +1442,7 @@ class CtfRefiner(_BandpassFpix):
         args = args + ' -phase_shift_search %f,%f' % (_math.radians(self.phase_shift_deg.span),_math.radians(self.phase_shift_deg.step))
         args = args + ' -use_halves %d'    % self.halfsets_independ
         args = args + ' -verbosity %d'     % self.verbosity
-        args = args + ' -astigmatism %d'   % self.refine_astigmatism
+        args = args + ' -refine_astig %d'  % self.refine_astigmatism
         args = args + ' -phase_flip %d'    % self.phase_flip
         args = args + ' -off_params %f,%f,%f,%f'  % (self.offset.span[0],self.offset.span[1],self.offset.span[2],self.offset.step)
         args = args + ' -offset_sigma %f'  % self.offset_sigma

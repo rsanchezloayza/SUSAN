@@ -650,6 +650,52 @@ __global__ void conv_gauss_1D_X(float*p_out,const float*p_in,const float num,con
     p_out[get_3d_idx(ss_idx,ss_siz)] = val;
 }
 
+/// Gaussian of a sigma (px) per slice, +-ceil(3 sigma) taps, normalized; rows reflect at the edges.
+__global__ void conv_gauss_1D_Y_var(float*p_out,const float*p_in,const float*p_sigma,const int3 ss_siz) {
+    int3 ss_idx = get_th_idx();
+    if( ss_idx.x >= ss_siz.x || ss_idx.y >= ss_siz.y || ss_idx.z >= ss_siz.z )
+        return;
+    float sg = p_sigma[ss_idx.z];
+    int r = (int)ceilf(3*sg);
+    float acc = 0, wsum = 0;
+    for(int t=-r;t<=r;t++) {
+        float w = expf(-float(t*t)/(2*sg*sg));
+        int Y = ss_idx.y + t;
+        if( Y < 0 ) Y = -Y;
+        if( Y >= ss_siz.y ) Y = 2*(ss_siz.y-1)-Y;
+        Y = min(max(Y,0),ss_siz.y-1);
+        acc  += w*p_in[ get_3d_idx(ss_idx.x,Y,ss_idx.z,ss_siz) ];
+        wsum += w;
+    }
+    p_out[get_3d_idx(ss_idx,ss_siz)] = acc/wsum;
+}
+
+/// Gaussian of a sigma (px) per slice along x of a hermitian half spectrum (x < 0 mirrored with y -> -y),
+/// +-ceil(3 sigma) taps, normalized.
+__global__ void conv_gauss_1D_X_var(float*p_out,const float*p_in,const float*p_sigma,const int3 ss_siz) {
+    int3 ss_idx = get_th_idx();
+    if( ss_idx.x >= ss_siz.x || ss_idx.y >= ss_siz.y || ss_idx.z >= ss_siz.z )
+        return;
+    float sg = p_sigma[ss_idx.z];
+    int r = (int)ceilf(3*sg);
+    float acc = 0, wsum = 0;
+    for(int t=-r;t<=r;t++) {
+        float w = expf(-float(t*t)/(2*sg*sg));
+        int X = ss_idx.x + t;
+        int Y = ss_idx.y;
+        if( X < 0 ) {
+            X = -X;
+            Y = ss_siz.y - Y;
+            if( Y == ss_siz.y ) Y = 0;
+        }
+        if( X >= ss_siz.x ) X = 2*(ss_siz.x-1)-X;
+        X = min(max(X,0),ss_siz.x-1);
+        acc  += w*p_in[ get_3d_idx(X,Y,ss_idx.z,ss_siz) ];
+        wsum += w;
+    }
+    p_out[get_3d_idx(ss_idx,ss_siz)] = acc/wsum;
+}
+
 __global__ void conv_gauss_1D_Y(float*p_out,const float*p_in,const float num,const float scl,const int3 ss_siz) {
     int3 ss_idx = get_th_idx();
 

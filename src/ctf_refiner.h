@@ -639,7 +639,7 @@ protected:
         gpu_worker.offset_sigma  = p_info->offset_sigma;
         gpu_worker.defocus_sigma = p_info->defocus_sigma;
         gpu_worker.phase_sigma   = p_info->phase_sigma;
-        gpu_worker.astigmatism = p_info->astigmatism;
+        gpu_worker.astigmatism = p_info->refine_astig;
         gpu_worker.start();
     }
 

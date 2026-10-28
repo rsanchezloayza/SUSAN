@@ -455,6 +455,7 @@ protected:
     void post_process(const char*out_dir,single*p_data,Tomogram&tomo,int k0) {
         CtfLinearizer ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj,p_info->res_max/2);
         ctf_lin.load_info(p_info,&tomo);
+        ctf_lin.set_rough_defocus(workers[0].base_defocus);
         ctf_lin.initial_estimation(out_dir,p_data);
         ctf_lin.process(out_dir,p_data,&tomo,k0,p_info->is_overfocus);
     }

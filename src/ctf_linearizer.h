@@ -44,6 +44,11 @@
 /// Consecutive windows below the correlation threshold before the resolution
 /// limit is declared: one dip is noise, a run of them is the real cutoff.
 #define SNR_MAX_RES_RUN 3
+#define ELLIPSE_FIT_ITERS 3
+#define ASTIG_SIGMA       3.0     /// series astigmatism kept above this many standard errors
+#define SCAN_HALF_WIDTH   2500.0f /// A, defocus scan around each start
+#define SCAN_STEP         50.0f   /// A
+#define SCAN_FINE_STEP    5.0f    /// A
 
 /// The per-projection SNR is measured over the first CTF peak, from this
 /// fraction of the first zero out to the zero itself.  Anchoring to the zero
@@ -227,6 +232,17 @@ public:
             c_defocus[k] = lin_fpix_to_defocus*u;
         }
 
+        /// Per tilt: each projection's own peak (the tracking above only bounds where it may lie).
+        for(int k=0;k<K;k++) {
+            float*p = c_linear+(k*int(M));
+            int m_max = def_ix_min;
+            for(int m=def_ix_min;m<=def_ix_max;m++)
+                if( p[m] > p[m_max] ) m_max = m;
+            float mu = m_max, sg = 0;
+            estimate_mu_sigma(mu,sg,p,int(fmax(m_max-4,0)),int(fmin(m_max+4,M-1)));
+            c_defocus[k] = lin_fpix_to_defocus*mu;
+        }
+
         delete [] tmp;
         return lin_fpix_to_defocus*u0;
     }
@@ -334,10 +350,6 @@ protected:
         int N;
         int K;
         float*buf_ctf;
-        float*buf_metric;
-        float*buf_m_var;
-        float*buf_cum_s1;
-        float*buf_cum_s2;
         float*buf_corr;
 
         float apix;
@@ -346,17 +358,11 @@ protected:
         float AC;
         float CA;
 
-        int last_th;
-
         CtfRefiner(int m, int n, int k, float apix_in, float lambda_kv, float ac, float cs) {
             M = m;
             N = n;
             K = k;
             buf_ctf    = new float[M];
-            buf_metric = new float[M];
-            buf_m_var  = new float[M];
-            buf_cum_s1 = new float[M];
-            buf_cum_s2 = new float[M];
             buf_corr   = new float[M];
 
             AC = ac;
@@ -368,61 +374,7 @@ protected:
 
         ~CtfRefiner() {
             delete [] buf_ctf;
-            delete [] buf_metric;
-            delete [] buf_m_var;
-            delete [] buf_cum_s1;
-            delete [] buf_cum_s2;
             delete [] buf_corr;
-        }
-
-        void refine_ctf_hybrid(float&best_score,float&delta_def,float&phase_shift,int&max_fpix,const float*p_data,float init_defocus,bool est_phase=true) {
-
-            const float def_steps[3]   = {200.0f, 50.0f, 10.0f};
-            const float phase_steps[3] = {2.0f, 0.5f, 0.5f}; // degrees
-
-            delta_def   = 0.0f;
-            phase_shift = 0.0f;
-
-            best_score = compute_score(delta_def,phase_shift,p_data,init_defocus);
-            max_fpix   = last_th;
-
-            float phase_span = (float)M_PI/2.0f;
-
-            for(int level=0;level<3;level++) {
-
-                float d_step = def_steps[level];
-                float p_step = phase_steps[level]*DEG2RAD;
-
-                delta_def  = parabolic_defocus(delta_def,phase_shift,d_step,p_data,init_defocus);
-                best_score = compute_score(delta_def,phase_shift,p_data,init_defocus);
-                max_fpix   = last_th;
-
-                if( est_phase ) {
-                    float local_best_score = best_score;
-                    float best_phase_local = phase_shift;
-
-                    int n_phase = (int)ceilf(phase_span/p_step);
-
-                    for (int i=-n_phase;i<=n_phase;i++) {
-
-                        float phase_i = phase_shift + p_step*i;
-                        float score_i = compute_score(delta_def, phase_i,p_data,init_defocus);
-
-                        if( score_i>local_best_score) {
-                            local_best_score = score_i;
-                            best_phase_local = phase_i;
-                        }
-                    }
-
-                    phase_shift = best_phase_local;
-                    best_score  = local_best_score;
-
-                    phase_span = p_step * 4.0f;
-                }
-            }
-
-            best_score = compute_score(delta_def,phase_shift,p_data,init_defocus);
-            max_fpix   = last_th;
         }
 
         void ctf_1D(float def_angs,float phase_shift_rad) {
@@ -438,133 +390,6 @@ protected:
                 float gamma = lambda_pi_def*s2 - lambda3_Cs_pi_2*s4 + phase_shift_rad;
                 buf_ctf[i] = -(CA*sinf(gamma)+AC*cosf(gamma));
             }
-        }
-
-    protected:
-        void local_std(int window) {
-            int wsize = 2*window+1;
-
-            for(int i=0;i<M;i++) {
-
-                float s = 0.0f;
-                float s2 = 0.0f;
-
-                for(int k=-window;k<=window;k++) {
-
-                    int j = i+k;
-
-                    if (j < 0)
-                        j = -j-1;
-                    else if (j>=M)
-                        j = 2*M-j-1;
-
-                    float val = buf_metric[j];
-                    s  += val;
-                    s2 += val*val;
-                }
-
-                float mean = s/wsize;
-                float var  = s2/wsize - mean*mean;
-
-                if (var < 0.0f) var = 0.0f;
-
-                buf_m_var[i] = sqrtf(var);
-            }
-        }
-
-        int var_split_index() {
-
-            if(M<4)
-                return M;
-
-            float total  = 0.0f;
-            float total2 = 0.0f;
-
-            for(int i=0;i<M;i++) {
-                float v = buf_m_var[i];
-                total  += v;
-                total2 += v*v;
-                buf_cum_s1[i]  = total;
-                buf_cum_s2[i] = total2;
-            }
-
-            int best_k = 1;
-            float best_score = 99999.9f;
-
-            for(int k=2;k<=M-2;k++) {
-
-                // Left segment
-                int n1 = k;
-                float sum1  = buf_cum_s1 [k-1];
-                float sum12 = buf_cum_s2[k-1];
-                float mean1 = sum1 /n1;
-                float var1  = sum12/n1 - mean1*mean1;
-                if (var1 < 0.0f) var1 = 0.0f;
-
-                // Right segment
-                int n2 = M - k;
-                float sum2  = total -sum1;
-                float sum22 = total2-sum12;
-                float mean2 = sum2 /n2;
-                float var2  = sum22/n2 - mean2*mean2;
-                if (var2 < 0.0f) var2 = 0.0f;
-
-                float score = var1 + var2;
-
-                if (score < best_score) {
-                    best_score = score;
-                    best_k = k;
-                }
-            }
-
-            return best_k;
-        }
-
-        float var_split_improvement(int best_k) {
-
-            if (best_k <= 0 || best_k >= M)
-                return 0.0f;
-
-            float total_sum    = 0.0f;
-            float total_sq_sum = 0.0f;
-
-            for(int i=0;i<M;i++) {
-                float val     = buf_m_var[i];
-                total_sum    += val;
-                total_sq_sum += val*val;
-            }
-
-            float mean_global = total_sum/M;
-            float var_global  = total_sq_sum/M - mean_global * mean_global;
-            float rss1 = M*var_global;
-
-            if (rss1 <= 0.0f)
-                return 0.0f;
-
-            float left_sum    = 0.0f;
-            float left_sq_sum = 0.0f;
-            for (int i=0;i<best_k;i++) {
-                float val    = buf_m_var[i];
-                left_sum    += val;
-                left_sq_sum += val*val;
-            }
-
-            float mean1 = left_sum/best_k;
-            float var1  = left_sq_sum/best_k - mean1*mean1;
-
-            int   right_n      = M-best_k;
-            float right_sum    = total_sum-left_sum;
-            float right_sq_sum = total_sq_sum-left_sq_sum;
-
-            float mean2 = right_sum/right_n;
-            float var2  = right_sq_sum/right_n - mean2*mean2;
-
-            if(var1<0.0f) var1=0.0f;
-            if(var2<0.0f) var2=0.0f;
-
-            float rss2 = best_k*var1 + right_n*var2;
-
-            return (rss1-rss2)/rss1;
         }
 
     public:
@@ -596,10 +421,6 @@ protected:
         /// correlation says whether the rings are really there.  Walking
         /// outwards from the first zero, the resolution limit is where the
         /// correlation first falls below thres and stays there.
-        ///
-        /// This measures the model against the data, unlike var_split_index,
-        /// which detects a change of regime in the metric's local variance and
-        /// cannot be tied to a stated criterion.
         int estimate_max_fpix(const float*p_raw,float def,float phase,float thres) {
 
             ctf_1D(def,phase);
@@ -669,55 +490,6 @@ protected:
             return last_pass;
         }
 
-    protected:
-        float compute_score(float delta_def,float phase,const float*p_data,float init_defocus) {
-
-            ctf_1D(init_defocus+delta_def,phase);
-
-            for(int i=0;i<M;i++) {
-                float c = buf_ctf[i];
-                buf_metric[i] = 1.0f - fabsf(p_data[i] - (c*c));
-            }
-
-            local_std(3);
-
-            last_th = var_split_index();
-
-            if (var_split_improvement(last_th) < 0.05f)
-                last_th = M;
-
-            float score = 0.0f;
-            for(int i=0;i<last_th; i++)
-                score += buf_metric[i];
-
-            return score/float(M);
-        }
-
-        float parabolic_defocus(float delta_def,float phase,float def_step,const float* p_data,float init_defocus) {
-
-            float x = delta_def;
-
-            for(int iter=0;iter<3; iter++) {
-                float f_0 = compute_score(x         ,phase,p_data,init_defocus);
-                float f_p = compute_score(x+def_step,phase,p_data,init_defocus);
-                float f_m = compute_score(x-def_step,phase,p_data,init_defocus);
-
-                float den = (f_m-2.0f*f_0+f_p);
-
-                if (fabsf(den) < 1e-12f)
-                    break;
-
-                float dx = 0.5f*def_step*(f_m-f_p)/den;
-
-                if (dx >  def_step) dx =  def_step;
-                if (dx < -def_step) dx = -def_step;
-
-                x += dx;
-            }
-
-            return x;
-        }
-
     };
 
 public:
@@ -745,6 +517,15 @@ public:
     float res_thres;
 
     float   *c_ini_idx;
+    float   *c_trk_idx;
+    float   *c_rough_def;
+    double   astig_amp_px, astig_sigma, astig_theta;
+    int      astig_n;
+    bool    *c_failed;
+    int      verbosity;
+    float    def_min_angs;
+    float    res_max_angs;
+    uint32   astig_type;
     float   *c_prj_wgt;
     bool    *c_wide;
     Defocus *c_estimate;
@@ -773,6 +554,9 @@ public:
         GPU::set_device(gpu_ix);
 
         c_ini_idx  = new float[int(K)];
+        c_trk_idx  = new float[int(K)];
+        c_rough_def = new float[int(K)];
+        c_failed   = new bool[int(K)];
         c_prj_wgt  = new float[int(K)];
         c_wide     = new bool[int(K)];
         c_estimate = new Defocus[int(K)];
@@ -780,12 +564,22 @@ public:
         for(int k=0;k<int(K);k++) {
             c_prj_wgt[k] = 1.0f;
             c_wide[k]    = false;
+            c_failed[k]  = false;
+            c_rough_def[k] = 0;
         }
+    }
+
+    /// Rough per-projection defocus of pass 1 (sets the background width of the defocus sweep).
+    void set_rough_defocus(const float*def) {
+        for(int k=0;k<int(K);k++) c_rough_def[k] = fabsf(def[k]);
     }
 
     ~CtfLinearizer() {
 
         delete [] c_ini_idx;
+        delete [] c_trk_idx;
+        delete [] c_rough_def;
+        delete [] c_failed;
         delete [] c_prj_wgt;
         delete [] c_wide;
         delete [] c_estimate;
@@ -817,6 +611,10 @@ public:
         lambda_pi = lambda_kv*M_PI;
         lambda3_Cs_pi_2 = lambda_kv*lambda_kv*lambda_kv*(CS*1e7)*M_PI/2;
 
+        verbosity    = info->verbosity;
+        def_min_angs = info->def_min;
+        res_max_angs = info->res_max;
+        astig_type   = info->astig_type;
         dechirp_cs   = info->dechirp_cs;
         dechirp_coef = Math::get_dechirp_coef(lambda_kv,CS,new_apix);
     }
@@ -849,8 +647,23 @@ public:
             Mrc::write(c_linear,M,K,1,filename,new_apix);
         }
         track_peaks_in_linear_ps(c_linear);
+        memcpy(c_trk_idx,c_ini_idx,sizeof(float)*int(K));
+        free_peaks_in_linear_ps(c_linear);
 
         delete [] c_linear;
+    }
+
+    /// Per tilt: each projection's own peak in the defocus range, as the weighted centroid over +-4 bins.
+    void free_peaks_in_linear_ps(float*c_linear) {
+        for(int k=0;k<K;k++) {
+            float*p = c_linear+(k*int(M));
+            int m_max = def_ix_min;
+            for(int m=def_ix_min;m<=def_ix_max;m++)
+                if( p[m] > p[m_max] ) m_max = m;
+            float mu = m_max, sg = 0;
+            estimate_mu_sigma_1D(mu,sg,p,int(fmax(m_max-4,0)),int(fmin(m_max+4,M-1)));
+            c_ini_idx[k] = mu;
+        }
     }
 
     void process(const char*out_dir,float*input,Tomogram*p_tomo,int k0,bool is_overfocus) {
@@ -893,8 +706,23 @@ public:
         cudaMemcpy( (void*)c_buffer, (const void*)g_ps.ptr, sizeof(float)*N*N*K, cudaMemcpyDeviceToHost);
         fit_ellipsoid(c_buffer,out_dir,is_overfocus);
 
-        /// REFINE AND ESTIMATE PHASE SHIFT
-        estimate_phase_shift(c_buffer,g_input,out_dir);
+        /// MEAN DEFOCUS (AND PHASE SHIFT) PER PROJECTION
+        GPU::GArrSingle g_1d;
+        g_1d.alloc(M*N*K);
+        load_remove_bg_normalize_var(g_1d,input);
+        sweep_defocus(g_1d,out_dir);
+
+        /// FAILED PER-TILT ESTIMATES: no ring band past the first zero follows the fitted CTF (max_res 0) -> prj_wgt 0.
+        int nf = 0;
+        for(int k=0;k<K;k++) { c_failed[k] = !(c_estimate[k].max_res > 0); if( c_failed[k] ) nf++; }
+        if( verbosity > 0 ) {
+            const char*type_name[4] = {"none","magnitude per series, angle per projection","series","per projection"};
+            printf("    Astigmatism (%s): U-V %.0f A, %.1f sigma, %d projections, %s",type_name[astig_type],
+                   2*astig_amp_px*lin_fpix_to_defocus/2,astig_sigma,astig_n,(astig_sigma>=ASTIG_SIGMA)?"kept":"set to 0");
+            printf("; CTF estimate failed (prj_wgt 0):");
+            for(int k=0;k<K;k++) if( c_failed[k] ) printf(" %d",k);
+            printf("%s\n",nf?"":" none");
+        }
 
         /// FLAG EMPTY PROJECTIONS (blank frames in the stack)
         mark_empty_projections(input,p_tomo);
@@ -903,6 +731,9 @@ public:
         if( est_initial_snr )
             estimate_initial_snr(input,out_dir);
 
+        for(int k=0;k<K;k++)
+            if( c_failed[k] ) c_prj_wgt[k] = 0.0f;
+
         /// SAVE RESULTS
         save_fitting(out_dir,c_buffer,g_input);
         save_defocus_result(out_dir);
@@ -910,21 +741,6 @@ public:
         delete [] c_buffer;
     }
 
-    /// Initial per-projection weight from the strength of the first CTF peak.
-    ///
-    /// Over the first CTF peak the astigmatism-compensated radial average is
-    ///     P(r) = A*CTF^2(r) + background(r),
-    /// so a least squares fit of that model gives the signal amplitude A and
-    /// the background level, and SSNR = A/background.  prj_w enters the
-    /// reconstruction as an inverse-variance weight, which is proportional to
-    /// SSNR, so the fitted ratio is stored directly.
-    ///
-    /// The band is anchored to the first zero rather than to fixed spatial
-    /// frequencies: the defocus changes from projection to projection, which
-    /// moves the peak and would otherwise change the amount of signal each
-    /// projection is credited with.  Anchoring compares every projection over
-    /// the same stretch of the CTF, and because the result is a ratio it does
-    /// not depend on how many samples the band happens to contain.
     void estimate_initial_snr(float*input,const char*out_dir) {
 
         /// The background is a term of the model and the denominator of the
@@ -963,6 +779,7 @@ public:
         for(int k=0;k<int(K);k++) {
 
             float def = (c_estimate[k].U+c_estimate[k].V)/2;
+            def = fabsf(def);   /// overfocus stores negative defocus
 
             if( def < SUSAN_FLOAT_TOL ) {
                 c_prj_wgt[k] = 0.0f;
@@ -989,6 +806,9 @@ public:
             c_prj_wgt[k] = fit_band_ssnr(c_prof+k*int(N),refiner.buf_ctf,r0,r_end,r1,c_wide[k]);
         }
 
+        for(int k=0;k<int(K);k++)
+            if( c_failed[k] ) c_prj_wgt[k] = 0.0f;
+        sqrt_prj_wgt();
         normalize_prj_wgt();
 
         if( log_level > 0 )
@@ -1107,6 +927,13 @@ public:
             c_prj_wgt[k] = c_prj_wgt[k]/max_wgt;
     }
 
+    /// prj_w enters linearly (sum w c X / sum w c^2 and the weighted CC average); for projections normalized to
+    /// unit noise the optimum is the amplitude ratio, sqrt of the power SNR that fit_band_ssnr returns.
+    void sqrt_prj_wgt() {
+        for(int k=0;k<int(K);k++)
+            c_prj_wgt[k] = sqrtf(fmaxf(c_prj_wgt[k],0.0f));
+    }
+
     void save_snr_report(const char*out_dir) {
         sprintf(filename,"%s/initial_snr.txt",out_dir);
         FILE*fp = fopen(filename,"w");
@@ -1114,6 +941,7 @@ public:
         CtfRefiner refiner(int(M),int(N),int(K),apix,lambda_kv,AC,CS);
         for(int k=0;k<int(K);k++) {
             float def = (c_estimate[k].U+c_estimate[k].V)/2;
+            def = fabsf(def);
             int r1 = (def>SUSAN_FLOAT_TOL) ? refiner.ctf_zero_fpix(def,c_estimate[k].ph_shft,1) : 0;
             int r2 = (def>SUSAN_FLOAT_TOL) ? refiner.ctf_zero_fpix(def,c_estimate[k].ph_shft,2) : 0;
             int r0 = (int)(SNR_BAND_INNER_FRAC*r1);
@@ -1342,6 +1170,194 @@ protected:
         GpuKernels::zero_avg_one_std<<<grd,blk>>>(rslt.ptr,g_bufferA.ptr,g_bufferB.ptr,siz);
     }
 
+    /// Input of the defocus sweep: 2D background removal with sigma = P1/3.5 per projection, P1 the Thon ring period
+    /// at the first zero (s1/2 in frequency, s1 = 1/sqrt(lambda d), d the rough defocus of pass 1), then zero mean and
+    /// unit std per slice. The ellipse keeps the sigma-4 px removal of load_remove_bg_normalize.
+    void load_remove_bg_normalize_var(GPU::GArrSingle&rslt,float*input) {
+        GPU::GArrSingle g_bufferA;
+        GPU::GArrSingle g_bufferB;
+        GPU::GArrSingle g_sigma;
+        g_bufferA.alloc(M*N*K);
+        g_bufferB.alloc(M*N*K);
+        g_sigma.alloc(K);
+
+        std::vector<float> d((size_t)K), pos;
+        for(int k=0;k<K;k++) { d[k] = c_rough_def[k]; if( d[k] > 0 ) pos.push_back(d[k]); }
+        float d_med = 20000.0f;
+        if( !pos.empty() ) { std::sort(pos.begin(),pos.end()); d_med = (pos.size()%2) ? pos[pos.size()/2] : 0.5f*(pos[pos.size()/2-1]+pos[pos.size()/2]); }
+        std::vector<float> sig((size_t)K);
+        for(int k=0;k<K;k++) {
+            double dk = (d[k] > 0) ? d[k] : d_med;
+            double s1 = 1.0/sqrt((double)lambda_kv*dk);
+            sig[k] = fmaxf(roundf(float(s1/2*double(N)*apix/3.5*2))/2,1.0f);
+        }
+        cudaMemcpy( (void*)g_sigma.ptr, (const void*)sig.data(), sizeof(float)*int(K), cudaMemcpyHostToDevice);
+        cudaMemcpy( (void*)rslt.ptr, (const void*)(input), sizeof(float)*M*N*K, cudaMemcpyHostToDevice);
+
+        int3 siz = make_int3(M,N,K);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,siz.x,siz.y,siz.z);
+        GpuKernels::conv_gauss_1D_Y_var<<<grd,blk>>>(g_bufferA.ptr,rslt.ptr,g_sigma.ptr,siz);
+        GpuKernels::conv_gauss_1D_X_var<<<grd,blk>>>(g_bufferB.ptr,g_bufferA.ptr,g_sigma.ptr,siz);
+        GpuKernels::substract<<<grd,blk>>>(rslt.ptr,g_bufferB.ptr,siz);
+        g_bufferA.clear();
+        g_bufferB.clear();
+        GpuKernels::get_avg_std<<<grd,blk>>>(g_bufferA.ptr,g_bufferB.ptr,rslt.ptr,siz);
+        GpuKernels::zero_avg_one_std<<<grd,blk>>>(rslt.ptr,g_bufferA.ptr,g_bufferB.ptr,siz);
+    }
+
+    /// Local correlations (estimate_max_fpix's windows of 2hw+1, linear trend removed from data and model) of a
+    /// radial profile with CTF^2(def,phase), window centres i0..i1 (inclusive); returns their mean.
+    double band_corr(CtfRefiner&ref,const float*raw,double def,double phase,int i0,int i1,double*c_out=0) {
+        int hw = int(M)/12; if( hw < 4 ) hw = 4;
+        int n = 2*hw+1;
+        if( i0 < hw ) i0 = hw;
+        if( i1 > int(M)-hw-1 ) i1 = int(M)-hw-1;
+        double tt = 0;
+        for(int j=0;j<n;j++) { double t = double(j)/(n-1)-0.5; tt += t*t; }
+        double df = 1.0/(double(N)*apix);
+        double acc = 0; int cnt = 0;
+        std::vector<double> xw(n), yw(n);
+        for(int i=i0;i<=i1;i++) {
+            double my=0, mx=0, ty=0, tx=0;
+            for(int j=0;j<n;j++) {
+                double t = double(j)/(n-1)-0.5;
+                double s = (i-hw+j)*df, s2 = s*s;
+                double g = (double)ref.lambda_pi*def*s2 - (double)ref.lambda3_Cs_pi_2*s2*s2 + phase;
+                double c = -((double)ref.CA*sin(g)+(double)ref.AC*cos(g));
+                xw[j] = c*c; yw[j] = raw[i-hw+j];
+                mx += xw[j]; my += yw[j]; tx += t*xw[j]; ty += t*yw[j];
+            }
+            mx /= n; my /= n; tx /= tt; ty /= tt;
+            double sxy=0, sxx=0, syy=0;
+            for(int j=0;j<n;j++) {
+                double t = double(j)/(n-1)-0.5;
+                double rx = xw[j]-mx-tx*t, ry = yw[j]-my-ty*t;
+                sxy += rx*ry; sxx += rx*rx; syy += ry*ry;
+            }
+            double c = (sxx > 0 && syy > 0) ? sxy/sqrt(sxx*syy) : 0;
+            if( c_out ) c_out[i] = c;
+            acc += c; cnt++;
+        }
+        return (cnt > 0) ? acc/cnt : -2.0;
+    }
+
+    /// Mean defocus (and phase shift) per projection, low to high frequency: the local ring correlation averaged over
+    /// the first rings (first to third zero) is scanned over +-SCAN_HALF_WIDTH around the ellipse mean defocus and the
+    /// tracked start (SCAN_STEP), and with est_phase_shift over the phase 0..pi (0.1 rad); then the band is extended
+    /// outward while the correlation at the optimum stays > 0.3 (3 windows below it end it; not past res_max) and
+    /// (d, phase) are re-scanned on it (+-500 A in 10 A, +-0.15 rad in 0.01 rad); twice. max_res at the result.
+    void sweep_defocus(GPU::GArrSingle&g_1d,const char*out_dir) {
+        GPU::GArrSingle  g_acc, g_wgt, g_blr;
+        GPU::GArrDefocus g_def;
+        g_blr.alloc(M*N*K);
+        g_acc.alloc(N*K);
+        g_wgt.alloc(N*K);
+        g_def.alloc(K);
+        g_acc.clear();
+        g_wgt.clear();
+        float*c_raw = new float[int(N*K)];
+        cudaMemcpy((void*)g_def.ptr, (const void*)c_estimate, sizeof(Defocus)*int(K), cudaMemcpyHostToDevice);
+        dim3 blk = GPU::get_block_size_2D();
+        int3 siz_ps = make_int3(M,N,K);
+        dim3 grd_ps = GPU::calc_grid_size(blk,siz_ps);
+        int3 siz_rad = make_int3(N,K,1);
+        dim3 grd_rad = GPU::calc_grid_size(blk,siz_rad);
+        GpuKernels::conv_gaussian<<<grd_ps,blk>>>(g_blr.ptr,g_1d.ptr,0.5000,6.2831,siz_ps);
+        GpuKernelsCtf::ctf_radial_normalize_and_avg<<<grd_ps,blk>>>(g_acc.ptr,g_wgt.ptr,g_blr.ptr,g_def.ptr,siz_ps);
+        GpuKernels::divide<<<grd_rad,blk>>>(g_acc.ptr,g_wgt.ptr,siz_rad);
+        cudaMemcpy((void*)c_raw, (const void*)g_acc.ptr, sizeof(float)*int(N)*int(K), cudaMemcpyDeviceToHost);
+        Math::fftshift_1D_batch(c_raw,int(N),int(K));
+
+        CtfRefiner ref(int(M),int(N),int(K),apix,lambda_kv,AC,CS);
+        int hw = int(M)/12; if( hw < 4 ) hw = 4;
+        int cap = int(double(N)*apix/res_max_angs);
+        float lo = (def_min_angs > 0) ? fmaxf(def_min_angs,SCAN_STEP) : SCAN_STEP;
+        float hi = (def_max_angs > def_min_angs) ? def_max_angs : 1e9f;
+        std::vector<double> cbuf(int(M),0.0);
+        if( log_level > 0 ) {
+            sprintf(filename,"%s/ctf_radial_fit",out_dir);
+            IO::create_dir(filename);
+        }
+        for(int k=0;k<int(K);k++) {
+            const float*raw = c_raw + k*int(N);
+            float ini = (c_estimate[k].U+c_estimate[k].V)/2;
+            double sgn = (ini < 0) ? -1.0 : 1.0;
+            double starts[2] = { fabs(ini), double(lin_fpix_to_defocus)*c_trk_idx[k] };
+            std::vector<double> grid;
+            for(int c=0;c<2;c++) {
+                if( !(starts[c] > 0) ) continue;
+                for(double d=starts[c]-SCAN_HALF_WIDTH; d<=starts[c]+SCAN_HALF_WIDTH+SCAN_STEP/2; d+=SCAN_STEP)
+                    if( d >= lo && d <= hi ) grid.push_back(round(d*1000)/1000);
+            }
+            std::sort(grid.begin(),grid.end());
+            grid.erase(std::unique(grid.begin(),grid.end()),grid.end());
+            if( grid.empty() ) grid.push_back(fmax(starts[0],(double)lo));
+            int n_ph = est_phase_shift ? 32 : 1;
+            double best = -3, d = grid[0], ph = 0;
+            for(int ip=0;ip<n_ph;ip++) {
+                double p0 = 0.1*ip;
+                for(double x : grid) {
+                    int i0 = ref.ctf_zero_fpix(float(x),float(p0),1);
+                    int i3 = std::max(ref.ctf_zero_fpix(float(x),float(p0),3),std::max(i0,hw)+4);
+                    double v = band_corr(ref,raw,sgn*x,p0,std::max(i0,hw),std::min(i3,cap));
+                    if( v > best ) { best = v; d = x; ph = p0; }
+                }
+            }
+            for(int pass=0;pass<2;pass++) {
+                int i0 = std::max(ref.ctf_zero_fpix(float(d),float(ph),1),hw);
+                std::fill(cbuf.begin(),cbuf.end(),0.0);
+                band_corr(ref,raw,sgn*d,ph,hw,int(M)-hw-1,cbuf.data());
+                int end = i0, fails = 0;
+                for(int i=i0;i<=int(M)-hw-1;i++) {
+                    if( i > cap ) break;
+                    if( cbuf[i] > 0.3 ) { end = i; fails = 0; }
+                    else if( ++fails >= 3 ) break;
+                }
+                end = std::min(std::max(end,ref.ctf_zero_fpix(float(d),float(ph),3)),cap);
+                best = -3;
+                double bd = d, bp = ph;
+                int np = est_phase_shift ? 31 : 1;
+                for(int ip=0;ip<np;ip++) {
+                    double p0 = est_phase_shift ? ph - 0.15 + 0.01*ip : 0.0;
+                    for(double x=d-500; x<=d+500+5; x+=10) {
+                        if( x < lo ) continue;
+                        int j0 = std::max(ref.ctf_zero_fpix(float(x),float(p0),1),hw);
+                        double v = band_corr(ref,raw,sgn*x,p0,j0,end);
+                        if( v > best ) { best = v; bd = x; bp = p0; }
+                    }
+                }
+                d = bd; ph = bp;
+            }
+            ph = fmod(fmod(ph,M_PI)+M_PI,M_PI);
+            float dd = float(sgn*d) - ini;
+            c_estimate[k].U += dd;
+            c_estimate[k].V += dd;
+            c_estimate[k].ph_shft = est_phase_shift ? float(ph) : 0.0f;
+            c_estimate[k].score   = float(best);
+            c_estimate[k].Bfactor = 0.0f;
+            c_estimate[k].ExpFilt = 0.0f;
+            int max_fpix = ref.estimate_max_fpix(raw,float(sgn*d),c_estimate[k].ph_shft,res_thres);
+            c_estimate[k].max_res = (max_fpix>0) ? N*apix/max_fpix : 0.0f;
+            if( log_level > 0 ) {
+                float p_tmp[int(M)];
+                sprintf(filename,"%s/ctf_radial_fit/projection_%02d.svg",out_dir,k);
+                SvgCtf svg_ctf(filename,apix);
+                svg_ctf.create_grid(0.0f,float(max_fpix),int(N));
+                for(int i=0;i<int(M);i++) p_tmp[i] = ref.buf_corr[i];
+                svg_ctf.add_est(p_tmp,int(M),true);
+                for(int i=0;i<int(M);i++) p_tmp[i] = ref.buf_ctf[i]*ref.buf_ctf[i];
+                svg_ctf.add_fit(p_tmp,int(M));
+                for(int i=0;i<int(M);i++) p_tmp[i] = fminf( fmaxf(raw[i]+0.5,0),1.0f);
+                svg_ctf.add_avg(p_tmp,int(M));
+                svg_ctf.add_corr(ref.buf_corr,int(M),res_thres);
+                svg_ctf.create_legend();
+                svg_ctf.create_title(k,float(sgn*d));
+            }
+        }
+        delete [] c_raw;
+    }
+
     void fully_linearize(GPU::GArrSingle&rslt,GPU::GArrSingle&hermitian_input) {
         GPU::GArrSingle g_acc;
         GPU::GArrSingle g_wgt;
@@ -1478,18 +1494,15 @@ protected:
         }
     }
 
-    float rad_from_ellipsoid(int ix,int k) {
-        float num = c_estimate[k].U * c_estimate[k].V;
-        float ang = (ang_step*ix) - c_estimate[k].angle;
-        float ca  = c_estimate[k].V*cosf(ang);
-        float sa  = c_estimate[k].U*sinf(ang);
-        float den = sqrtf( ca*ca + sa*sa );
-        return num/den;
+    /// Ring radius of the current estimate in direction ix: m + (U-V)/2 cos 2(theta - angle) (fit_harmonic_series).
+    float ring_radius(int ix,int k) {
+        float a = (ang_step*ix) - c_estimate[k].angle;
+        return (c_estimate[k].U+c_estimate[k].V)/2 + (c_estimate[k].U-c_estimate[k].V)/2*cosf(2*a);
     }
 
     float sample_peak(int ix,int k,float*p_frame,float search_range=3) {
         int   n = (int)N;
-        float rad = rad_from_ellipsoid(ix,k);
+        float rad = ring_radius(ix,k);
         float rad_min = rad - search_range;
         float rad_max = rad + search_range;
 
@@ -1535,50 +1548,119 @@ protected:
             return num/den;
     }
 
-    Eigen::Matrix2f get_covariance(float *r_arr) {
-
-        float Cxx = 0.0f;
-        float Cyy = 0.0f;
-        float Cxy = 0.0f;
-
-        for(int ix=0;ix<2*int(R);ix++) {
-
-            float r = r_arr[ix];
-            float a = ang_step*ix;
-
-            float x = r*cosf(a);
-            float y = r*sinf(a);
-
-            Cxx += x*x;
-            Cyy += y*y;
-            Cxy += x*y;
+    /// Ring of the PS of the linearized spectrum: its radius is proportional to the defocus in that direction,
+    /// r(theta) = m + a cos 2theta + b sin 2theta (linear least squares; no ellipse approximation). m per projection;
+    /// (a,b), the objective lens astigmatism, shared by the series: weighted mean of the per-projection (a,b)
+    /// (weights 1/variance, projections more than 3 sigma away dropped), set to 0 below ASTIG_SIGMA standard
+    /// errors. ELLIPSE_FIT_ITERS passes, the sampling re-centred on the last curve. Writes U, V (PS px) and the angle
+    /// of the largest radius (PS frame) into c_estimate.
+    void fit_harmonic_series(float*p_data,float*r_arr) {
+        int n = (int)N;
+        int nr = 2*int(R);
+        Eigen::Matrix3d XtX = Eigen::Matrix3d::Zero();
+        for(int ix=0;ix<nr;ix++) {
+            double a = (double)ang_step*ix;
+            Eigen::Vector3d x(1.0,cos(2*a),sin(2*a));
+            XtX += x*x.transpose();
         }
-
-        float invN = 1.0f / (float)(2*R);
-
-        Cxx *= invN;
-        Cyy *= invN;
-        Cxy *= invN;
-
-        Eigen::Matrix2f C;
-        C(0,0) = Cxx;
-        C(0,1) = Cxy;
-        C(1,0) = Cxy;
-        C(1,1) = Cyy;
-
-        return C;
-    }
-
-    void update_estimate_from_covariance(int k,Eigen::Matrix2f&cov) {
-
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> solver(cov);
-
-        Eigen::Vector2f eigvals = solver.eigenvalues();
-        Eigen::Matrix2f eigvect = solver.eigenvectors();
-
-        c_estimate[k].U = sqrtf(2.0f*eigvals(1));
-        c_estimate[k].V = sqrtf(2.0f*eigvals(0));
-        c_estimate[k].angle = atan2f(eigvect(1,1),eigvect(0,1));
+        Eigen::Matrix3d XtX_inv = XtX.inverse();
+        double*coef = new double[3*int(K)];
+        double*var  = new double[int(K)];
+        double sa = 0, sb = 0;
+        for(int k=0;k<K;k++) {
+            c_estimate[k].U = c_estimate[k].V = 2*c_ini_idx[k];
+            c_estimate[k].angle = 0;
+        }
+        for(int it=0;it<ELLIPSE_FIT_ITERS;it++) {
+            for(int k=0;k<K;k++) {
+                float*p_frame = p_data + k*n*n;
+                Eigen::Vector3d Xty = Eigen::Vector3d::Zero();
+                for(int ix=0;ix<nr;ix++) {
+                    r_arr[ix] = sample_peak(ix,k,p_frame);
+                    double a = (double)ang_step*ix;
+                    Xty += Eigen::Vector3d(1.0,cos(2*a),sin(2*a))*r_arr[ix];
+                }
+                Eigen::Vector3d c = XtX_inv*Xty;
+                double rss = 0;
+                for(int ix=0;ix<nr;ix++) {
+                    double a = (double)ang_step*ix;
+                    double e = r_arr[ix] - (c(0)+c(1)*cos(2*a)+c(2)*sin(2*a));
+                    rss += e*e;
+                }
+                /// neighbouring directions read overlapping pixels: AR(1) correction of the residual variance
+                double r0 = 0, r1 = 0, e_prev = 0, e_first = 0;
+                for(int ix=0;ix<nr;ix++) {
+                    double a = (double)ang_step*ix;
+                    double e = r_arr[ix] - (c(0)+c(1)*cos(2*a)+c(2)*sin(2*a));
+                    r0 += e*e;
+                    if( ix > 0 ) r1 += e*e_prev; else e_first = e;
+                    e_prev = e;
+                }
+                r1 += e_prev*e_first;
+                double rho = (r0 > 0) ? fmin(fmax(r1/r0,0.0),0.95) : 0.0;
+                coef[3*k] = c(0); coef[3*k+1] = c(1); coef[3*k+2] = c(2);
+                var[k] = rss/fmax(nr-3,1)*0.5*(XtX_inv(1,1)+XtX_inv(2,2))*(1+rho)/(1-rho);
+            }
+            if( astig_type != ASTIG_SERIES ) {
+                /// 0 none, 3 per projection, 1 magnitude: one U-V per series (sum (|z|^2 - 2var)/var / sum 1/var,
+                /// tested against chi^2_2 per projection), the angle of each projection where its |z| >= 2 sigma.
+                double amp = 0, stat = 0;
+                int n_ok = 0, n_ang = 0;
+                if( astig_type == ASTIG_MAGNITUDE ) {
+                    double s_z = 0, s_w = 0, s_q = 0;
+                    for(int k=0;k<K;k++) {
+                        if( !(var[k] > 0) || !std::isfinite(var[k]) || !(coef[3*k] > 0) ) continue;
+                        double z2 = coef[3*k+1]*coef[3*k+1]+coef[3*k+2]*coef[3*k+2];
+                        s_q += z2/var[k]; s_z += (z2-2*var[k])/var[k]; s_w += 1/var[k]; n_ok++;
+                    }
+                    stat = (n_ok > 0) ? (s_q - 2*n_ok)/(2*sqrt(double(n_ok))) : 0;
+                    amp  = (s_w > 0) ? sqrt(fmax(s_z/s_w,0.0)) : 0;
+                    if( stat < ASTIG_SIGMA ) amp = 0;
+                }
+                for(int k=0;k<K;k++) {
+                    double am = 0, th = 0;
+                    double z = sqrt(coef[3*k+1]*coef[3*k+1]+coef[3*k+2]*coef[3*k+2]);
+                    bool ok = (var[k] > 0) && std::isfinite(var[k]) && (coef[3*k] > 0);
+                    if( astig_type == ASTIG_PROJECTION && ok ) { am = z; th = 0.5*atan2(coef[3*k+2],coef[3*k+1]); }
+                    if( astig_type == ASTIG_MAGNITUDE && ok && z >= 2*sqrt(var[k]) ) { am = amp; th = 0.5*atan2(coef[3*k+2],coef[3*k+1]); if( am > 0 ) n_ang++; }
+                    c_estimate[k].U = coef[3*k] + am;
+                    c_estimate[k].V = coef[3*k] - am;
+                    c_estimate[k].angle = th;
+                }
+                astig_amp_px = amp; astig_sigma = stat; astig_theta = 0; astig_n = (astig_type == ASTIG_MAGNITUDE) ? n_ang : 0;
+                continue;
+            }
+            /// series astigmatism
+            bool*use = new bool[int(K)];
+            for(int k=0;k<K;k++) use[k] = (var[k] > 0) && std::isfinite(var[k]) && (coef[3*k] > 0);
+            double sw = 0;
+            for(int rep=0;rep<3;rep++) {
+                sw = 0; sa = 0; sb = 0;
+                for(int k=0;k<K;k++) if( use[k] ) { sw += 1/var[k]; sa += coef[3*k+1]/var[k]; sb += coef[3*k+2]/var[k]; }
+                if( sw <= 0 ) break;
+                sa /= sw; sb /= sw;
+                for(int k=0;k<K;k++) {
+                    if( !use[k] ) continue;
+                    double da = coef[3*k+1]-sa, db = coef[3*k+2]-sb;
+                    if( sqrt((da*da+db*db)/var[k]) > 3 ) use[k] = false;
+                }
+            }
+            double se  = (sw > 0) ? 1/sqrt(sw) : 0;
+            double amp = sqrt(sa*sa+sb*sb);
+            astig_amp_px = amp; astig_sigma = (se > 0) ? amp/se : 0; astig_theta = 0.5*atan2(sb,sa);
+            astig_n = 0;
+            for(int k=0;k<K;k++) if( use[k] ) astig_n++;
+            if( astig_sigma < ASTIG_SIGMA ) { sa = 0; sb = 0; }
+            delete [] use;
+            double am = sqrt(sa*sa+sb*sb), th = 0.5*atan2(sb,sa);
+            for(int k=0;k<K;k++) {
+                c_estimate[k].U = coef[3*k] + am;
+                c_estimate[k].V = coef[3*k] - am;
+                c_estimate[k].angle = th;
+            }
+        }
+        delete [] coef;
+        delete [] var;
     }
 
     void fit_ellipsoid(float*p_data,const char*out_dir,bool is_overfocus,int scale=2) {
@@ -1588,15 +1670,7 @@ protected:
         float *r_arr = new float[2*int(R)]; /// R is from 0 to pi, 2*R is from 0 to 2pi.
 
         int n = (int)N;
-        for(int k=0;k<K;k++) {
-            float*p_frame = p_data + k*n*n;
-            for(int ix=0;ix<2*int(R);ix++) {
-                r_arr[ix] = sample_peak(ix,k,p_frame);
-            }
-
-            Eigen::Matrix2f cov = get_covariance(r_arr);
-            update_estimate_from_covariance(k,cov);
-        }
+        fit_harmonic_series(p_data,r_arr);
 
         if( log_level > 0 ) {
             sprintf(filename,"%s/ctf_ellipse_fit",out_dir);
@@ -1622,105 +1696,13 @@ protected:
         for(int k=0;k<K;k++) {
             c_estimate[k].U *= def_sign*lin_fpix_to_defocus/scale;
             c_estimate[k].V *= def_sign*lin_fpix_to_defocus/scale;
-            c_estimate[k].angle *= RAD2DEG;
+            /// The ellipse angle is that of the major axis in the PS frame (x column, y row); calc_def
+            /// (create_ctf) puts the largest defocus U at -angle. Written in (-90,90].
+            float a = -c_estimate[k].angle*RAD2DEG;
+            c_estimate[k].angle = 90.0f - fmodf(fmodf(90.0f - a,180.0f) + 180.0f,180.0f);
         }
 
         delete [] r_arr;
-    }
-
-    void estimate_phase_shift(float*c_buffer,GPU::GArrSingle&hermitian_input,const char*out_dir) {
-        GPU::GArrSingle  g_acc;
-        GPU::GArrSingle  g_wgt;
-        GPU::GArrSingle  g_blr;
-        GPU::GArrSingle2 g_tmp;
-        GPU::GArrSingle2 g_fou;
-        GPU::GArrDefocus g_def;
-        g_blr.alloc(M*N*K);
-        g_tmp.alloc(N*K);
-        g_acc.alloc(N*K);
-        g_wgt.alloc(N*K);
-        g_fou.alloc(N*K);
-        g_def.alloc(K);
-
-        GpuFFT::FFT1D_full  fft;
-        GpuFFT::IFFT1D_full ifft;
-        fft.alloc(N,K);
-        ifft.alloc(N,K);
-
-        g_acc.clear();
-        g_wgt.clear();
-
-        float*c_ps_raw  = new float[int(N*K)];
-        float*c_ps_norm = new float[int(N*K)];
-
-        cudaMemcpy((void*)g_def.ptr, (const void*)c_estimate, sizeof(Defocus)*int(K), cudaMemcpyHostToDevice);
-
-        dim3 blk = GPU::get_block_size_2D();
-
-        int3 siz_ps = make_int3(M,N,K);
-        dim3 grd_ps = GPU::calc_grid_size(blk,siz_ps);
-
-        int3 siz_rad = make_int3(N,K,1);
-        dim3 grd_rad = GPU::calc_grid_size(blk,siz_rad);
-
-        GpuKernels::conv_gaussian<<<grd_ps,blk>>>(g_blr.ptr,hermitian_input.ptr,0.5000,6.2831,siz_ps);
-        GpuKernelsCtf::ctf_radial_normalize_and_avg<<<grd_ps,blk>>>(g_acc.ptr,g_wgt.ptr,g_blr.ptr,g_def.ptr,siz_ps);
-        GpuKernels::divide<<<grd_rad,blk>>>(g_acc.ptr,g_wgt.ptr,siz_rad);
-        cudaMemcpy((void*)c_ps_raw, (const void*)g_acc.ptr, sizeof(float)*int(N)*int(K), cudaMemcpyDeviceToHost);
-        Math::fftshift_1D_batch(c_ps_raw,int(N),int(K));
-
-        GpuKernels::real_to_complex<<<grd_rad,blk>>>(g_tmp.ptr,g_acc.ptr,siz_rad);
-
-        fft.exec(g_fou.ptr,g_tmp.ptr);
-        GpuKernels::analytical_signal_1D<<<grd_rad,blk>>>(g_fou.ptr,M,N,1,K);
-        ifft.exec(g_tmp.ptr,g_fou.ptr);
-        GpuKernels::divide<<<grd_rad,blk>>>(g_tmp.ptr,N,siz_rad);
-
-        GpuKernels::as_amplitude_normalize_clamp<<<grd_rad,blk>>>(g_acc.ptr,g_tmp.ptr,siz_rad);
-        cudaMemcpy((void*)c_ps_norm, (const void*)g_acc.ptr, sizeof(float)*int(N)*int(K), cudaMemcpyDeviceToHost);
-        Math::fftshift_1D_batch(c_ps_norm,int(N),int(K));
-
-        /// REFINE CTF
-        CtfRefiner ctf_refiner(int(M),int(N),int(K),apix,lambda_kv,AC,CS);
-        float delta_def,phase_shift,max_score;
-        int   max_fpix;
-
-        if( log_level>0 ) {
-            sprintf(filename,"%s/ctf_radial_fit",out_dir);
-            IO::create_dir(filename);
-        }
-
-        for(int k=0;k<int(K);k++) {
-            float*p_data  = c_ps_norm + k*int(N);
-            float ini_def = (c_estimate[k].U+c_estimate[k].V)/2;
-            ctf_refiner.refine_ctf_hybrid(max_score,delta_def,phase_shift,max_fpix,p_data,ini_def,est_phase_shift);
-            c_estimate[k].U += delta_def;
-            c_estimate[k].V += delta_def;
-            c_estimate[k].ph_shft = est_phase_shift ? phase_shift : 0.0f;
-            c_estimate[k].score   = max_score;
-            c_estimate[k].Bfactor = 0.0f;
-            c_estimate[k].ExpFilt = 0.0f;
-
-            /// Resolution limit from where the CTF stops explaining the data,
-            /// measured on the raw (not amplitude-normalized) radial average.
-            max_fpix = ctf_refiner.estimate_max_fpix(c_ps_raw+k*int(N),ini_def+delta_def,
-                                                     c_estimate[k].ph_shft,res_thres);
-            c_estimate[k].max_res = (max_fpix>0) ? N*apix/max_fpix : 0.0f;
-            if( log_level>0 ) {
-                float p_tmp[int(M)];
-                sprintf(filename,"%s/ctf_radial_fit/projection_%02d.svg",out_dir,k);
-                SvgCtf svg_ctf(filename,apix);
-                svg_ctf.create_grid(0.0f,float(max_fpix),int(N));
-                svg_ctf.add_est(ctf_refiner.buf_metric,int(M),true);
-                for(int i=0;i<int(M);i++) p_tmp[i] = ctf_refiner.buf_ctf[i]*ctf_refiner.buf_ctf[i];
-                svg_ctf.add_fit(p_tmp,int(M));
-                for(int i=0;i<int(M);i++) p_tmp[i] = fminf( fmaxf(c_ps_raw[i+k*int(N)]+0.5,0),1.0f);
-                svg_ctf.add_avg(p_tmp,int(M));
-                svg_ctf.add_corr(ctf_refiner.buf_corr,int(M),res_thres);
-                svg_ctf.create_legend();
-                svg_ctf.create_title(k,ini_def+delta_def);
-            }
-        }
     }
 
     void save_fitting(const char*out_dir,float*c_buffer,GPU::GArrSingle&hermitian_input) {

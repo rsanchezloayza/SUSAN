@@ -249,6 +249,13 @@ typedef enum {
 } CtfProjectionType_t;
 
 typedef enum {
+    ASTIG_NONE=0,
+    ASTIG_MAGNITUDE,   /// U-V per series, angle per projection
+    ASTIG_SERIES,
+    ASTIG_PROJECTION
+} CtfAstigmatismType_t;
+
+typedef enum {
     ALI_OUTPUT_ALIGNMENT=0,
     ALI_OUTPUT_DENSE
 } AliOutputType_t;

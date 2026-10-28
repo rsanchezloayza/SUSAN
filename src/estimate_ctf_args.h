@@ -40,6 +40,7 @@ typedef struct {
     bool   est_phase_shift;
     bool   est_initial_snr;
     bool   dechirp_cs;
+    uint32 astig_type;
     int    verbosity;
     int    log_level;
     int    n_gpu;
@@ -99,6 +100,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.est_phase_shift = true;
     info.est_initial_snr = false;
     info.dechirp_cs      = true;
+    info.astig_type      = ASTIG_MAGNITUDE;
 
     /// Parse inputs:
     enum {
@@ -115,6 +117,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         EST_PHASE_SHIFT,
         EST_INITIAL_SNR,
         DECHIRP_CS,
+        ASTIG_TYPE,
         VERBOSITY,
         LOG_LEVEL
     };
@@ -136,6 +139,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"est_phase_shift",1, 0, EST_PHASE_SHIFT },
         {"est_initial_snr",1, 0, EST_INITIAL_SNR },
         {"dechirp_cs",     1, 0, DECHIRP_CS      },
+        {"astig_type",     1, 0, ASTIG_TYPE      },
         {0, 0, 0, 0}
     };
     
@@ -169,6 +173,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case DECHIRP_CS:
                 info.dechirp_cs = atoi(optarg)>0;
+                break;
+            case ASTIG_TYPE:
+                info.astig_type = ArgParser::get_astig_type(optarg);
                 break;
             case GPU_LIST:
                 info.n_gpu = ArgParser::get_list_integers(info.p_gpu,optarg);
@@ -230,6 +237,10 @@ inline void print(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"\t\tPhase shift estimation: %s.\n",info.est_phase_shift?"enabled":"disabled");
     fprintf(fp,"\t\tInitial SNR estimation: %s.\n",info.est_initial_snr?"enabled":"disabled");
     fprintf(fp,"\t\tCs de-chirp: %s.\n",info.dechirp_cs?"enabled":"disabled");
+    if( info.astig_type == ASTIG_NONE       ) fprintf(fp,"\t\tAstigmatism: none.\n");
+    if( info.astig_type == ASTIG_MAGNITUDE  ) fprintf(fp,"\t\tAstigmatism: magnitude per series, angle per projection.\n");
+    if( info.astig_type == ASTIG_SERIES     ) fprintf(fp,"\t\tAstigmatism: per series.\n");
+    if( info.astig_type == ASTIG_PROJECTION ) fprintf(fp,"\t\tAstigmatism: per projection.\n");
     fprintf(fp,"\t\tDebug data log level: %d.\n",info.log_level);
 
 }
