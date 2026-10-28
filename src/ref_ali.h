@@ -317,6 +317,11 @@ public:
     GPU::GArrVec3   g_pts;
     GPU::GArrSingle g_cc;
     float          *c_cc;
+    Vec3           *c_noise;     /// offsets where the CC is noise (alignment priors), see set_noise_ring
+    GPU::GArrVec3   g_noise;
+    GPU::GArrSingle g_noise_cc;
+    float          *c_noise_cc;
+    uint32          n_noise;
     uint32 M;
     uint32 N;
     uint32 max_K;
@@ -369,12 +374,57 @@ public:
         }
         g_pts.alloc(n_pts);
         cudaMemcpy((void*)g_pts.ptr,(const void*)c_pts,sizeof(Vec3)*n_pts,cudaMemcpyHostToDevice);
+        c_noise    = NULL;
+        c_noise_cc = NULL;
+        n_noise    = 0;
     }
 
     ~AliData() {
         delete [] c_cc;
         delete [] c_pts;
         delete [] c_lvl;
+        delete [] c_noise;
+        delete [] c_noise_cc;
+    }
+
+    /// Offsets where the CC map is noise, for the alignment priors (prior_lambda): a 2D annulus (z = 0, dim 2) or a 3D
+    /// shell on the 1 px grid, from the largest search offset + NOISE_RING_GAP peak widths (width N / fpix_max px) to
+    /// NOISE_RING_SPAN more widths (at least NOISE_RING_MIN_SPAN px), inside N/2 - NOISE_RING_EDGE - dil_rad; thinned
+    /// to at most NOISE_RING_MAX_PTS. Called once, before the particle loop; n_noise stays 0 when the box has no room.
+    void set_noise_ring(int dim,float fpix_max) {
+        float r_s = 0;
+        for(uint32 i=0;i<n_pts;i++)
+            r_s = fmaxf(r_s,sqrtf(c_pts[i].x*c_pts[i].x + c_pts[i].y*c_pts[i].y + c_pts[i].z*c_pts[i].z));
+        const float wdt   = ((float)N)/fmaxf(fpix_max,1.0f);
+        const float r_in  = r_s + NOISE_RING_GAP*wdt;
+        const float r_out = fminf(r_in + fmaxf(NOISE_RING_MIN_SPAN,NOISE_RING_SPAN*wdt),((float)N)/2 - NOISE_RING_EDGE - dil_rad);
+        if( r_out - r_in < 2 )
+            return;
+        const int ir = (int)r_out;
+        const int iz = (dim == 2) ? 0 : ir;
+        int n_all = 0;
+        for(int z=-iz;z<=iz;z++) for(int y=-ir;y<=ir;y++) for(int x=-ir;x<=ir;x++) {
+            const float r = sqrtf((float)(x*x + y*y + z*z));
+            if( r >= r_in && r <= r_out ) n_all++;
+        }
+        const int stride = (n_all + NOISE_RING_MAX_PTS - 1)/NOISE_RING_MAX_PTS;
+        n_noise = (n_all + stride - 1)/stride;
+        c_noise = new Vec3[n_noise];
+        int j = 0, c = 0;
+        for(int z=-iz;z<=iz;z++) for(int y=-ir;y<=ir;y++) for(int x=-ir;x<=ir;x++) {
+            const float r = sqrtf((float)(x*x + y*y + z*z));
+            if( r >= r_in && r <= r_out ) {
+                if( (c % stride) == 0 && j < (int)n_noise )
+                    c_noise[j++] = {(float)x,(float)y,(float)z};
+                c++;
+            }
+        }
+        n_noise = j;
+        const uint32 rows = (dim == 2) ? max_K : 1;
+        c_noise_cc = new float[n_noise*rows];
+        g_noise.alloc(n_noise);
+        g_noise_cc.alloc(n_noise*rows);
+        cudaMemcpy((void*)g_noise.ptr,(const void*)c_noise,sizeof(Vec3)*n_noise,cudaMemcpyHostToDevice);
     }
 
     void pre_rotate_reference(Rot33&R,GPU::GArrProj2D&ali_in,int k,GPU::Stream&stream) {
@@ -549,6 +599,27 @@ public:
         }
         if( to_host )
             GPU::download_async(c_cc,g_cc.ptr,n_pts,stream.strm);
+    }
+
+    /// 3D: the CC at the noise points, from the maps loaded by the last sparse_reconstruct.
+    void sparse_reconstruct_noise(GPU::GArrProj2D&ali,const Rot33 R,int k,GPU::Stream&stream) {
+        int L = (n_noise < 1024) ? 32 : ( (n_noise < 5000) ? 16 : 2 );
+        dim3 blk(256,1,1);
+        dim3 grd(GPU::div_round_up(n_noise*L,256),1,1);
+        switch(L) {
+            case 32: GpuKernelsVol::reconstruct_pts_kb<32><<<grd,blk,0,stream.strm>>>(g_noise_cc.ptr,ali.ptr,prj_tex.texture,R,g_noise.ptr,n_noise,N,k); break;
+            case 16: GpuKernelsVol::reconstruct_pts_kb<16><<<grd,blk,0,stream.strm>>>(g_noise_cc.ptr,ali.ptr,prj_tex.texture,R,g_noise.ptr,n_noise,N,k); break;
+            default: GpuKernelsVol::reconstruct_pts_kb< 2><<<grd,blk,0,stream.strm>>>(g_noise_cc.ptr,ali.ptr,prj_tex.texture,R,g_noise.ptr,n_noise,N,k); break;
+        }
+        GPU::download_async(c_noise_cc,g_noise_cc.ptr,n_noise,stream.strm);
+    }
+
+    /// 2D: the CC at the noise points per projection (k rows), from the maps loaded by the last download_cc.
+    void download_noise_cc(GPU::GArrProj2D&ali,int k,GPU::Stream&stream) {
+        dim3 blk(1024,1,1);
+        dim3 grd(GPU::div_round_up(n_noise,1024),1,k);
+        GpuKernelsVol::extract_pts_kb<<<grd,blk,0,stream.strm>>>(g_noise_cc.ptr,prj_tex.texture,ali.ptr,g_noise.ptr,n_noise,N,k);
+        GPU::download_async(c_noise_cc,g_noise_cc.ptr,n_noise*k,stream.strm);
     }
 
     void download_cc(GPU::GArrProj2D&ali,int k,GPU::Stream&stream) {

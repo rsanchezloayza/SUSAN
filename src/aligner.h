@@ -154,7 +154,9 @@ protected:
     std::vector<single> cc_placeholder;
     std::vector<M33f>   R_lvl;
     std::vector<M33f>   R_cum;
-    std::vector<float>  prior_w;
+    std::vector<float>  prior_pen;
+    std::vector<float>  noise_tmp;
+    bool                use_prior;
     std::unique_ptr<CcTrackerAlignment>    cc_tracker;
     std::unique_ptr<CcTrackerAlignmentArr> cc_tracker_arr;
     std::unique_ptr<DenseVolumes>          dense_vol;
@@ -179,6 +181,19 @@ protected:
 
         AliData ali_data(MP,NP,max_K,off_par,off_type,stream,dilate,dilate_radius);
 
+        /// Alignment priors: scaled per projection (2D) or particle (3D) by the CC noise on a ring outside the peak
+        /// (see prior_lambda in cc_tracker.h).
+        use_prior = (angle_sigma > 0 || offset_sigma > 0) && output_type != ALI_OUTPUT_DENSE;
+        if( use_prior ) {
+            ali_data.set_noise_ring(ali_type,bandpass.y);
+            if( ali_data.n_noise == 0 ) {
+                if( worker_id == 0 )
+                    fprintf(stderr,"Warning: no room for the noise ring of the alignment priors in box %d; priors disabled.\n",NP);
+                use_prior = false;
+            }
+            noise_tmp.resize(ali_data.n_noise);
+        }
+
         RadialAverager rad_avgr(MP,NP,max_K);
 
         if( output_type == ALI_OUTPUT_DENSE ) {
@@ -201,7 +216,7 @@ protected:
                 cc_tracker_arr.reset(new CcTrackerAlignmentArr((CcStatsType_t)cc_stats,max_K,ali_data.c_pts,ali_data.n_pts,offset_sigma));
                 R_lvl.resize(max_K);
                 R_cum.resize(max_K);
-                prior_w.resize(max_K);
+                prior_pen.resize(max_K);
             }
         }
 
@@ -461,7 +476,7 @@ protected:
     /// - Normalize reference projections.
     /// - Multiply in fourier space, [dilate 0] KB prefilter, invert to real space.
     void correlate_3D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,
-                      const M33f&R_tmp,const float w_total,const bool to_host,GPU::Stream&stream) {
+                      const M33f&R_tmp,const float w_total,const bool to_host,GPU::Stream&stream,const bool noise=false) {
         Rot33 Rot;
         Math::set(Rot,R_tmp);
 
@@ -489,6 +504,8 @@ protected:
             Math::set(R_spc,M33f::Identity());
 
         ali_data.sparse_reconstruct(ptr->g_ali,R_spc,ptr->K,stream,to_host);
+        if( noise )
+            ali_data.sparse_reconstruct_noise(ptr->g_ali,R_spc,ptr->K,stream);
     }
 
     void correlate_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,
@@ -523,6 +540,12 @@ protected:
         const float w_total = total_proj_weight(ptr);
 
         cc_tracker->clear();
+        if( use_prior ) {
+            correlate_3D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,R_ali.transpose(),w_total,true,stream,true);
+            stream.sync();
+            memcpy(noise_tmp.data(),ali_data.c_noise_cc,sizeof(float)*ali_data.n_noise);
+            cc_tracker->set_lambda(prior_lambda(noise_tmp.data(),ali_data.n_noise,ali_data.c_cc,ali_data.n_pts));
+        }
         int lvl = 0;
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
             if( lvl > 0 )
@@ -534,16 +557,13 @@ protected:
                         ang_prov.get_current_R(R_ite);
                         correlate_3D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,(R_ali*R_lvl*R_ite).transpose(),w_total,true,stream);
 
-                        /// Orientation prior: down-weight candidates whose cumulative
-                        /// deviation from the previous pose is large.  Out-of-plane
-                        /// (cone) and in-plane (twist) deviations are penalised
-                        /// independently with the same angle_sigma and multiplied.
-                        /// Disabled (w=1) when angle_sigma <= 0.
-                        const M33f  R_cum  = R_lvl*R_ite;
-                        const float weight = orientation_prior_weight_deg(cone_theta_deg(R_cum)   ,angle_sigma)
-                                           * orientation_prior_weight_deg(inplane_theta_deg(R_cum),angle_sigma);
+                        /// Orientation prior on the cumulative deviation from the previous pose, cone and in-plane
+                        /// (cc_tracker.h); 0 when angle_sigma <= 0.
+                        const M33f  R_cum = R_lvl*R_ite;
+                        const float pen   = orientation_prior_pen_deg(cone_theta_deg(R_cum)   ,angle_sigma)
+                                          + orientation_prior_pen_deg(inplane_theta_deg(R_cum),angle_sigma);
 
-                        cc_tracker->push(ali_data.c_cc,ali_data.n_pts,R_cum,weight);
+                        cc_tracker->push(ali_data.c_cc,ali_data.n_pts,R_cum,pen);
                     } // INPLANE
                 } // CONE
             } // SYMMETRY
@@ -591,6 +611,17 @@ protected:
         ali_data.pre_rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
         
         cc_tracker_arr->clear(ptr->K);
+        if( use_prior ) {
+            Math::set(Rot,M33f::Identity());
+            correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,false,stream);
+            ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+            ali_data.download_noise_cc(ptr->g_ali,ptr->K,stream);
+            stream.sync();
+            for(int i=0;i<ptr->K;i++) {
+                memcpy(noise_tmp.data(),ali_data.c_noise_cc+i*ali_data.n_noise,sizeof(float)*ali_data.n_noise);
+                cc_tracker_arr->set_lambda(i,prior_lambda(noise_tmp.data(),ali_data.n_noise,ali_data.c_cc+i*ali_data.n_pts,ali_data.n_pts));
+            }
+        }
         int lvl = 0;
         for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
             if( lvl > 0 )
@@ -609,18 +640,15 @@ protected:
                         correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,true,stream);
                         ali_data.download_cc(ptr->g_ali,ptr->K,stream);
 
-                        /// Orientation prior: down-weight candidates whose deviation
-                        /// from the previous per-tilt pose is large.  Out-of-plane
-                        /// (cone) and in-plane (twist) deviations are penalised
-                        /// independently with the same angle_sigma and multiplied.
-                        /// Disabled (w=1) when angle_sigma <= 0.
+                        /// Orientation prior on the deviation from the previous per-tilt pose, cone and in-plane
+                        /// (cc_tracker.h); 0 when angle_sigma <= 0.
                         for(int i=0;i<ptr->K;i++) {
-                            R_cum[i]   = R_lvl[i]*R_ite;
-                            prior_w[i] = orientation_prior_weight_deg(cone_theta_deg(R_cum[i])   ,angle_sigma)
-                                       * orientation_prior_weight_deg(inplane_theta_deg(R_cum[i]),angle_sigma);
+                            R_cum[i]     = R_lvl[i]*R_ite;
+                            prior_pen[i] = orientation_prior_pen_deg(cone_theta_deg(R_cum[i])   ,angle_sigma)
+                                         + orientation_prior_pen_deg(inplane_theta_deg(R_cum[i]),angle_sigma);
                         }
 
-                        cc_tracker_arr->push(ali_data.c_cc,ali_data.n_pts,R_cum.data(),prior_w.data());
+                        cc_tracker_arr->push(ali_data.c_cc,ali_data.n_pts,R_cum.data(),prior_pen.data());
                     } // INPLANE
                 } // CONE
             } // SYMMETRY

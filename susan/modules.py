@@ -86,54 +86,30 @@ class Aligner(_BandpassFpix):
         level-0 cone grid is about 0.7 times the cone step, so ``factor=1``
         leaves roughly 20% of directions outside the reach of the next level.
     angle_sigma : float
-        Width (degrees) of a Gaussian prior on the candidate orientation's
-        deviation from the previous pose.  Acts as a soft regulariser that
-        down-weights candidates with large angular offsets.  The
-        out-of-plane (cone) and in-plane (twist) deviations are penalised
-        independently with the same width and multiplied, so the
-        per-orientation score becomes
-        ``CC · exp(−θ_cone² / (2·angle_sigma²)) · exp(−θ_inplane² / (2·angle_sigma²))``
-        for the argmax tiebreak only.  Raw CC values are preserved in stats
-        and downstream outputs.
-
-        ``0`` (default) disables the prior and reproduces the unregularised
-        behaviour.  ``θ`` is the deviation from the current pose, so for a
-        search of full width ``span`` the most-deviated candidate sits at
-        ``span / 2``.  Useful settings (per axis): ``angle_sigma = span``
-        barely touches the search (edge candidate ≈ 0.88); ``span / 2`` is
-        mild (edge ≈ 0.61); ``span / 4`` is aggressive (edge ≈ 0.14).
-        Because the two axes multiply, a candidate at the edge of *both*
-        cone and in-plane gets the square of the per-axis weight
-        (e.g. ``0.88² ≈ 0.77``).
-
-        Recommended in 2-D mode (``dimensionality=2``) with a cone search,
-        where each tilt picks its own orientation and the
-        per-particle degrees of freedom can otherwise drive overfitting.
-        Set to ``0`` for coarse / template-matching searches that depend
-        on broad angular exploration.  Default: ``0`` (disabled).
+        Standard deviation (degrees) of a Gaussian prior on the candidate
+        orientation's deviation from the previous pose, cone (out-of-plane)
+        and in-plane, each with this width.  ``0`` (default) disables it.
+        Set it to the expected deviation of the true pose from the current
+        one.  The score is a log posterior in CC units,
+        ``CC − λ·(θ_cone² + θ_inplane²) / (2·angle_sigma²)`` (plus the
+        offset term), where ``λ = sd_CC² / A`` converts the CC to a
+        log-likelihood: ``sd_CC`` is the CC noise (robust sd on a ring of
+        offsets outside the peak) and ``A`` the peak height above its
+        median, measured per projection in 2-D and per particle in 3-D at
+        the input pose.  So the prior's effect follows the data: strong
+        projections move freely, weak ones stay near the previous pose.
+        Raw CC values are kept in the outputs.  Set to ``0`` for coarse /
+        template-matching searches.
     offset_sigma : float
-        Width (pixels/voxels) of a Gaussian prior on the candidate
-        translation's magnitude.  Acts as a soft regulariser that
-        down-weights large shifts — the per-point score becomes
-        ``CC(t) · exp(−|t|² / (2·offset_sigma²))`` for the
-        translation argmax, and the combined joint score
-        ``CC · w_shift · w_angle`` drives the cross-orientation tiebreak.
-        Raw CC values are preserved in stats and downstream outputs; the
-        Sigma cc-stats tracker's PSR / z-score uses raw CC so its
-        discriminability metric is not polluted by the prior.
-
-        Units are pixels in 2-D mode and voxels in 3-D mode, matching
-        :attr:`offset` (``offset.span`` / ``offset.step``).  ``0``
-        (default) disables the prior and reproduces the unregularised
-        behaviour.  Typical useful values lie between ``offset.span / 4``
-        (aggressive: edge of the offset grid gets weight ≈ 0.14) and
-        ``offset.span / 2`` (mild: edge gets weight ≈ 0.61).
-
-        Useful when the translational search has converged near the
-        previous estimate and you want to prevent late iterations from
-        wandering due to noise.  Set to ``0`` for initial / coarse
-        alignment when the true shift may be far from the current
-        estimate.  Default: ``0`` (disabled).
+        Standard deviation (pixels in 2-D, voxels in 3-D, as :attr:`offset`)
+        of a Gaussian prior on the candidate translation, the term
+        ``λ·|t|² / (2·offset_sigma²)`` of the same score (see
+        :attr:`angle_sigma`).  ``0`` (default) disables it.  Set it to the
+        expected deviation of the true shift from the current one; useful
+        in late refinement and in 2-D, where a single projection's evidence
+        is weak.  The noise ring needs room in the box beyond the offset
+        search (about three peak widths, ``box / lowpass`` px each); without
+        it the priors are disabled with a warning.
     offset : :class:`~susan.utils.datatypes.offset_params`
         Translational search range, step, and shape.
         Default: ``offset_params([4, 4, 4], 1, 'ellipsoid')``.
@@ -1270,16 +1246,22 @@ class CtfRefiner(_BandpassFpix):
         multiplication during refinement.  Useful when the data is noisy
         or to prevent overfitting. Default: ``False``.
     defocus_angstroms : :class:`~susan.utils.datatypes.search_params`
-        Defocus search range and step in Ångströms.
-        Default: ``search_params(1000, 100)``.
+        Defocus search in Ångströms.  ``span`` is the total width, as in the
+        aligner's angular search: the deltas go from ``-span/2`` to
+        ``span/2`` around the current defocus, with the step adjusted to
+        divide the half-width.
+        Default: ``search_params(1000, 100)`` (``-500 .. 500`` Å).
     angles : :class:`~susan.utils.datatypes.search_params`
-        Tilt-angle search range and step in degrees.
+        Astigmatism-angle search in degrees (only with
+        :attr:`refine_astigmatism`); ``span`` is the total width
+        (``-span/2 .. span/2``).
         Default: ``search_params(2, 1)``.
     phase_shift_deg : :class:`~susan.utils.datatypes.search_params`
-        Phase-shift search range and step in sexagesimal degrees (converted
-        to radians before being passed to the binary).  ``span = 0`` disables
-        the search (single iteration at the stored per-projection value).
-        Useful for Volta phase-plate data where the plate setting drifts.
+        Phase-shift search in sexagesimal degrees (converted to radians
+        before being passed to the binary); ``span`` is the total width
+        (``-span/2 .. span/2``).  ``span = 0`` disables the search (single
+        iteration at the stored per-projection value).  Useful for Volta
+        phase-plate data where the plate setting drifts.
         Default: ``search_params(0, 1)``.
     offset : :class:`~susan.utils.datatypes.offset_params`
         In-plane translational search range and step.
@@ -1288,33 +1270,29 @@ class CtfRefiner(_BandpassFpix):
         Ad-hoc SSNR model for CTF weighting.
         Default: ``ssnr(0, 0.001)``.
     offset_sigma : float
-        Width (pixels) of a Gaussian prior on the translation magnitude.
-        Down-weights large in-plane shifts during the joint
-        (defocus, phase-shift, translation) argmax — the per-point score
-        becomes ``CC(t) · exp(−|t|² / (2·offset_sigma²))``.  Raw CC values
-        are preserved in stats and downstream outputs.
-
-        ``0`` (default) disables the prior.  Typical useful values lie
-        between ``offset.span / 4`` (aggressive) and ``offset.span / 2``
-        (mild).  Default: ``0`` (disabled).
+        Standard deviation (pixels) of a Gaussian prior on the translation.
+        The per-projection score of the joint (defocus, phase shift,
+        translation) search is a log posterior in CC units,
+        ``CC − λ·(|t|²/(2·offset_sigma²) + (dU² + dV²)/(2·defocus_sigma²) +
+        dP²/(2·phase_sigma²))``, with ``λ = sd_CC² / A`` measured per
+        projection at the starting CTF (CC noise on a ring of offsets outside
+        the peak, peak height above its median), as the aligner's priors.
+        So the priors' effect follows the data.  Raw CC values are kept in
+        the outputs.  ``0`` (default) disables it.
     defocus_sigma : float
-        Width (Ångströms) of a Gaussian prior on the **isotropic** defocus
-        deviation ``|(dU, dV)|``.  Pulls the per-tilt argmax toward the
-        starting defocus, the main lever to stop noise-driven defocus
-        drift in low-signal tilts.  Form: ``exp(−(dU² + dV²) /
-        (2·defocus_sigma²))``.  In non-astigmatism mode ``dV = dU`` so the
-        formula reduces to ``exp(−dU² / defocus_sigma²)`` — the same σ
-        value is then the "1/e along dU" radius.
-
-        ``0`` (default) disables.  Typical starting values:
-        ``defocus_angstroms.span / 4`` (aggressive) to
-        ``defocus_angstroms.span / 2`` (mild).  Default: ``0`` (disabled).
+        Standard deviation (Ångströms) of a Gaussian prior on the defocus
+        deviation ``(dU, dV)`` from the starting values (see
+        :attr:`offset_sigma`).  Set it to the expected per-projection error
+        of the starting defocus.  A single projection constrains the defocus
+        weakly, so without this prior the per-projection estimate follows the
+        noise (synthetic EMPIAR-10064-like data: 1200 Å error from a 400 Å
+        start); with it the estimate stays near the start unless the data
+        disagree clearly.  ``0`` (default) disables it.
     phase_sigma_deg : float
-        Width (sexagesimal degrees) of a Gaussian prior on the phase-shift
-        deviation.  Converted to radians before being passed to the binary.
-        Form: ``exp(−dP² / (2·phase_sigma_rad²))``.
-
-        ``0`` (default) disables.  Default: ``0`` (disabled).
+        Standard deviation (sexagesimal degrees) of a Gaussian prior on the
+        phase-shift deviation (see :attr:`offset_sigma`).  Converted to
+        radians before being passed to the binary.  ``0`` (default)
+        disables it.
     mpi : :class:`~susan.utils.datatypes.mpi_params`
         MPI launcher configuration used by :meth:`refine_mpi`.
         Default: ``mpi_params('srun -n %d ', 1)``.

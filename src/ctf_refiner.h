@@ -151,6 +151,9 @@ public:
     float2 ssnr; /// x=F; y=S;
     float4 off_par;
 
+    std::vector<float> noise_tmp;
+    bool               use_prior;
+
     DoubleBufferHandler *p_buffer;
     RefMap              *p_refs;
 
@@ -169,9 +172,10 @@ protected:
         NP = N+P;
         MP = (NP/2)+1;
 
-        grid_def_n = setup_grid(grid_def_step,def_range    ,def_step    );
-        grid_ang_n = setup_grid(grid_ang_step,ang_range    ,ang_step    );
-        grid_ph_n  = setup_grid(grid_ph_step ,ph_shft_range,ph_shft_step);
+        /// The ranges are total widths, as in the aligner's angular search: the grids cover -range/2 .. range/2.
+        grid_def_n = setup_grid(grid_def_step,def_range/2    ,def_step    );
+        grid_ang_n = setup_grid(grid_ang_step,ang_range/2    ,ang_step    );
+        grid_ph_n  = setup_grid(grid_ph_step ,ph_shft_range/2,ph_shft_step);
 
         GPU::set_device(gpu_ix);
 
@@ -188,6 +192,18 @@ protected:
         uint32 off_type = CIRCLE;
 
         AliData ali_data(MP,NP,max_K,off_par,off_type,stream);
+
+        /// Priors scaled per projection by the CC noise on a ring outside the peak (prior_lambda, cc_tracker.h).
+        use_prior = (offset_sigma > 0 || defocus_sigma > 0 || phase_sigma > 0);
+        if( use_prior ) {
+            ali_data.set_noise_ring(2,bandpass.y);
+            if( ali_data.n_noise == 0 ) {
+                if( worker_id == 0 )
+                    fprintf(stderr,"Warning: no room for the noise ring of the priors in box %d; priors disabled.\n",NP);
+                use_prior = false;
+            }
+            noise_tmp.resize(ali_data.n_noise);
+        }
 
         RadialAverager rad_avgr(MP,NP,max_K);
 
@@ -352,9 +368,8 @@ protected:
 
         Rot33 Rot;
         
-        // Per-tilt joint-MAP tracker over (translation, dU, dV, dA, dP).  Three
-        // independent Gaussian priors (offset / defocus / phase) are baked into
-        // the tracker; disabled (weight = 1) when σ ≤ 0.
+        // Per-projection joint-MAP tracker over (translation, dU, dV, dA, dP): three independent Gaussian priors
+        // (offset / defocus / phase) added in log-likelihood units (cc_tracker.h); disabled when sigma <= 0.
         CcTrackerDefocusArrMax cc_tracker_arr(ptr->K,
                                               ali_data.c_pts, ali_data.n_pts,
                                               offset_sigma, defocus_sigma, phase_sigma);
@@ -378,7 +393,23 @@ protected:
 
         ctf_ref.load_buf(ali_data.prj_c,ptr->K,stream); /// Fixed copy of projections
 
-        DefocusDelta delta_w;
+        DefocusDelta delta_w = {0.f,0.f,0.f,0.f};
+
+        /// Prior scale per projection, at the metadata CTF (delta 0).
+        if( use_prior ) {
+            ctf_ref.apply_ctf(ali_data.prj_c,delta_w,ptr,phase_flip,stream);
+            rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
+            ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+            ali_data.kb_prefilter(ptr->K,stream);
+            ali_data.invert_fourier(ptr->K,stream);
+            ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+            ali_data.download_noise_cc(ptr->g_ali,ptr->K,stream);
+            stream.sync();
+            for(int i=0;i<ptr->K;i++) {
+                memcpy(noise_tmp.data(),ali_data.c_noise_cc+i*ali_data.n_noise,sizeof(float)*ali_data.n_noise);
+                cc_tracker_arr.set_lambda(i,prior_lambda(noise_tmp.data(),ali_data.n_noise,ali_data.c_cc+i*ali_data.n_pts,ali_data.n_pts));
+            }
+        }
 
         if( astigmatism ) {
             for( int iU=-grid_def_n; iU<=grid_def_n; iU++ ) {

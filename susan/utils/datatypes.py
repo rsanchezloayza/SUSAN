@@ -107,14 +107,16 @@ class bandpass:
 
 @_dc
 class search_params:
-    """Generic angular or offset search range and step.
+    """Generic search range and step: angles (aligner), defocus, astigmatism
+    angle and phase shift (CTF refiner).
 
     .. rubric:: Attributes
 
     Attributes
     ----------
     span : float
-        Total search range (half-range is ``span / 2``).
+        Total search range: the search covers ``-span / 2 .. span / 2``
+        around the current value.
     step : float
         Step size of the search.
     """

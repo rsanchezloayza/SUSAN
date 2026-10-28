@@ -392,10 +392,11 @@ inline void print_full(const Info&info,FILE*fp=stdout) {
     if( info.cc_type == CC_TYPE_CFSC_SUBSTACK )
         fprintf(fp,"\t\tRefining using the Cumulative Fourier Shell Correlation (substack only).\n");
 
-    fprintf(fp,"\t\tDefocus search range: %.2f.\n",info.def_range);
+    fprintf(fp,"\t\tDefocus search range: %.2f (total; -%.2f .. %.2f).\n",info.def_range,info.def_range/2,info.def_range/2);
     fprintf(fp,"\t\tDefocus search step: %.2f.\n",info.def_step);
-    fprintf(fp,"\t\tDefocus angle range: %.2f.\n",info.ang_range);
+    fprintf(fp,"\t\tDefocus angle range: %.2f (total; -%.2f .. %.2f).\n",info.ang_range,info.ang_range/2,info.ang_range/2);
     fprintf(fp,"\t\tDefocus angle step: %.2f.\n",info.ang_step);
+    fprintf(fp,"\t\tPhase shift range: %.3f rad (total; -%.3f .. %.3f), step %.3f rad.\n",info.phase_shift_rad_span,info.phase_shift_rad_span/2,info.phase_shift_rad_span/2,info.phase_shift_rad_step);
     if( info.offset_sigma > 0 )
         fprintf(fp,"\t\tOffset prior:   Gaussian σ=%.3f px on translation magnitude.\n",info.offset_sigma);
     else
@@ -465,8 +466,8 @@ inline void print_basic(const Info&info,FILE*fp=stdout) {
     if( info.cc_type == CC_TYPE_CFSC_SUBSTACK )
         fprintf(fp,"Refining with CFSC (substack only).\n");
 
-    fprintf(fp,"    - Defocus search: Range=%.2f, Step=%.2f.",info.def_range,info.def_step);
-    fprintf(fp," Angle: Range=%.2f, Step=%.2f.",info.ang_range,info.ang_step);
+    fprintf(fp,"    - Defocus search: Range=%.2f (+-%.2f), Step=%.2f.",info.def_range,info.def_range/2,info.def_step);
+    fprintf(fp," Angle: Range=%.2f (+-%.2f), Step=%.2f.",info.ang_range,info.ang_range/2,info.ang_step);
     if( info.astigmatism )
         fprintf(fp," Astigmatism.");
     if( info.offset_sigma > 0 || info.defocus_sigma > 0 || info.phase_sigma > 0 ) {

@@ -214,7 +214,12 @@ typedef enum {
 #define GAT_MIN_TILES       16
 #define GAT_RAW_A_TOL       0.25f
 #define GAT_RAW_B_TOL       1.0f
-#define W_INV_STD_SPLAT  0.74f
+#define W_INV_STD_SPLAT     0.74f
+#define NOISE_RING_GAP      3.0f
+#define NOISE_RING_SPAN     2.0f
+#define NOISE_RING_MIN_SPAN 4.0f
+#define NOISE_RING_EDGE     2.0f
+#define NOISE_RING_MAX_PTS  1024
 /// Angular-spread splatting (see splat_sigma_t / splat_radius in gpu_kernel_vol.h).
 #define SPLAT_SIGMA_0       0.4f    /// closest match to trilinear over all sub-voxel offsets
 #define SPLAT_SIGMA_MAX     2.0f

@@ -34,45 +34,38 @@
 #include "math_cpu.h"
 
 // ---------------------------------------------------------------------------
-// Orientation prior weight for the alignment trackers.
+// Priors of the alignment trackers, in log-likelihood units.
 //
-// Computes a Bayesian-style scalar weight w ∈ (0, 1] that down-weights
-// candidate orientations whose out-of-plane (cone) deviation from the
-// previous estimate is large.  Intended to be multiplied into the CC / PSR
-// score by the caller (or passed as the prior_weight argument to the
-// tracker's push()).
-//
-// Inputs (all in degrees):
-//   theta_deg   — out-of-plane angle of the candidate; typically computed by
-//                 the caller as acos(R(2,2)) on the rotation matrix that
-//                 represents the candidate's deviation from identity, then
-//                 converted to degrees.  Only the cone component is penalised
-//                 — pure in-plane rotations of R leave R(2,2)=1 and so
-//                 produce theta_deg=0.
-//   sigma_deg   — width of the prior.  Larger σ ⇒ weaker prior.  σ ≤ 0
-//                 disables the regulariser (returns 1).  A reasonable range
-//                 is σ ≈ cone_range/4 (aggressive: edge of the cone gets
-//                 w ≈ 0.14) to σ ≈ cone_range/2 (mild: edge gets w ≈ 0.61).
-//
-// Default form is a Gaussian, w(θ) = exp(−θ² / 2σ²), corresponding to a
-// Gaussian prior on the cone direction and yielding the MAP estimator when
-// combined with a log-CC likelihood.  Alternatives the caller may swap in
-// (left commented for reference):
-//   • Lorentzian:   w(θ) = 1 / (1 + (θ/σ)²)
-//                   — heavier tails, more permissive of genuine large
-//                     offsets when the CC clearly supports them.
-//   • Hard cutoff:  w(θ) = (θ ≤ σ) ? 1 : 0
-//                   — strict windowed search, no soft prior.
-//   • Inverse:      w(θ) = σ / (σ + θ)
-//                   — milder linear falloff.
+// The score of a candidate pose is CC - lambda * (|t|^2 / 2 sigma_t^2 + theta_cone^2 / 2 sigma_a^2 +
+// theta_inplane^2 / 2 sigma_a^2): a log posterior in CC units. lambda = sd_cc^2 / A converts the CC to a
+// log-likelihood (kappa CC, kappa = A / sd_cc^2; A the peak above the baseline, sd_cc the CC noise), measured by the
+// aligner per projection (2D) or per particle (3D) on a ring of offsets outside the peak (AliData noise points);
+// lambda = 0 disables the prior. The former multiplicative weights (CC exp(-d^2 / 2 sigma^2)) were z^2 = (A / sd_cc)^2
+// too strong: on EMPIAR-10064 (z 3-3.5) sigma 1 px acted as about 0.3 px. Angles in degrees, offsets in pixels.
 // ---------------------------------------------------------------------------
-inline float orientation_prior_weight_deg(float theta_deg, float sigma_deg)
+inline float orientation_prior_pen_deg(float theta_deg, float sigma_deg)
 {
-    if (sigma_deg <= 0.f) return 1.f;          // disabled
+    if (sigma_deg <= 0.f) return 0.f;          // disabled
     const float r = theta_deg / sigma_deg;
-    return std::exp(-0.5f * r * r);            // Gaussian
-    // Lorentzian alternative:
-    // return 1.f / (1.f + r * r);
+    return 0.5f * r * r;
+}
+
+/// lambda = sd^2 / max(A, sd): sd = 1.4826 MAD of the CC on the noise ring (n_noise values, modified: partially
+/// sorted), A = the best CC over the search points (n_pts) minus the ring median. The max() keeps a projection without
+/// signal at the prior centre.
+inline float prior_lambda(float*noise,const int n_noise,const float*cc,const int n_pts)
+{
+    if( n_noise < 3 || n_pts < 1 ) return 0.f;
+    const int h = n_noise/2;
+    std::nth_element(noise,noise+h,noise+n_noise);
+    const float med = noise[h];
+    for(int i=0;i<n_noise;i++) noise[i] = std::fabs(noise[i]-med);
+    std::nth_element(noise,noise+h,noise+n_noise);
+    const float sd = 1.4826f*noise[h];
+    if( !(sd > 0.f) ) return 0.f;
+    float best = cc[0];
+    for(int i=1;i<n_pts;i++) best = std::max(best,cc[i]);
+    return sd*sd/std::max(best-med,sd);
 }
 
 // Convenience: extract the cone polar deviation (in degrees) from a rotation
@@ -99,9 +92,9 @@ inline float inplane_theta_deg(const M33f& R)
     return std::fabs(a) * (180.f / float(M_PI));
 }
 
-// Pose: per orientation the offset with the highest weighted CC (offset prior on positive values),
-// across orientations the highest weighted CC times the angle prior. get_cc(): the raw CC at that
-// pose or, with CC_STATS_SIGMA, its z against the per-orientation best CC of the first level.
+// Pose: the highest score CC - lambda (|t|^2 / 2 sigma_t^2 + angle penalty) over the orientations and offsets
+// (see prior_lambda; lambda per entry, 0 = no prior). get_cc(): the raw CC at that pose or, with CC_STATS_SIGMA, its
+// z against the per-orientation best CC of the first level.
 class CcTrackerAlignmentArr {
 private:
     struct Entry {
@@ -112,6 +105,7 @@ private:
         int    count;
         double mean;
         double m2;
+        float  lambda;
     };
 
     const Vec3* pts_;
@@ -119,25 +113,27 @@ private:
     bool   sigma_stats_;
     bool   frozen_;
     int    k_;
-    std::vector<float> pts_w_;
+    std::vector<float> pts_pen_;
     std::vector<Entry> e_;
 
 public:
     CcTrackerAlignmentArr(CcStatsType_t cc_stats,const int max_k,const Vec3*p_pts,const int n_pts,float offset_sigma=0.f)
         : pts_(p_pts), n_pts_(n_pts), sigma_stats_(cc_stats == CC_STATS_SIGMA), frozen_(false), k_(max_k)
     {
-        pts_w_.assign(n_pts_,1.0f);
+        pts_pen_.assign(n_pts_,0.0f);
         if( offset_sigma > 0.f ) {
             const float inv2s2 = 1.0f/(2.0f*offset_sigma*offset_sigma);
             for(int i=0;i<n_pts_;i++) {
                 const float r2 = pts_[i].x*pts_[i].x + pts_[i].y*pts_[i].y + pts_[i].z*pts_[i].z;
-                pts_w_[i] = std::exp(-r2*inv2s2);
+                pts_pen_[i] = r2*inv2s2;
             }
         }
         e_.resize(max_k);
+        for(auto&e : e_) e.lambda = 0.f;
         clear(max_k);
     }
 
+    /// Resets the poses and statistics; the lambdas are kept (set them per particle with set_lambda).
     void clear(const int k) {
         k_ = std::min(k,(int)e_.size());
         frozen_ = false;
@@ -153,20 +149,22 @@ public:
         }
     }
 
+    void set_lambda(const int idx,const float lambda) { e_[idx].lambda = lambda; }
+
     void next_level() {
         frozen_ = true;
     }
 
-    void push(const float*p_cc,const int n_pts,const M33f&Rot,float prior_weight=1.0f) {
+    void push(const float*p_cc,const int n_pts,const M33f&Rot,float prior_pen=0.0f) {
         const int n = std::min(n_pts,n_pts_);
         for(int k=0;k<k_;k++)
-            push_entry(e_[k],p_cc + k*n_pts,n,Rot,prior_weight);
+            push_entry(e_[k],p_cc + k*n_pts,n,Rot,prior_pen);
     }
 
-    void push(const float*p_cc,const int n_pts,const M33f*Rots,const float*prior_weights) {
+    void push(const float*p_cc,const int n_pts,const M33f*Rots,const float*prior_pens) {
         const int n = std::min(n_pts,n_pts_);
         for(int k=0;k<k_;k++)
-            push_entry(e_[k],p_cc + k*n_pts,n,Rots[k],prior_weights[k]);
+            push_entry(e_[k],p_cc + k*n_pts,n,Rots[k],prior_pens[k]);
     }
 
     float get_cc(const int idx) const {
@@ -188,13 +186,14 @@ public:
     int  size() const { return k_; }
 
 private:
-    void push_entry(Entry&e,const float*c,const int n,const M33f&Rot,const float prior_weight) {
+    void push_entry(Entry&e,const float*c,const int n,const M33f&Rot,const float prior_pen) {
         if( n < 1 )
             return;
-        float max_w = (c[0] > 0.f) ? c[0]*pts_w_[0] : c[0];
+        const float lam = e.lambda;
+        float max_w = c[0] - lam*(pts_pen_[0] + prior_pen);
         int   max_i = 0;
         for(int i=1;i<n;i++) {
-            const float v_w = (c[i] > 0.f) ? c[i]*pts_w_[i] : c[i];
+            const float v_w = c[i] - lam*(pts_pen_[i] + prior_pen);
             if( v_w > max_w ) { max_w = v_w; max_i = i; }
         }
         const float vmax = c[max_i];
@@ -204,9 +203,8 @@ private:
             e.mean += d/e.count;
             e.m2   += d*(vmax - e.mean);
         }
-        const float joint = (vmax > 0.f) ? max_w*prior_weight : vmax;
-        if( joint > e.cc_w ) {
-            e.cc_w = joint;
+        if( max_w > e.cc_w ) {
+            e.cc_w = max_w;
             e.cc   = vmax;
             e.vec  = pts_[max_i];
             e.rot  = Rot;
@@ -224,7 +222,8 @@ public:
 
     void clear()      { arr_.clear(1); }
     void next_level() { arr_.next_level(); }
-    void push(const float*p_cc,const int n_pts,const M33f&Rot,float prior_weight=1.0f) { arr_.push(p_cc,n_pts,Rot,prior_weight); }
+    void set_lambda(const float lambda) { arr_.set_lambda(0,lambda); }
+    void push(const float*p_cc,const int n_pts,const M33f&Rot,float prior_pen=0.0f) { arr_.push(p_cc,n_pts,Rot,prior_pen); }
     float get_cc()  const { return arr_.get_cc(0);  }
     Vec3  get_vec() const { return arr_.get_vec(0); }
     M33f  get_rot() const { return arr_.get_rot(0); }
@@ -232,18 +231,20 @@ public:
 
 
 // ---------------------------------------------------------------------------
+// Per-projection best (offset, defocus delta) of the CTF refiner. Score: CC - lambda (|t|^2 / 2 sigma_t^2 +
+// (dU^2 + dV^2) / 2 sigma_def^2 + dP^2 / 2 sigma_ph^2), lambda = sd_cc^2 / A of the projection (prior_lambda; 0 =
+// no prior), as the alignment trackers. get_cc() is the raw CC at the chosen point.
 class CcTrackDefocusMax {
 private:
     const Vec3* pts_;
     int   n_pts_;
-    float offset_sigma_;
     float defocus_sigma_;
     float phase_sigma_;
-    std::vector<float> pts_w_;     // precomputed shift-prior weights
+    float lambda_;
+    std::vector<float> pts_pen_;     // precomputed shift-prior penalties
 
-    // Per-tilt best
     float        best_cc_;           // raw CC at chosen point (returned by get_cc)
-    float        best_cc_weighted_;  // joint score — argmax tiebreak only
+    float        best_score_;
     Vec3         best_vec_;
     DefocusDelta best_def_;
 
@@ -255,68 +256,59 @@ public:
                       float phase_sigma   = 0.f)
         : pts_(p_pts),
           n_pts_(n_pts),
-          offset_sigma_(offset_sigma),
           defocus_sigma_(defocus_sigma),
-          phase_sigma_(phase_sigma)
+          phase_sigma_(phase_sigma),
+          lambda_(0.f)
     {
-        pts_w_.assign(n_pts_, 1.0f);
-        if (offset_sigma_ > 0.f) {
-            const float inv2s2 = 1.0f / (2.0f * offset_sigma_ * offset_sigma_);
+        pts_pen_.assign(n_pts_, 0.0f);
+        if (offset_sigma > 0.f) {
+            const float inv2s2 = 1.0f / (2.0f * offset_sigma * offset_sigma);
             for (int i = 0; i < n_pts_; ++i) {
                 const float r2 = pts_[i].x*pts_[i].x +
                                  pts_[i].y*pts_[i].y +
                                  pts_[i].z*pts_[i].z;
-                pts_w_[i] = std::exp(-r2 * inv2s2);
+                pts_pen_[i] = r2 * inv2s2;
             }
         }
         clear();
     }
 
+    /// Resets the best point; lambda is kept.
     void clear()
     {
-        best_cc_          = -std::numeric_limits<float>::infinity();
-        best_cc_weighted_ = -std::numeric_limits<float>::infinity();
-        best_vec_         = {0.f, 0.f, 0.f};
-        best_def_         = {0.f, 0.f, 0.f, 0.f};
+        best_cc_    = -std::numeric_limits<float>::infinity();
+        best_score_ = -std::numeric_limits<float>::infinity();
+        best_vec_   = {0.f, 0.f, 0.f};
+        best_def_   = {0.f, 0.f, 0.f, 0.f};
     }
+
+    void set_lambda(const float lambda) { lambda_ = lambda; }
 
     void push(const float* p_cc,
               int n_pts,
               const DefocusDelta& delta)
     {
         const int n = std::min(n_pts, n_pts_);
+        if (n < 1) return;
 
-        // Per-translation weighted argmax (joint with shift prior; sign-safe).
-        const float v0_w = (p_cc[0] > 0.f) ? p_cc[0] * pts_w_[0] : p_cc[0];
-        float vmax_w     = v0_w;
-        int   max_idx    = 0;
+        float pen = 0.f;
+        if (defocus_sigma_ > 0.f)
+            pen += (delta.U*delta.U + delta.V*delta.V) / (2.0f * defocus_sigma_ * defocus_sigma_);
+        if (phase_sigma_ > 0.f)
+            pen += delta.phase_shift_rad*delta.phase_shift_rad / (2.0f * phase_sigma_ * phase_sigma_);
+
+        float smax    = p_cc[0] - lambda_ * (pts_pen_[0] + pen);
+        int   max_idx = 0;
         for (int i = 1; i < n; ++i) {
-            const float v_w = (p_cc[i] > 0.f) ? p_cc[i] * pts_w_[i] : p_cc[i];
-            if (v_w > vmax_w) { vmax_w = v_w; max_idx = i; }
-        }
-        const float vmax = p_cc[max_idx];   // raw CC at chosen translation
-
-        // Defocus and phase priors (this push).
-        float w_def = 1.f, w_phs = 1.f;
-        if (defocus_sigma_ > 0.f) {
-            const float r2 = delta.U*delta.U + delta.V*delta.V;
-            w_def = std::exp(-0.5f * r2 / (defocus_sigma_ * defocus_sigma_));
-        }
-        if (phase_sigma_ > 0.f) {
-            const float dP = delta.phase_shift_rad;
-            w_phs = std::exp(-0.5f * dP*dP / (phase_sigma_ * phase_sigma_));
+            const float sc = p_cc[i] - lambda_ * (pts_pen_[i] + pen);
+            if (sc > smax) { smax = sc; max_idx = i; }
         }
 
-        // Joint score for the cross-push tiebreak.  Sign-safe: when the raw
-        // CC at the chosen point is non-positive, skip all multiplicative
-        // weighting (matches the alignment tracker convention).
-        const float vmax_joint = (vmax > 0.f) ? vmax_w * w_def * w_phs : vmax;
-
-        if (vmax_joint > best_cc_weighted_) {
-            best_cc_weighted_ = vmax_joint;
-            best_cc_          = vmax;
-            best_vec_         = pts_[max_idx];
-            best_def_         = delta;
+        if (smax > best_score_) {
+            best_score_ = smax;
+            best_cc_    = p_cc[max_idx];
+            best_vec_   = pts_[max_idx];
+            best_def_   = delta;
         }
     }
 
@@ -350,6 +342,8 @@ public:
     {
         for (auto& t : trackers_) t.clear();
     }
+
+    void set_lambda(int i, const float lambda) { trackers_[i].set_lambda(lambda); }
 
     void push(const float* p_cc,
               int n_pts,
