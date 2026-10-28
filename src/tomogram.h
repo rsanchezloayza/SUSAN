@@ -47,6 +47,8 @@ public:
     single  CS;
     single  AC;
     single  handedness;
+    V3f     slab_plane;      /// specimen plane Z = dzdx X + dzdy Y + z0 (A, from the tomogram centre); 0: not set
+    single  slab_thickness;  /// A; 0: not set
     M33f    *R;
     V3f     *t;
     single  *w;
@@ -72,6 +74,8 @@ public:
         CS            = 2.7;
         AC            = 0.07;
         handedness    = -1.0;
+        slab_plane    = V3f::Zero();
+        slab_thickness = 0;
         R             = NULL;
         t             = NULL;
         w             = NULL;
@@ -110,6 +114,12 @@ public:
         parser.args_get_val( num_proj   ,"num_proj"  );
         parser.args_get_val( pos_buffer ,"tomo_pos"  );
         extended_params = parser.args_get_val( handedness,"handedness",-1);
+        Vec3 slab_buffer;
+        parser.args_get_val( slab_buffer   ,"slab_plane"    );
+        parser.args_get_val( slab_thickness,"slab_thickness");
+        slab_plane(0) = slab_buffer.x;
+        slab_plane(1) = slab_buffer.y;
+        slab_plane(2) = slab_buffer.z;
 
         tomo_position(0) = pos_buffer.x;
         tomo_position(1) = pos_buffer.y;
@@ -143,6 +153,7 @@ public:
         printf("  CS:         %.2f\n",CS);
         printf("  AC:         %.3f\n",AC);
         printf("  Handedness: %.3f\n",handedness);
+        printf("  Slab plane: dz/dx %.4f, dz/dy %.4f, z0 %.1f A; thickness %.1f A\n",slab_plane(0),slab_plane(1),slab_plane(2),slab_thickness);
         printf("  Projections:\n");
         for(int i=0;i<num_proj;i++) {
             printf("    %2d:  %7.4f %7.4f %7.4f   %7.2f\n",      i,R[i](0,0),R[i](0,1),R[i](0,2),t[i](0));
@@ -187,6 +198,11 @@ public:
     }
 
     /// Specimen space -> tomogram frame (Angstroms).
+    /// Height (A, from the tomogram centre) of the slab plane at X, Y (A, from the tomogram centre).
+    single slab_z(const single x,const single y) const {
+        return slab_plane(0)*x + slab_plane(1)*y + slab_plane(2);
+    }
+
     V3f to_tomo(const V3f&pt_space) const {
         return pt_space - tomo_position;
     }

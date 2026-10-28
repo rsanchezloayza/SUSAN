@@ -206,6 +206,19 @@ class Tomograms:
 
        Z-axis handedness (+1 or −1).  Default −1.
 
+    .. attribute:: slab_plane
+       :type: ndarray, float32, shape (N, 3)
+
+       Specimen plane (dz/dx, dz/dy, z0): Z = dz/dx X + dz/dy Y + z0, with X, Y,
+       Z in Ångströms from the tomogram centre (the slopes are dimensionless).
+       Default 0 (the tomogram mid-plane; not set).
+
+    .. attribute:: slab_thickness
+       :type: ndarray, float32, shape (N,)
+
+       Specimen thickness in Ångströms, centred on :attr:`slab_plane`.
+       Default 0 (not set).
+
     .. rubric:: CTF
 
     .. attribute:: def_U, def_V
@@ -407,6 +420,8 @@ class Tomograms:
         self.sph_aber   = 2.7 *_np.ones( n_tomos,dtype=_np.float32)
         self.amp_cont   = 0.07*_np.ones( n_tomos,dtype=_np.float32)
         self.handedness = (-1.0)*_np.ones( n_tomos,dtype=_np.float32)
+        self.slab_plane     = _np.zeros((n_tomos,3),dtype=_np.float32) # dz/dx, dz/dy, z0 (Angstroms)
+        self.slab_thickness = _np.zeros( n_tomos   ,dtype=_np.float32) # Angstroms
         
         # Defocus
         self.def_U    = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # U (angstroms)
@@ -465,6 +480,9 @@ class Tomograms:
             self.sph_aber[i]     = _np.float32(args['cs'])
             self.amp_cont[i]     = _np.float32(args['ac'])
             self.handedness[i]   = _np.float32(args.get('handedness',self.handedness[i]))
+            if 'slab_plane' in args:
+                self.slab_plane[i,:] = _np.fromstring(args['slab_plane'],_np.float32,sep=',')
+            self.slab_thickness[i] = _np.float32(args.get('slab_thickness',0))
             self.num_proj[i]     = _np.uint32(args['num_proj'])
 
             P = self.num_proj[i]
@@ -534,6 +552,8 @@ class Tomograms:
             _prsr.write(fp,'cs'        , str(self.sph_aber[i]))
             _prsr.write(fp,'ac'        , str(self.amp_cont[i]))
             _prsr.write(fp,'handedness', str(self.handedness[i]))
+            _prsr.write(fp,'slab_plane', '%f,%f,%f'%(self.slab_plane[i,0],self.slab_plane[i,1],self.slab_plane[i,2]))
+            _prsr.write(fp,'slab_thickness', '%f'%self.slab_thickness[i])
             _prsr.write(fp,'num_proj'  , str(self.num_proj[i]))
             
             fp.write('#euler.Z  euler.Y  euler.Z  shift.X  shift.Y    weight')
@@ -559,8 +579,8 @@ class Tomograms:
 
     # Fields copied verbatim, grouped by shape:
     _FIELDS_TOMO   = ('tomo_id','num_proj','pix_size','voltage','sph_aber',
-                            'amp_cont','handedness')
-    _FIELDS_TOMO_3 = ('tomo_size','tomo_position','stack_size')
+                            'amp_cont','handedness','slab_thickness')
+    _FIELDS_TOMO_3 = ('tomo_size','tomo_position','stack_size','slab_plane')
     _FIELDS_PROJ_N = ('proj_eZYZ','proj_shift')
     _FIELDS_PROJ_1 = ('proj_wgt','def_U','def_V','def_ang','def_phas','def_Bfct',
                             'def_ExFl','def_mres','def_scor','doses',
@@ -1062,6 +1082,8 @@ class Tomograms:
         new.sph_aber[:]             = self.sph_aber
         new.amp_cont[:]             = self.amp_cont
         new.handedness[:]           = self.handedness
+        new.slab_plane[:]           = self.slab_plane     # in Angstroms: scale invariant
+        new.slab_thickness[:]       = self.slab_thickness
         new.proj_eZYZ[:]            = self.proj_eZYZ
         new.proj_shift[:]           = self.proj_shift
         new.proj_wgt[:]             = self.proj_wgt

@@ -260,6 +260,8 @@ class TiltRangeSelector:
         new.sph_aber[:]   = tomos.sph_aber
         new.amp_cont[:]   = tomos.amp_cont
         new.handedness[:] = tomos.handedness
+        new.slab_plane[:] = tomos.slab_plane
+        new.slab_thickness[:] = tomos.slab_thickness
 
         for t in range(self._n_tomos):
             k = self._kept[t]
