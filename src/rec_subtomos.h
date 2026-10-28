@@ -262,15 +262,15 @@ protected:
     }
 
     void crop_substack(RecBuffer&ptr) {
-        V3f pt_tomo,pt_stack,pt_crop,pt_subpix,eu_ZYZ;
+        V3f pt_space,pt_tomo,pt_stack,pt_crop,pt_subpix,eu_ZYZ;
         M33f R_2D,R_3D,R_base,R_gpu;
 
         int r = ptr.ptcl.ref_cix();
 
         calc_R(R_3D,ptr.ptcl.ali_eu[r],p_info->use_ali);
 
-        pt_tomo = get_tomo_position(ptr.ptcl.pos(),ptr.ptcl.ali_t[r]);
-        pt_tomo = pt_tomo - p_tomo->tomo_position;
+        pt_space = ptr.ptcl.pos3d(r);
+        pt_tomo  = p_tomo->to_tomo(pt_space);
 
         for(int k=0;k<ptr.K;k++) {
             if( ptr.ptcl.prj_w[k] > 0 ) {
@@ -278,8 +278,7 @@ protected:
                 calc_R(R_2D,ptr.ptcl.prj_eu[k],p_info->use_ali);
                 R_base = R_2D * p_tomo->R[k];
 
-                pt_crop = project_tomo_position(pt_tomo,p_tomo->R[k],p_tomo->t[k],ptr.ptcl.prj_t[k]);
-                pt_crop = pt_crop/p_tomo->pix_size + p_tomo->stk_center; /// Angstroms -> pixels
+                pt_crop = p_tomo->to_stack( p_tomo->project(pt_tomo,k,ptr.ptcl.shift2d(k)) );
 
                 /// Get subpixel shift and setup data for upload to GPU
                 ptr.c_ali.ptr[k].t.x = (pt_crop(0) - floor(pt_crop(0)));
@@ -373,34 +372,6 @@ protected:
         Math::eZYZ_Rmat(R_out,eu_ZYZ);
     }
 
-    static V3f get_tomo_position(const Vec3&pos_base,const Vec3&shift,bool drift=true) {
-        V3f pos_tomo;
-        if (drift) {
-            pos_tomo(0) = pos_base.x + shift.x;
-            pos_tomo(1) = pos_base.y + shift.y;
-            pos_tomo(2) = pos_base.z + shift.z;
-        }
-        else {
-            pos_tomo(0) = pos_base.x;
-            pos_tomo(1) = pos_base.y;
-            pos_tomo(2) = pos_base.z;
-        }
-        return pos_tomo;
-    }
-
-    static V3f project_tomo_position(const V3f &pos_tomo,
-                                     const M33f&R_tomo,
-                                     const V3f &shift_tomo,
-                                     const Vec2&shift_2D,
-                                     bool drift=true)
-    {
-        V3f pos_stack = R_tomo * pos_tomo + shift_tomo;
-        if(drift) {
-            pos_stack(0) += shift_2D.x;
-            pos_stack(1) += shift_2D.y;
-        }
-        return pos_stack;
-    }
 };
 
 class RecSubtomoPool : public PoolCoordinator {

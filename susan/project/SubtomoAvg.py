@@ -1441,8 +1441,7 @@ class SubtomoAvg(SubtomoAvgCore):
         grid  = tuple(int(g) for g in self.global_grid)
         nc    = int(_np.prod(grid))
         tomos = _ssa_data.Tomograms(self.tomogram_file)
-        n     = ptcls_in.n_ptcl
-        pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+        pt    = ptcls_in.pos()
 
         lam_grid = (_np.logspace(-3, 3, 13) if self.global_lambda is None
                     else _np.atleast_1d(float(self.global_lambda)))
@@ -1478,7 +1477,7 @@ class SubtomoAvg(SubtomoAvgCore):
             R  = _np.eye(3, dtype=_np.float32)
             for k in range(n_proj):
                 _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, k]).astype(_np.float32))
-                R2[k] = R[:2, :]
+                R2[k] = tomos.proj_scale[tcix, k] * R[:2, :]
 
             pt_t  = pt[idx].astype(_np.float64)
             obs   = ptcls_in.prj_t[idx, :n_proj, :].astype(_np.float64)
@@ -1688,27 +1687,22 @@ class SubtomoAvg(SubtomoAvgCore):
                     ptcls_in.prj_t[:] = scale[:, :, _np.newaxis] * ptcls_in.prj_t
 
         elif self.type_2d_shift_fitting.lower() == 'affine':
-            R     = _np.eye(3, dtype=_np.float32)
-            n     = ptcls_in.n_ptcl
-            pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            pt    = ptcls_in.pos()
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 if idx.sum() < 4:
                     continue
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, i]).astype(_np.float32))
                     base    = 0.0 if prj_base is None else prj_base[idx, i]
-                    pt0     = (pt[idx] @ R.T)[:, :2]
+                    pt0     = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
                     pt1     = pt0 + (ptcls_in.prj_t[idx, i] - base)
                     pt0_aug = _np.hstack([pt0, _np.ones((pt0.shape[0], 1))])
                     xform, _, _, _ = _np.linalg.lstsq(pt0_aug, pt1, rcond=None)
                     ptcls_in.prj_t[idx, i] = base + (pt0_aug @ xform - pt0)
 
         elif self.type_2d_shift_fitting.lower() == 'gaussian':
-            R     = _np.eye(3, dtype=_np.float32)
-            n     = ptcls_in.n_ptcl
-            pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            pt    = ptcls_in.pos()
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
@@ -1717,9 +1711,8 @@ class SubtomoAvg(SubtomoAvgCore):
                     continue
                 k_eff = min(7, n_t)
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, i]).astype(_np.float32))
                     base  = 0.0 if prj_base is None else prj_base[idx, i]
-                    pt0   = (pt[idx] @ R.T)[:, :2]
+                    pt0   = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
                     sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
                     ptcls_in.prj_t[idx, i] = base + _smooth_deltas(
                         pt0, ptcls_in.prj_t[idx, i] - base, sigma=sigma, k=k_eff)
@@ -1744,18 +1737,15 @@ class SubtomoAvg(SubtomoAvgCore):
             self._fit_global_deformation(ptcls_in, **kw)
 
         elif self.type_2d_shift_fitting.lower() == 'tps':
-            R     = _np.eye(3, dtype=_np.float32)
-            n     = ptcls_in.n_ptcl
-            pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            pt    = ptcls_in.pos()
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
                 if idx.sum() < 4:
                     continue
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, i]).astype(_np.float32))
                     base = 0.0 if prj_base is None else prj_base[idx, i]
-                    pt0  = (pt[idx] @ R.T)[:, :2]
+                    pt0  = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
                     ptcls_in.prj_t[idx, i] = base + _tps_fit(
                         pt0, ptcls_in.prj_t[idx, i] - base, self.tps_lambda)
 
@@ -1772,9 +1762,7 @@ class SubtomoAvg(SubtomoAvgCore):
             ptcls_old = _ssa_data.Particles(prv.ptcl_rslt)
             delta_U   = ptcls_in.def_U - ptcls_old.def_U
             delta_V   = ptcls_in.def_V - ptcls_old.def_V
-            R     = _np.eye(3, dtype=_np.float32)
-            n     = ptcls_in.n_ptcl
-            pt    = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            pt    = ptcls_in.pos()
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             min_n = 4 if method == 'tps' else 2
             for tcix in range(tomos.n_tomos):
@@ -1784,8 +1772,7 @@ class SubtomoAvg(SubtomoAvgCore):
                     continue
                 k_eff = min(7, n_t)
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, i]).astype(_np.float32))
-                    pt0 = (pt[idx] @ R.T)[:, :2]
+                    pt0 = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
                     d   = _np.stack([delta_U[idx, i], delta_V[idx, i]], axis=1)
                     if method == 'tps':
                         s = _tps_fit(pt0, d, self.ctf_tps_lambda)

@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
-__all__ = ['read','write','get_info']
+__all__ = ['read','write','get_info','set_statistics']
 
 import numpy as _np
 
@@ -179,3 +179,27 @@ def write(data, filename, apix=1, ispg=None, fill_statistics=True):
         data.tofile(f)
     f.close()
 
+def set_statistics(filename, data, mask=None):
+    """Write min, max, mean and std of ``data[mask]`` into the header of an existing MRC file.
+
+    Parameters
+    ----------
+    filename : str
+        MRC file to update (only the header statistics fields are written).
+    data : numpy.ndarray
+        Values the statistics are computed from (normally the file's data).
+    mask : numpy.ndarray of bool, optional
+        Voxels to include (e.g. the valid region of a partially filled
+        volume).  Default: all.  An empty mask writes zeros.
+    """
+    v = data if mask is None else data[mask]
+    if v.size:
+        st = (v.min(),v.max(),v.mean(dtype=_np.float64),v.std(dtype=_np.float64))
+    else:
+        st = (0,0,0,0)
+    st = _np.array(st,dtype=_np.float32)
+    with open(filename,'r+b') as fp:
+        fp.seek(76)                     # words 19-21: min, max, mean
+        st[:3].tofile(fp)
+        fp.seek(216)                    # word 54: rms
+        st[3:].tofile(fp)

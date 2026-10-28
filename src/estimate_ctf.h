@@ -250,21 +250,21 @@ protected:
     }
 
     void crop_substack(single*p_substack,float2*p_factor,const float pi_lambda,Vec3&pt_ptcl,int K,uint32 ptcl_id) {
-        V3f pt_tomo,pt_stack,pt_crop,pt_subpix,eu_ZYZ;
+        V3f pt_space,pt_tomo,pt_stack,pt_crop,pt_subpix,eu_ZYZ;
+        Vec2 no_shift;
+        no_shift.x = 0;
+        no_shift.y = 0;
 
-        pt_tomo(0) = pt_ptcl.x;
-        pt_tomo(1) = pt_ptcl.y;
-        pt_tomo(2) = pt_ptcl.z;
-
-        pt_tomo = pt_tomo - p_tomo->tomo_position;
+        pt_space(0) = pt_ptcl.x;
+        pt_space(1) = pt_ptcl.y;
+        pt_space(2) = pt_ptcl.z;
+        pt_tomo = p_tomo->to_tomo(pt_space);
 
         for(int k=0;k<K;k++) {
-            /// P_crop = R^k_tomo*P_tomo + t^k_tomo
-            pt_stack = p_tomo->R[k]*pt_tomo + p_tomo->t[k];
+            pt_stack = p_tomo->project(pt_tomo,k,no_shift);
 
-            /// Angstroms -> pixels
             if( p_tomo->pix_size == 0 ) { p_factor[k].x = 0; p_factor[k].y = 0; continue; }
-            pt_crop = pt_stack/p_tomo->pix_size + p_tomo->stk_center;
+            pt_crop = p_tomo->to_stack(pt_stack);
 
             /// Setup data for upload to GPU
             float def_sign = (p_info->is_overfocus) ? -1.0f : 1.0f;

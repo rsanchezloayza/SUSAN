@@ -704,9 +704,7 @@ class STA:
                     ptcls_in.prj_t[:] = scale_lim*ptcls_in.prj_t
 
         elif self.type_2d_shift_fitting.lower() == 'affine':
-            R    = _np.eye(3, dtype=_np.float32)
-            n    = ptcls_in.n_ptcl
-            pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            pt   = ptcls_in.pos()
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
@@ -714,9 +712,8 @@ class STA:
                     continue
 
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix,i]).astype(_np.float32))
                     base = 0.0 if prj_base is None else prj_base[idx,i]
-                    pt0 = pt[idx]@R.T
+                    pt0 = tomos.project(tcix, pt[idx], i, shift=False)
                     pt0 = pt0[:,:2]
                     pt1 = pt0 + (ptcls_in.prj_t[idx,i] - base)
                     pt0_aug = _np.hstack([pt0, _np.ones((pt0.shape[0],1))])
@@ -725,9 +722,7 @@ class STA:
                     ptcls_in.prj_t[idx,i] = base + (pt2-pt0)
 
         elif self.type_2d_shift_fitting.lower() == 'gaussian':
-            R    = _np.eye(3, dtype=_np.float32)
-            n    = ptcls_in.n_ptcl
-            pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            pt   = ptcls_in.pos()
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
@@ -737,17 +732,14 @@ class STA:
                 k_eff   = min(7, n_ptcl_tomo)
 
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix,i]).astype(_np.float32))
                     base = 0.0 if prj_base is None else prj_base[idx,i]
-                    pt0 = pt[idx]@R.T
+                    pt0 = tomos.project(tcix, pt[idx], i, shift=False)
                     pt0 = pt0[:,:2]
                     sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
                     ptcls_in.prj_t[idx,i] = base + smooth_deltas(pt0, ptcls_in.prj_t[idx,i] - base, sigma=sigma, k=k_eff)
 
         elif self.type_2d_shift_fitting.lower() == 'tps':
-            R    = _np.eye(3, dtype=_np.float32)
-            n    = ptcls_in.n_ptcl
-            pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            pt   = ptcls_in.pos()
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             for tcix in range(tomos.n_tomos):
                 idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
@@ -755,9 +747,8 @@ class STA:
                     continue
 
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix,i]).astype(_np.float32))
                     base = 0.0 if prj_base is None else prj_base[idx,i]
-                    pt0 = pt[idx]@R.T
+                    pt0 = tomos.project(tcix, pt[idx], i, shift=False)
                     pt0 = pt0[:,:2]
                     ptcls_in.prj_t[idx,i] = base + tps_fit(pt0, ptcls_in.prj_t[idx,i] - base, self.tps_lambda)
 
@@ -767,9 +758,7 @@ class STA:
             ptcls_old = _ssa_data.Particles(prv.ptcl_rslt)
             delta_U   = ptcls_in.def_U - ptcls_old.def_U
             delta_V   = ptcls_in.def_V - ptcls_old.def_V
-            R    = _np.eye(3, dtype=_np.float32)
-            n    = ptcls_in.n_ptcl
-            pt   = ptcls_in.position + ptcls_in.ali_t[ptcls_in.ref_cix, _np.arange(n)]
+            pt   = ptcls_in.pos()
             tomos = _ssa_data.Tomograms(self.tomogram_file)
             min_n = 4 if method == 'tps' else 2
             for tcix in range(tomos.n_tomos):
@@ -780,8 +769,7 @@ class STA:
                 k_eff = min(7, n_ptcl_tomo)
 
                 for i in range(tomos.num_proj[tcix]):
-                    _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix,i]).astype(_np.float32))
-                    pt0 = (pt[idx]@R.T)[:,:2]
+                    pt0 = (tomos.project(tcix, pt[idx], i, shift=False))[:,:2]
                     d   = _np.stack([delta_U[idx,i], delta_V[idx,i]], axis=1)
                     if method == 'tps':
                         s = tps_fit(pt0, d, self.ctf_tps_lambda)

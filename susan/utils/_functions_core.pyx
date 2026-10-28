@@ -314,3 +314,71 @@ def bin_frame_shape(int H, int W, double scale):
     if scale <= 1.0:
         raise ValueError("scale must be > 1.0")
     return (<int>ceil(<double>H / scale), <int>ceil(<double>W / scale))
+
+
+def suppress_peaks(int[:, ::1] zyx, int[:, ::1] offs, int nz, int ny, int nx, int max_keep):
+    """Greedy non-maximum suppression on a voxel grid: peaks (sorted by decreasing score) are kept in order
+    unless a voxel marked by an already kept peak; a kept peak marks its ball ``offs``. Returns the kept indices."""
+    cdef unsigned char[:, :, ::1] taken = np.zeros((nz,ny,nx),dtype=np.uint8)
+    keep_arr = np.empty(zyx.shape[0],dtype=np.int32)
+    cdef int[::1] keep = keep_arr
+    cdef Py_ssize_t i, j
+    cdef int n_keep = 0
+    cdef int z, y, x, a, b, c
+    for i in range(zyx.shape[0]):
+        if max_keep >= 0 and n_keep >= max_keep:
+            break
+        z = zyx[i,0]
+        y = zyx[i,1]
+        x = zyx[i,2]
+        if taken[z,y,x]:
+            continue
+        keep[n_keep] = <int>i
+        n_keep += 1
+        for j in range(offs.shape[0]):
+            a = z + offs[j,0]
+            b = y + offs[j,1]
+            c = x + offs[j,2]
+            if 0 <= a < nz and 0 <= b < ny and 0 <= c < nx:
+                taken[a,b,c] = 1
+    return keep_arr[:n_keep]
+
+
+cdef inline bint _is_local_max(float[:, :, ::1] v, Py_ssize_t z, Py_ssize_t y, Py_ssize_t x) noexcept nogil:
+    cdef Py_ssize_t a, b, c
+    cdef float c0 = v[z,y,x]
+    for a in range(z-1,z+2):
+        if a < 0 or a >= v.shape[0]:
+            continue
+        for b in range(y-1,y+2):
+            if b < 0 or b >= v.shape[1]:
+                continue
+            for c in range(x-1,x+2):
+                if c < 0 or c >= v.shape[2]:
+                    continue
+                if v[a,b,c] > c0:
+                    return False
+    return True
+
+
+def local_maxima(float[:, :, ::1] v, float thr):
+    """Voxels >= thr that are >= their 26 neighbours (outside the grid does not count). Returns (N, 3) int32 z, y, x."""
+    cdef Py_ssize_t z, y, x, n = 0
+    for z in range(v.shape[0]):
+        for y in range(v.shape[1]):
+            for x in range(v.shape[2]):
+                if v[z,y,x] >= thr and _is_local_max(v,z,y,x):
+                    n += 1
+    out_arr = np.empty((n,3),dtype=np.int32)
+    cdef int[:, ::1] out = out_arr
+    n = 0
+    for z in range(v.shape[0]):
+        for y in range(v.shape[1]):
+            for x in range(v.shape[2]):
+                if v[z,y,x] >= thr and _is_local_max(v,z,y,x):
+                    out[n,0] = <int>z
+                    out[n,1] = <int>y
+                    out[n,2] = <int>x
+                    n += 1
+    return out_arr
+

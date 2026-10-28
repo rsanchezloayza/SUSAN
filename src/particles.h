@@ -98,6 +98,28 @@ public:
         return info->ref_cix;
     }
 
+    /// Position in specimen space (Angstroms); drift adds the 3D shift of reference r.
+    V3f pos3d(const int r,const bool drift=true) const {
+        V3f pt;
+        pt(0) = info->pos.x;
+        pt(1) = info->pos.y;
+        pt(2) = info->pos.z;
+        if( drift ) {
+            pt(0) += ali_t[r].x;
+            pt(1) += ali_t[r].y;
+            pt(2) += ali_t[r].z;
+        }
+        return pt;
+    }
+
+    /// 2D shift of projection k (Angstroms); zero without drift.
+    Vec2 shift2d(const int k,const bool drift=true) const {
+        Vec2 sh;
+        sh.x = drift ? prj_t[k].x : 0;
+        sh.y = drift ? prj_t[k].y : 0;
+        return sh;
+    }
+
     uint32& half_id() {
         return info->half_id;
     }

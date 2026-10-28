@@ -282,6 +282,7 @@ class TiltRangeSelector:
                 new.proj_eZYZ          [t, :K, :] = tomos.proj_eZYZ          [t, k, :]
                 new.proj_shift         [t, :K, :] = tomos.proj_shift         [t, k, :]
                 new.proj_wgt           [t, :K   ] = tomos.proj_wgt           [t, k   ]
+                new.proj_scale         [t, :K   ] = tomos.proj_scale         [t, k   ]
                 new.doses              [t, :K   ] = tomos.doses              [t, k   ]
                 new.nominal_tilt_angles[t, :K   ] = tomos.nominal_tilt_angles[t, k   ]
                 new.def_U              [t, :K   ] = tomos.def_U              [t, k   ]

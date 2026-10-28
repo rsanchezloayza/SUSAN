@@ -34,6 +34,49 @@ from susan.utils import rotm_euZYZ as _rotm_euZYZ
 from susan.utils import bin_frame as _bin_frame
 from susan.utils import bin_frame_shape as _bin_frame_shape
 
+def _xf_geometry(A,d,tilt):
+    """Raw-stack projection for one IMOD .xf line and tilt angle (degrees).
+
+    IMOD maps raw to aligned as ``A (x - c) + d`` about ``c = N/2 - 0.5``
+    (0-based pixels); SUSAN's stack centre is ``N/2``. The in-plane block of
+    ``A^-1 R_tlt`` is split by SVD as ``s Rz(a) diag(cos b, 1) Rz(c)``, so
+    stretch and skew become a 3D rotation and ``s`` an isotropic scale.
+
+    Returns
+    -------
+    rot : ndarray, float32, shape (3, 3)
+    shift : ndarray, float64, shape (2,)
+        In pixels of the .xf.
+    scale : float
+    """
+    Ai    = _np.linalg.inv(_np.asarray(A,_np.float64))
+    R_tlt = _np.zeros([3,3],_np.float32)
+    _euZYZ_rotm(R_tlt,_np.array([0.0,tilt,0.0],_np.float32)*_np.float32(_np.pi/180.0))
+    G = Ai @ R_tlt[:2].astype(_np.float64)
+    U,S,Vt = _np.linalg.svd(G[:,:2])
+    if _np.linalg.det(U) < 0:
+        U[:,1] *= -1
+        S[1]   *= -1
+    if _np.linalg.det(Vt) < 0:
+        Vt[1] *= -1
+        S[1]  *= -1
+    K  = _np.array([[0.0,-1.0],[1.0,0.0]])  # K diag(x,y) K^T = diag(y,x)
+    Ra = _np.eye(3)
+    Rc = _np.eye(3)
+    Ra[:2,:2] = U @ K
+    Rc[:2,:2] = K.T @ Vt
+    b   = _np.arccos(_np.clip(S[1]/S[0],-1.0,1.0))
+    rot,best = None,_np.inf
+    for beta in (b,-b):  # the sign of the tilt is fixed by the z column
+        Ry = _np.zeros([3,3],_np.float32)
+        _euZYZ_rotm(Ry,_np.array([0.0,beta,0.0],_np.float32))
+        R = Ra @ Ry.astype(_np.float64) @ Rc
+        err = _np.abs(S[0]*R[:2,2] - G[:,2]).sum()
+        if err < best:
+            rot,best = R,err
+    shift = Ai @ (-_np.asarray(d,_np.float64)) + (Ai - _np.eye(2)) @ _np.full(2,0.5)
+    return rot.astype(_np.float32),shift,float(S[0])
+
 def lookup_cix(id_table,tomo_id) -> tuple[_np.ndarray, _np.ndarray]:
     """Map tomogram IDs onto their index in ``id_table``.
 
@@ -123,6 +166,12 @@ class Tomograms:
        :type: ndarray, float32, shape (N, P)
 
        Per-projection weight (0 = excluded, 1 = active).
+
+    .. attribute:: proj_scale
+       :type: ndarray, float32, shape (N, P)
+
+       Per-projection magnification of the projected positions (x and y in
+       the stack; 1 = none). Set by :meth:`set_angles` from the IMOD .xf.
 
     .. attribute:: doses
        :type: ndarray, float32, shape (N, P)
@@ -352,6 +401,7 @@ class Tomograms:
         self.proj_eZYZ  = _np.zeros((n_tomos,n_projs,3),dtype=_np.float32)
         self.proj_shift = _np.zeros((n_tomos,n_projs,2),dtype=_np.float32)
         self.proj_wgt   = _np.zeros((n_tomos,n_projs)  ,dtype=_np.float32)
+        self.proj_scale = _np.ones ((n_tomos,n_projs)  ,dtype=_np.float32)
         self.voltage    = 300 *_np.ones( n_tomos,dtype=_np.float32)
         self.sph_aber   = 2.7 *_np.ones( n_tomos,dtype=_np.float32)
         self.amp_cont   = 0.07*_np.ones( n_tomos,dtype=_np.float32)
@@ -436,6 +486,8 @@ class Tomograms:
                     self.nominal_tilt_angles[i,p] = buffer[15]
                 if len(buffer) > 16:
                     self.ctf_scale_factor[i,p] = buffer[16]
+                if len(buffer) > 17:
+                    self.proj_scale[i,p] = buffer[17]
 
         self._check_unique_ids()
 
@@ -486,7 +538,8 @@ class Tomograms:
             fp.write('#euler.Z  euler.Y  euler.Z  shift.X  shift.Y    weight')
             fp.write('  Defocus.U  Defocus.V  Def.ang  PhShift')
             fp.write('  BFactor  ExpFilt')
-            fp.write(' Res.angs FitScore\n')
+            fp.write(' Res.angs FitScore')
+            fp.write('  Dose  NomTilt  CtfScale  Mag\n')
             
             P = self.num_proj[i]
             for p in range(P):
@@ -499,6 +552,7 @@ class Tomograms:
                 fp.write('%8.8f %8.8f '       % (self.def_mres[i,p],self.def_scor[i,p]))             # Def.max_res  Def.score
                 fp.write('%8.8f %8.8f '       % (self.doses[i,p]   ,self.nominal_tilt_angles[i,p]))  # Dose         NominalTiltAngle
                 fp.write('%8.8f '             % (self.ctf_scale_factor[i,p]))                        # CTF Scale Factor
+                fp.write('%8.8f '             % (self.proj_scale[i,p]))                              # Magnification
                 fp.write('\n')
         fp.close()
 
@@ -509,7 +563,7 @@ class Tomograms:
     _FIELDS_PROJ_N = ('proj_eZYZ','proj_shift')
     _FIELDS_PROJ_1 = ('proj_wgt','def_U','def_V','def_ang','def_phas','def_Bfct',
                             'def_ExFl','def_mres','def_scor','doses',
-                            'nominal_tilt_angles','ctf_scale_factor')
+                            'nominal_tilt_angles','ctf_scale_factor','proj_scale')
 
     @staticmethod
     def merge_tomos(tomos_list, absolute_paths=False) -> Tomograms:
@@ -692,6 +746,7 @@ class Tomograms:
                 setattr(self,f,_np.pad(arr,((0,0),(0,pad),(0,0))))
             for f in Tomograms._FIELDS_PROJ_1:
                 setattr(self,f,_np.pad(getattr(self,f),((0,0),(0,pad))))
+            self.proj_scale[:,-pad:] = 1
 
         if num_entries == 0:
             return
@@ -781,6 +836,25 @@ class Tomograms:
         """
         return Tomograms._rewrite_paths(tomo_file,out_file,absolute=True)
 
+    def to_tomo(self, cix, pt):
+        """Specimen-space positions (Å, ``(..., 3)``) to the frame of tomogram ``cix``."""
+        return _np.asarray(pt) - self.tomo_position[cix]
+
+    def project(self, cix, pt, k, shift=True):
+        """Project tomogram-frame positions (Å, ``(M, 3)``) onto projection ``k``.
+
+        Returns ``(M, 3)`` in the stack frame (Å, from the stack centre): ``R pt``
+        with x, y scaled by ``proj_scale``, plus ``proj_shift`` when ``shift``.
+        Column 2 is the depth (not scaled).
+        """
+        R = _np.zeros([3,3],_np.float32)
+        _euZYZ_rotm(R,_np.deg2rad(self.proj_eZYZ[cix,k]).astype(_np.float32))
+        out = _np.asarray(pt) @ R.T
+        out[...,:2] *= self.proj_scale[cix,k]
+        if shift:
+            out[...,:2] += self.proj_shift[cix,k]
+        return out
+
     def set_stack(self, idx, stk_name):
         """Populate tomogram entry from a tilt-series stack file.
 
@@ -810,8 +884,9 @@ class Tomograms:
         If only ``tlt_filename`` is provided, tilt angles are set directly
         as the Y Euler angle (ZYZ convention) with no in-plane shifts.
         If ``xf_filename`` is also provided, the IMOD .xf affine transforms
-        are combined with the tilt angles to produce full ZYZ orientations
-        and X/Y shifts in Ångströms.
+        are combined with the tilt angles to produce full ZYZ orientations,
+        X/Y shifts in Ångströms and the magnification (``proj_scale``); a
+        stretch or skew in the .xf becomes part of the 3D rotation.
 
         Parameters
         ----------
@@ -828,6 +903,7 @@ class Tomograms:
         self.proj_eZYZ [idx,:,:] = 0
         self.proj_shift[idx,:,:] = 0
         self.proj_wgt  [idx,:, ] = 0
+        self.proj_scale[idx,:, ] = 1
         
         tlt = _tlt.read(tlt_filename)
         self.nominal_tilt_angles[idx, :self.num_proj[idx]] = tlt
@@ -841,20 +917,13 @@ class Tomograms:
             else:
                 apix = self.pix_size[idx]
             for i in range(self.num_proj[idx]):
-                rot_tlt = _np.zeros([3,3], _np.float32)
-                _euZYZ_rotm(rot_tlt, _np.array([0.0, tlt[i], 0.0], _np.float32) * _np.float32(_np.pi / 180.0))
-                rot_xf  = _np.array([[xf[i,0,0], xf[i,0,1], 0],
-                                     [xf[i,1,0], xf[i,1,1], 0],
-                                     [0        , 0        , 1],
-                                    ], _np.float32).T
-
-                vec_xf  = _np.array([xf[i,0,2], xf[i,1,2], 0], _np.float32) * _np.float32(apix)
-                vec     = -rot_xf @ vec_xf
-                rot     =  rot_xf @ rot_tlt
-                euler   = _np.zeros(3, _np.float32)
+                rot,vec,scl = _xf_geometry(xf[i,:,:2],xf[i,:,2],tlt[i])
+                vec   = vec*apix
+                euler = _np.zeros(3, _np.float32)
                 _rotm_euZYZ(euler, rot)
                 self.proj_eZYZ [idx, i, :] = euler * 180.0 / _np.pi
                 self.proj_shift[idx, i, :] = vec[:2]
+                self.proj_scale[idx, i   ] = scl
                 self.proj_wgt  [idx, i,  ] = 1
          
          
@@ -1007,6 +1076,7 @@ class Tomograms:
         new.doses[:]                = self.doses
         new.nominal_tilt_angles[:]  = self.nominal_tilt_angles
         new.ctf_scale_factor[:]     = self.ctf_scale_factor
+        new.proj_scale[:]           = self.proj_scale
 
         for i in range(self.n_tomos):
             new.tomo_size[i, 0] = int(_np.ceil(float(self.tomo_size[i, 0]) / float(scale)))

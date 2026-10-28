@@ -644,8 +644,13 @@ class Particles:
         """Absolute Z coordinate: position[:,2] + ali_t[ref_idx,:,2] (Ångströms)."""
         return self.position[:,2] + self.ali_t[ref_idx,:,2]
 
-    def pos(self, ref_idx=0) -> _np.ndarray:
-        """Absolute (X, Y, Z) positions: position + ali_t[ref_idx], shape (M, 3), Ångströms."""
+    def pos(self, ref_idx=None, drift=True) -> _np.ndarray:
+        """Absolute (X, Y, Z) positions, shape (M, 3), Ångströms: position + ali_t[ref_idx]
+        (``ref_idx=None``: each particle's own ``ref_cix``; ``drift=False``: position only)."""
+        if not drift:
+            return self.position.copy()
+        if ref_idx is None:
+            return self.position + self.ali_t[self.ref_cix.flatten(),_np.arange(self.n_ptcl)]
         return self.position + self.ali_t[ref_idx]
 
     @staticmethod

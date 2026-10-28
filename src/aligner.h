@@ -763,19 +763,6 @@ protected:
         }
     }
 
-    void set_classification(AliBuffer*ptr) {
-        if( ptr->class_ix+1 == ptr->ptcl.n_refs ) {
-            float max_cc = ptr->ptcl.ali_cc[0];
-            ptr->ptcl.ref_cix() = 0;
-            for(int i=0;i<ptr->ptcl.n_refs;i++) {
-                if( max_cc < ptr->ptcl.ali_cc[i] ) {
-                    max_cc = ptr->ptcl.ali_cc[i];
-                    ptr->ptcl.ref_cix() = i;
-                }
-            }
-        }
-    }
-
 };
 
 class AliRdrWorker : public Worker {
@@ -992,7 +979,7 @@ protected:
     }
 
     void crop_substack(AliBuffer*ptr,const int ref_cix=-1) {
-        V3f pt_tomo,pt_crop;
+        V3f pt_space,pt_tomo,pt_crop;
         M33f R_2D,R_base,R_gpu;
 
         ptr->class_ix = (ref_cix<0)?
@@ -1003,8 +990,8 @@ protected:
                         2*ptr->class_ix + (ptr->ptcl.half_id()-1): // True
                         ptr->class_ix;                             // False
 
-        pt_tomo = get_tomo_position(ptr->ptcl.pos(),ptr->ptcl.ali_t[ptr->class_ix],drift3D);
-        pt_tomo = pt_tomo - p_tomo->tomo_position;
+        pt_space = ptr->ptcl.pos3d(ptr->class_ix,drift3D);
+        pt_tomo  = p_tomo->to_tomo(pt_space);
         if( p_info->output_type == ALI_OUTPUT_DENSE && p_info->type == 3 )
             DenseIO::snap_centre(pt_tomo,*p_tomo,p_info->dense_bin);
         ptr->set_tomo_pos(pt_tomo,p_tomo->tomo_center,p_tomo->pix_size);
@@ -1015,24 +1002,8 @@ protected:
                 Math::eZYZ_Rmat(R_2D,ptr->ptcl.prj_eu[k]);
                 R_base = R_2D * p_tomo->R[k];
 
-                /*if( (ptr->ptcl.ptcl_id() == 44) && (k==20) ) {
-                    printf("\nR_2D = np.zeros((3,3))\n");
-                    printf("R_2D[0,:] = (%f,%f,%f)\n",R_2D(0,0),R_2D(0,1),R_2D(0,2));
-                    printf("R_2D[1,:] = (%f,%f,%f)\n",R_2D(1,0),R_2D(1,1),R_2D(1,2));
-                    printf("R_2D[2,:] = (%f,%f,%f)\n",R_2D(2,0),R_2D(2,1),R_2D(2,2));
-                    printf("\nRtlt = np.zeros((3,3))\n");
-                    printf("Rtlt[0,:] = (%f,%f,%f)\n",p_tomo->R[k](0,0),p_tomo->R[k](0,1),p_tomo->R[k](0,2));
-                    printf("Rtlt[1,:] = (%f,%f,%f)\n",p_tomo->R[k](1,0),p_tomo->R[k](1,1),p_tomo->R[k](1,2));
-                    printf("Rtlt[2,:] = (%f,%f,%f)\n",p_tomo->R[k](2,0),p_tomo->R[k](2,1),p_tomo->R[k](2,2));
-                    printf("\nR_base = np.zeros((3,3))\n");
-                    printf("R_base[0,:] = (%f,%f,%f)\n",R_base(0,0),R_base(0,1),R_base(0,2));
-                    printf("R_base[1,:] = (%f,%f,%f)\n",R_base(1,0),R_base(1,1),R_base(1,2));
-                    printf("R_base[2,:] = (%f,%f,%f)\n",R_base(2,0),R_base(2,1),R_base(2,2));
-                }*/
-
-                pt_crop = project_tomo_position(pt_tomo,p_tomo->R[k],p_tomo->t[k],ptr->ptcl.prj_t[k],drift2D);
                 if( p_tomo->pix_size == 0 ) { ptr->c_ali.ptr[k].w = 0; continue; }
-                pt_crop = pt_crop/p_tomo->pix_size + p_tomo->stk_center; /// Angstroms -> pixels
+                pt_crop = p_tomo->to_stack( p_tomo->project(pt_tomo,k,ptr->ptcl.shift2d(k,drift2D)) );
 
                 /// Get subpixel shift and setup data for upload to GPU
                 ptr->c_ali.ptr[k].t.x = (pt_crop(0) - floor(pt_crop(0)));
@@ -1061,35 +1032,6 @@ protected:
                 rslt = true;
         }
         return rslt;
-    }
-
-    static V3f get_tomo_position(const Vec3&pos_base,const Vec3&shift,bool drift) {
-        V3f pos_tomo;
-        if (drift) {
-            pos_tomo(0) = pos_base.x + shift.x;
-            pos_tomo(1) = pos_base.y + shift.y;
-            pos_tomo(2) = pos_base.z + shift.z;
-        }
-        else {
-            pos_tomo(0) = pos_base.x;
-            pos_tomo(1) = pos_base.y;
-            pos_tomo(2) = pos_base.z;
-        }
-        return pos_tomo;
-    }
-
-    static V3f project_tomo_position(const V3f &pos_tomo,
-                                     const M33f&R_tomo,
-                                     const V3f &shift_tomo,
-                                     const Vec2&shift_2D,
-                                     bool drift)
-    {
-        V3f pos_stack = R_tomo * pos_tomo + shift_tomo;
-        if(drift) {
-            pos_stack(0) += shift_2D.x;
-            pos_stack(1) += shift_2D.y;
-        }
-        return pos_stack;
     }
 
     void upload(AliBuffer*ptr,cudaStream_t&strm) {

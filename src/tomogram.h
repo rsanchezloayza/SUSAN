@@ -50,6 +50,7 @@ public:
     M33f    *R;
     V3f     *t;
     single  *w;
+    single  *s;  /// magnification of the projected positions (1: none)
     Defocus *def;
     single  *doses;
     single  *nml_tilt_ang;
@@ -74,6 +75,7 @@ public:
         R             = NULL;
         t             = NULL;
         w             = NULL;
+        s             = NULL;
         def           = NULL;
         doses         = NULL;
         nml_tilt_ang  = NULL;
@@ -84,6 +86,7 @@ public:
         free_array( R   );
         free_array( t   );
         free_array( w   );
+        free_array( s   );
         free_array( def );
         free_array(doses);
         free_array(nml_tilt_ang);
@@ -144,7 +147,7 @@ public:
         for(int i=0;i<num_proj;i++) {
             printf("    %2d:  %7.4f %7.4f %7.4f   %7.2f\n",      i,R[i](0,0),R[i](0,1),R[i](0,2),t[i](0));
             printf( "         %7.4f %7.4f %7.4f   %7.2f\n",        R[i](1,0),R[i](1,1),R[i](1,2),t[i](1));
-            printf( "         %7.4f %7.4f %7.4f             %f\n", R[i](2,0),R[i](2,1),R[i](2,2),w[i]);
+            printf( "         %7.4f %7.4f %7.4f   %7.4f   %f\n", R[i](2,0),R[i](2,1),R[i](2,2),s[i],w[i]);
         }
         printf("  Defocus:\n");
         for(int i=0;i<num_proj;i++) {
@@ -183,6 +186,28 @@ public:
         return rslt;
     }
 
+    /// Specimen space -> tomogram frame (Angstroms).
+    V3f to_tomo(const V3f&pt_space) const {
+        return pt_space - tomo_position;
+    }
+
+    /// Tomogram frame -> projection k in the stack frame (Angstroms, from the stack centre).
+    /// The scale is a detector magnification: x and y only, the depth (2) is not scaled.
+    V3f project(const V3f&pt_tomo,const int k,const Vec2&shift_2D) const {
+        V3f pt_stack = R[k]*pt_tomo;
+        pt_stack(0) *= s[k];
+        pt_stack(1) *= s[k];
+        pt_stack += t[k];
+        pt_stack(0) += shift_2D.x;
+        pt_stack(1) += shift_2D.y;
+        return pt_stack;
+    }
+
+    /// Stack frame (Angstroms) -> stack pixels.
+    V3f to_stack(const V3f&pt_stack) const {
+        return pt_stack/pix_size + stk_center;
+    }
+
     float get_angle_step_rad() {
         float angle_step = 0;
         int angle_count = 0;
@@ -205,7 +230,9 @@ protected:
         R   = new M33f   [K];
         t   = new V3f    [K];
         w   = new float  [K];
+        s   = new float  [K];
         def = new Defocus[K];
+        for(int k=0;k<K;k++) s[k] = 1;
         doses = new float[K];
         nml_tilt_ang = new float[K];
         ctf_scale = new float[K];
@@ -253,7 +280,7 @@ protected:
             if(i<num_proj) {
                 V3f eu;
                 t[i](2) = 0;
-                int n = sscanf(parser.get_buffer(),"%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+                int n = sscanf(parser.get_buffer(),"%f %f %f %f %f %f %f %f %f %f %f %f %f %f",
                                &eu(0),&eu(1),&eu(2),&t[i](0),&t[i](1),&w[i],
                                &def[i].U,&def[i].V,&def[i].angle,&def[i].ph_shft,
                                &def[i].Bfactor,&def[i].ExpFilt,
@@ -285,13 +312,15 @@ protected:
                 V3f eu;
                 t[i](2) = 0;
 
-                int n = sscanf(parser.get_buffer(),"%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",                           &eu(0),&eu(1),&eu(2),&t[i](0),&t[i](1),&w[i],
+                int n = sscanf(parser.get_buffer(),"%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+                               &eu(0),&eu(1),&eu(2),&t[i](0),&t[i](1),&w[i],
                                &def[i].U,&def[i].V,&def[i].angle,&def[i].ph_shft,
                                &def[i].Bfactor,&def[i].ExpFilt,
                                &def[i].max_res,&def[i].score,
-                               &doses[i],&nml_tilt_ang[i],&ctf_scale[i]);
+                               &doses[i],&nml_tilt_ang[i],&ctf_scale[i],&s[i]);
 
-                if( n != 17 ) {
+                if( n == 17 ) s[i] = 1;  /// files without the scale column
+                if( n != 17 && n != 18 ) {
                     fprintf(stderr,"Truncated tomogram file.\n");
                     exit(1);
                 }

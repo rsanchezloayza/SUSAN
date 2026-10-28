@@ -41,6 +41,8 @@ __all__ = ['dose_from_fsc',
            'bin_vol',
            'bin_frame',
            'bin_frame_shape',
+           'suppress_peaks',
+           'local_maxima',
            'mask_diameter',
            'angular_step_from_fsc',
            'is_odd',
@@ -68,6 +70,8 @@ from susan.utils._functions_core import (
     rotm_euZYZ,
     bin_frame as _bin_frame_cy,
     bin_frame_shape as _bin_frame_shape_cy,
+    suppress_peaks as _suppress_peaks_cy,
+    local_maxima as _local_maxima_cy,
 )
 import susan.utils.datatypes as datatypes
 
@@ -744,6 +748,48 @@ def bin_vol(vol,bin_level):
     v = bandpass(vol,vol.shape[0]//(2*s)-1)
     v = v[::s,::s,::s]
     return np.float32(v)
+
+###########################################
+
+def local_maxima(vol, threshold):
+    """Voxels of a 3D volume at or above ``threshold`` that are >= their 26 neighbours (ties kept; NaN never).
+
+    Returns
+    -------
+    numpy.ndarray, (N, 3) int32
+        z, y, x of the maxima, in raster order.
+    """
+    v = np.where(np.isnan(vol),-np.inf,vol).astype(np.float32)
+    return _local_maxima_cy(np.ascontiguousarray(v),np.float32(threshold))
+
+###########################################
+
+def suppress_peaks(zyx, shape, radius, max_peaks=None):
+    """Greedy non-maximum suppression of peaks on a voxel grid.
+
+    Parameters
+    ----------
+    zyx : array_like, (N, 3) int
+        Peak voxels (z, y, x), sorted by decreasing score.
+    shape : tuple of int
+        Grid shape (Z, Y, X).
+    radius : float
+        A peak is dropped when an already kept one lies within this distance
+        (Euclidean, inclusive), in voxels.
+    max_peaks : int, optional
+        Stop after this many kept peaks.
+
+    Returns
+    -------
+    numpy.ndarray of int32
+        Indices into ``zyx`` of the kept peaks, in order.
+    """
+    r = int(np.floor(radius))
+    g = np.arange(-r,r+1)
+    d = np.stack(np.meshgrid(g,g,g,indexing='ij'),-1).reshape(-1,3)
+    offs = np.ascontiguousarray(d[(d**2).sum(1) <= radius**2],dtype=np.int32)
+    return _suppress_peaks_cy(np.ascontiguousarray(zyx,dtype=np.int32),offs,int(shape[0]),int(shape[1]),int(shape[2]),
+                              -1 if max_peaks is None else int(max_peaks))
 
 ###########################################
 
