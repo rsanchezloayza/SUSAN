@@ -2,37 +2,18 @@
 
 import numpy as np
 from libc.math cimport cos, sin, atan2, sqrt, fabs
+from susan.utils._rotations cimport euZYZ_R, R_euZYZ
 
 
-# ── Inline helpers (mirroring euZYZ_rotm / rotm_euZYZ from _functions_core) ──
+########################################################################
+# Inline helpers (memoryview front-ends of susan/utils/_rotations.pxd)
 
 cdef inline void _euZYZ_rotm(float[:, ::1] R, float[::1] eu) noexcept nogil:
-    cdef float ct = cos(eu[0]), cp = cos(eu[1]), cps = cos(eu[2])
-    cdef float st = sin(eu[0]), sp = sin(eu[1]), sps = sin(eu[2])
-    R[0, 0] =  ct*cp*cps - st*sps
-    R[0, 1] = -cps*st - ct*cp*sps
-    R[0, 2] =  ct*sp
-    R[1, 0] =  ct*sps + cp*cps*st
-    R[1, 1] =  ct*cps - cp*st*sps
-    R[1, 2] =  st*sp
-    R[2, 0] = -cps*sp
-    R[2, 1] =  sp*sps
-    R[2, 2] =  cp
+    euZYZ_R(&eu[0], &R[0, 0])
 
 
 cdef inline void _rotm_euZYZ(float[::1] euler, float[:, ::1] R) noexcept nogil:
-    if fabs(R[2, 2] - 1.0) < 1e-6:
-        euler[0] = 0.0
-        euler[1] = 0.0
-        euler[2] = <float>atan2(R[1, 0], R[1, 1])
-    elif fabs(R[2, 2] + 1.0) < 1e-6:
-        euler[0] = 0.0
-        euler[1] = 3.14159265358979323846
-        euler[2] = <float>atan2(R[1, 0], R[1, 1])
-    else:
-        euler[0] = <float>atan2(R[1, 2], R[0, 2])
-        euler[1] = <float>atan2(sqrt(fabs(1.0 - R[2,2]*R[2,2])), R[2, 2])
-        euler[2] = <float>atan2(R[2, 1], -R[2, 0])
+    R_euZYZ(&R[0, 0], &euler[0])
 
 
 # ── Public functions ──────────────────────────────────────────────────────────

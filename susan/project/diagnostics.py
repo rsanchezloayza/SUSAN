@@ -26,6 +26,7 @@ import os as _os
 import numpy as _np
 
 import susan.data    as _ssa_data
+import susan.utils   as _ssa_utils
 import susan.io      as _ssa_io
 import susan.modules as _ssa_modules
 
@@ -250,34 +251,17 @@ def bandpass_shell_sweep(
 ###########################################################################
 
 
-def _zyz_to_R(eu):
-    """Vectorised ZYZ Euler (radians) -> rotation matrix.
-
-    Uses SUSAN's convention ``R = Rz(eu0)·Ry(eu1)·Rz(eu2)`` (see the C++
-    engine, ``math_cpu.h``).  ``eu`` has shape ``(..., 3)``; returns
-    ``(..., 3, 3)``.
-    """
-    a, b, g = eu[..., 0], eu[..., 1], eu[..., 2]
-    ca, sa = _np.cos(a), _np.sin(a)
-    cb, sb = _np.cos(b), _np.sin(b)
-    cg, sg = _np.cos(g), _np.sin(g)
-    R = _np.empty(eu.shape[:-1] + (3, 3), dtype=_np.float64)
-    R[..., 0, 0] = ca*cb*cg - sa*sg; R[..., 0, 1] = -ca*cb*sg - sa*cg; R[..., 0, 2] = ca*sb
-    R[..., 1, 0] = sa*cb*cg + ca*sg; R[..., 1, 1] = -sa*cb*sg + ca*cg; R[..., 1, 2] = sa*sb
-    R[..., 2, 0] = -sb*cg;           R[..., 2, 1] = sb*sg;             R[..., 2, 2] = cb
-    return R
-
-
 def _cone_inplane(R, degrees=True):
     """Cone (out-of-plane) and in-plane (twist about z) deviation angles.
 
     ``R`` is a deviation rotation of shape ``(..., 3, 3)``.  Matches the
     decomposition the engine's orientation prior penalises:
-    ``cone = acos(R[2,2])`` and the swing-twist
+    ``cone = acos(R[2,2])`` (as ``atan2(|R[:2,2]|, R[2,2])``, accurate near 0
+    in float32) and the swing-twist
     ``inplane = atan2(R[1,0]-R[0,1], R[0,0]+R[1,1])``.  Returned in degrees
     when *degrees* is ``True`` (default), otherwise in radians.
     """
-    cone = _np.arccos(_np.clip(R[..., 2, 2], -1.0, 1.0))
+    cone = _np.arctan2(_np.hypot(R[..., 0, 2], R[..., 1, 2]), R[..., 2, 2])
     inpl = _np.abs(_np.arctan2(R[..., 1, 0] - R[..., 0, 1],
                                R[..., 0, 0] + R[..., 1, 1]))
     if degrees:
@@ -292,10 +276,11 @@ def _geodesic(R, degrees=True):
     ``R`` has shape ``(..., 3, 3)``.  Returns the single axis-angle
     magnitude ``acos((trace(R) - 1) / 2)`` — the full rotation carrying the
     previous pose onto the current one, folding cone and in-plane together.
+    Computed as ``2 asin(|R - I|_F / sqrt(8))``, accurate near 0 in float32.
     Returned in degrees when *degrees* is ``True`` (default), else radians.
     """
-    tr = R[..., 0, 0] + R[..., 1, 1] + R[..., 2, 2]
-    ang = _np.arccos(_np.clip((tr - 1.0) * 0.5, -1.0, 1.0))
+    d = _np.sqrt(((R - _np.eye(3, dtype=R.dtype)) ** 2).sum(axis=(-2, -1))) / 8 ** 0.5
+    ang = 2 * _np.arcsin(_np.minimum(d, 1))
     return _np.degrees(ang) if degrees else ang
 
 
@@ -431,8 +416,8 @@ def estimate_delta_3D_angle(sta, ite, ref=0, degrees=True):
         Particles absent from ``ite-1`` are ``NaN``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    Rd = _zyz_to_R(cur.ali_eu[ref][ic]) @ \
-         _np.swapaxes(_zyz_to_R(prv.ali_eu[ref][ip]), -1, -2)
+    Rd = _ssa_utils.euZYZ_to_rotm(cur.ali_eu[ref][ic]) @ \
+         _np.swapaxes(_ssa_utils.euZYZ_to_rotm(prv.ali_eu[ref][ip]), -1, -2)
     cone, inpl = _cone_inplane(Rd, degrees=degrees)
     n = cur.ptcl_id.size
     return _np.stack([_to_current(cone, ic, n), _to_current(inpl, ic, n)], axis=0)
@@ -458,8 +443,8 @@ def estimate_delta_2D_angle(sta, ite, degrees=True):
         ``angle_sigma``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    Rd = _zyz_to_R(cur.prj_eu[ic]) @ \
-         _np.swapaxes(_zyz_to_R(prv.prj_eu[ip]), -1, -2)
+    Rd = _ssa_utils.euZYZ_to_rotm(cur.prj_eu[ic]) @ \
+         _np.swapaxes(_ssa_utils.euZYZ_to_rotm(prv.prj_eu[ip]), -1, -2)
     cone, inpl = _cone_inplane(Rd, degrees=degrees)
     mask = (cur.prj_w[ic] > 0) & (prv.prj_w[ip] > 0)
     cone[~mask] = _np.nan
@@ -489,8 +474,8 @@ def estimate_delta_3D_total_angle(sta, ite, ref=0, degrees=True):
         ``NaN``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    Rd = _zyz_to_R(cur.ali_eu[ref][ic]) @ \
-         _np.swapaxes(_zyz_to_R(prv.ali_eu[ref][ip]), -1, -2)
+    Rd = _ssa_utils.euZYZ_to_rotm(cur.ali_eu[ref][ic]) @ \
+         _np.swapaxes(_ssa_utils.euZYZ_to_rotm(prv.ali_eu[ref][ip]), -1, -2)
     return _to_current(_geodesic(Rd, degrees=degrees), ic, cur.ptcl_id.size)
 
 
@@ -513,8 +498,8 @@ def estimate_delta_2D_total_angle(sta, ite, degrees=True):
         ``ite-1`` and for disabled projections.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    Rd = _zyz_to_R(cur.prj_eu[ic]) @ \
-         _np.swapaxes(_zyz_to_R(prv.prj_eu[ip]), -1, -2)
+    Rd = _ssa_utils.euZYZ_to_rotm(cur.prj_eu[ic]) @ \
+         _np.swapaxes(_ssa_utils.euZYZ_to_rotm(prv.prj_eu[ip]), -1, -2)
     d = _geodesic(Rd, degrees=degrees)
     mask = (cur.prj_w[ic] > 0) & (prv.prj_w[ip] > 0)
     d[~mask] = _np.nan

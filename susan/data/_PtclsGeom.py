@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING as _TYPE_CHECKING
 
 import numpy as _np
-from susan.utils import euZYZ_rotm as _euZYZ_rotm
+from susan.utils import euZYZ_to_rotm as _euZYZ_to_rotm
 from susan.data._ptclsgeom_core import (
     _inplace_shift,
     _inplace_rot_shift,
@@ -54,11 +54,10 @@ class PtclsGeom:
         
         if eZYZdeg is not None:
         
-            eu = _np.deg2rad(_np.array(eZYZdeg,dtype=_np.float32))
+            eu = _np.array(eZYZdeg,dtype=_np.float32)
             if eu.size != 3:
                 raise ValueError('eZYZdeg must be a 3-element array/vector.')
-            R = _np.zeros((3,3),_np.float32)
-            _euZYZ_rotm(R,eu)
+            R = _euZYZ_to_rotm(eu,degrees=True)
         
         else:
             if R.ndim != 2 or R.shape[0] != 3 or R.shape[1] != 3:
@@ -117,14 +116,9 @@ class PtclsGeom:
         
         if eZYZdeg is not None:
         
-            eu = _np.deg2rad(_np.array(eZYZdeg,dtype=_np.float32))
-            if eu.ndim == 1 and eu.size == 3:
-                R = _np.zeros((1,3,3),_np.float32)
-                _euZYZ_rotm(R[0],eu)
-            elif eu.ndim == 2 and eu.shape[1] == 3:
-                R = _np.zeros((eu.shape[0],3,3),_np.float32)
-                for i in range(eu.shape[0]):
-                    _euZYZ_rotm(R[i],eu[i])
+            eu = _np.array(eZYZdeg,dtype=_np.float32)
+            if (eu.ndim == 1 and eu.size == 3) or (eu.ndim == 2 and eu.shape[1] == 3):
+                R = _euZYZ_to_rotm(eu.reshape(-1,3),degrees=True)
             else:
                 raise ValueError('eZYZdeg must be a 3-element array/vector or a stack of them.')
             

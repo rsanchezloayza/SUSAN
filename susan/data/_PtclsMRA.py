@@ -21,8 +21,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING as _TYPE_CHECKING
 
 import numpy as _np
-from susan.utils import euZYZ_rotm as _euZYZ_rotm
-from susan.utils import rotm_euZYZ as _rotm_euZYZ
 
 if _TYPE_CHECKING:
     from .Particles import Particles

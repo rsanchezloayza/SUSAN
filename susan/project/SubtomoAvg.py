@@ -1473,11 +1473,8 @@ class SubtomoAvg(SubtomoAvgCore):
                 continue
 
             n_proj = int(tomos.num_proj[tcix])
-            R2 = _np.zeros((n_proj, 2, 3))
-            R  = _np.eye(3, dtype=_np.float32)
-            for k in range(n_proj):
-                _ssa_utils.euZYZ_rotm(R, _np.deg2rad(tomos.proj_eZYZ[tcix, k]).astype(_np.float32))
-                R2[k] = tomos.proj_scale[tcix, k] * R[:2, :]
+            R2 = tomos.proj_scale[tcix, :n_proj, None, None] * \
+                 _ssa_utils.euZYZ_to_rotm(tomos.proj_eZYZ[tcix, :n_proj], degrees=True)[:, :2, :]
 
             pt_t  = pt[idx].astype(_np.float64)
             obs   = ptcls_in.prj_t[idx, :n_proj, :].astype(_np.float64)

@@ -31,6 +31,7 @@ from susan.utils import is_extension as _is_ext
 from susan.utils import force_extension as _force_ext
 from susan.utils import euZYZ_rotm as _euZYZ_rotm
 from susan.utils import rotm_euZYZ as _rotm_euZYZ
+from susan.utils import euZYZ_to_rotm as _euZYZ_to_rotm
 from susan.utils import bin_frame as _bin_frame
 from susan.utils import bin_frame_shape as _bin_frame_shape
 
@@ -847,8 +848,7 @@ class Tomograms:
         with x, y scaled by ``proj_scale``, plus ``proj_shift`` when ``shift``.
         Column 2 is the depth (not scaled).
         """
-        R = _np.zeros([3,3],_np.float32)
-        _euZYZ_rotm(R,_np.deg2rad(self.proj_eZYZ[cix,k]).astype(_np.float32))
+        R = _euZYZ_to_rotm(self.proj_eZYZ[cix,k],degrees=True)
         out = _np.asarray(pt) @ R.T
         out[...,:2] *= self.proj_scale[cix,k]
         if shift:

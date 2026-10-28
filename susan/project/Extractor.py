@@ -190,14 +190,13 @@ class SubtomogramGenerator:
                     f.write('_rlnDefocusAngle     #15\n')
                     f.write('_rlnPhaseShift       #16\n')
 
+                eu_rel = _ssa_utils.euZYZ_to_euREL(_np.rad2deg(ptcls.ali_eu[0]),degrees=True)
                 for idx in range(ptcls.n_ptcl):
                     p_id = ptcls.ptcl_id[idx]
                     file = f'{subtomos_path}/particle_{p_id:06d}.mrc'
                     fctf = f'{subtomos_path}/particle_{p_id:06d}.ctf.mrc'
 
-                    ang_R = _np.rad2deg( -ptcls.ali_eu[0,idx,2] )
-                    ang_T = _np.rad2deg( -ptcls.ali_eu[0,idx,1] )
-                    ang_P = _np.rad2deg( -ptcls.ali_eu[0,idx,0] )
+                    ang_R, ang_T, ang_P = eu_rel[idx]
 
                     if _file_exists(f'{subtomos_folder}/particle_{p_id:06d}.mrc'):
                         #            1   2

@@ -33,6 +33,14 @@ __all__ = ['dose_from_fsc',
            'euDYN_rotm',
            'euZYZ_rotm',
            'rotm_euZYZ',
+           'euZYZ_to_rotm',
+           'euDYN_to_rotm',
+           'rotm_to_euZYZ',
+           'euZYZ_to_euDYN',
+           'euDYN_to_euZYZ',
+           'euZYZ_to_euREL',
+           'euREL_to_euZYZ',
+           'euZYZ_flip_hand',
            'get_extension',
            'is_extension',
            'force_extension',
@@ -68,6 +76,9 @@ from susan.utils._functions_core import (
     euDYN_rotm,
     euZYZ_rotm,
     rotm_euZYZ,
+    _euZYZ_to_rotm_n,
+    _euDYN_to_rotm_n,
+    _rotm_to_euZYZ_n,
     bin_frame as _bin_frame_cy,
     bin_frame_shape as _bin_frame_shape_cy,
     suppress_peaks as _suppress_peaks_cy,
@@ -748,6 +759,116 @@ def bin_vol(vol,bin_level):
     v = bandpass(vol,vol.shape[0]//(2*s)-1)
     v = v[::s,::s,::s]
     return np.float32(v)
+
+###########################################
+# Rotations. SUSAN ZYZ (euZYZ): R = Rz(eu0) Ry(eu1) Rz(eu2), R maps the reference to the tomogram.
+# Dynamo / ArtiaX (euDYN, tdrot / tilt / narot = phi / the / psi): R = Rz(eu2) Rx(eu1) Rz(eu0).
+# RELION (euREL, rot / tilt / psi): R = Rz(-psi) Ry(-tilt) Rz(-rot).
+# dtype: float64 only for float64 arrays (or a float64 out); anything else (lists, ints, float32) is float32.
+
+def _as_real(x, dtype=None):
+    if dtype is None:
+        dtype = np.float64 if isinstance(x, np.ndarray) and x.dtype == np.float64 else np.float32
+    return np.asarray(x, dtype)
+
+def _rot_in(x, n, degrees, dtype):
+    x = _as_real(x, dtype)
+    if degrees:
+        x = np.deg2rad(x)
+    if x.shape[-n:] != (3,)*n:
+        raise ValueError('expected shape (..., %s), got %s' % (', '.join(['3']*n), x.shape))
+    return np.ascontiguousarray(x)
+
+def _rot_out(out, shape, dtype):
+    if out is None:
+        return np.empty(shape, dtype)
+    if out.shape != shape or out.dtype != dtype or not out.flags.c_contiguous:
+        raise ValueError('out must be C-contiguous %s with shape %s' % (np.dtype(dtype).name, shape))
+    return out
+
+def _eu_rotm(kernel, eu, degrees, out):
+    e = _rot_in(eu, 1, degrees, None if out is None else out.dtype)
+    R = _rot_out(out, e.shape + (3,), e.dtype)
+    kernel(e.reshape(-1,3), R.reshape(-1,3,3))
+    return R
+
+def euZYZ_to_rotm(eu, degrees=False, out=None):
+    """SUSAN ZYZ angles ``(..., 3)`` to rotation matrices ``(..., 3, 3)``.
+
+    ``out``: preallocated C-contiguous float32 / float64 array, filled and returned.
+    For single calls in tight loops :func:`euZYZ_rotm` (preallocated, float32) is faster.
+    """
+    return _eu_rotm(_euZYZ_to_rotm_n, eu, degrees, out)
+
+def euDYN_to_rotm(eu, degrees=False, out=None):
+    """Dynamo / ArtiaX ZXZ angles (phi, the, psi) ``(..., 3)`` to rotation matrices ``(..., 3, 3)``."""
+    return _eu_rotm(_euDYN_to_rotm_n, eu, degrees, out)
+
+def rotm_to_euZYZ(R, degrees=False, out=None):
+    """Rotation matrices ``(..., 3, 3)`` to SUSAN ZYZ angles ``(..., 3)``, beta in [0, pi].
+
+    At gimbal lock (|R22| within 1e-6 of 1) the in-plane angle goes to slot 2 and slot 0 is 0, as the C++ engine.
+    """
+    M = _rot_in(R, 2, False, None if out is None else out.dtype)
+    e = _rot_out(out, M.shape[:-1], M.dtype)
+    _rotm_to_euZYZ_n(M.reshape(-1,3,3), e.reshape(-1,3))
+    if degrees:
+        np.rad2deg(e, out=e)
+    return e
+
+def _wrap_angle(a, degrees):
+    h = 180.0 if degrees else np.pi
+    return a - 2*h*np.ceil((a - h)/(2*h))
+
+def _zyz_canonical(a, b, g, degrees):
+    """Same rotation with beta >= 0: Rz(a) Ry(-b) Rz(g) = Rz(a+180) Ry(b) Rz(g+180); angles wrapped to (-180, 180]."""
+    h = 180.0 if degrees else np.pi
+    b = _wrap_angle(b, degrees)
+    neg = b < 0
+    a, b, g = np.where(neg, a + h, a), np.abs(b), np.where(neg, g + h, g)
+    return np.concatenate((_wrap_angle(a, degrees), b, _wrap_angle(g, degrees)), -1)
+
+def _eu_split(eu):
+    e = _as_real(eu)
+    if e.shape[-1] != 3:
+        raise ValueError('expected shape (..., 3), got %s' % (e.shape,))
+    return e[...,0:1], e[...,1:2], e[...,2:3]
+
+def euZYZ_to_euDYN(eu, degrees=False):
+    """SUSAN ZYZ (alpha, beta, gamma) to Dynamo / ArtiaX (phi, the, psi) = (gamma - 90, beta, alpha + 90).
+
+    Closed form, no matrices; the input is first taken to beta >= 0, results wrapped to (-180, 180] (deg or rad).
+    """
+    q = 90.0 if degrees else np.pi/2
+    a, b, g = _eu_split(_zyz_canonical(*_eu_split(eu), degrees))
+    return _zyz_canonical(g - q, b, a + q, degrees)
+
+def euDYN_to_euZYZ(eu, degrees=False):
+    """Dynamo / ArtiaX (phi, the, psi) to SUSAN ZYZ (alpha, beta, gamma) = (psi - 90, the, phi + 90), beta >= 0."""
+    q = 90.0 if degrees else np.pi/2
+    phi, the, psi = _eu_split(eu)
+    return _zyz_canonical(psi - q, the, phi + q, degrees)
+
+def euZYZ_to_euREL(eu, degrees=False):
+    """SUSAN ZYZ (alpha, beta, gamma) to RELION (rot, tilt, psi) = (180 - gamma, beta, 180 - alpha), tilt in [0, 180]."""
+    h = 180.0 if degrees else np.pi
+    a, b, g = _eu_split(_zyz_canonical(*_eu_split(eu), degrees))
+    return np.concatenate((_wrap_angle(h - g, degrees), b, _wrap_angle(h - a, degrees)), -1)
+
+def euREL_to_euZYZ(eu, degrees=False):
+    """RELION (rot, tilt, psi) to SUSAN ZYZ (alpha, beta, gamma) = (180 - psi, tilt, 180 - rot), beta >= 0."""
+    h = 180.0 if degrees else np.pi
+    rot, tilt, psi = _eu_split(eu)
+    return _zyz_canonical(h - psi, tilt, h - rot, degrees)
+
+def euZYZ_flip_hand(eu, degrees=False):
+    """Angles of M R M, M = diag(1, 1, -1) (z mirror of the reference and the tomogram): (alpha + 180, beta, gamma + 180).
+
+    Angles only: flipping a particle set also needs z -> -z of the positions and shifts, and the reference flipped in z.
+    """
+    h = 180.0 if degrees else np.pi
+    a, b, g = _eu_split(eu)
+    return _zyz_canonical(a + h, b, g + h, degrees)
 
 ###########################################
 

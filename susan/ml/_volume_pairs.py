@@ -21,6 +21,9 @@ __all__ = ['VolumePairs']
 import numpy as _np
 import torch  as _torch
 
+from susan.utils import euZYZ_to_rotm as _euZYZ_to_rotm
+from susan.utils import rotm_to_euZYZ as _rotm_to_euZYZ
+
 
 # ---------------------------------------------------------------------------
 # Angular perturbation helpers
@@ -30,47 +33,6 @@ import torch  as _torch
 # as a rotation matrix (Rodrigues), compose it with the particle rotation, and
 # only then convert back to ZYZ Euler angles.  Working through matrices avoids
 # the gimbal-lock artefacts of adding noise directly to Euler components.
-#
-# The Euler<->matrix formulas below replicate ``euZYZ_rotm`` / ``rotm_euZYZ``
-# in ``susan/utils/_functions_core.pyx`` exactly, so the ZYZ convention matches
-# the rest of SUSAN (ali_eu slot 0 = polar, 1 = azimuth, 2 = in-plane).
-
-
-def _euZYZ_to_R(eu: _np.ndarray) -> _np.ndarray:
-    """Vectorised ZYZ Euler (radians, ``(N, 3)``) to rotation matrices ``(N, 3, 3)``."""
-    t, p, s = eu[:, 0], eu[:, 1], eu[:, 2]
-    ct, cp, cs = _np.cos(t), _np.cos(p), _np.cos(s)
-    st, sp, ss = _np.sin(t), _np.sin(p), _np.sin(s)
-    R = _np.empty((eu.shape[0], 3, 3), dtype=_np.float64)
-    R[:, 0, 0] =  ct*cp*cs - st*ss
-    R[:, 0, 1] = -cs*st - ct*cp*ss
-    R[:, 0, 2] =  ct*sp
-    R[:, 1, 0] =  ct*ss + cp*cs*st
-    R[:, 1, 1] =  ct*cs - cp*st*ss
-    R[:, 1, 2] =  st*sp
-    R[:, 2, 0] = -cs*sp
-    R[:, 2, 1] =  sp*ss
-    R[:, 2, 2] =  cp
-    return R
-
-
-def _R_to_euZYZ(R: _np.ndarray) -> _np.ndarray:
-    """Vectorised rotation matrices ``(N, 3, 3)`` to ZYZ Euler (radians, ``(N, 3)``)."""
-    eu  = _np.empty((R.shape[0], 3), dtype=_np.float64)
-    r22 = R[:, 2, 2]
-    gimbal = _np.abs(_np.abs(r22) - 1.0) < 1e-6
-
-    # General case.
-    eu[:, 0] = _np.arctan2(R[:, 1, 2], R[:, 0, 2])
-    eu[:, 1] = _np.arctan2(_np.sqrt(_np.abs(1.0 - r22*r22)), r22)
-    eu[:, 2] = _np.arctan2(R[:, 2, 1], -R[:, 2, 0])
-
-    # Gimbal-lock case (R22 ~ +-1): polar collapses, only the sum/diff of the
-    # two remaining angles is defined; follow rotm_euZYZ and fold it into slot 2.
-    eu[gimbal, 0] = 0.0
-    eu[gimbal, 1] = _np.where(r22[gimbal] > 0, 0.0, _np.pi)
-    eu[gimbal, 2] = _np.arctan2(R[gimbal, 1, 0], R[gimbal, 1, 1])
-    return eu
 
 
 def _rotvec_to_R(rvec: _np.ndarray) -> _np.ndarray:
@@ -111,9 +73,8 @@ def _perturb_eulers(eu: _np.ndarray, sigma_deg: float) -> _np.ndarray:
     numpy.ndarray
         Perturbed Euler angles, same shape and dtype as *eu*.
     """
-    shp   = eu.shape
-    flat  = _np.ascontiguousarray(eu.reshape(-1, 3), dtype=_np.float64)
-    n     = flat.shape[0]
+    R     = _euZYZ_to_rotm(eu.reshape(-1, 3))
+    n     = R.shape[0]
     sigma = _np.deg2rad(sigma_deg)
 
     axis  = _np.random.randn(n, 3)
@@ -122,10 +83,7 @@ def _perturb_eulers(eu: _np.ndarray, sigma_deg: float) -> _np.ndarray:
     rvec  = axis * angle[:, None]
 
     dR  = _rotvec_to_R(rvec)
-    R   = _euZYZ_to_R(flat)
-    Rp  = _np.einsum('nij,njk->nik', dR, R)
-    out = _R_to_euZYZ(Rp).reshape(shp)
-    return out.astype(eu.dtype)
+    return _rotm_to_euZYZ(dR @ R, out=_np.empty((n, 3), R.dtype)).reshape(eu.shape)
 
 
 def _sigma_schedule(sigma, n: int) -> _np.ndarray:

@@ -31,43 +31,6 @@ import susan.utils.datatypes as _dt
 __all__ = ['DenseReporter']
 
 
-def _euZYZ_rotm_batch(eu):
-    """(N, 3) ZYZ angles (rad) to (N, 3, 3) float32 matrices, as :func:`susan.utils.euZYZ_rotm`."""
-    c = _np.cos(_np.asarray(eu,_np.float64)).astype(_np.float32)
-    s = _np.sin(_np.asarray(eu,_np.float64)).astype(_np.float32)
-    ct, cf, cp = c[:,0], c[:,1], c[:,2]
-    st, sf, sp = s[:,0], s[:,1], s[:,2]
-    R = _np.empty((len(c),3,3),dtype=_np.float32)
-    R[:,0,0] =  ct*cf*cp - st*sp
-    R[:,0,1] = -cp*st - ct*cf*sp
-    R[:,0,2] =  ct*sf
-    R[:,1,0] =  ct*sp + cf*cp*st
-    R[:,1,1] =  ct*cp - cf*st*sp
-    R[:,1,2] =  st*sf
-    R[:,2,0] = -cp*sf
-    R[:,2,1] =  sf*sp
-    R[:,2,2] =  cf
-    return R
-
-
-def _rotm_euZYZ_batch(R):
-    """(N, 3, 3) matrices to (N, 3) float32 ZYZ angles (rad), as :func:`susan.utils.rotm_euZYZ`."""
-    R  = _np.asarray(R,_np.float32)
-    d  = R.astype(_np.float64)
-    eu = _np.empty((len(R),3),dtype=_np.float64)
-    eu[:,0] = _np.arctan2(d[:,1,2],d[:,0,2])
-    eu[:,1] = _np.arctan2(_np.sqrt(_np.abs(1.0 - (R[:,2,2]*R[:,2,2]).astype(_np.float64))),d[:,2,2])
-    eu[:,2] = _np.arctan2(d[:,2,1],-d[:,2,0])
-    up = _np.abs(d[:,2,2] - 1) < 1e-6
-    dn = _np.abs(d[:,2,2] + 1) < 1e-6
-    for sel,beta in ((up,0.0),(dn,_np.pi)):
-        eu[sel,0] = 0.0
-        eu[sel,1] = beta
-        eu[sel,2] = _np.arctan2(d[sel,1,0],d[sel,1,1])
-    return eu.astype(_np.float32)
-
-
-
 class DenseReporter:
     """Dense (template-matching) search over blocks, and the analysis of its output.
 
@@ -236,6 +199,13 @@ class DenseReporter:
             return self.slab[tomo_id]
         return self.slab
 
+    @staticmethod
+    def _slab_z0(slab, x, y, size, apix):
+        """Height (pixels) of the slab plane at the pixel positions x, y; the tomogram centre without slab."""
+        if slab is None:
+            return _np.full(_np.broadcast(x,y).shape,size[2]/2)
+        return (slab[0]*(x - size[0]/2)*apix + slab[1]*(y - size[1]/2)*apix + slab[2])/apix + size[2]/2
+
     def _cix(self, tomo_id):
         return int(self._tomos.get_cix(tomo_id))
 
@@ -373,13 +343,7 @@ class DenseReporter:
             ax_y = self._axis(size[1], r['offset_xy'], r['spacing_xy'])
             x, y = _np.meshgrid(ax_x, ax_y, indexing='xy')
             x, y = x.ravel(), y.ravel()
-            slab = self._slab_of(t)
-            if slab is None:
-                z0 = _np.full(x.shape, size[2]/2)
-            else:
-                a_, b_, c_ = slab
-                Z = a_*(x - size[0]/2)*apix + b_*(y - size[1]/2)*apix + c_
-                z0 = Z/apix + size[2]/2
+            z0 = self._slab_z0(self._slab_of(t), x, y, size, apix)
             n = r['layers'][t]
             for i in range(n):
                 z = z0 + (i - (n-1)/2.0)*r['spacing_z']
@@ -527,11 +491,7 @@ class DenseReporter:
             apix = float(self._tomos.pix_size[cix])
             x = rng.uniform(r['offset_xy'],size[0]-1-r['offset_xy'],n)
             y = rng.uniform(r['offset_xy'],size[1]-1-r['offset_xy'],n)
-            slab = self._slab_of(t)
-            if slab is None:
-                z0 = _np.full(n,size[2]/2)
-            else:
-                z0 = (slab[0]*(x - size[0]/2)*apix + slab[1]*(y - size[1]/2)*apix + slab[2])/apix + size[2]/2
+            z0 = self._slab_z0(self._slab_of(t),x,y,size,apix)
             half = max(r['layers'][t]*r['spacing_z']/2.0 - r['offset_z'] - 0.5,0.0)
             z = z0 + rng.uniform(-half,half,n)
             pos.append(self._snap(_np.column_stack((x,y,z)),size,b))
@@ -802,13 +762,8 @@ class DenseReporter:
             region = _np.ones_like(cov)
         else:
             zc = _np.arange(sz)*b + (b-1)/2.0
-            if slab is None:
-                z0 = _np.full((sy,sx),size[2]/2)
-            else:
-                xc = (_np.arange(sx)*b + (b-1)/2.0 - size[0]/2)*apix
-                yc = (_np.arange(sy)*b + (b-1)/2.0 - size[1]/2)*apix
-                X, Y = _np.meshgrid(xc,yc,indexing='xy')
-                z0 = (slab[0]*X + slab[1]*Y + slab[2])/apix + size[2]/2
+            X, Y = _np.meshgrid(_np.arange(sx)*b + (b-1)/2.0,_np.arange(sy)*b + (b-1)/2.0,indexing='xy')
+            z0 = self._slab_z0(slab,X,Y,size,apix)
             half = (size[2] if thickness is None else thickness)/2.0
             region = _np.abs(zc[:,None,None] - z0[None]) <= half
         xy = cov.any(axis=0)
@@ -906,12 +861,12 @@ class DenseReporter:
         blk_id = _np.where(bix >= 0,ids[_np.maximum(bix,0)] if len(ids) else -1,-1)
         ok = ang >= 0
         if ok.any():
-            R = _euZYZ_rotm_batch(m['_table'][ang[ok]])
+            R = _ssa_utils.euZYZ_to_rotm(m['_table'][ang[ok]])
             if (bix[ok] >= 0).any():                       # blocks with their own ali_eu (no blk volume: all 0)
                 ali = _np.array([blk['ali_eu'] for blk in m['blocks']],dtype=_np.float32)
-                Ra = _euZYZ_rotm_batch(_np.where((bix[ok] >= 0)[:,None],ali[_np.maximum(bix[ok],0)],0))
-                R = _np.matmul(Ra,R).astype(_np.float32)
-            eu[ok] = _rotm_euZYZ_batch(R)
+                Ra = _ssa_utils.euZYZ_to_rotm(_np.where((bix[ok] >= 0)[:,None],ali[_np.maximum(bix[ok],0)],0))
+                R = Ra @ R
+            eu[ok] = _ssa_utils.rotm_to_euZYZ(R)
         return dict(z=z, cc=cc, ang=ang, block=blk_id, eu=eu)
 
     # ------------------------------------------------------------------

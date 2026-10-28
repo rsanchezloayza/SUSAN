@@ -25,8 +25,8 @@ import susan.io.mrc as _mrc
 from susan.data.Tomograms import Tomograms as _Tomograms
 from susan.data.Tomograms import lookup_cix as _lookup_cix
 from susan.data.Particles import Particles as _Particles
-from susan.utils import euZYZ_rotm as _euZYZ_rotm
-from susan.utils import rotm_euZYZ as _rotm_euZYZ
+from susan.utils import euZYZ_to_rotm as _euZYZ_to_rotm
+from susan.utils import rotm_to_euZYZ as _rotm_to_euZYZ
 
 
 class TiltRangeSelector:
@@ -144,9 +144,7 @@ class TiltRangeSelector:
             if angle_source == 'nominal':
                 signed = tomos.nominal_tilt_angles[t, :P].astype(_np.float32, copy=True)
             else:
-                signed = _np.empty(P, _np.float32)
-                for p in range(P):
-                    signed[p] = TiltRangeSelector._signed_tilt_deg(tomos.proj_eZYZ[t, p])
+                signed = TiltRangeSelector._signed_tilt_deg(tomos.proj_eZYZ[t, :P])
             mask  = (signed >= self.tilt_deg_min) & (signed < self.tilt_deg_max)
             mask &= (tomos.proj_wgt[t, :P] > 0)
             self._kept.append(_np.flatnonzero(mask).astype(_np.int32))
@@ -159,14 +157,8 @@ class TiltRangeSelector:
         """Canonicalised signed tilt β in degrees, with β ∈ [-90, 90] for
         physical tilts.  Picks the ZYZ equivalent branch with in-plane
         ``|α| ≤ π/2`` so the sign of β reflects the stage rotation."""
-        R = _np.zeros((3, 3), _np.float32)
-        _euZYZ_rotm(R, _np.deg2rad(eZYZ_deg).astype(_np.float32))
-        e = _np.zeros(3, _np.float32)
-        _rotm_euZYZ(e, R)
-        a = float(e[0]); b = float(e[1])
-        if abs(a) > _np.pi / 2.0:
-            b = -b
-        return float(_np.rad2deg(b))
+        e = _rotm_to_euZYZ(_euZYZ_to_rotm(eZYZ_deg, degrees=True), degrees=True)
+        return _np.where(_np.abs(e[..., 0]) > 90, -e[..., 1], e[..., 1])
 
     @property
     def kept_indices(self) -> list[_np.ndarray]:

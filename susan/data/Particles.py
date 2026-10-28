@@ -26,7 +26,10 @@ from susan.data._particles_core import _load_all, _save_all, _update_new_defocus
 from susan.data  import Tomograms       as _tomodef
 from susan.utils import is_extension    as _is_ext
 from susan.utils import force_extension as _force_ext
-from susan.utils import euZYZ_rotm      as _euZYZ_rotm
+from susan.utils import euZYZ_to_rotm   as _euZYZ_to_rotm
+from susan.utils import euZYZ_to_euDYN  as _euZYZ_to_euDYN
+from susan.utils import euDYN_to_euZYZ  as _euDYN_to_euZYZ
+from susan.utils import rotm_to_euZYZ   as _rotm_to_euZYZ
 from ._PtclsGeom import PtclsGeom       as _Geom
 from ._PtclsMRA  import PtclsMRA        as _MRA
 
@@ -551,7 +554,58 @@ class Particles:
     def halfsets_randomize(self):
         """Assign half-sets randomly (each particle independently drawn from {1, 2})."""
         self.half_id[:] = _np.random.randint(1,3,self.half_id.shape)
-        
+
+    def _refs(self, ref_cix):
+        return _np.arange(self.n_refs) if ref_cix is None else _np.atleast_1d(_np.asarray(ref_cix,_np.int64))
+
+    def randomize_cone(self, ref_cix=None, span_deg=None, seed=None):
+        """Random particle axis (``R e_z``) in ``ali_eu``, independently per particle and class.
+
+        Parameters
+        ----------
+        ref_cix : int or list of int, optional
+            Classes to change. Default None: all.
+        span_deg : float, optional
+            None (default): the new axis is uniform on the sphere. Otherwise uniform within a cone of
+            this half-angle around the current axis.
+        seed : int or numpy.random.Generator, optional
+
+        The pose is rotated along the great circle from the old axis to the new one, so the twist about
+        the axis is carried along (no in-plane jump near the poles). With :meth:`randomize_inplane`, the
+        poses are uniform on SO(3).
+        """
+        rng  = _np.random.default_rng(seed)
+        refs = self._refs(ref_cix)
+        R = _euZYZ_to_rotm(self.ali_eu[refs])
+        c_min = -1.0 if span_deg is None else _np.cos(_np.deg2rad(span_deg))
+        c   = rng.uniform(c_min,1.0,R.shape[:-2])
+        phi = rng.uniform(-_np.pi,_np.pi,R.shape[:-2])
+        s   = _np.sqrt(1 - c**2)
+        v   = _np.stack((s*_np.cos(phi),s*_np.sin(phi),c),-1)    # new axis in the particle frame
+        a, b = R[...,2], (R @ v[...,None])[...,0]                  # old and new axis, tomogram frame
+        k  = _np.cross(a,b)
+        K  = _np.zeros(k.shape + (3,))
+        K[...,0,1], K[...,0,2], K[...,1,2] = -k[...,2], k[...,1], -k[...,0]
+        K -= _np.swapaxes(K,-1,-2)
+        d  = (a*b).sum(-1)
+        Q  = _np.eye(3) + K + (K @ K)/_np.maximum(1 + d,1e-12)[...,None,None]   # shortest rotation a -> b
+        flip = 1 + d < 1e-6                                        # antipodal: pi about the particle x axis
+        u  = R[flip][...,0]
+        Q[flip] = 2*u[...,:,None]*u[...,None,:] - _np.eye(3)
+        self.ali_eu[refs] = _rotm_to_euZYZ(Q @ R)
+
+    def randomize_inplane(self, ref_cix=None, span_deg=None, seed=None):
+        """Random twist about the particle axis in ``ali_eu`` (``R Rz(phi)``), independently per particle and class.
+
+        ``span_deg`` None (default): uniform; otherwise ``phi`` uniform in [-span_deg, span_deg]. The axis
+        is unchanged. ``ref_cix`` / ``seed`` as in :meth:`randomize_cone`.
+        """
+        rng  = _np.random.default_rng(seed)
+        refs = self._refs(ref_cix)
+        span = _np.pi if span_deg is None else _np.deg2rad(span_deg)
+        g = self.ali_eu[refs,:,2] + rng.uniform(-span,span,self.ali_eu[refs,:,2].shape)
+        self.ali_eu[refs,:,2] = g - 2*_np.pi*_np.ceil((g - _np.pi)/(2*_np.pi))
+
     def update_position(self, ref_id=0):
         """Absorb the 3-D alignment translation into the particle position.
 
@@ -596,10 +650,7 @@ class Particles:
         """
         
         # Calculate tilt rotation matrix
-        R_arr = _np.zeros((tomos_info.n_tomos,tomos_info.n_projs,3,3),dtype=_np.float32)
-        for t in range(tomos_info.n_tomos):
-            for p in range(tomos_info.num_proj[t]):
-                _euZYZ_rotm(R_arr[t,p],_np.deg2rad(tomos_info.proj_eZYZ[t,p]))
+        R_arr = _euZYZ_to_rotm(tomos_info.proj_eZYZ,degrees=True)
         
         # Update defocus
         cix = tomos_info.get_cix(self.tomo_id)
@@ -716,8 +767,7 @@ class Particles:
         step = Particles._get_grid_step(step_angstroms,step_pixels,apix)
         brdr = Particles._get_border_pixels(skip_border_pixels)
 
-        R = _np.eye(3, dtype=_np.float32)
-        _euZYZ_rotm(R,_np.deg2rad(_np.array((0,angle_deg_Y,0), dtype=_np.float32)))
+        R = _euZYZ_to_rotm((0,angle_deg_Y,0),degrees=True)
         
         pts = _np.zeros((0,3),dtype=_np.float32)
         tid = _np.zeros((0),dtype=_np.uint32)
@@ -814,7 +864,7 @@ class Particles:
             
     @staticmethod
     def import_data(tomograms, position, tomos_id, ptcls_id=None,
-                    randomize_angles=False) -> Particles:
+                    randomize_angles=False, seed=None) -> Particles:
         """Create a Particles object from external coordinate data.
 
         Converts pixel-space coordinates (relative to tomogram corner) to
@@ -832,8 +882,10 @@ class Particles:
         ptcls_id : array-like of int, shape (N,), optional
             Particle identifiers.  Defaults to 0, 1, …, N−1.
         randomize_angles : bool, optional
-            If True, initialise ``ali_eu`` with random ZYZ Euler angles.
-            Default False.
+            If True, initialise ``ali_eu`` with poses uniform on SO(3)
+            (:meth:`randomize_cone` + :meth:`randomize_inplane`). Default False.
+        seed : int or numpy.random.Generator, optional
+            For ``randomize_angles``.
 
         Returns
         -------
@@ -856,10 +908,9 @@ class Particles:
         ptcls.sort()
         ptcls.update_defocus(tomograms)
         if randomize_angles:
-            n_refs, n_ptcl = ptcls.ali_eu.shape[:2]
-            ptcls.ali_eu[:,:,0] = _np.random.uniform(0, 2*_np.pi, (n_refs,n_ptcl))
-            ptcls.ali_eu[:,:,1] = _np.arccos(_np.random.uniform(-1, 1, (n_refs,n_ptcl)))
-            ptcls.ali_eu[:,:,2] = _np.random.uniform(0, 2*_np.pi, (n_refs,n_ptcl))
+            rng = _np.random.default_rng(seed)
+            ptcls.randomize_cone(seed=rng)
+            ptcls.randomize_inplane(seed=rng)
         return ptcls
     
     def export_positions(self, tomograms, ref_cix=0, tomo_id=None) -> _np.ndarray:
@@ -1032,11 +1083,7 @@ class Particles:
         if not scale_to_tomo:
             pos = pos*_np.float32(apix)
 
-        eu  = _np.rad2deg(self.ali_eu[ref_cix,mask,:])
-        wrap = lambda a: ((a + 180.0) % 360.0) - 180.0
-        phi = wrap(eu[:,2] - 90.0)
-        the = eu[:,1]
-        psi = wrap(eu[:,0] + 90.0)
+        phi, the, psi = _euZYZ_to_euDYN(_np.rad2deg(self.ali_eu[ref_cix,mask,:]),degrees=True).T
 
         cc      = self.ali_cc[ref_cix,mask]
         half_id = self.half_id[mask]
@@ -1207,18 +1254,8 @@ class Particles:
         # import_data sorts: ptcl_id[i] is the file row of stored particle i.
         row = ptcls.ptcl_id.astype(_np.int64)
 
-        # ZXZ (degrees) -> ZYZ (radians), then into SUSAN's ranges.
-        wrap = lambda a: ((a + _np.pi) % (2*_np.pi)) - _np.pi
-        alpha = _np.deg2rad(column('psi')[row]) - _np.pi/2
-        beta  = wrap(_np.deg2rad(column('the')[row]))
-        gamma = _np.deg2rad(column('phi')[row]) + _np.pi/2
-        flip  = beta < 0
-        beta [flip] = -beta[flip]
-        alpha[flip] +=  _np.pi
-        gamma[flip] +=  _np.pi
-        ptcls.ali_eu[0,:,0] = wrap(alpha)
-        ptcls.ali_eu[0,:,1] = beta
-        ptcls.ali_eu[0,:,2] = wrap(gamma)
+        dyn = _np.stack([column(c)[row] for c in ('phi','the','psi')],-1)
+        ptcls.ali_eu[0] = _np.deg2rad(_euDYN_to_euZYZ(dyn,degrees=True))
 
         cc = column('cc')
         if cc is not None:

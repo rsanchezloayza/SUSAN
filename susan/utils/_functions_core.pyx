@@ -3,6 +3,7 @@
 import numpy as np
 from libc.math cimport sqrt, cos, sin, atan2, fabs, ceil, floor
 from libc.stdlib cimport malloc, free
+from susan.utils._rotations cimport real, euZYZ_R, R_euZYZ, euDYN_R
 
 
 def radial_average(double[:, :, ::1] v):
@@ -102,54 +103,39 @@ def _fsc_get_core(float[:, :, ::1] n, float[:, :, ::1] d1, float[:, :, ::1] d2):
 
 
 def euDYN_rotm(float[:, ::1] R, float[::1] eu):
-    cdef float cos_theta = cos(eu[2])
-    cdef float cos_phi   = cos(eu[1])
-    cdef float cos_psi   = cos(eu[0])
-    cdef float sin_theta = sin(eu[2])
-    cdef float sin_phi   = sin(eu[1])
-    cdef float sin_psi   = sin(eu[0])
-    R[0, 0] =  cos_theta*cos_psi - cos_phi*sin_theta*sin_psi
-    R[0, 1] = -cos_theta*sin_psi - cos_phi*cos_psi*sin_theta
-    R[0, 2] =  sin_theta*sin_phi
-    R[1, 0] =  cos_psi*sin_theta + cos_theta*cos_phi*sin_psi
-    R[1, 1] =  cos_theta*cos_phi*cos_psi - sin_theta*sin_psi
-    R[1, 2] = -cos_theta*sin_phi
-    R[2, 0] =  sin_phi*sin_psi
-    R[2, 1] =  cos_psi*sin_phi
-    R[2, 2] =  cos_phi
+    """R (3, 3) float32 <- Dynamo / ArtiaX angles eu (3,) float32, rad. Batches / degrees: euDYN_to_rotm."""
+    euDYN_R(&eu[0], &R[0, 0])
 
 
 def euZYZ_rotm(float[:, ::1] R, float[::1] eu):
-    cdef float cos_theta = cos(eu[0])
-    cdef float cos_phi   = cos(eu[1])
-    cdef float cos_psi   = cos(eu[2])
-    cdef float sin_theta = sin(eu[0])
-    cdef float sin_phi   = sin(eu[1])
-    cdef float sin_psi   = sin(eu[2])
-    R[0, 0] =  cos_theta*cos_phi*cos_psi - sin_theta*sin_psi
-    R[0, 1] = -cos_psi*sin_theta - cos_theta*cos_phi*sin_psi
-    R[0, 2] =  cos_theta*sin_phi
-    R[1, 0] =  cos_theta*sin_psi + cos_phi*cos_psi*sin_theta
-    R[1, 1] =  cos_theta*cos_psi - cos_phi*sin_theta*sin_psi
-    R[1, 2] =  sin_theta*sin_phi
-    R[2, 0] = -cos_psi*sin_phi
-    R[2, 1] =  sin_phi*sin_psi
-    R[2, 2] =  cos_phi
+    """R (3, 3) float32 <- SUSAN ZYZ angles eu (3,) float32, rad. Batches / degrees: euZYZ_to_rotm."""
+    euZYZ_R(&eu[0], &R[0, 0])
 
 
 def rotm_euZYZ(float[::1] euler, float[:, ::1] R):
-    if fabs(R[2, 2] - 1) < 1e-6:
-        euler[0] = 0.0
-        euler[1] = 0.0
-        euler[2] = <float>atan2(R[1, 0], R[1, 1])
-    elif fabs(R[2, 2] + 1) < 1e-6:
-        euler[0] = 0.0
-        euler[1] = 3.14159265358979323846
-        euler[2] = <float>atan2(R[1, 0], R[1, 1])
-    else:
-        euler[0] = <float>atan2(R[1, 2], R[0, 2])
-        euler[1] = <float>atan2(sqrt(fabs(1.0 - R[2,2]*R[2,2])), R[2, 2])
-        euler[2] = <float>atan2(R[2, 1], -R[2, 0])
+    """euler (3,) float32 <- R (3, 3) float32, SUSAN ZYZ, rad. Batches / degrees: rotm_to_euZYZ."""
+    R_euZYZ(&R[0, 0], &euler[0])
+
+
+def _euZYZ_to_rotm_n(real[:, ::1] eu, real[:, :, ::1] R):
+    cdef Py_ssize_t i
+    with nogil:
+        for i in range(eu.shape[0]):
+            euZYZ_R(&eu[i, 0], &R[i, 0, 0])
+
+
+def _euDYN_to_rotm_n(real[:, ::1] eu, real[:, :, ::1] R):
+    cdef Py_ssize_t i
+    with nogil:
+        for i in range(eu.shape[0]):
+            euDYN_R(&eu[i, 0], &R[i, 0, 0])
+
+
+def _rotm_to_euZYZ_n(real[:, :, ::1] R, real[:, ::1] eu):
+    cdef Py_ssize_t i
+    with nogil:
+        for i in range(R.shape[0]):
+            R_euZYZ(&R[i, 0, 0], &eu[i, 0])
 
 
 cdef inline int _ceil_div(int N, double scale) noexcept nogil:
