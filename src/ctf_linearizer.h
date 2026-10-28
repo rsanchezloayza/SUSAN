@@ -846,8 +846,7 @@ public:
         cudaMemcpy( (void*)c_linear, (const void*)g_ps.ptr, sizeof(float)*M*K, cudaMemcpyDeviceToHost);
         if( log_level > 1 ) {
             sprintf(filename,"%s/ps_lin_norm.mrc",out_dir);
-            Mrc::write(c_linear,M,K,1,filename);
-            Mrc::set_apix(filename,new_apix,M,K,1);
+            Mrc::write(c_linear,M,K,1,filename,new_apix);
         }
         track_peaks_in_linear_ps(c_linear);
 

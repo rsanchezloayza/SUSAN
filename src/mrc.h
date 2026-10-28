@@ -51,40 +51,6 @@ namespace Mrc {
             return xlen/mx;
     }
 
-    void set_apix (const char*mapname, const float apix, const uint32 X, const uint32 Y, const uint32 Z) {
-        FILE*fp=fopen(mapname,"r+");
-        if( fp == NULL ) {
-            fprintf(stderr,"Error opening file %s.\n",mapname);
-            exit(1);
-        }
-        uint32_t grid[3];
-        grid[0] = X;
-        grid[1] = Y;
-        grid[2] = Z;
-        fseek(fp,28,SEEK_SET);
-        fwrite(grid,sizeof(uint32_t),3,fp);
-        float apix_arr[3];
-        apix_arr[0] = apix*grid[0];
-        apix_arr[1] = apix*grid[1];
-        apix_arr[2] = apix*grid[2];
-        fseek(fp,40,SEEK_SET);
-        fwrite(apix_arr,sizeof(float),3,fp);
-        fclose(fp);
-    }
-
-    /// Origin in angstroms (header words 50-52).
-    void set_origin(const char*mapname, const float x, const float y, const float z) {
-        FILE*fp=fopen(mapname,"r+");
-        if( fp == NULL ) {
-            fprintf(stderr,"Error opening file %s.\n",mapname);
-            exit(1);
-        }
-        float origin[3] = {x,y,z};
-        fseek(fp,196,SEEK_SET);
-        fwrite(origin,sizeof(float),3,fp);
-        fclose(fp);
-    }
-
     void set_ispg (const char*mapname, const uint32 value) {
         FILE*fp=fopen(mapname,"r+");
         if( fp == NULL ) {
@@ -165,7 +131,9 @@ namespace Mrc {
         return rslt;
     }
     
-    void write(const single *data, const uint32 X, const uint32 Y, const uint32 Z, const char*mapname,bool fill_statistics=true) {
+    /// apix > 0: sampling and cell size (else sampling 1, cell 0); origin: x, y, z in angstroms (header words 50-52).
+    void write(const single *data, const uint32 X, const uint32 Y, const uint32 Z, const char*mapname,
+               const float apix=0, const float*origin=NULL, bool fill_statistics=true) {
         FILE*fp=fopen(mapname,"wb");
         if( fp == NULL ) {
             fprintf(stderr,"Error creating file %s.\n",mapname);
@@ -180,6 +148,16 @@ namespace Mrc {
         header[7]  = 1;
         header[8]  = 1;
         header[9]  = 1;
+        if( apix > 0 ) {
+            const uint32 grid[3] = {X,Y,Z};
+            for(int i=0;i<3;i++) {
+                const float cell = apix*grid[i];
+                header[7+i]  = grid[i];
+                memcpy(header+10+i,&cell,sizeof(float));
+            }
+        }
+        if( origin != NULL )
+            memcpy(header+49,origin,3*sizeof(float));
         header[13] = 0x42b40000; // 90.0 in hexadecimal notation.
         header[14] = 0x42b40000; // 90.0 in hexadecimal notation.
         header[15] = 0x42b40000; // 90.0 in hexadecimal notation.

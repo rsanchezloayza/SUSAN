@@ -50,6 +50,16 @@ inline float orientation_prior_pen_deg(float theta_deg, float sigma_deg)
     return 0.5f * r * r;
 }
 
+/// Offset penalties |t|^2 / 2 sigma_t^2 of the search points (pixels); all 0 when sigma <= 0 (disabled).
+inline void offset_prior_pen(std::vector<float>&pen,const Vec3*pts,const int n_pts,const float sigma)
+{
+    pen.assign(n_pts,0.0f);
+    if( sigma <= 0.f ) return;
+    const float inv2s2 = 1.0f/(2.0f*sigma*sigma);
+    for(int i=0;i<n_pts;i++)
+        pen[i] = (pts[i].x*pts[i].x + pts[i].y*pts[i].y + pts[i].z*pts[i].z)*inv2s2;
+}
+
 /// lambda = sd^2 / max(A, sd): sd = 1.4826 MAD of the CC on the noise ring (n_noise values, modified: partially
 /// sorted), A = the best CC over the search points (n_pts) minus the ring median. The max() keeps a projection without
 /// signal at the prior centre.
@@ -120,14 +130,7 @@ public:
     CcTrackerAlignmentArr(CcStatsType_t cc_stats,const int max_k,const Vec3*p_pts,const int n_pts,float offset_sigma=0.f)
         : pts_(p_pts), n_pts_(n_pts), sigma_stats_(cc_stats == CC_STATS_SIGMA), frozen_(false), k_(max_k)
     {
-        pts_pen_.assign(n_pts_,0.0f);
-        if( offset_sigma > 0.f ) {
-            const float inv2s2 = 1.0f/(2.0f*offset_sigma*offset_sigma);
-            for(int i=0;i<n_pts_;i++) {
-                const float r2 = pts_[i].x*pts_[i].x + pts_[i].y*pts_[i].y + pts_[i].z*pts_[i].z;
-                pts_pen_[i] = r2*inv2s2;
-            }
-        }
+        offset_prior_pen(pts_pen_,pts_,n_pts_,offset_sigma);
         e_.resize(max_k);
         for(auto&e : e_) e.lambda = 0.f;
         clear(max_k);
@@ -260,16 +263,7 @@ public:
           phase_sigma_(phase_sigma),
           lambda_(0.f)
     {
-        pts_pen_.assign(n_pts_, 0.0f);
-        if (offset_sigma > 0.f) {
-            const float inv2s2 = 1.0f / (2.0f * offset_sigma * offset_sigma);
-            for (int i = 0; i < n_pts_; ++i) {
-                const float r2 = pts_[i].x*pts_[i].x +
-                                 pts_[i].y*pts_[i].y +
-                                 pts_[i].z*pts_[i].z;
-                pts_pen_[i] = r2 * inv2s2;
-            }
-        }
+        offset_prior_pen(pts_pen_, pts_, n_pts_, offset_sigma);
         clear();
     }
 

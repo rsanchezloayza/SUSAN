@@ -665,8 +665,7 @@ protected:
             reconstruct_invert(p_wgt);
             reconstruct_core(p_vol,p_acc,p_wgt);
             reconstruct_download(vol,p_vol);
-            Mrc::write(vol,N,N,N,out_file);
-            Mrc::set_apix(out_file,stkrdr.tomos->at(0).pix_size,N,N,N);
+            Mrc::write(vol,N,N,N,out_file,stkrdr.tomos->at(0).pix_size);
             Mrc::set_as_volume(out_file);
             if( p_info->verbosity != VERBOSITY_MINIMAL ) {
                 printf(" Done.\n"); fflush(stdout);
@@ -695,8 +694,7 @@ protected:
             reconstruct_invert(p_wgt);
             reconstruct_core(p_vol,p_acc,p_wgt);
             reconstruct_download(vol,p_vol);
-            Mrc::write(vol,N,N,N,out_file);
-            Mrc::set_apix(out_file,stkrdr.tomos->at(0).pix_size,N,N,N);
+            Mrc::write(vol,N,N,N,out_file,stkrdr.tomos->at(0).pix_size);
             Mrc::set_as_volume(out_file);
             if( p_info->verbosity != VERBOSITY_MINIMAL ) {
                 printf(" Done.\n"); fflush(stdout);
@@ -714,8 +712,7 @@ protected:
             reconstruct_invert(p_wgt);
             reconstruct_core(p_vol,p_acc,p_wgt);
             reconstruct_download(vol,p_vol);
-            Mrc::write(vol,N,N,N,out_file);
-            Mrc::set_apix(out_file,stkrdr.tomos->at(0).pix_size,N,N,N);
+            Mrc::write(vol,N,N,N,out_file,stkrdr.tomos->at(0).pix_size);
             Mrc::set_as_volume(out_file);
             if( p_info->verbosity != VERBOSITY_MINIMAL ) {
                 printf(" Done.\n"); fflush(stdout);
@@ -735,8 +732,7 @@ protected:
             reconstruct_invert(p_wgt);
             reconstruct_core(p_vol,p_acc,p_wgt);
             reconstruct_download(vol,p_vol);
-            Mrc::write(vol,N,N,N,out_file);
-            Mrc::set_apix(out_file,stkrdr.tomos->at(0).pix_size,N,N,N);
+            Mrc::write(vol,N,N,N,out_file,stkrdr.tomos->at(0).pix_size);
             Mrc::set_as_volume(out_file);
             if( p_info->verbosity != VERBOSITY_MINIMAL ) {
                 printf(" Done.\n"); fflush(stdout);

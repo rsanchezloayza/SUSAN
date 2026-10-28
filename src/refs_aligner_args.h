@@ -282,16 +282,8 @@ inline void print(const Info&info,FILE*fp=stdout) {
     print_angles(info);
 
     uint32_t total_points=0;
-    if( info.off_type == ELLIPSOID ) {
-        Vec3*pt = PointsProvider::ellipsoid(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
-        fprintf(stdout,"\t\tEllipsoid offset search (3D): ");
-        delete [] pt;
-    }
-    if( info.off_type == CYLINDER ) {
-        Vec3*pt = PointsProvider::cylinder(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
-        fprintf(stdout,"\t\tCylindrical offset search (3D): ");
-        delete [] pt;
-    }
+    delete [] PointsProvider::create(total_points,info.off_type,info.off_x,info.off_y,info.off_z,info.off_s);
+    fprintf(stdout,"\t\t%s offset search (%dD): ",PointsProvider::name(info.off_type),PointsProvider::is_3d(info.off_type)?3:2);
 
     fprintf(stdout,"Range=[%.2f,%.2f,%.2f], Step=%.2f. Total points: %d\n",info.off_x,info.off_y,info.off_z,info.off_s,total_points);
 }

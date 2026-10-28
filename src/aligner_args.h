@@ -594,36 +594,11 @@ inline void print_full(const Info&info,FILE*fp) {
     print_angles(info,fp,info.verbosity>0);
     
     uint32_t total_points=0;
-    if( info.off_type == ELLIPSOID ) {
-        Vec3*pt = PointsProvider::ellipsoid(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
-        fprintf(fp,"\t\tEllipsoid offset search (3D): ");
-        delete [] pt;
-        fprintf(fp,"Range=[%.2f,%.2f,%.2f], Step=%.2f. Total points: %d\n",info.off_x,info.off_y,info.off_z,info.off_s,total_points);
-    }
-    if( info.off_type == CYLINDER ) {
-        Vec3*pt = PointsProvider::cylinder(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
-        fprintf(fp,"\t\tCylindrical offset search (3D): ");
-        delete [] pt;
-        fprintf(fp,"Range=[%.2f,%.2f,%.2f], Step=%.2f. Total points: %d\n",info.off_x,info.off_y,info.off_z,info.off_s,total_points);
-    }
-    if( info.off_type == CUBOID ) {
-        Vec3*pt = PointsProvider::cuboid(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
-        fprintf(fp,"\t\tCuboid offset search (3D): ");
-        delete [] pt;
-        fprintf(fp,"Range=[%.2f,%.2f,%.2f], Step=%.2f. Total points: %d\n",info.off_x,info.off_y,info.off_z,info.off_s,total_points);
-    }
-    if( info.off_type == CIRCLE ) {
-        Vec3*pt = PointsProvider::circle(total_points,info.off_x,info.off_y,info.off_s);
-        fprintf(fp,"\t\tCircular offset search (2D): ");
-        delete [] pt;
-        fprintf(fp,"Range=[%.2f,%.2f]. Total points: %d\n",info.off_x,info.off_y,total_points);
-    }
-    if( info.off_type == RECTANGLE ) {
-        Vec3*pt = PointsProvider::rectangle(total_points,info.off_x,info.off_y,info.off_s);
-        fprintf(fp,"\t\tRectangular offset search (2D): ");
-        delete [] pt;
-        fprintf(fp,"Range=[%.2f,%.2f]. Total points: %d\n",info.off_x,info.off_y,total_points);
-    }
+    delete [] PointsProvider::create(total_points,info.off_type,info.off_x,info.off_y,info.off_z,info.off_s);
+    if( PointsProvider::is_3d(info.off_type) )
+        fprintf(fp,"\t\t%s offset search (3D): Range=[%.2f,%.2f,%.2f], Step=%.2f. Total points: %d\n",PointsProvider::name(info.off_type),info.off_x,info.off_y,info.off_z,info.off_s,total_points);
+    else
+        fprintf(fp,"\t\t%s offset search (2D): Range=[%.2f,%.2f]. Total points: %d\n",PointsProvider::name(info.off_type),info.off_x,info.off_y,total_points);
     
     if( info.ignore_ref )
         fprintf(fp,"\t\tAligning each particle to its class/reference only.\n");
@@ -720,36 +695,11 @@ inline void print_basic(const Info&info,FILE*fp) {
     print_angles(info,fp,info.verbosity==VERBOSITY_FULL);
 
     uint32_t total_points=0;
-    if( info.off_type == ELLIPSOID ) {
-        Vec3*pt = PointsProvider::ellipsoid(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
-        fprintf(fp,"    - Ellipsoid offset (3D): ");
-        delete [] pt;
-        fprintf(fp,"[%.2f,%.2f,%.2f], Step=%.2f. Points: %d\n",info.off_x,info.off_y,info.off_z,info.off_s,total_points);
-    }
-    if( info.off_type == CYLINDER ) {
-        Vec3*pt = PointsProvider::cylinder(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
-        fprintf(fp,"    - Cylindrical offset (3D): ");
-        delete [] pt;
-        fprintf(fp,"[%.2f,%.2f,%.2f], Step=%.2f. Points: %d\n",info.off_x,info.off_y,info.off_z,info.off_s,total_points);
-    }
-    if( info.off_type == CUBOID ) {
-        Vec3*pt = PointsProvider::cuboid(total_points,info.off_x,info.off_y,info.off_z,info.off_s);
-        fprintf(fp,"    - Cuboid offset (3D): ");
-        delete [] pt;
-        fprintf(fp,"[%.2f,%.2f,%.2f], Step=%.2f. Points: %d\n",info.off_x,info.off_y,info.off_z,info.off_s,total_points);
-    }
-    if( info.off_type == CIRCLE ) {
-        Vec3*pt = PointsProvider::circle(total_points,info.off_x,info.off_y,info.off_s);
-        fprintf(fp,"    - Circular offset (2D): ");
-        delete [] pt;
-        fprintf(fp,"[%.2f,%.2f]. Points: %d\n",info.off_x,info.off_y,total_points);
-    }
-    if( info.off_type == RECTANGLE ) {
-        Vec3*pt = PointsProvider::rectangle(total_points,info.off_x,info.off_y,info.off_s);
-        fprintf(fp,"    - Rectangular offset (2D): ");
-        delete [] pt;
-        fprintf(fp,"[%.2f,%.2f]. Points: %d\n",info.off_x,info.off_y,total_points);
-    }
+    delete [] PointsProvider::create(total_points,info.off_type,info.off_x,info.off_y,info.off_z,info.off_s);
+    if( PointsProvider::is_3d(info.off_type) )
+        fprintf(fp,"    - %s offset (3D): [%.2f,%.2f,%.2f], Step=%.2f. Points: %d\n",PointsProvider::name(info.off_type),info.off_x,info.off_y,info.off_z,info.off_s,total_points);
+    else
+        fprintf(fp,"    - %s offset (2D): [%.2f,%.2f]. Points: %d\n",PointsProvider::name(info.off_type),info.off_x,info.off_y,total_points);
     
     if( info.ignore_ref )
         fprintf(fp,"    - Aligning each particle to its class/reference only.\n");

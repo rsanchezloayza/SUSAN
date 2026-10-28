@@ -143,9 +143,8 @@ inline void block_file(char*out,const char*prefix,const uint32 tomo_id,const uin
 
 /// MRC of a block: its corner (output voxels) as the origin, in angstroms.
 inline void write_block(const float*data,const int3 shape,const char*filename,const float apix,const int3 corner) {
-    Mrc::write(data,shape.x,shape.y,shape.z,filename);
-    Mrc::set_apix(filename,apix,shape.x,shape.y,shape.z);
-    Mrc::set_origin(filename,apix*corner.x,apix*corner.y,apix*corner.z);
+    const float origin[3] = {apix*corner.x,apix*corner.y,apix*corner.z};
+    Mrc::write(data,shape.x,shape.y,shape.z,filename,apix,origin);
 }
 
 /// One {prefix}_t{tomo_id}.json per tomogram: run parameters, the tomogram, the angle table

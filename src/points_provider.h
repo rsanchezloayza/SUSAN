@@ -238,5 +238,17 @@ public:
         if( off_type == RECTANGLE ) return rectangle(counter, x_range, y_range, step);
         return ellipsoid(counter, x_range, y_range, z_range, step);
     }
+
+    static const char*name(const int off_type) {
+        if( off_type == CYLINDER  ) return "Cylindrical";
+        if( off_type == CUBOID    ) return "Cuboid";
+        if( off_type == CIRCLE    ) return "Circular";
+        if( off_type == RECTANGLE ) return "Rectangular";
+        return "Ellipsoid";
+    }
+
+    static bool is_3d(const int off_type) {
+        return off_type != CIRCLE && off_type != RECTANGLE;
+    }
 };
 #endif /// POINTS_PROVIDER_H
