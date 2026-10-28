@@ -51,6 +51,7 @@ __all__ = ['dose_from_fsc',
            'bin_frame_shape',
            'suppress_peaks',
            'local_maxima',
+           'RunningStats',
            'mask_diameter',
            'angular_step_from_fsc',
            'is_odd',
@@ -886,6 +887,45 @@ def euZYZ_flip_hand(eu, degrees=False):
 
 ###########################################
 
+class RunningStats:
+    """Min, max, mean and std of values seen in chunks (Chan et al. merge of per-chunk moments, float64).
+
+    Example: one accumulator per volume written by :func:`susan.io.mrc.write_slices`, then
+    ``susan.io.mrc.set_statistics(filename, stats=rs.stats())``.
+    """
+    def __init__(self):
+        self.n, self.mean, self.m2 = 0, 0.0, 0.0
+        self.min, self.max = np.inf, -np.inf
+
+    def add(self, values):
+        """Add the finite values of an array (any shape)."""
+        v = np.asarray(values)
+        if np.issubdtype(v.dtype, np.floating):
+            ok = np.isfinite(v)
+            if not ok.all():
+                v = v[ok]
+        if v.size == 0:
+            return self
+        n_b = v.size
+        mean_b = v.mean(dtype=np.float64)
+        m2_b = float(v.var(dtype=np.float64))*n_b
+        n = self.n + n_b
+        d = mean_b - self.mean
+        self.mean += d*n_b/n
+        self.m2 += m2_b + d*d*self.n*n_b/n
+        self.n = n
+        self.min = min(self.min, float(v.min()))
+        self.max = max(self.max, float(v.max()))
+        return self
+
+    def stats(self):
+        """(min, max, mean, std) float32, population std; zeros when nothing was added."""
+        if self.n == 0:
+            return np.zeros(4, np.float32)
+        return np.array((self.min, self.max, self.mean, np.sqrt(self.m2/self.n)), np.float32)
+
+###########################################
+
 def local_maxima(vol, threshold):
     """Voxels of a 3D volume at or above ``threshold`` that are >= their 26 neighbours (ties kept; NaN never).
 
@@ -894,8 +934,10 @@ def local_maxima(vol, threshold):
     numpy.ndarray, (N, 3) int32
         z, y, x of the maxima, in raster order.
     """
-    v = np.where(np.isnan(vol),-np.inf,vol).astype(np.float32)
-    return _local_maxima_cy(np.ascontiguousarray(v),np.float32(threshold))
+    v = np.ascontiguousarray(vol,dtype=np.float32)
+    if v.size and np.isnan(v.max()):                  # max propagates NaN without a temporary
+        v = np.where(np.isnan(v),np.float32(-np.inf),v)
+    return _local_maxima_cy(v,np.float32(threshold))
 
 ###########################################
 

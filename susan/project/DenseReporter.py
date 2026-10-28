@@ -30,6 +30,8 @@ import susan.utils.datatypes as _dt
 
 __all__ = ['DenseReporter']
 
+_CHUNK_BYTES = 256*2**20               # memory per z-chunk when assembling / streaming the volumes
+
 
 class DenseReporter:
     """Dense (template-matching) search over blocks, and the analysis of its output.
@@ -278,16 +280,20 @@ class DenseReporter:
         p = _np.where(p > size - 1, p - b, p)
         return _np.where(p < 0, p + b, p)
 
+    @staticmethod
+    def _import(T, pos, tid):
+        """Particles at positions in voxels from the tomogram corner, placed with the tomograms' tomo_position
+        (defocus updated then); sorted as :meth:`susan.data.Particles.import_data`."""
+        P = _ssa_data.Particles.import_data(position=pos, tomograms=T, tomos_id=tid)
+        for t in _np.unique(P.tomo_id):
+            P.position[P.tomo_id == t] += T.tomo_position[int(T.get_cix(t))]
+        if _np.any(T.tomo_position):
+            P.update_defocus(T)
+        return P
+
     def _blocks(self, pos, tid):
         """Particles at the given block centres (voxels from the tomogram corner)."""
-        pos = _np.concatenate(pos).astype(_np.float32)
-        tid = _np.concatenate(tid)
-        P = _ssa_data.Particles.import_data(position=pos, tomograms=self._tomos, tomos_id=tid)
-        for t in _np.unique(tid):
-            P.position[P.tomo_id == t] += self._tomos.tomo_position[self._cix(t)]
-        if _np.any(self._tomos.tomo_position):
-            P.update_defocus(self._tomos)
-        return P
+        return self._import(self._tomos, _np.concatenate(pos).astype(_np.float32), _np.concatenate(tid))
 
     def _point_blocks(self, points, tomo_id, one_based=False):
         """Particles at user points: one (N, 3) set for every tomogram, or one set per tomogram matched
@@ -395,10 +401,22 @@ class DenseReporter:
             P = _ssa_data.Particles(ptcls) if isinstance(ptcls,str) else ptcls
             if tomo_id is not None:
                 P = P.select(_np.isin(P.tomo_id, self._tomo_ids(tomo_id)))
-        tids = [int(t) for t in _np.unique(P.tomo_id)]
         self._run_aligner(output_prefix, self.reference, P, r)
         self._prefix = output_prefix
+        return self._load_run(output_prefix, P.tomo_id, tomo_id)
+
+    def _load_run(self, output_prefix, tomo_ids, tomo_id, null=False):
+        """Load and finalize the manifests of a run; the file for a scalar ``tomo_id``, else {tomo_id: file}."""
+        tids  = [int(t) for t in _np.unique(tomo_ids)]
         files = {t: '%s_t%05d.json' % (output_prefix,t) for t in tids}
+        if null:
+            for f in files.values():
+                with open(f) as fp:
+                    m = _json.load(fp)
+                m['null'] = 'decoy'
+                m['params']['refs_file'] = self.reference
+                with open(f,'w') as fp:
+                    _json.dump(m,fp,indent=1)
         self.load(files)
         self.finalize(tids)
         if tomo_id is not None and _np.isscalar(tomo_id):
@@ -450,7 +468,7 @@ class DenseReporter:
     def run_null(self, output_prefix=None, n=None, tomo_id=None, seed=0):
         """Null of the search: ``n`` blocks per tomogram at random positions on the slab, searched with
         a phase-randomized decoy of the reference (written to a temporary folder, removed after), with the
-        same settings as :meth:`run`.  Writes ``{prefix}_t{tomo_id:03d}.json`` (marked ``"null": "decoy"``)
+        same settings as :meth:`run`.  Writes ``{prefix}_t{tomo_id:05d}.json`` (marked ``"null": "decoy"``)
         and loads them.
 
         Parameters
@@ -502,20 +520,7 @@ class DenseReporter:
             self._run_aligner(output_prefix, self.make_decoy(tmp,seed), P, r)
         finally:
             shutil.rmtree(tmp,ignore_errors=True)
-        tids  = [int(t) for t in _np.unique(tid)]
-        files = {t: '%s_t%05d.json' % (output_prefix,t) for t in tids}
-        for f in files.values():
-            with open(f) as fp:
-                m = _json.load(fp)
-            m['null'] = 'decoy'
-            m['params']['refs_file'] = self.reference
-            with open(f,'w') as fp:
-                _json.dump(m,fp,indent=1)
-        self.load(files)
-        self.finalize(tids)
-        if _np.isscalar(tomo_id):
-            return files[int(tomo_id)]
-        return files
+        return self._load_run(output_prefix, P.tomo_id, tomo_id, null=True)
 
     # ------------------------------------------------------------------
     # Loading
@@ -532,18 +537,11 @@ class DenseReporter:
                 m = _json.load(fp)
             m['_file'] = f
             base = _os.path.dirname(f)
-            for k,v in m.get('volumes',{}).items():
-                if not _os.path.exists(v):
-                    cand = _os.path.join(base,_os.path.basename(v))
-                    if _os.path.exists(cand):
-                        m['volumes'][k] = cand
+            if 'volumes' in m:
+                m['volumes'] = {k:self._next_to(v,base) for k,v in m['volumes'].items()}
             for blk in m['blocks']:
                 blk['ptcl_id'] %= 2**32
-                for k,v in blk['files'].items():
-                    if not _os.path.exists(v):
-                        cand = _os.path.join(base,_os.path.basename(v))
-                        if _os.path.exists(cand):
-                            blk['files'][k] = cand
+                blk['files'] = {k:self._next_to(v,base) for k,v in blk['files'].items()}
                 blk['_lo'] = _np.array(blk['corner_xyz'],dtype=int)[::-1]
                 blk['_hi'] = blk['_lo'] + _np.array(blk['shape_xyz'],dtype=int)[::-1]
             m['_table'] = _np.array(m['angle_table'],dtype=_np.float32)
@@ -556,6 +554,14 @@ class DenseReporter:
             if _os.path.exists(m['params']['tomos_file']):
                 self.tomograms = m['params']['tomos_file']
 
+    @staticmethod
+    def _next_to(path, base):
+        """``path``, or the file of the same name next to the manifest when ``path`` does not exist (moved runs)."""
+        if _os.path.exists(path):
+            return path
+        cand = _os.path.join(base,_os.path.basename(path))
+        return cand if _os.path.exists(cand) else path
+
     def _manifest(self, tomo_id):
         if not self.manifests:
             raise ValueError('No manifest loaded: run() or load() first.')
@@ -566,28 +572,54 @@ class DenseReporter:
         return int(tomo_id), self.manifests[int(tomo_id)]
 
     @staticmethod
-    def _read(blk, field):
-        f = blk['files'].get(field)
-        if f is None or not _os.path.exists(f):
-            return _np.full(tuple(blk['shape_xyz'][::-1]),_np.nan,dtype=_np.float32)
-        v,_ = _mrc.read(f)
-        return v
+    def _step(m, bytes_per_voxel):
+        """Sections per z-chunk for a working set of ``bytes_per_voxel``."""
+        nx, ny, _ = m['tomogram']['size_out_xyz']
+        return max(1,_CHUNK_BYTES//(bytes_per_voxel*nx*ny))
 
     @staticmethod
-    def _need_volumes(m):
-        if 'volumes' not in m and 'hist' not in m:
+    def _need_field(m, field):
+        if ('hist' if 'null' in m else 'volumes') not in m:
             raise ValueError('Tomogram %d is not assembled: call finalize() first.' % m['tomogram']['tomo_id'])
-
-    @staticmethod
-    def _read_vol(m, field):
-        """Stored volume; z and cc are NaN where no block searched (ang < 0)."""
-        if field not in m['volumes']:
+        if 'null' not in m and field not in m['volumes']:
             raise ValueError('No %s volume (written only for blocks with their own ali_eu).' % field)
+
+    def _field_chunks(self, m, field, invalid=_np.nan):
+        """(z0, sections) of a stored volume over z-chunks; z and cc are ``invalid`` where no block searched (ang < 0)."""
+        self._need_field(m,field)
+        nz = m['tomogram']['size_out_xyz'][2]
+        step = self._step(m,12)
+        for z0 in range(0,nz,step):
+            z1 = min(z0+step,nz)
+            v = _mrc.read_slices(m['volumes'][field],z0,z1)[0]
+            if field in ('z','cc'):
+                v[_mrc.read_slices(m['volumes']['ang'],z0,z1)[0] < 0] = invalid
+            yield z0, v
+
+    def _read_vol(self, m, field, invalid=_np.nan):
+        """Whole stored volume; z and cc are ``invalid`` where no block searched (ang < 0)."""
+        self._need_field(m,field)
         v,_ = _mrc.read(m['volumes'][field])
         if field in ('z','cc'):
-            ang,_ = _mrc.read(m['volumes']['ang'])
-            v = _np.where(ang >= 0,v,_np.nan).astype(_np.float32)
+            for z0, a in self._field_chunks(m,'ang'):
+                v[z0:z0+len(a)][a < 0] = invalid
         return v
+
+    def _gather(self, m, field, zyx):
+        """Values of a stored volume at the voxels ``zyx`` (N, 3), reading only the sections that hold them."""
+        self._need_field(m,field)
+        out = _np.empty(len(zyx),dtype=_np.float32)
+        order = _np.argsort(zyx[:,0],kind='stable')
+        zs = zyx[order,0]
+        nz = m['tomogram']['size_out_xyz'][2]
+        step = self._step(m,4)
+        for z0 in range(0,nz,step):
+            i = order[_np.searchsorted(zs,z0):_np.searchsorted(zs,z0+step)]
+            if len(i) == 0:
+                continue
+            a, e = zyx[i,0].min(), zyx[i,0].max() + 1
+            out[i] = _mrc.read_slices(m['volumes'][field],a,e)[0][zyx[i,0]-a,zyx[i,1],zyx[i,2]]
+        return out
 
     @staticmethod
     def _save_manifest(m):
@@ -596,29 +628,45 @@ class DenseReporter:
         with open(m['_file'],'w') as fp:
             _json.dump(out,fp,indent=1)
 
-    def _assemble_blocks(self, m):
-        """One pass over the blocks: z, cc, ang and blk (block index, -1 where none) of the highest-z sample."""
-        shape = tuple(m['tomogram']['size_out_xyz'][::-1])
-        vol = dict(z=_np.full(shape,-_np.inf,dtype=_np.float32), cc=_np.full(shape,_np.nan,dtype=_np.float32),
-                   ang=_np.full(shape,-1,dtype=_np.float32), blk=_np.full(shape,-1,dtype=_np.float32))
+    @staticmethod
+    def _read_slab(blk, field, z0, z1):
+        """Sections z0 .. z1-1 (block-local) of a block field; NaN when the file is missing."""
+        f = blk['files'].get(field)
+        if f is None or not _os.path.exists(f):
+            return _np.full((z1-z0,)+tuple(blk['shape_xyz'][1::-1]),_np.nan,dtype=_np.float32)
+        return _mrc.read_slices(f,z0,z1)[0]
+
+    def _assemble_chunk(self, m, z0, z1, with_blk):
+        """Sections z0 .. z1-1 of the assembly: z, cc, ang (and blk) of the highest-z sample; unsearched voxels
+        0 (z, cc) / -1 (ang, blk); also the mask of searched voxels."""
+        shape = (z1-z0,) + tuple(m['tomogram']['size_out_xyz'][1::-1])
+        vol = dict(z=_np.full(shape,-_np.inf,dtype=_np.float32), cc=_np.zeros(shape,dtype=_np.float32),
+                   ang=_np.full(shape,-1,dtype=_np.float32))
+        if with_blk:
+            vol['blk'] = _np.full(shape,-1,dtype=_np.float32)
+        lo_c, hi_c = _np.array((z0,0,0)), _np.array((z1,)+shape[1:])
         for i,blk in enumerate(m['blocks']):
             lo, hi = blk['_lo'], blk['_hi']
-            a = _np.maximum(lo,0)
-            e = _np.minimum(hi,shape)
+            a = _np.maximum(lo,lo_c)
+            e = _np.minimum(hi,hi_c)
             if _np.any(e <= a):
                 continue
-            src = tuple(slice(a[j]-lo[j],e[j]-lo[j]) for j in range(3))
-            dst = tuple(slice(a[j],e[j]) for j in range(3))
-            z = self._read(blk,'z')[src]
+            src = (slice(None),) + tuple(slice(a[j]-lo[j],e[j]-lo[j]) for j in (1,2))
+            dst = tuple(slice(a[j]-lo_c[j],e[j]-lo_c[j]) for j in range(3))
+            bz = (a[0]-lo[0],e[0]-lo[0])
+            z = self._read_slab(blk,'z',*bz)[src]
             upd = z > vol['z'][dst]
             if not upd.any():
                 continue
             vol['z'][dst]   = _np.where(upd,z,vol['z'][dst])
-            vol['cc'][dst]  = _np.where(upd,self._read(blk,'cc')[src],vol['cc'][dst])
-            vol['ang'][dst] = _np.where(upd,self._read(blk,'ang')[src],vol['ang'][dst])
-            vol['blk'][dst] = _np.where(upd,_np.float32(i),vol['blk'][dst])
-        vol['z'][_np.isinf(vol['z'])] = _np.nan
-        return vol
+            vol['cc'][dst]  = _np.where(upd,self._read_slab(blk,'cc',*bz)[src],vol['cc'][dst])
+            vol['ang'][dst] = _np.where(upd,self._read_slab(blk,'ang',*bz)[src],vol['ang'][dst])
+            if with_blk:
+                vol['blk'][dst] = _np.where(upd,_np.float32(i),vol['blk'][dst])
+        ok = vol['ang'] >= 0
+        vol['z'][~ok] = 0
+        vol['cc'][~ok] = 0
+        return vol, ok
 
     def finalize(self, tomo_id=None, keep_blocks=None):
         """Replace the block outputs of the loaded manifests by their assembly.
@@ -638,21 +686,10 @@ class DenseReporter:
                 if null:
                     m['hist'] = {}
                     for fld in ('z','cc'):
-                        counts, edges, st = self._histogram(lambda fld=fld,m=m: (self._read(b,fld) for b in m['blocks']))
+                        counts, edges, st = self._histogram(lambda fld=fld,m=m: (self._read_slab(b,fld,0,b['shape_xyz'][2]) for b in m['blocks']))
                         m['hist'][fld] = dict(counts=counts.tolist(), edges=edges.tolist(), stats=st)
                 else:
-                    stem = _os.path.splitext(m['_file'])[0]
-                    vols = self._assemble_blocks(m)
-                    ok = vols['ang'] >= 0
-                    if not any(_np.any(blk['ali_eu']) for blk in m['blocks']):
-                        del vols['blk']
-                    m['volumes'] = {}
-                    for fld,v in vols.items():
-                        p = '%s_%s.mrc' % (stem,fld)
-                        v = _np.where(ok,v,0 if fld in ('z','cc') else -1).astype(_np.float32)
-                        _mrc.write(v,p,apix=m['tomogram']['apix_out'],fill_statistics=False)
-                        _mrc.set_statistics(p,v,ok)
-                        m['volumes'][fld] = p
+                    self._write_volumes(m)
                 if not keep:
                     for blk in m['blocks']:
                         for p in blk['files'].values():
@@ -660,6 +697,25 @@ class DenseReporter:
                                 _os.remove(p)
                         blk['files'] = {}
                 self._save_manifest(m)
+
+    def _write_volumes(self, m):
+        """Assemble the blocks of a search manifest into its volumes, z-chunk by z-chunk."""
+        stem = _os.path.splitext(m['_file'])[0]
+        flds = ('z','cc','ang') + (('blk',) if any(_np.any(blk['ali_eu']) for blk in m['blocks']) else ())
+        nx, ny, nz = m['tomogram']['size_out_xyz']
+        m['volumes'] = {f:'%s_%s.mrc' % (stem,f) for f in flds}
+        for p in m['volumes'].values():
+            _mrc.create(p,(nz,ny,nx),apix=m['tomogram']['apix_out'])
+        stats = {f:_ssa_utils.RunningStats() for f in flds}
+        step = self._step(m,24)
+        for z0 in range(0,nz,step):
+            z1 = min(z0+step,nz)
+            vols, ok = self._assemble_chunk(m,z0,z1,'blk' in flds)
+            for f in flds:
+                _mrc.write_slices(m['volumes'][f],vols[f],z0)
+                stats[f].add(vols[f][ok])
+        for f in flds:
+            _mrc.set_statistics(m['volumes'][f],stats=stats[f].stats())
 
     # ------------------------------------------------------------------
     # Analysis
@@ -679,15 +735,15 @@ class DenseReporter:
             m = self.null_manifests.get(tid)
             if m is None:
                 raise ValueError('No null loaded for tomogram %d.' % tid)
-            self._need_volumes(m)
+            self._need_field(m,field)
             h = m['hist'][field]
             return _np.array(h['counts'],dtype=_np.int64), _np.array(h['edges']), dict(h['stats'])
-        self._need_volumes(m)
-        return self._histogram(lambda: [self._read_vol(m,field)],bins,value_range)
+        return self._histogram(lambda: (v for _,v in self._field_chunks(m,field)),bins,value_range)
 
     @staticmethod
     def _histogram(chunks, bins=200, value_range=None):
-        """Histogram and statistics of the finite values of the arrays from ``chunks()`` (called twice without range)."""
+        """Histogram and statistics of the finite values of the arrays from ``chunks()`` (called twice without range);
+        n and the quantiles count the values inside the range, mean / std are over all finite values."""
         if value_range is None:
             lo, hi = _np.inf, -_np.inf
             for v in chunks():
@@ -695,12 +751,11 @@ class DenseReporter:
                     lo, hi = min(lo,_np.nanmin(v)), max(hi,_np.nanmax(v))
             value_range = (float(lo),float(hi))
         counts = _np.zeros(bins,dtype=_np.int64)
-        s = s2 = 0.0
+        rs = _ssa_utils.RunningStats()
         for v in chunks():
             v = v[_np.isfinite(v)]
             counts += _np.histogram(v,bins=bins,range=value_range)[0]
-            s  += float(v.sum(dtype=_np.float64))
-            s2 += float((v.astype(_np.float64)**2).sum())
+            rs.add(v)
         edges = _np.linspace(value_range[0],value_range[1],bins+1)
         n = int(counts.sum())
         centres = 0.5*(edges[1:] + edges[:-1])
@@ -709,9 +764,8 @@ class DenseReporter:
         dev = _np.abs(centres - median)
         order = _np.argsort(dev)
         mad = float(dev[order][_np.searchsorted(_np.cumsum(counts[order])/max(n,1),0.5)])
-        mean = s/max(n,1)
         nz = _np.flatnonzero(counts)
-        stats = dict(n=n, mean=mean, std=_math.sqrt(max(s2/max(n,1) - mean**2,0.0)), median=median, sigma=1.4826*mad,
+        stats = dict(n=n, mean=float(rs.mean), std=_math.sqrt(rs.m2/max(rs.n,1)), median=median, sigma=1.4826*mad,
                      p99=float(_np.interp(0.99,cdf,centres)), p999=float(_np.interp(0.999,cdf,centres)),
                      max=float(edges[nz[-1]+1]) if len(nz) else float('nan'))
         return counts, edges, stats
@@ -734,7 +788,6 @@ class DenseReporter:
         ``'blk'`` exists only for blocks with their own ali_eu.  ``out``: also
         write it (MRC).  Returns the volume, shape (Z, Y, X)."""
         tid, m = self._manifest(tomo_id)
-        self._need_volumes(m)
         vol = self._read_vol(m,field)
         if out is not None:
             d = _os.path.dirname(out)
@@ -753,22 +806,29 @@ class DenseReporter:
         b = int(m['tomogram']['bin'])
         apix = float(m['tomogram']['apix'])
         sx, sy, sz = m['tomogram']['size_out_xyz']
-        self._need_volumes(m)
-        cov = _np.isfinite(self._read_vol(m,'z'))
         slab = self._slab_of(tid) if slab is None else slab
         thickness = self.thickness if thickness is None else thickness
         size = _np.array(m['tomogram']['size_xyz'],dtype=float)
-        if slab is None and thickness is None:
-            region = _np.ones_like(cov)
-        else:
-            zc = _np.arange(sz)*b + (b-1)/2.0
+        whole = slab is None and thickness is None
+        if not whole:
             X, Y = _np.meshgrid(_np.arange(sx)*b + (b-1)/2.0,_np.arange(sy)*b + (b-1)/2.0,indexing='xy')
-            z0 = self._slab_z0(slab,X,Y,size,apix)
+            zp = self._slab_z0(slab,X,Y,size,apix)
             half = (size[2] if thickness is None else thickness)/2.0
-            region = _np.abs(zc[:,None,None] - z0[None]) <= half
-        xy = cov.any(axis=0)
-        return dict(xy=float(xy.mean()), xyz=float((cov & region).sum()/max(region.sum(),1)),
-                    region_voxels=int(region.sum()), searched_voxels=int(cov.sum()))
+        xy = _np.zeros((sy,sx),dtype=bool)
+        n_cov = n_reg = n_in = 0
+        for z0, a in self._field_chunks(m,'ang'):
+            cov = a >= 0
+            xy |= cov.any(axis=0)
+            n_cov += int(cov.sum())
+            if whole:
+                n_reg += cov.size
+                n_in  += int(cov.sum())
+            else:
+                zc = _np.arange(z0,z0+len(a))*b + (b-1)/2.0
+                region = _np.abs(zc[:,None,None] - zp[None]) <= half
+                n_reg += int(region.sum())
+                n_in  += int((cov & region).sum())
+        return dict(xy=float(xy.mean()), xyz=float(n_in/max(n_reg,1)), region_voxels=n_reg, searched_voxels=n_cov)
 
     def pick(self, field='z', tomo_id=None, threshold='auto', k=5.0, radius=None, max_peaks=None,
              mask=None, edge=0, refine=False, volume=None):
@@ -807,11 +867,14 @@ class DenseReporter:
         """
         tid, m = self._manifest(tomo_id)
         b = int(m['tomogram']['bin'])
-        vol = self.assemble(field,tid) if volume is None else volume
         thr = self.threshold(field,tid,k) if threshold == 'auto' else float(threshold)
         if radius is None:
             radius = 0.7*self.particle_radius()/b if self.reference is not None else 4.0
-        v = _np.where(_np.isfinite(vol),vol,-_np.inf).astype(_np.float32)
+        if volume is None:
+            v = self._read_vol(m,field,invalid=-_np.inf)
+        else:
+            v = _np.array(volume,dtype=_np.float32)
+            v[~_np.isfinite(v)] = -_np.inf
         zyx = _ssa_utils.local_maxima(v,thr)
         if mask is not None:
             zyx = zyx[_np.asarray(mask,dtype=bool)[tuple(zyx.T)]]
@@ -827,16 +890,17 @@ class DenseReporter:
         sub = _np.zeros(zyx.shape)
         if refine:
             for ax in range(3):
-                for i,p in enumerate(zyx):
-                    if 0 < p[ax] < v.shape[ax]-1:
-                        q0, q1 = p.copy(), p.copy()
-                        q0[ax] -= 1
-                        q1[ax] += 1
-                        cm, c0, cp = v[tuple(q0)], v[tuple(p)], v[tuple(q1)]
-                        den = cm - 2*c0 + cp
-                        if _np.isfinite(den) and den < 0:
-                            sub[i,ax] = _np.clip(0.5*(cm - cp)/den,-0.5,0.5)
+                inner = _np.flatnonzero((zyx[:,ax] > 0) & (zyx[:,ax] < v.shape[ax]-1))
+                p = zyx[inner]
+                d = _np.zeros(3,dtype=p.dtype)
+                d[ax] = 1
+                cm, c0, cp = v[tuple((p-d).T)], v[tuple(p.T)], v[tuple((p+d).T)]
+                with _np.errstate(invalid='ignore'):
+                    den = cm - 2*c0 + cp
+                    ok = _np.isfinite(den) & (den < 0)
+                sub[inner[ok],ax] = _np.clip(0.5*(cm[ok] - cp[ok])/den[ok],-0.5,0.5)
 
+        del v
         res = self._resolve_poses(m,zyx)
         voxel = (zyx + sub)[:,::-1]
         return dict(tomo_id=_np.full(len(zyx),tid,dtype=_np.uint32), voxel=voxel.astype(_np.float32),
@@ -844,22 +908,15 @@ class DenseReporter:
 
     def _resolve_poses(self, m, zyx):
         """Per pick: z, cc, ang and the pose R(ali_eu of the block) R(table[ang]) at that voxel."""
-        n = len(zyx)
-        z  = _np.full(n,-_np.inf,dtype=_np.float32)
-        cc = _np.full(n,_np.nan,dtype=_np.float32)
-        ang = _np.full(n,-1,dtype=_np.int64)
-        bix = _np.full(n,-1,dtype=_np.int64)
-        eu = _np.zeros((n,3),dtype=_np.float32)
-        if n:
-            loc = tuple(_np.asarray(zyx,dtype=int).T)
-            z   = self._read_vol(m,'z')[loc].astype(_np.float32)
-            cc  = self._read_vol(m,'cc')[loc].astype(_np.float32)
-            ang = self._read_vol(m,'ang')[loc].astype(_np.int64)
-            if 'blk' in m['volumes']:
-                bix = self._read_vol(m,'blk')[loc].astype(_np.int64)
+        zyx = _np.asarray(zyx,dtype=_np.int64).reshape(-1,3)
+        ang = self._gather(m,'ang',zyx).astype(_np.int64)
+        ok  = ang >= 0
+        z   = _np.where(ok,self._gather(m,'z',zyx),_np.nan)
+        cc  = _np.where(ok,self._gather(m,'cc',zyx),_np.nan)
+        bix = self._gather(m,'blk',zyx).astype(_np.int64) if 'blk' in m['volumes'] else _np.full(len(zyx),-1,dtype=_np.int64)
         ids = _np.array([blk['ptcl_id'] for blk in m['blocks']],dtype=_np.int64)
         blk_id = _np.where(bix >= 0,ids[_np.maximum(bix,0)] if len(ids) else -1,-1)
-        ok = ang >= 0
+        eu  = _np.zeros((len(zyx),3),dtype=_np.float32)
         if ok.any():
             R = _ssa_utils.euZYZ_to_rotm(m['_table'][ang[ok]])
             if (bix[ok] >= 0).any():                       # blocks with their own ali_eu (no blk volume: all 0)
@@ -881,13 +938,8 @@ class DenseReporter:
 
     def to_particles(self, picks, filename=None):
         """Picks as :class:`susan.data.Particles` (pose in ali_eu, score in ali_cc); saved if filename."""
-        T = self._tomograms_for(picks)
-        P = _ssa_data.Particles.import_data(position=picks['position'],tomograms=T,tomos_id=picks['tomo_id'])
+        P = self._import(self._tomograms_for(picks),picks['position'],picks['tomo_id'])
         order = P.ptcl_id.astype(_np.int64)
-        for t in _np.unique(P.tomo_id):
-            P.position[P.tomo_id == t] += T.tomo_position[int(T.get_cix(t))]
-        if _np.any(T.tomo_position):
-            P.update_defocus(T)
         P.ali_eu[0][:] = picks['eu'][order]
         P.ali_cc[0][:] = picks['score'][order]
         if filename is not None:

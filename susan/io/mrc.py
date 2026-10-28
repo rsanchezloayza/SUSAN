@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###########################################################################
 
-__all__ = ['read','write','get_info','set_statistics']
+__all__ = ['read','write','get_info','set_statistics','create','write_slices','read_slices']
 
 import numpy as _np
 
@@ -109,7 +109,40 @@ def get_info(filename):
 
     return mrc_shape,pix_size,in_type
 
-def write(data, filename, apix=1, ispg=None, fill_statistics=True):
+def _header(shape_zyx, dtype, apix=1, ispg=None, origin=None, start=None):
+    """MRC2014 header (256 uint32 words) for a (Z, Y, X) volume."""
+    apix = _np.array(apix,dtype=_np.float32)
+    if apix.size == 1:
+        apix = _np.array((apix,apix,apix))
+    cell = (apix*_np.array(shape_zyx[::-1],dtype=_np.float32)).astype(_np.float32)
+    hdr  = _np.zeros(256,dtype=_np.uint32)
+    hdr[0:3]   = shape_zyx[::-1]
+    hdr[3]     = _type_to_mode(dtype)
+    hdr[7:10]  = shape_zyx[::-1]
+    hdr[10:13] = cell.view(_np.uint32)
+    hdr[13:16] = 1119092736 # 0x42b40000; // 90.0 in hexadecimal notation.
+    hdr[16:19] = (1,2,3)
+    hdr[22]    = 1 if ispg is None else ispg
+    hdr[27]    =      20140 # MRC2014 format
+    hdr[52]    =  542130509 # 0x2050414B ('MAP ')
+    hdr[53]    =      17476 # 0x00004444 little-endian
+    if start is not None:
+        hdr[4:7] = _np.array(start,dtype=_np.int32).view(_np.uint32)
+    if origin is not None:
+        hdr[49:52] = _np.array(origin,dtype=_np.float32).view(_np.uint32)
+    return hdr
+
+def _statistics(v):
+    """(min, max, mean, std) float32 of the finite values of v (zeros if none), accumulated in float64."""
+    if _np.issubdtype(v.dtype,_np.floating):
+        ok = _np.isfinite(v)
+        if not ok.all():
+            v = v[ok]
+    if v.size == 0:
+        return _np.zeros(4,dtype=_np.float32)
+    return _np.array((v.min(),v.max(),v.mean(dtype=_np.float64),v.std(dtype=_np.float64)),dtype=_np.float32)
+
+def write(data, filename, apix=1, ispg=None, fill_statistics=True, origin=None, start=None):
     """Write a numpy array to an MRC2014 file.
 
     Parameters
@@ -127,79 +160,149 @@ def write(data, filename, apix=1, ispg=None, fill_statistics=True):
         Space-group number written to the header.  Default 1 (P1).
     fill_statistics : bool, optional
         If True (default), compute and write min, max, mean, and std
-        into the header statistics fields.
+        into the header statistics fields (finite values only, so NaN
+        voxels are skipped).
+    origin : array-like of shape (3,), optional, ordered (X, Y, Z).
+        Position of the first voxel in Ångströms (header words 50-52).
+        Default 0.
+    start : array-like of int, shape (3,), optional, ordered (X, Y, Z).
+        Index of the first voxel in a parent grid (nxstart, nystart,
+        nzstart; header words 5-7).  Default 0.  Some programs add it
+        to the origin: set one of the two.
     """
-    apix = _np.array(apix,dtype=_np.float32)
-    if apix.size == 1:
-        apix = _np.array((apix,apix,apix))
-    apix = apix[::-1]*_np.array(data.shape,dtype=_np.float32)
-    hdr  = _np.zeros(256,dtype=_np.uint32)
-    apix_uint32 = apix.view(_np.uint32)
-    
-    if ispg is None:
-        ispg = 1
-    
-    hdr[0]  = data.shape[2]
-    hdr[1]  = data.shape[1]
-    hdr[2]  = data.shape[0]
-    hdr[3]  = _type_to_mode( data.dtype )
-    hdr[7]  = data.shape[2]
-    hdr[8]  = data.shape[1]
-    hdr[9]  = data.shape[0]
-    hdr[10]  = apix_uint32[2]
-    hdr[11]  = apix_uint32[1]
-    hdr[12]  = apix_uint32[0]
-    hdr[13] = 1119092736 # 0x42b40000; // 90.0 in hexadecimal notation.
-    hdr[14] = 1119092736 # 0x42b40000; // 90.0 in hexadecimal notation.
-    hdr[15] = 1119092736 # 0x42b40000; // 90.0 in hexadecimal notation.
-    hdr[16] = 1
-    hdr[17] = 2
-    hdr[18] = 3
-    hdr[22] = ispg
-    hdr[27] =      20140 # MRC2014 format
-    hdr[52] =  542130509 # 0x2050414B ('MAP ')
-    hdr[53] =      17476 # 0x00004444 little-endian
-    
+    hdr = _header(data.shape,data.dtype,apix,ispg,origin,start)
     if fill_statistics:
-        vmin = data.min()
-        vmax = data.max()
-        vavg = data.mean()
-        vstd = data.std()        
-        hdr[19] = _np.float32(vmin).view(_np.uint32)
-        hdr[20] = _np.float32(vmax).view(_np.uint32)
-        hdr[21] = _np.float32(vavg).view(_np.uint32)
-        hdr[54] = _np.float32(vstd).view(_np.uint32)
-    
-    f = open(filename,'wb')
-    hdr.tofile(f)
-    if data.dtype == 'float64':
-        tmp = _np.float32(data)
-        tmp.tofile(f)
-    else:
-        data.tofile(f)
-    f.close()
+        st = _statistics(data)
+        hdr[19:22] = st[:3].view(_np.uint32)
+        hdr[54]    = st[3:].view(_np.uint32)[0]
 
-def set_statistics(filename, data, mask=None):
-    """Write min, max, mean and std of ``data[mask]`` into the header of an existing MRC file.
+    with open(filename,'wb') as f:
+        hdr.tofile(f)
+        if data.dtype == _np.float64:
+            data.astype(_np.float32).tofile(f)
+        else:
+            _np.ascontiguousarray(data).tofile(f)
+
+def set_statistics(filename, data=None, mask=None, stats=None):
+    """Write min, max, mean and std into the header of an existing MRC file.
 
     Parameters
     ----------
     filename : str
         MRC file to update (only the header statistics fields are written).
-    data : numpy.ndarray
-        Values the statistics are computed from (normally the file's data).
+    data : numpy.ndarray, optional
+        Values the statistics are computed from (normally the file's data;
+        finite values only).
     mask : numpy.ndarray of bool, optional
-        Voxels to include (e.g. the valid region of a partially filled
-        volume).  Default: all.  An empty mask writes zeros.
+        Voxels of ``data`` to include (e.g. the valid region of a partially
+        filled volume).  Default: all.  An empty mask writes zeros.
+    stats : array-like of 4, optional
+        Precomputed (min, max, mean, std), instead of ``data``; e.g. from
+        :class:`susan.utils.RunningStats` over chunks written with
+        :func:`write_slices`.
     """
-    v = data if mask is None else data[mask]
-    if v.size:
-        st = (v.min(),v.max(),v.mean(dtype=_np.float64),v.std(dtype=_np.float64))
-    else:
-        st = (0,0,0,0)
-    st = _np.array(st,dtype=_np.float32)
+    if (data is None) == (stats is None):
+        raise ValueError('Set either data or stats.')
+    st = _statistics(data if mask is None else data[mask]) if stats is None else _np.array(stats,dtype=_np.float32)
     with open(filename,'r+b') as fp:
         fp.seek(76)                     # words 19-21: min, max, mean
         st[:3].tofile(fp)
         fp.seek(216)                    # word 54: rms
-        st[3:].tofile(fp)
+        st[3:4].tofile(fp)
+
+def _layout(filename):
+    """(nz, ny, nx), dtype and the byte offset of the data."""
+    hdr = _np.fromfile(filename,dtype=_np.uint32,count=24)
+    return (int(hdr[2]),int(hdr[1]),int(hdr[0])), _np.dtype(_mode_to_type(hdr[3])), 1024 + int(hdr[23])
+
+def create(filename, shape, dtype=_np.float32, apix=1, ispg=None, origin=None, start=None):
+    """Create an MRC2014 file of the given shape, to be filled with :func:`write_slices`.
+
+    The header holds the final shape, pixel size and origin from the start;
+    the data is allocated (sparse where the filesystem allows) and reads as
+    zeros until written.  Header statistics are zero: set them with
+    :func:`set_statistics` once the data is written.
+
+    Parameters
+    ----------
+    filename : str
+        Output file path (overwritten if it exists).
+    shape : tuple of int
+        (Z, Y, X).
+    dtype : numpy dtype, optional
+        As :func:`write` (float64 is stored as float32).  Default float32.
+    apix, ispg, origin, start
+        As :func:`write`.
+    """
+    dtype = _np.dtype(_np.float32 if _np.dtype(dtype) == _np.float64 else dtype)
+    shape = tuple(int(n) for n in shape)
+    hdr = _header(shape,dtype,apix,ispg,origin,start)
+    with open(filename,'wb') as f:
+        hdr.tofile(f)
+        f.truncate(1024 + int(_np.prod(shape))*dtype.itemsize)
+
+def write_slices(filename, data, z0):
+    """Write Z-sections into an existing MRC file, starting at section ``z0``.
+
+    Parameters
+    ----------
+    filename : str
+        File created by :func:`create` (or any MRC file of matching shape).
+    data : numpy.ndarray
+        (n, Y, X) or a single (Y, X) section, with the file's dtype
+        (float64 is converted to float32 for float32 files).
+    z0 : int
+        First section written; ``z0 + n`` must not exceed the file's Z.
+    """
+    (nz,ny,nx), dtype, off = _layout(filename)
+    data = _np.asarray(data)
+    if data.ndim == 2:
+        data = data[None]
+    if data.shape[1:] != (ny,nx):
+        raise ValueError('sections of %s, the file has (%d, %d)' % (data.shape[1:],ny,nx))
+    if not 0 <= z0 <= nz - data.shape[0]:
+        raise IndexError('sections %d..%d outside the file (%d)' % (z0,z0+data.shape[0],nz))
+    if data.dtype != dtype:
+        if not (data.dtype == _np.float64 and dtype == _np.float32):
+            raise ValueError('data %s, the file holds %s' % (data.dtype,dtype))
+        data = data.astype(_np.float32)
+    with open(filename,'r+b') as f:
+        f.seek(off + z0*ny*nx*dtype.itemsize)
+        _np.ascontiguousarray(data).tofile(f)
+
+def read_slices(filename, z0, z1=None, out=None):
+    """Read Z-sections ``z0 .. z1-1`` of an MRC file without loading the rest.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the MRC file.
+    z0 : int
+        First section.
+    z1 : int, optional
+        One past the last section.  Default ``z0 + 1``.
+    out : numpy.ndarray, optional
+        Preallocated C-contiguous (z1 - z0, Y, X) array of the file's dtype,
+        filled and returned (for reading many chunks in a loop).
+
+    Returns
+    -------
+    data : numpy.ndarray
+        (z1 - z0, Y, X), dtype from the MRC mode (``out`` when given).
+    pix_size : numpy.ndarray
+        Pixel size in Ångströms, shape (3,) float32, ordered (X, Y, Z).
+    """
+    (nz,ny,nx), dtype, off = _layout(filename)
+    z1 = z0 + 1 if z1 is None else z1
+    if not 0 <= z0 < z1 <= nz:
+        raise IndexError('sections %d..%d outside the file (%d)' % (z0,z1,nz))
+    shape = (z1-z0,ny,nx)
+    if out is None:
+        out = _np.empty(shape,dtype=dtype)
+    elif out.shape != shape or out.dtype != dtype or not out.flags.c_contiguous:
+        raise ValueError('out must be C-contiguous %s %s' % (dtype,shape))
+    with open(filename,'rb') as f:
+        f.seek(off + z0*ny*nx*dtype.itemsize)
+        if f.readinto(out) != out.nbytes:
+            raise IOError('%s: file shorter than its header says' % filename)
+    return out, get_info(filename)[1]
