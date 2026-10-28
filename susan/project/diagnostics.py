@@ -27,6 +27,7 @@ import numpy as _np
 
 import susan.data    as _ssa_data
 import susan.utils   as _ssa_utils
+from susan.utils._functions import _renamed_kw
 import susan.io      as _ssa_io
 import susan.modules as _ssa_modules
 
@@ -350,7 +351,8 @@ def _rms_sigma(delta, dof, clip_pct=5.0, scale=1.0):
 # Per-particle / per-projection deltas between ite-1 and ite
 # --------------------------------------------------------------------------
 
-def estimate_delta_3D_offset(sta, ite, ref=0, pixels=True):
+@_renamed_kw(ref='ref_cix')
+def estimate_delta_3D_offset(sta, ite, ref_cix=0, pixels=True):
     """Per-particle 3-D translation change ``‖Δt‖`` between ``ite-1`` and ``ite``.
 
     Parameters
@@ -366,7 +368,7 @@ def estimate_delta_3D_offset(sta, ite, ref=0, pixels=True):
         particles (file order).  Particles absent from ``ite-1`` are ``NaN``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    dt = cur.ali_t[ref][ic] - prv.ali_t[ref][ip]      # (Nc, 3) Å
+    dt = cur.ali_t[ref_cix][ic] - prv.ali_t[ref_cix][ip]      # (Nc, 3) Å
     d  = _np.linalg.norm(dt, axis=1)
     if pixels:
         d = d / sta.pix_size
@@ -399,7 +401,8 @@ def estimate_delta_2D_offset(sta, ite, pixels=True):
     return _to_current(d, ic, cur.ptcl_id.size)
 
 
-def estimate_delta_3D_angle(sta, ite, ref=0, degrees=True):
+@_renamed_kw(ref='ref_cix')
+def estimate_delta_3D_angle(sta, ite, ref_cix=0, degrees=True):
     """Per-particle orientation change, decomposed into cone and in-plane.
 
     Parameters
@@ -416,8 +419,8 @@ def estimate_delta_3D_angle(sta, ite, ref=0, degrees=True):
         Particles absent from ``ite-1`` are ``NaN``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    Rd = _ssa_utils.euZYZ_to_rotm(cur.ali_eu[ref][ic]) @ \
-         _np.swapaxes(_ssa_utils.euZYZ_to_rotm(prv.ali_eu[ref][ip]), -1, -2)
+    Rd = _ssa_utils.euZYZ_to_rotm(cur.ali_eu[ref_cix][ic]) @ \
+         _np.swapaxes(_ssa_utils.euZYZ_to_rotm(prv.ali_eu[ref_cix][ip]), -1, -2)
     cone, inpl = _cone_inplane(Rd, degrees=degrees)
     n = cur.ptcl_id.size
     return _np.stack([_to_current(cone, ic, n), _to_current(inpl, ic, n)], axis=0)
@@ -453,7 +456,8 @@ def estimate_delta_2D_angle(sta, ite, degrees=True):
     return _np.stack([_to_current(cone, ic, n), _to_current(inpl, ic, n)], axis=0)
 
 
-def estimate_delta_3D_total_angle(sta, ite, ref=0, degrees=True):
+@_renamed_kw(ref='ref_cix')
+def estimate_delta_3D_total_angle(sta, ite, ref_cix=0, degrees=True):
     """Per-particle total (geodesic) orientation change between iterations.
 
     Unlike :func:`estimate_delta_3D_angle`, this returns a *single* angle per
@@ -474,8 +478,8 @@ def estimate_delta_3D_total_angle(sta, ite, ref=0, degrees=True):
         ``NaN``.
     """
     cur, prv, ic, ip = _match_pair(sta, ite)
-    Rd = _ssa_utils.euZYZ_to_rotm(cur.ali_eu[ref][ic]) @ \
-         _np.swapaxes(_ssa_utils.euZYZ_to_rotm(prv.ali_eu[ref][ip]), -1, -2)
+    Rd = _ssa_utils.euZYZ_to_rotm(cur.ali_eu[ref_cix][ic]) @ \
+         _np.swapaxes(_ssa_utils.euZYZ_to_rotm(prv.ali_eu[ref_cix][ip]), -1, -2)
     return _to_current(_geodesic(Rd, degrees=degrees), ic, cur.ptcl_id.size)
 
 
@@ -529,7 +533,8 @@ def estimate_delta_defocus(sta, ite):
 # Sigma estimates for the next iteration's priors
 # --------------------------------------------------------------------------
 
-def estimate_sigma_3D_offset(sta, ite, ref=0, pixels=True, clip_pct=5.0, scale=1.0):
+@_renamed_kw(ref='ref_cix')
+def estimate_sigma_3D_offset(sta, ite, ref_cix=0, pixels=True, clip_pct=5.0, scale=1.0):
     """Estimate ``offset_sigma`` for 3-D alignment.
 
     Reduces :func:`estimate_delta_3D_offset` (3 translational DOF) to a
@@ -542,7 +547,7 @@ def estimate_sigma_3D_offset(sta, ite, ref=0, pixels=True, clip_pct=5.0, scale=1
         ``sta.pix_size``) — the unit the engine's ``offset_sigma`` expects;
         if ``False`` it is in Ångströms.
     """
-    d = estimate_delta_3D_offset(sta, ite, ref=ref, pixels=pixels)
+    d = estimate_delta_3D_offset(sta, ite, ref_cix=ref_cix, pixels=pixels)
     return _rms_sigma(d, dof=3, clip_pct=clip_pct, scale=scale)
 
 
@@ -562,7 +567,8 @@ def estimate_sigma_2D_offset(sta, ite, pixels=True, clip_pct=5.0, scale=1.0):
     return _rms_sigma(d, dof=2, clip_pct=clip_pct, scale=scale)
 
 
-def estimate_sigma_3D_angle(sta, ite, ref=0, degrees=True, clip_pct=5.0, scale=1.0):
+@_renamed_kw(ref='ref_cix')
+def estimate_sigma_3D_angle(sta, ite, ref_cix=0, degrees=True, clip_pct=5.0, scale=1.0):
     """Estimate the angular prior width for 3-D alignment.
 
     Parameters
@@ -578,7 +584,7 @@ def estimate_sigma_3D_angle(sta, ite, ref=0, degrees=True, clip_pct=5.0, scale=1
         is a single engine knob applied to both axes; pass whichever you
         prefer (or their combination — e.g. ``max``) to the next iteration.
     """
-    d = estimate_delta_3D_angle(sta, ite, ref=ref, degrees=degrees)   # (2, N)
+    d = estimate_delta_3D_angle(sta, ite, ref_cix=ref_cix, degrees=degrees)   # (2, N)
     sigma_cone = _rms_sigma(d[0], dof=2, clip_pct=clip_pct, scale=scale)
     sigma_inpl = _rms_sigma(d[1], dof=1, clip_pct=clip_pct, scale=scale)
     return sigma_cone, sigma_inpl
@@ -606,7 +612,8 @@ def estimate_sigma_2D_angle(sta, ite, degrees=True, clip_pct=5.0, scale=1.0):
     return sigma_cone, sigma_inpl
 
 
-def estimate_sigma_3D_total_angle(sta, ite, ref=0, degrees=True,
+@_renamed_kw(ref='ref_cix')
+def estimate_sigma_3D_total_angle(sta, ite, ref_cix=0, degrees=True,
                                   clip_pct=5.0, scale=1.0):
     """Estimate a single combined angular prior width for 3-D alignment.
 
@@ -626,7 +633,7 @@ def estimate_sigma_3D_total_angle(sta, ite, ref=0, degrees=True,
     float
         Combined angular width (units per *degrees*).
     """
-    d = estimate_delta_3D_total_angle(sta, ite, ref=ref, degrees=degrees)
+    d = estimate_delta_3D_total_angle(sta, ite, ref_cix=ref_cix, degrees=degrees)
     return _rms_sigma(d, dof=3, clip_pct=clip_pct, scale=scale)
 
 

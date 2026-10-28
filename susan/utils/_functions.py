@@ -58,6 +58,7 @@ __all__ = ['dose_from_fsc',
           ]
 
 import datetime
+import functools as _functools
 import warnings as _warnings
 import susan.io.mrc as mrc
 import numpy as np
@@ -66,6 +67,19 @@ from functools import lru_cache as _lru_cache
 
 def _warn(msg):
     _warnings.warn(msg,RuntimeWarning,stacklevel=3)
+
+def _renamed_kw(**renames):
+    """Decorator: accept the old keyword names (old='new') with a DeprecationWarning."""
+    def deco(f):
+        @_functools.wraps(f)
+        def wrapper(*args, **kw):
+            for old, new in renames.items():
+                if old in kw:
+                    _warnings.warn('%s: keyword %r is deprecated, use %r.' % (f.__name__, old, new), DeprecationWarning, stacklevel=2)
+                    kw[new] = kw.pop(old)
+            return f(*args, **kw)
+        return wrapper
+    return deco
 
 from os.path import splitext as split_ext
 from susan.utils._functions_core import (

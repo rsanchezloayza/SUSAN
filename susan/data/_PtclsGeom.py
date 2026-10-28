@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING as _TYPE_CHECKING
 
 import numpy as _np
+from susan.utils._functions import _renamed_kw
 from susan.utils import euZYZ_to_rotm as _euZYZ_to_rotm
 from susan.data._ptclsgeom_core import (
     _inplace_shift,
@@ -79,10 +80,11 @@ class PtclsGeom:
     _inplace_rot_shift = staticmethod(_inplace_rot_shift)
     
     @staticmethod
-    def rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0) -> None:
+    @_renamed_kw(ref_idx='ref_cix')
+    def rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_cix=0) -> None:
         """Apply a single rotation and/or translation to all particles in-place.
 
-        Modifies ``ali_eu[ref_idx]`` and ``ali_t[ref_idx]`` directly.
+        Modifies ``ali_eu[ref_cix]`` and ``ali_t[ref_cix]`` directly.
         Supply either ``eZYZdeg`` or ``R``, not both.
 
         Parameters
@@ -94,16 +96,16 @@ class PtclsGeom:
             Rotation matrix.
         t : array-like of float (3,), optional
             Translation in Ångströms. Default zeros.
-        ref_idx : int, optional
+        ref_cix : int, optional
             Reference alignment slot to modify. Default 0.
         """
         R = PtclsGeom._validate_single_rotation(eZYZdeg,R)
         t = PtclsGeom._validate_single_translation(t)
                 
         if R is None:
-            PtclsGeom._inplace_shift(ptcls.ali_eu[ref_idx],ptcls.ali_t[ref_idx],t)
+            PtclsGeom._inplace_shift(ptcls.ali_eu[ref_cix],ptcls.ali_t[ref_cix],t)
         else:
-            PtclsGeom._inplace_rot_shift(ptcls.ali_eu[ref_idx],ptcls.ali_t[ref_idx],R,t)
+            PtclsGeom._inplace_rot_shift(ptcls.ali_eu[ref_cix],ptcls.ali_t[ref_cix],R,t)
     
 ###############################################################################
     @staticmethod
@@ -165,7 +167,8 @@ class PtclsGeom:
     _outplace_rot_shift = staticmethod(_outplace_rot_shift)
 
     @staticmethod
-    def expand_by_rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_idx=0) -> Particles:
+    @_renamed_kw(ref_idx='ref_cix')
+    def expand_by_rot_shift(ptcls, eZYZdeg=None, R=None, t=None, ref_cix=0) -> Particles:
         """Expand a particle list by applying multiple rotations/translations.
 
         For each particle, produces one output copy per supplied
@@ -182,7 +185,7 @@ class PtclsGeom:
             Rotation matrices. Mutually exclusive with eZYZdeg.
         t : array-like, shape (K, 3) or (3,), optional
             Translations in Ångströms for each transform. Default zeros.
-        ref_idx : int, optional
+        ref_cix : int, optional
             Reference alignment slot to use as input and output. Default 0.
 
         Returns
@@ -197,11 +200,11 @@ class PtclsGeom:
         ptcls_out = ptcls.select(idx_expand)
         
         if R is None:
-            PtclsGeom._outplace_shift(ptcls_out.ali_t[ref_idx],ptcls.ali_eu[ref_idx],ptcls.ali_t[ref_idx],t)
+            PtclsGeom._outplace_shift(ptcls_out.ali_t[ref_cix],ptcls.ali_eu[ref_cix],ptcls.ali_t[ref_cix],t)
         else:
-            PtclsGeom._outplace_rot_shift(ptcls_out.ali_eu[ref_idx],ptcls_out.ali_t[ref_idx],ptcls.ali_eu[ref_idx],ptcls.ali_t[ref_idx],R,t)
+            PtclsGeom._outplace_rot_shift(ptcls_out.ali_eu[ref_cix],ptcls_out.ali_t[ref_cix],ptcls.ali_eu[ref_cix],ptcls.ali_t[ref_cix],R,t)
         
-        ptcls_out.update_position(ref_idx)
+        ptcls_out.update_position(ref_cix)
         return ptcls_out
         
 ###############################################################################
@@ -302,7 +305,8 @@ class PtclsGeom:
     _disable_closer = staticmethod(_disable_closer)
         
     @staticmethod
-    def discard_closer(ptcls, min_dist_angs, ref_idx=0, verbose=False) -> Particles:
+    @_renamed_kw(ref_idx='ref_cix')
+    def discard_closer(ptcls, min_dist_angs, ref_cix=0, verbose=False) -> Particles:
         """Remove duplicate/overlapping particles closer than a minimum distance.
 
         Within each tomogram, particles are sorted by descending ``ali_cc``
@@ -314,9 +318,9 @@ class PtclsGeom:
         ptcls : Particles
         min_dist_angs : float
             Minimum allowed inter-particle distance in Ångströms.
-        ref_idx : int, optional
+        ref_cix : int, optional
             Reference index used to compute effective positions
-            (position + ali_t[ref_idx]). Default 0.
+            (position + ali_t[ref_cix]). Default 0.
         verbose : bool, optional
             Print per-tomogram particle counts. Default False.
 
@@ -333,9 +337,9 @@ class PtclsGeom:
             
         for tid in t_id:
             t_mask  = ptcls.tomo_id == tid
-            cur_cc  = ptcls.ali_cc[ref_idx,t_mask]
+            cur_cc  = ptcls.ali_cc[ref_cix,t_mask]
             sort_ix = _np.ascontiguousarray(_np.argsort(cur_cc)[::-1])
-            pos     = ptcls.position[t_mask] + ptcls.ali_t[ref_idx,t_mask]
+            pos     = ptcls.position[t_mask] + ptcls.ali_t[ref_cix,t_mask]
             w_mask  = _np.array(mask[t_mask], dtype=_np.uint8)
             PtclsGeom._disable_closer(w_mask,pos,sort_ix,dist)
             mask[t_mask] = w_mask.astype(bool)
@@ -349,8 +353,9 @@ class PtclsGeom:
 
 ###############################################################################
     @staticmethod
+    @_renamed_kw(ref_idx='ref_cix')
     def discard_oversampled_views(ptcls, bin_size_deg=5.0, k_per_bin=1,
-                                  ref_idx=0, weight_mask=True, verbose=False) -> Particles:
+                                  ref_cix=0, weight_mask=True, verbose=False) -> Particles:
         """Flatten preferential orientation by keeping the best particles per view bin.
 
         Particles are binned by view direction on an equal-area "ring" grid:
@@ -367,10 +372,10 @@ class PtclsGeom:
             Angular resolution of the equal-area grid in degrees. Default 5.0.
         k_per_bin : int, optional
             Maximum number of particles kept per bin. Default 1.
-        ref_idx : int, optional
+        ref_cix : int, optional
             Reference index used to read angles and cc. Default 0.
         weight_mask : bool, optional
-            If True, particles with ``ali_w[ref_idx] <= 0`` are never kept.
+            If True, particles with ``ali_w[ref_cix] <= 0`` are never kept.
             Default True.
         verbose : bool, optional
             Print how many particles were kept. Default False.
@@ -386,9 +391,9 @@ class PtclsGeom:
 
         n_rings = int(round(180.0/bin_size_deg))
 
-        e0 = ptcls.ali_eu[ref_idx,:,0]
-        e1 = ptcls.ali_eu[ref_idx,:,1]
-        cc = ptcls.ali_cc[ref_idx,:].astype(_np.float64,copy=True)
+        e0 = ptcls.ali_eu[ref_cix,:,0]
+        e1 = ptcls.ali_eu[ref_cix,:,1]
+        cc = ptcls.ali_cc[ref_cix,:].astype(_np.float64,copy=True)
 
         # View-direction unit vector (works for either ZYZ-range convention).
         vx  = _np.cos(e0)*_np.sin(e1)
@@ -398,7 +403,7 @@ class PtclsGeom:
         lon   = _np.arctan2(vy,vx)                  # azimuth,    [-pi,pi]
 
         if weight_mask:
-            cc[ptcls.ali_w[ref_idx,:] <= 0] = -_np.inf
+            cc[ptcls.ali_w[ref_cix,:] <= 0] = -_np.inf
 
         # Equal-area "ring" grid: equal-width latitude rings, each split into
         # a longitude count proportional to sin(theta). Cell area stays ~dtheta^2
@@ -438,16 +443,17 @@ class PtclsGeom:
     _get_min_dist = staticmethod(_get_min_dist)
     
     @staticmethod
-    def get_min_distance(ptcls, ref_idx=0) -> _np.ndarray:
+    @_renamed_kw(ref_idx='ref_cix')
+    def get_min_distance(ptcls, ref_cix=0) -> _np.ndarray:
         """Return the distance to the nearest neighbour for every particle.
 
         Computed per tomogram using effective positions
-        (position + ali_t[ref_idx]).
+        (position + ali_t[ref_cix]).
 
         Parameters
         ----------
         ptcls : Particles
-        ref_idx : int, optional
+        ref_cix : int, optional
             Reference index for the translation offset. Default 0.
 
         Returns
@@ -460,7 +466,7 @@ class PtclsGeom:
         
         for tid in t_id:
             t_mask  = ptcls.tomo_id == tid
-            pos     = ptcls.position[t_mask] + ptcls.ali_t[ref_idx,t_mask]
+            pos     = ptcls.position[t_mask] + ptcls.ali_t[ref_cix,t_mask]
             d_mask  = dist[t_mask]
             PtclsGeom._get_min_dist(d_mask,pos)
             dist[t_mask] = d_mask

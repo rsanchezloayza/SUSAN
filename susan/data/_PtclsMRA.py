@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING as _TYPE_CHECKING
 
 import numpy as _np
+from susan.utils._functions import _renamed_kw
 
 if _TYPE_CHECKING:
     from .Particles import Particles
@@ -33,7 +34,8 @@ class PtclsMRA:
     """
     
     @staticmethod
-    def duplicate(ptcls, ref_idx=0) -> None:
+    @_renamed_kw(ref_idx='ref_cix')
+    def duplicate(ptcls, ref_cix=0) -> None:
         """Append a copy of one or more reference slots to the alignment arrays.
 
         Adds a new reference entry (or entries) to ``ali_eu``, ``ali_t``,
@@ -44,27 +46,28 @@ class PtclsMRA:
         ----------
         ptcls : Particles
             Modified in-place; ``n_refs`` increases by one (or more).
-        ref_idx : int or array-like of int, optional
+        ref_cix : int or array-like of int, optional
             Index (or indices) of the reference slot(s) to duplicate.
             Default 0.
         """
-        idx = _np.array(ref_idx)
+        idx = _np.array(ref_cix)
         if idx.ndim == 0:
-            ptcls.ali_eu = _np.concatenate((ptcls.ali_eu,ptcls.ali_eu[ref_idx][_np.newaxis,:,:]))
-            ptcls.ali_t  = _np.concatenate((ptcls.ali_t ,ptcls.ali_t [ref_idx][_np.newaxis,:,:]))
-            ptcls.ali_cc = _np.concatenate((ptcls.ali_cc,ptcls.ali_cc[ref_idx][_np.newaxis,:]  ))
-            ptcls.ali_w  = _np.concatenate((ptcls.ali_w ,ptcls.ali_w [ref_idx][_np.newaxis,:]  ))
+            ptcls.ali_eu = _np.concatenate((ptcls.ali_eu,ptcls.ali_eu[ref_cix][_np.newaxis,:,:]))
+            ptcls.ali_t  = _np.concatenate((ptcls.ali_t ,ptcls.ali_t [ref_cix][_np.newaxis,:,:]))
+            ptcls.ali_cc = _np.concatenate((ptcls.ali_cc,ptcls.ali_cc[ref_cix][_np.newaxis,:]  ))
+            ptcls.ali_w  = _np.concatenate((ptcls.ali_w ,ptcls.ali_w [ref_cix][_np.newaxis,:]  ))
         else:
-            ptcls.ali_eu = _np.concatenate((ptcls.ali_eu,ptcls.ali_eu[ref_idx,:,:]))
-            ptcls.ali_t  = _np.concatenate((ptcls.ali_t ,ptcls.ali_t [ref_idx,:,:]))
-            ptcls.ali_cc = _np.concatenate((ptcls.ali_cc,ptcls.ali_cc[ref_idx,:]))
-            ptcls.ali_w  = _np.concatenate((ptcls.ali_w ,ptcls.ali_w [ref_idx,:]))
+            ptcls.ali_eu = _np.concatenate((ptcls.ali_eu,ptcls.ali_eu[ref_cix,:,:]))
+            ptcls.ali_t  = _np.concatenate((ptcls.ali_t ,ptcls.ali_t [ref_cix,:,:]))
+            ptcls.ali_cc = _np.concatenate((ptcls.ali_cc,ptcls.ali_cc[ref_cix,:]))
+            ptcls.ali_w  = _np.concatenate((ptcls.ali_w ,ptcls.ali_w [ref_cix,:]))
     
     @staticmethod
-    def select_ref(ptcls, ref_idx) -> Particles:
+    @_renamed_kw(ref_idx='ref_cix')
+    def select_ref(ptcls, ref_cix) -> Particles:
         """Select particles assigned to specific reference(s) and keep only those slots.
 
-        Filters ``ptcls`` to particles whose ``ref_cix`` matches ``ref_idx``
+        Filters ``ptcls`` to particles whose class (``ptcls.ref_cix``) is in ``ref_cix``
         and trims the alignment arrays to only the requested reference(s).
         ``ref_cix`` values in the result are remapped to 0-based indices.
         Returns a new Particles object; the original is unchanged.
@@ -72,14 +75,14 @@ class PtclsMRA:
         Parameters
         ----------
         ptcls : Particles
-        ref_idx : int or array-like of int
+        ref_cix : int or array-like of int
             Reference index (or indices) to retain.
 
         Returns
         -------
         Particles
         """
-        idx = _np.array(ref_idx)
+        idx = _np.array(ref_cix)
         if idx.ndim == 0:
             rslt = ptcls.select( ptcls.ref_cix == idx )
             rslt.ali_eu = rslt.ali_eu[idx,:,:][_np.newaxis,:,:]

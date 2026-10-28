@@ -26,6 +26,7 @@ from susan.data._particles_core import _load_all, _save_all, _update_new_defocus
 from susan.data  import Tomograms       as _tomodef
 from susan.utils import is_extension    as _is_ext
 from susan.utils import force_extension as _force_ext
+from susan.utils._functions import _renamed_kw
 from susan.utils import euZYZ_to_rotm   as _euZYZ_to_rotm
 from susan.utils import euZYZ_to_euDYN  as _euZYZ_to_euDYN
 from susan.utils import euDYN_to_euZYZ  as _euDYN_to_euZYZ
@@ -606,26 +607,28 @@ class Particles:
         g = self.ali_eu[refs,:,2] + rng.uniform(-span,span,self.ali_eu[refs,:,2].shape)
         self.ali_eu[refs,:,2] = g - 2*_np.pi*_np.ceil((g - _np.pi)/(2*_np.pi))
 
-    def update_position(self, ref_id=0):
+    @_renamed_kw(ref_id='ref_cix')
+    def update_position(self, ref_cix=0):
         """Absorb the 3-D alignment translation into the particle position.
 
-        Adds ``ali_t[ref_id]`` to ``position`` and resets ``ali_t[ref_id]``
+        Adds ``ali_t[ref_cix]`` to ``position`` and resets ``ali_t[ref_cix]``
         to zero.  Useful after alignment to make coordinates absolute again.
 
         Parameters
         ----------
-        ref_id : int, optional
+        ref_cix : int, optional
             Reference index whose translation to absorb. Default 0.
         """
-        self.position = self.position + self.ali_t[ref_id]
-        self.ali_t[ref_id,:,:] = 0
+        self.position = self.position + self.ali_t[ref_cix]
+        self.ali_t[ref_cix,:,:] = 0
 
     _update_new_defocus = staticmethod(_update_new_defocus)
 
-    def update_defocus(self, tomos_info, ref_id=0, z_sign=None):
+    @_renamed_kw(ref_id='ref_cix')
+    def update_defocus(self, tomos_info, ref_cix=0, z_sign=None):
         """Recompute per-projection defocus values from the current 3-D positions.
 
-        For each particle, projects the 3-D position (position + ali_t[ref_id])
+        For each particle, projects the 3-D position (position + ali_t[ref_cix])
         onto each tilt projection's Z-axis and corrects the tomogram-level
         defocus by the resulting depth offset.  Also copies projection weights,
         astigmatism, B-factor, and CTF scores from the Tomograms metadata.
@@ -641,7 +644,7 @@ class Particles:
         ----------
         tomos_info : Tomograms
             Tomogram metadata providing tilt geometries and base defocus values.
-        ref_id : int, optional
+        ref_cix : int, optional
             Reference index whose translation is included in the position. Default 0.
         z_sign : float, optional
             Override the Z-axis handedness (+1 or −1).  If None (default),
@@ -666,7 +669,7 @@ class Particles:
             self.def_scor[k,:] = tomos_info.def_scor[tid,:]
             
             # Note: Numba makes it ~23.3 times faster
-            pos = self.position[k] + self.ali_t[ref_id,k]
+            pos = self.position[k] + self.ali_t[ref_cix,k]
             z_sign_k = z_sign if z_sign is not None else tomos_info.handedness[tid]
             np = int(tomos_info.num_proj[tid])
             base_def = tomos_info.def_U[tid,:np]
@@ -683,26 +686,30 @@ class Particles:
                 tomos_info.def_V[tid]
             )
 
-    def x(self, ref_idx=0) -> _np.ndarray:
-        """Absolute X coordinate: position[:,0] + ali_t[ref_idx,:,0] (Ångströms)."""
-        return self.position[:,0] + self.ali_t[ref_idx,:,0]
+    @_renamed_kw(ref_idx='ref_cix')
+    def x(self, ref_cix=0) -> _np.ndarray:
+        """Absolute X coordinate: position[:,0] + ali_t[ref_cix,:,0] (Ångströms)."""
+        return self.position[:,0] + self.ali_t[ref_cix,:,0]
 
-    def y(self, ref_idx=0) -> _np.ndarray:
-        """Absolute Y coordinate: position[:,1] + ali_t[ref_idx,:,1] (Ångströms)."""
-        return self.position[:,1] + self.ali_t[ref_idx,:,1]
+    @_renamed_kw(ref_idx='ref_cix')
+    def y(self, ref_cix=0) -> _np.ndarray:
+        """Absolute Y coordinate: position[:,1] + ali_t[ref_cix,:,1] (Ångströms)."""
+        return self.position[:,1] + self.ali_t[ref_cix,:,1]
 
-    def z(self, ref_idx=0) -> _np.ndarray:
-        """Absolute Z coordinate: position[:,2] + ali_t[ref_idx,:,2] (Ångströms)."""
-        return self.position[:,2] + self.ali_t[ref_idx,:,2]
+    @_renamed_kw(ref_idx='ref_cix')
+    def z(self, ref_cix=0) -> _np.ndarray:
+        """Absolute Z coordinate: position[:,2] + ali_t[ref_cix,:,2] (Ångströms)."""
+        return self.position[:,2] + self.ali_t[ref_cix,:,2]
 
-    def pos(self, ref_idx=None, drift=True) -> _np.ndarray:
-        """Absolute (X, Y, Z) positions, shape (M, 3), Ångströms: position + ali_t[ref_idx]
-        (``ref_idx=None``: each particle's own ``ref_cix``; ``drift=False``: position only)."""
+    @_renamed_kw(ref_idx='ref_cix')
+    def pos(self, ref_cix=None, drift=True) -> _np.ndarray:
+        """Absolute (X, Y, Z) positions, shape (M, 3), Ångströms: position + ali_t[ref_cix]
+        (``ref_cix=None``: each particle's own class, ``self.ref_cix``; ``drift=False``: position only)."""
         if not drift:
             return self.position.copy()
-        if ref_idx is None:
+        if ref_cix is None:
             return self.position + self.ali_t[self.ref_cix.flatten(),_np.arange(self.n_ptcl)]
-        return self.position + self.ali_t[ref_idx]
+        return self.position + self.ali_t[ref_cix]
 
     @staticmethod
     def _get_tomo_limit_angstroms(tomo_size,tomo_apix,border):
