@@ -35,6 +35,7 @@
 #include "substack_crop.h"
 #include "angles_provider.h"
 #include "ref_ali.h"
+#include "ali_stats.h"
 #include "aligner_args.h"
 #include "progress.h"
 #include "cc_tracker.h"
@@ -66,6 +67,7 @@ public:
     int K;
     int r_ix;
     int class_ix;
+    int ptcl_gix;   /// global particle index (rows of AliStats)
     int tomo_pos_x;
     int tomo_pos_y;
     int tomo_pos_z;
@@ -138,8 +140,10 @@ public:
     int         dense_reduce;
     int         dense_bin;
     const char *output;
+    AliStats   *p_stats;   /// 2D statistics (output_type alignment_stats), NULL when disabled
 
     AliGpuWorker() {
+        p_stats = NULL;
     }
 
     ~AliGpuWorker() {
@@ -156,6 +160,8 @@ protected:
     std::vector<M33f>   R_cum;
     std::vector<float>  prior_pen;
     std::vector<float>  noise_tmp;
+    std::vector<float>  st_row;                 /// raw CC row (not weighted) of the statistics
+    PeakStats::Workspace st_ws;
     bool                use_prior;
     std::unique_ptr<CcTrackerAlignment>    cc_tracker;
     std::unique_ptr<CcTrackerAlignmentArr> cc_tracker_arr;
@@ -217,6 +223,8 @@ protected:
                 R_lvl.resize(max_K);
                 R_cum.resize(max_K);
                 prior_pen.resize(max_K);
+                if( p_stats != NULL )
+                    st_row.resize(ali_data.n_pts);
             }
         }
 
@@ -609,7 +617,7 @@ protected:
 
         Math::set(Rot,R_ali.transpose());
         ali_data.pre_rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
-        
+
         cc_tracker_arr->clear(ptr->K);
         if( use_prior ) {
             Math::set(Rot,M33f::Identity());
@@ -622,37 +630,42 @@ protected:
                 cc_tracker_arr->set_lambda(i,prior_lambda(noise_tmp.data(),ali_data.n_noise,ali_data.c_cc+i*ali_data.n_pts,ali_data.n_pts));
             }
         }
-        int lvl = 0;
-        for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
-            if( lvl > 0 )
-                cc_tracker_arr->next_level();
-            for(int i=0;i<ptr->K;i++) {
-                R_lvl[i] = cc_tracker_arr->get_rot(i);
-                Math::set(ali_data.c_lvl[i],R_lvl[i].transpose());
-            }
-            ali_data.upload_level_rotations(ptr->K,stream);
-            for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
-                for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
-                    for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next() ) {
+        if( p_stats != NULL ) {
+            sequential_search_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,stream);
+        }
+        else {
+            int lvl = 0;
+            for( ang_prov.levels_init(); ang_prov.levels_available(); ang_prov.levels_next(), lvl++ ) {
+                if( lvl > 0 )
+                    cc_tracker_arr->next_level();
+                for(int i=0;i<ptr->K;i++) {
+                    R_lvl[i] = cc_tracker_arr->get_rot(i);
+                    Math::set(ali_data.c_lvl[i],R_lvl[i].transpose());
+                }
+                ali_data.upload_level_rotations(ptr->K,stream);
+                for( ang_prov.sym_init(); ang_prov.sym_available(); ang_prov.sym_next() ) {
+                    for( ang_prov.cone_init(); ang_prov.cone_available(); ang_prov.cone_next() ) {
+                        for( ang_prov.inplane_init(); ang_prov.inplane_available(); ang_prov.inplane_next() ) {
 
-                        ang_prov.get_current_R(R_ite);
-                        Math::set(Rot,R_ite.transpose());
-                        correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,true,stream);
-                        ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+                            ang_prov.get_current_R(R_ite);
+                            Math::set(Rot,R_ite.transpose());
+                            correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,true,stream);
+                            ali_data.download_cc(ptr->g_ali,ptr->K,stream);
 
-                        /// Orientation prior on the deviation from the previous per-tilt pose, cone and in-plane
-                        /// (cc_tracker.h); 0 when angle_sigma <= 0.
-                        for(int i=0;i<ptr->K;i++) {
-                            R_cum[i]     = R_lvl[i]*R_ite;
-                            prior_pen[i] = orientation_prior_pen_deg(cone_theta_deg(R_cum[i])   ,angle_sigma)
-                                         + orientation_prior_pen_deg(inplane_theta_deg(R_cum[i]),angle_sigma);
-                        }
+                            /// Orientation prior on the deviation from the previous per-tilt pose, cone and in-plane
+                            /// (cc_tracker.h); 0 when angle_sigma <= 0.
+                            for(int i=0;i<ptr->K;i++) {
+                                R_cum[i]     = R_lvl[i]*R_ite;
+                                prior_pen[i] = orientation_prior_pen_deg(cone_theta_deg(R_cum[i])   ,angle_sigma)
+                                             + orientation_prior_pen_deg(inplane_theta_deg(R_cum[i]),angle_sigma);
+                            }
 
-                        cc_tracker_arr->push(ali_data.c_cc,ali_data.n_pts,R_cum.data(),prior_pen.data());
-                    } // INPLANE
-                } // CONE
-            } // SYMMETRY
-        } // REFINE
+                            cc_tracker_arr->push(ali_data.c_cc,ali_data.n_pts,R_cum.data(),prior_pen.data());
+                        } // INPLANE
+                    } // CONE
+                } // SYMMETRY
+            } // REFINE
+        }
 
         single cc_acc=0,wgt_acc=0,cc_cur=0;
         for(int i=0;i<ptr->K;i++) {
@@ -672,6 +685,38 @@ protected:
                                i,ptr->ctf_vals.apix);
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
+    }
+
+    /// output_type alignment_stats: the angles of ArgsAli::stats_angles around the input orientation, the
+    /// same for every particle. The tracker gets the input orientation only (offsets); the raw CC rows (not weighted
+    /// by prj_w) of every angle go to the group sums (ali_stats.h).
+    void sequential_search_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
+        Rot33 Rot;
+        const int n_pts = ali_data.n_pts;
+        for(int a=0;a<p_stats->n_ang;a++) {
+            Math::set(Rot,p_stats->ang_R[a].transpose());
+            correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,false,stream);
+            ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+            if( a == 0 ) {
+                for(int i=0;i<ptr->K;i++) {
+                    R_cum[i]     = M33f::Identity();
+                    prior_pen[i] = 0;
+                }
+                cc_tracker_arr->push(ali_data.c_cc,n_pts,R_cum.data(),prior_pen.data());
+            }
+            for(int i=0;i<ptr->K;i++) {
+                float w = ptr->c_ali.ptr[i].w;
+                if( w <= 0 ) continue;
+                const float*c = ali_data.c_cc + (size_t)i*n_pts;
+                for(int j=0;j<n_pts;j++) st_row[j] = c[j]/w;
+                if( a == 0 ) {
+                    PeakStats::compute(st_ws,p_stats->particle_row(ptr->ptcl_gix,i),st_row.data(),n_pts,
+                                       p_stats->pts_x.data(),p_stats->pts_y.data(),p_stats->step,p_stats->excl);
+                    p_stats->add_group_row(worker_id,ptr->ptcl_gix,i,st_row.data());
+                }
+                p_stats->add_group_ang(worker_id,ptr->ptcl_gix,i,a,st_row.data());
+            }
+        }
     }
 
     /// output_type dense, 2D (legacy CSV): per projection, the CC map of the orientation with the
@@ -790,7 +835,12 @@ public:
 
     SubstackCrop    ss_cropper;
 
+    AliStats *p_stats;     /// 2D statistics, NULL when disabled
+    int       ptcl_offset; /// global index of the first particle of the current tomogram
+
     AliRdrWorker() {
+        p_stats     = NULL;
+        ptcl_offset = 0;
     }
 
     ~AliRdrWorker() {
@@ -916,6 +966,7 @@ protected:
         gpu_worker.output       = p_info->output;
         gpu_worker.dilate       = p_info->dilate;
         gpu_worker.dilate_radius = p_info->dilate_radius;
+        gpu_worker.p_stats      = p_stats;
         gpu_worker.start();
     }
 
@@ -925,6 +976,7 @@ protected:
             for(int r=0;r<R;r++) {
                 AliBuffer*ptr = (AliBuffer*)stack_buffer.WO_get_buffer();
                 p_ptcls->get(ptr->ptcl,i);
+                ptr->ptcl_gix = ptcl_offset + i;
                 read_defocus(ptr);
                 crop_substack(ptr,r);
                 if( check_substack(ptr) ) {
@@ -944,6 +996,7 @@ protected:
         for(int i=worker_id;i<p_ptcls->n_ptcl;i+=p_info->n_threads) {
             AliBuffer*ptr = (AliBuffer*)stack_buffer.WO_get_buffer();
             p_ptcls->get(ptr->ptcl,i);
+            ptr->ptcl_gix = ptcl_offset + i;
             read_defocus(ptr);
             crop_substack(ptr);
             if( check_substack(ptr) ) {
@@ -1061,6 +1114,14 @@ public:
 
     ProgressReporter progress;
 
+    AliStats *p_stats;     /// 2D statistics, NULL when disabled
+    uint8    *ptcls_base;  /// p_raw of this node's particle list (offsets of the per-tomogram subsets)
+
+    void set_stats(AliStats*stats,uint8*base) {
+        p_stats    = stats;
+        ptcls_base = base;
+    }
+
     AliPool(ArgsAli::Info*info,References*in_p_refs,int in_max_K,int num_ptcls,StackReader&stkrdr,int in_num_threads)
      : PoolCoordinator(stkrdr,in_num_threads),
        w_cmd(2*in_num_threads+1),
@@ -1068,6 +1129,8 @@ public:
     {
         workers  = new AliRdrWorker[in_num_threads];
         p_info   = info;
+        p_stats    = NULL;
+        ptcls_base = NULL;
         max_K    = in_max_K;
         n_ptcls  = num_ptcls;
         N = info->box_size;
@@ -1192,6 +1255,7 @@ protected:
 
     void coord_init() {
         for(int i=0;i<p_info->n_threads;i++) {
+            workers[i].p_stats = p_stats;
             workers[i].setup_global_data(i,p_refs,R,max_K,p_info,&w_cmd);
             workers[i].start();
         }
@@ -1201,7 +1265,11 @@ protected:
     void coord_main(float*stack,ParticlesSubset&ptcls,Tomogram&tomo) {
 
         w_cmd.presend_sync();
+        int offset = 0;
+        if( p_stats != NULL )
+            offset = p_stats->lo + (int)((ptcls.p_raw - ptcls_base)/ptcls.n_bytes);
         for(int i=0;i<p_info->n_threads;i++) {
+            workers[i].ptcl_offset = offset;
             workers[i].setup_working_data(stack,proj_stats,&ptcls,&tomo);
         }
         if( p_info->type == 3 )
@@ -1212,6 +1280,10 @@ protected:
         show_progress(ptcls.n_ptcl);
 
         w_cmd.send_command(WorkerCommand::BasicCommands::CMD_IDLE);
+
+        /// all the workers are idle here: merge their partial sums of this tomogram
+        if( p_stats != NULL )
+            p_stats->end_tomo(p_stats->tomo_index(tomo.tomo_id));
 
     }
 

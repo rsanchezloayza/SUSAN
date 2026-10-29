@@ -47,6 +47,17 @@ int main(int ac, char** av) {
         StackReader stkrdr(&ptcls,&tomos,&barrier,info.norm_type);
         CtfRefinerPool pool(&info,&refs,tomos.num_proj,ptcls.n_ptcl,stkrdr,info.n_threads);
 
+        /// output_type refinement_stats: pooled CTF statistics (ctf_stats.h)
+        CtfStats stats;
+        const bool save_stats = info.output_type == CTF_OUTPUT_REFINEMENT_STATS;
+        if( save_stats ) {
+            stats.setup(tomos,std::vector<int>(info.stats_groups,info.stats_groups+info.n_stats_groups),info.n_threads,
+                        info.use_halves,info.box_size+info.pad_size,info.fpix_max,info.box_size,info.def_range,info.def_step);
+            stats.set_layout(ptcls,tomos);
+            stats.set_range(0,ptcls.n_ptcl,0,ptcls.n_ptcl);
+            pool.set_stats(&stats,ptcls.p_raw);
+        }
+
         stkrdr.start();
         pool.start();
 
@@ -54,6 +65,9 @@ int main(int ac, char** av) {
         pool.wait();
 
         ptcls.save(info.ptcls_out);
+
+        if( save_stats && !stats.save(info.ptcls_out) )
+            fprintf(stderr,"Error writing the statistics of %s\n",info.ptcls_out);
     }
     else {
         DataInfo::exit_bad_args();

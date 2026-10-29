@@ -20,6 +20,8 @@ from . import mrc
 from . import em
 from . import tlt
 from . import xf
+from . import ali_stats
+from . import ctf_stats
 __all__ = []
-__all__.extend(['mrc','em','tlt', 'xf'])
+__all__.extend(['mrc','em','tlt', 'xf', 'ali_stats', 'ctf_stats'])
 

@@ -26,6 +26,7 @@ EXT_MODULES = cythonize(
         Extension("susan.utils._functions_core", ["susan/utils/_functions_core.pyx"]),
         Extension("susan.data._particles_core",  ["susan/data/_particles_core.pyx"]),
         Extension("susan.data._ptclsgeom_core",  ["susan/data/_ptclsgeom_core.pyx"]),
+        Extension("susan.solvers._solvers_core", ["susan/solvers/_solvers_core.pyx"]),
     ],
 )
 

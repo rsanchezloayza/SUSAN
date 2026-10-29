@@ -80,6 +80,8 @@ typedef struct {
     uint32 output_type;
     uint32 dense_reduce;
     int    dense_bin;
+    uint32 n_stats_groups;    /// group sizes gs (gs x gs groups per tomogram) of alignment_stats; 0 sizes: no groups
+    uint32 stats_groups[8];
     
     int verbosity;
 } Info;
@@ -122,6 +124,22 @@ inline bool validate(const Info&info) {
     if( strlen(info.output) == 0 ) {
         fprintf(stderr,"Output is missing.\n");
         rslt = false;
+    }
+    if( info.output_type == ALI_OUTPUT_ALIGNMENT_STATS ) {
+        if( info.type != 2 ) {
+            fprintf(stderr,"output_type alignment_stats requires type 2.\n");
+            rslt = false;
+        }
+        if( info.refine_level > 0 || info.angle_sigma > 0 || strcmp(info.pseudo_sym,"c1") != 0 ) {
+            fprintf(stderr,"output_type alignment_stats (sequential angular search) requires refine levels = 0, angle_sigma = 0 and symmetry c1.\n");
+            rslt = false;
+        }
+    }
+    for(uint32 i=0;i<info.n_stats_groups;i++) {
+        if( info.stats_groups[i] < 1 ) {
+            fprintf(stderr,"Invalid stats_groups size %d: it must be at least 1.\n",info.stats_groups[i]);
+            rslt = false;
+        }
     }
     if( !AnglesSymmetry::check_available_symmetry(info.pseudo_sym) ) {
         fprintf(stderr,"Invalid symmetry value: %s.\n",info.pseudo_sym);
@@ -234,6 +252,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.output_type  = ALI_OUTPUT_ALIGNMENT;
     info.dense_reduce = DENSE_REDUCE_MAX;
     info.dense_bin    = 1;
+    info.n_stats_groups = 5;
+    for(uint32 i=0;i<info.n_stats_groups;i++) info.stats_groups[i] = i+1;
 
     /// Parse inputs:
     enum {
@@ -268,6 +288,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         OFF_SPACE,
         OFF_PARAM,
         VERBOSITY,
+        STATS_GROUPS,
         OUTPUT_TYPE,
         DENSE_REDUCE,
         DENSE_BIN,
@@ -308,6 +329,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"off_space",   1, 0, OFF_SPACE },
         {"off_params",  1, 0, OFF_PARAM },
         {"verbosity",   1, 0, VERBOSITY },
+        {"stats_groups",1, 0, STATS_GROUPS},
         {"dilate",      1, 0, DILATE    },
         {"dilate_radius",1,0, DILATE_RAD},
         {"type",        1, 0, TYPE      },
@@ -325,7 +347,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case OUTPUT_TYPE:
                 if( strcmp(optarg,"alignment") == 0 ) info.output_type = ALI_OUTPUT_ALIGNMENT;
                 else if( strcmp(optarg,"dense") == 0 ) info.output_type = ALI_OUTPUT_DENSE;
-                else { fprintf(stderr,"Invalid output_type %s. Options are: alignment or dense.\n",optarg); exit(1); }
+                else if( strcmp(optarg,"alignment_stats") == 0 ) info.output_type = ALI_OUTPUT_ALIGNMENT_STATS;
+                else { fprintf(stderr,"Invalid output_type %s. Options are: alignment, alignment_stats or dense.\n",optarg); exit(1); }
                 break;
             case DENSE_REDUCE:
                 if( strcmp(optarg,"max") == 0 ) info.dense_reduce = DENSE_REDUCE_MAX;
@@ -419,6 +442,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case VERBOSITY:
                 info.verbosity = atoi(optarg);
                 break;
+            case STATS_GROUPS:
+                info.n_stats_groups = ArgParser::get_list_integers(info.stats_groups,optarg);
+                break;
             case DILATE:
                 info.dilate = atof(optarg);
                 break;
@@ -447,7 +473,40 @@ inline bool parse_args(Info&info,int ac,char** av) {
     return validate(info);
 }
 
+/// alignment_stats: the angles of the sequential search, the provider with the cone only (the input orientation
+/// first), then with the in-plane only (without the input orientation again)
+inline std::vector<M33f> stats_angles(const Info&info) {
+    std::vector<M33f> list;
+    M33f R;
+    for(int pass=0;pass<2;pass++) {
+        AnglesProvider angles;
+        angles.cone_range    = (pass == 0) ? info.cone_range : 0;
+        angles.cone_step     = info.cone_step;
+        angles.inplane_range = (pass == 1) ? info.inplane_range : 0;
+        angles.inplane_step  = info.inplane_step;
+        angles.levels_init();
+        angles.sym_init();
+        for( angles.cone_init(); angles.cone_available(); angles.cone_next() ) {
+            for( angles.inplane_init(); angles.inplane_available(); angles.inplane_next() ) {
+                angles.get_current_R(R);
+                if( pass == 1 && (R - M33f::Identity()).norm() < SUSAN_FLOAT_TOL ) continue;
+                list.push_back(R);
+            }
+        }
+    }
+    return list;
+}
+
 inline void print_angles(const Info&info,FILE*fp,bool show_full=false) {
+
+    if( info.output_type == ALI_OUTPUT_ALIGNMENT_STATS ) {
+        int n = (int)stats_angles(info).size();
+        if( show_full )
+            fprintf(fp,"\t\tAngles (sequential: input, cone, in-plane): %d.\n",n);
+        else
+            fprintf(fp,"Angles (sequential): %d.\n",n);
+        return;
+    }
 
     AnglesProvider angles;
     angles.cone_range    = info.cone_range;
@@ -500,6 +559,11 @@ inline void print_full(const Info&info,FILE*fp) {
         fprintf(fp,"\t\tOutput: dense, prefix %s (%s, bin %d).\n",info.output,(info.type==3)?((info.dense_reduce==DENSE_REDUCE_MEAN)?"block volumes, mean reduction":"block volumes, max reduction"):"legacy 2D CSV",info.dense_bin);
     else
         fprintf(fp,"\t\tParticles out:  %s.\n",info.output);
+    if( info.output_type == ALI_OUTPUT_ALIGNMENT_STATS ) {
+        fprintf(fp,"\t\t2D statistics:  <particles out stem>.stats.npz (groups");
+        for(uint32 i=0;i<info.n_stats_groups;i++) fprintf(fp," %dx%d",info.stats_groups[i],info.stats_groups[i]);
+        fprintf(fp,").\n");
+    }
 
     fprintf(fp,"\t\tVolume size: %dx%dx%d",info.box_size,info.box_size,info.box_size);
     if( info.pad_size > 0 ) {
@@ -616,7 +680,7 @@ inline void print_basic(const Info&info,FILE*fp) {
     fprintf(fp,"\n");
 
     fprintf(fp,"    - Input files: %s | %s\n",info.tomo_file,info.refs_file);
-    fprintf(fp,"    - Particles In / Output (%s): %s | %s\n",(info.output_type==ALI_OUTPUT_DENSE)?"dense":"alignment",info.ptcls_in,info.output);
+    fprintf(fp,"    - Particles In / Output (%s): %s | %s\n",(info.output_type==ALI_OUTPUT_DENSE)?"dense":((info.output_type==ALI_OUTPUT_ALIGNMENT_STATS)?"alignment_stats":"alignment"),info.ptcls_in,info.output);
     
     if( info.n_gpu > 1 ) {
         fprintf(fp,"    - %d GPUs (GPU ids: %d",info.n_gpu,info.p_gpu[0]);

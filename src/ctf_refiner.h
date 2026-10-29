@@ -40,6 +40,7 @@
 #include "io.h"
 #include "ref_ali.h"
 #include "ctf_refiner_args.h"
+#include "ctf_stats.h"
 #include "cc_tracker.h"
 #include "progress.h"
 
@@ -63,6 +64,7 @@ public:
     int      K;
     int      r_ix;
     int      class_ix;
+    int      ptcl_gix;   /// global particle index (rows of CtfStats)
 
     CtfRefBuffer(int N,int max_k) {
         c_stk.alloc(N*N*max_k);
@@ -156,8 +158,10 @@ public:
 
     DoubleBufferHandler *p_buffer;
     RefMap              *p_refs;
+    CtfStats            *p_stats;   /// CTF statistics (output_type refinement_stats), NULL when disabled
 
     CtfRefGpuWorker() {
+        p_stats = NULL;
     }
 
     ~CtfRefGpuWorker() {
@@ -166,6 +170,13 @@ public:
 protected:
     int NP;
     int MP;
+
+    GPU::GArrSingle  stats_prof;
+    GPU::GArrSingle  stats_curv;
+    GPU::GArrSingle  stats_dref;
+    GPU::GHostSingle hstats_prof;
+    GPU::GHostSingle hstats_curv;
+    GPU::GHostSingle hstats_dref;
 
     void main() {
 
@@ -194,7 +205,7 @@ protected:
         AliData ali_data(MP,NP,max_K,off_par,off_type,stream);
 
         /// Priors scaled per projection by the CC noise on a ring outside the peak (prior_lambda, cc_tracker.h).
-        use_prior = (offset_sigma > 0 || defocus_sigma > 0 || phase_sigma > 0);
+        use_prior = (p_stats == NULL) && (offset_sigma > 0 || defocus_sigma > 0 || phase_sigma > 0);
         if( use_prior ) {
             ali_data.set_noise_ring(2,bandpass.y);
             if( ali_data.n_noise == 0 ) {
@@ -208,6 +219,15 @@ protected:
         RadialAverager rad_avgr(MP,NP,max_K);
 
         Refine ctf_ref(MP,NP,max_K);
+
+        if( p_stats != NULL ) {
+            stats_prof.alloc((size_t)CtfStats::NPQ*max_K*p_stats->NB);
+            stats_curv.alloc((size_t)max_K*p_stats->ND);
+            stats_dref.alloc(max_K);
+            hstats_prof.alloc((size_t)CtfStats::NPQ*max_K*p_stats->NB);
+            hstats_curv.alloc((size_t)max_K*p_stats->ND);
+            hstats_dref.alloc(max_K);
+        }
 
         int num_vols = R;
         if( use_halves ) num_vols = 2*R;
@@ -301,7 +321,10 @@ protected:
             if( p_buffer->RO_get_status() == READY ) {
                 CtfRefBuffer*ptr = (CtfRefBuffer*)p_buffer->RO_get_buffer();
                 add_data(ss_data,ptr,rad_avgr,stream);
-                search_ctf(vols[ptr->r_ix],ss_data,ctf_ref,ptr,ali_data,rad_avgr,stream);
+                if( p_stats != NULL )
+                    stats_particle(vols[ptr->r_ix],ss_data,ptr,ali_data,stream);
+                else
+                    search_ctf(vols[ptr->r_ix],ss_data,ctf_ref,ptr,ali_data,rad_avgr,stream);
                 stream.sync();
             }
             p_buffer->RO_sync();
@@ -491,6 +514,43 @@ protected:
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
     }
 
+    /// output_type refinement_stats: the particle's profiles over the linearized coordinate and its CC curves, added to
+    /// the worker's partial sums of the CtfStats (the particle is not modified)
+    void stats_particle(AliRef&vol,AliSubstack&ss_data,CtfRefBuffer*ptr,AliData&ali_data,GPU::Stream&stream) {
+        Rot33 Rot;
+        M33f  R_ali;
+        Math::eZYZ_Rmat(R_ali,ptr->ptcl.ali_eu[ptr->class_ix]);
+        Math::set(Rot,R_ali.transpose());
+        ali_data.pre_rotate_reference(Rot,ptr->g_ali,ptr->K,stream);
+        M33f  R_eye = Eigen::MatrixXf::Identity(3,3);
+        Math::set(Rot,R_eye);
+        ali_data.rotate_projections(Rot,ptr->g_ali,ptr->K,stream);
+        ali_data.project(vol.ref,ptr->g_def,bandpass,ptr->K,stream);
+
+        int K = ptr->K, NB = p_stats->NB, ND = p_stats->ND;
+        memcpy(hstats_dref.ptr,p_stats->dref_tomo(ptr->ptcl_gix),sizeof(float)*K);
+        GPU::upload_async(stats_dref.ptr,hstats_dref.ptr,K,stream.strm);
+        stats_prof.clear(stream.strm);
+
+        int3 ss = make_int3(MP,NP,K);
+        dim3 blk = GPU::get_block_size_2D();
+        dim3 grd = GPU::calc_grid_size(blk,MP,NP,K);
+        GpuKernelsCtfStats::profile<<<grd,blk,0,stream.strm>>>(stats_prof.ptr,ss_data.ss_fourier.ptr,ali_data.prj_c.ptr,ptr->g_ali.ptr,
+                                   ptr->g_def.ptr,stats_dref.ptr,ptr->ctf_vals,p_stats->vmax,NB,bandpass.x,bandpass.y,ss);
+        dim3 grd_c = GPU::calc_grid_size(blk,ND,K,1);
+        GpuKernelsCtfStats::curves<<<grd_c,blk,0,stream.strm>>>(stats_curv.ptr,stats_prof.ptr,stats_dref.ptr,ptr->ctf_vals,p_stats->vmax,
+                                   NB,p_stats->d0,p_stats->dstep,ND,K);
+        GPU::download_async(hstats_prof.ptr,stats_prof.ptr,(size_t)CtfStats::NPQ*K*NB,stream.strm);
+        GPU::download_async(hstats_curv.ptr,stats_curv.ptr,(size_t)K*ND,stream.strm);
+        stream.sync();
+
+        p_stats->add_particle(worker_id,ptr->ptcl_gix,K,hstats_prof.ptr);
+        float*row = p_stats->curve_row(ptr->ptcl_gix);
+        for(int k=0;k<K;k++)
+            if( ptr->c_ali.ptr[k].w > 0 )
+                memcpy(row + (size_t)k*ND,hstats_curv.ptr + (size_t)k*ND,sizeof(float)*ND);
+    }
+
     static int setup_grid(float&out_step,const float range,const float in_step) {
         if( !(range > SUSAN_FLOAT_TOL) || !(in_step > SUSAN_FLOAT_TOL) ) {
             out_step = 1;
@@ -524,6 +584,8 @@ public:
     ParticlesSubset  *p_ptcls;
     Tomogram         *p_tomo;
     RefMap           *p_refs;
+    CtfStats         *p_stats;     /// NULL when disabled
+    int              ptcl_offset;  /// global index of the first particle of the current tomogram
     int gpu_ix;
     int max_K;
     int N;
@@ -539,6 +601,8 @@ public:
     SubstackCrop    ss_cropper;
 
     CtfRefRdrWorker() {
+        p_stats     = NULL;
+        ptcl_offset = 0;
     }
 
     ~CtfRefRdrWorker() {
@@ -640,6 +704,7 @@ protected:
         gpu_worker.defocus_sigma = p_info->defocus_sigma;
         gpu_worker.phase_sigma   = p_info->phase_sigma;
         gpu_worker.astigmatism = p_info->refine_astig;
+        gpu_worker.p_stats     = p_stats;
         gpu_worker.start();
     }
 
@@ -650,6 +715,7 @@ protected:
             work_accumul++;
             CtfRefBuffer*ptr = (CtfRefBuffer*)stack_buffer.WO_get_buffer();
             p_ptcls->get(ptr->ptcl,i);
+            ptr->ptcl_gix = ptcl_offset + i;
             read_defocus(ptr);
             crop_substack(ptr,ptr->ptcl.ref_cix());
             if( check_substack(ptr) ) {
@@ -759,6 +825,14 @@ public:
 
     ProgressReporter progress;
 
+    CtfStats *p_stats;     /// CTF statistics, NULL when disabled
+    uint8    *ptcls_base;  /// p_raw of this node's particle list (offsets of the per-tomogram subsets)
+
+    void set_stats(CtfStats*stats,uint8*base) {
+        p_stats    = stats;
+        ptcls_base = base;
+    }
+
     CtfRefinerPool(ArgsCtfRef::Info*info,References*in_p_refs,int in_max_K,int num_ptcls,StackReader&stkrdr,int in_num_threads)
      : PoolCoordinator(stkrdr,in_num_threads),
        w_cmd(2*in_num_threads+1),
@@ -766,6 +840,8 @@ public:
     {
         workers  = new CtfRefRdrWorker[in_num_threads];
         p_info   = info;
+        p_stats    = NULL;
+        ptcls_base = NULL;
         max_K    = in_max_K;
         n_ptcls  = num_ptcls;
         N = info->box_size;
@@ -890,6 +966,7 @@ protected:
 
     void coord_init() {
         for(int i=0;i<p_info->n_threads;i++) {
+            workers[i].p_stats = p_stats;
             workers[i].setup_global_data(i,p_refs,R,max_K,p_info,&w_cmd);
             workers[i].start();
         }
@@ -899,7 +976,11 @@ protected:
     void coord_main(float*stack,ParticlesSubset&ptcls,Tomogram&tomo) {
 
         w_cmd.presend_sync();
+        int offset = 0;
+        if( p_stats != NULL )
+            offset = p_stats->lo + (int)((ptcls.p_raw - ptcls_base)/ptcls.n_bytes);
         for(int i=0;i<p_info->n_threads;i++) {
+            workers[i].ptcl_offset = offset;
             workers[i].setup_working_data(stack,proj_stats,&ptcls,&tomo);
         }
         w_cmd.send_command(CtfRefCmd::CTF_REF);
@@ -907,6 +988,10 @@ protected:
         show_progress(ptcls.n_ptcl);
 
         w_cmd.send_command(WorkerCommand::BasicCommands::CMD_IDLE);
+
+        /// all the workers are idle here: merge their partial sums of this tomogram
+        if( p_stats != NULL )
+            p_stats->end_tomo(p_stats->tomo_index(tomo.tomo_id));
 
     }
 

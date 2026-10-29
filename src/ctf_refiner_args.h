@@ -62,6 +62,10 @@ typedef struct {
     float  defocus_sigma;  // Å;      Gaussian prior σ on |(dU, dV)|. 0 ⇒ disabled.
     float  phase_sigma;    // rad;    Gaussian prior σ on phase-shift magnitude. 0 ⇒ disabled.
 
+    uint32 output_type;
+    uint32 n_stats_groups;    // group sizes gs (gs x gs groups per tomogram) of refinement_stats
+    uint32 stats_groups[8];
+
     char   refs_file[SUSAN_FILENAME_LENGTH];
     char   ptcls_out[SUSAN_FILENAME_LENGTH];
     char   ptcls_in [SUSAN_FILENAME_LENGTH];
@@ -141,6 +145,22 @@ inline bool validate(const Info&info) {
         fprintf(stderr,"Invalid phase_sigma: %f. It cannot be negative (0 disables the prior).\n",info.phase_sigma);
         rslt = false;
     }
+    if( info.output_type == CTF_OUTPUT_REFINEMENT_STATS ) {
+        if( !(info.def_range > 0) ) {
+            fprintf(stderr,"output_type refinement_stats requires a defocus search range larger than 0.\n");
+            rslt = false;
+        }
+        if( info.n_stats_groups == 0 ) {
+            fprintf(stderr,"output_type refinement_stats requires at least one stats_groups size.\n");
+            rslt = false;
+        }
+    }
+    for(uint32 i=0;i<info.n_stats_groups;i++) {
+        if( info.stats_groups[i] < 1 ) {
+            fprintf(stderr,"Invalid stats_groups size %d: it must be at least 1.\n",info.stats_groups[i]);
+            rslt = false;
+        }
+    }
 
     return rslt;
 }
@@ -179,6 +199,11 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.defocus_sigma = 0;
     info.phase_sigma   = 0;
 
+    info.output_type = CTF_OUTPUT_REFINEMENT;
+    info.n_stats_groups  = 2;
+    info.stats_groups[0] = 1;
+    info.stats_groups[1] = 3;
+
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     memset(info.ptcls_out,0,SUSAN_FILENAME_LENGTH*sizeof(char));
@@ -211,7 +236,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
         PHASE_SHIFT_SEARCH,
         OFFSET_SIGMA,
         DEFOCUS_SIGMA,
-        PHASE_SIGMA
+        PHASE_SIGMA,
+        OUTPUT_TYPE,
+        STATS_GROUPS
     };
 
     int c;
@@ -241,6 +268,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"offset_sigma", 1, 0, OFFSET_SIGMA },
         {"defocus_sigma",1, 0, DEFOCUS_SIGMA},
         {"phase_sigma",  1, 0, PHASE_SIGMA  },
+        {"output_type",  1, 0, OUTPUT_TYPE  },
+        {"stats_groups", 1, 0, STATS_GROUPS },
         {0, 0, 0, 0}
     };
     
@@ -320,6 +349,14 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case PHASE_SIGMA:
                 info.phase_sigma = atof(optarg);
+                break;
+            case OUTPUT_TYPE:
+                if( strcmp(optarg,"refinement") == 0 ) info.output_type = CTF_OUTPUT_REFINEMENT;
+                else if( strcmp(optarg,"refinement_stats") == 0 ) info.output_type = CTF_OUTPUT_REFINEMENT_STATS;
+                else { fprintf(stderr,"Invalid output_type %s. Options are: refinement or refinement_stats.\n",optarg); exit(1); }
+                break;
+            case STATS_GROUPS:
+                info.n_stats_groups = ArgParser::get_list_integers(info.stats_groups,optarg);
                 break;
             default:
                 printf("Unknown parameter %d\n",c);
@@ -409,6 +446,11 @@ inline void print_full(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"\t\tPhase prior:    Gaussian σ=%.3f rad on phase shift.\n",info.phase_sigma);
     else
         fprintf(fp,"\t\tPhase prior:    disabled.\n");
+    if( info.output_type == CTF_OUTPUT_REFINEMENT_STATS ) {
+        fprintf(fp,"\t\tCTF statistics: <particles out stem>.ctfstats.npz (groups");
+        for(uint32 i=0;i<info.n_stats_groups;i++) fprintf(fp," %dx%d",info.stats_groups[i],info.stats_groups[i]);
+        fprintf(fp,"), particles unchanged.\n");
+    }
 }
 
 inline void print_basic(const Info&info,FILE*fp=stdout) {
@@ -477,6 +519,8 @@ inline void print_basic(const Info&info,FILE*fp=stdout) {
         if( info.phase_sigma   > 0 ) fprintf(fp," σ_p=%.3frad",info.phase_sigma);
         fprintf(fp,".");
     }
+    if( info.output_type == CTF_OUTPUT_REFINEMENT_STATS )
+        fprintf(fp," Output: refinement_stats.");
     fprintf(fp,"\n");
 }
 
@@ -492,6 +536,8 @@ inline void print_minimal(const Info&info,FILE*fp=stdout) {
 
     fprintf(fp," %s | %s | %s ",info.ptcls_in,info.tomo_file,info.refs_file);
     fprintf(fp,"-> %s",info.ptcls_out);
+    if( info.output_type == CTF_OUTPUT_REFINEMENT_STATS )
+        fprintf(fp," (refinement_stats)");
 
     if( info.n_gpu > 1 )
         fprintf(fp," on %d GPUs.\n",info.n_gpu);

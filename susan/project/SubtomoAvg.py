@@ -22,11 +22,12 @@ import numpy as _np
 import warnings as _warnings
 
 from scipy.spatial      import KDTree as _KDTree
-from scipy.interpolate import BSpline as _BSpline
 
 import susan.data    as _ssa_data
+import susan.io      as _ssa_io
 import susan.utils   as _ssa_utils
 import susan.modules as _ssa_modules
+import susan.solvers as _ssa_solvers
 
 from susan.io.mrc import read     as _mrc_read
 from susan.io.mrc import write    as _mrc_write
@@ -42,318 +43,6 @@ from os.path import exists as _file_exists
 
 ###########################################################################
 # Internal helpers
-###########################################################################
-
-def _bspline_basis_1d(u, n_ctrl):
-    """Clamped uniform B-spline basis on [0, 1].
-
-    The degree adapts to the control-point count, so a thin axis (2 control
-    points, as used along Z) degrades to linear instead of failing.
-
-    Parameters
-    ----------
-    u : numpy.ndarray, shape (n,)
-        Sample coordinates, clipped to [0, 1].
-    n_ctrl : int
-        Number of control points (>= 1).
-
-    Returns
-    -------
-    numpy.ndarray, shape (n, n_ctrl)
-        Basis values.  Rows sum to 1.
-    """
-    u = _np.clip(_np.asarray(u, dtype=_np.float64), 0.0, 1.0)
-    if n_ctrl < 2:
-        return _np.ones((u.size, 1))
-    deg = min(3, n_ctrl - 1)
-    knots = _np.concatenate([
-        _np.zeros(deg),
-        _np.linspace(0.0, 1.0, n_ctrl - deg + 1),
-        _np.ones(deg)])
-    B = _np.zeros((u.size, n_ctrl))
-    coef = _np.zeros(n_ctrl)
-    for j in range(n_ctrl):
-        coef[:] = 0.0
-        coef[j] = 1.0
-        B[:, j] = _BSpline(knots, coef, deg, extrapolate=True)(u)
-    return B
-
-
-def _bspline_basis_3d(pts, grid, bbox):
-    """Tensor-product 3-D B-spline basis evaluated at *pts*.
-
-    Parameters
-    ----------
-    pts : numpy.ndarray, shape (n, 3)
-        Particle positions (Angstroms).
-    grid : sequence of 3 int
-        Control points per axis.
-    bbox : tuple of numpy.ndarray
-        ``(lo, hi)`` bounding box used to map *pts* into [0, 1] per axis.
-
-    Returns
-    -------
-    numpy.ndarray, shape (n, nx*ny*nz)
-        Basis matrix, C-ordered over ``(ix, iy, iz)``.
-    """
-    lo, hi = bbox
-    span = _np.maximum(hi - lo, 1e-6)
-    u = (pts - lo) / span
-    Bx = _bspline_basis_1d(u[:, 0], grid[0])
-    By = _bspline_basis_1d(u[:, 1], grid[1])
-    Bz = _bspline_basis_1d(u[:, 2], grid[2])
-    B = (Bx[:, :, None, None] * By[:, None, :, None] * Bz[:, None, None, :])
-    return B.reshape(pts.shape[0], -1)
-
-
-def _grid_penalty(grid):
-    """Roughness penalty over a 3-D control grid.
-
-    Sums the squared second differences along each axis (first differences
-    where an axis is too short for a second difference).  Returned in the
-    same C-ordered flattening as :func:`_bspline_basis_3d`.
-
-    Parameters
-    ----------
-    grid : sequence of 3 int
-
-    Returns
-    -------
-    numpy.ndarray, shape (nc, nc)
-    """
-    def _diff_op(n):
-        if n >= 3:
-            D = _np.zeros((n - 2, n))
-            for i in range(n - 2):
-                D[i, i:i + 3] = (1.0, -2.0, 1.0)
-            return D
-        if n == 2:
-            return _np.array([[1.0, -1.0]])
-        return _np.zeros((0, n))
-
-    nc = int(_np.prod(grid))
-    P = _np.zeros((nc, nc))
-    eyes = [_np.eye(g) for g in grid]
-    for ax in range(3):
-        mats = list(eyes)
-        mats[ax] = _diff_op(grid[ax])
-        if mats[ax].shape[0] == 0:
-            continue
-        D = _np.kron(_np.kron(mats[0], mats[1]), mats[2])
-        P += D.T @ D
-    return P
-
-
-def _global_field_normal_eqs(B, prj_t, R2, wgt):
-    """Accumulate the normal equations for the global 3-D deformation field.
-
-    The model is ``prj_t[i,k] = (R_k · D(pos_i))[:2]`` with
-    ``D(pos_i) = Σ_c B[i,c] · C[c,:]``, so the unknown is the ``(nc, 3)``
-    coefficient array *C*.  Exploits the fact that *B* does not depend on the
-    projection: per projection the design matrix is a Kronecker product of
-    ``BᵀWB`` and ``R2ᵀR2``.
-
-    Parameters
-    ----------
-    B : numpy.ndarray, shape (n, nc)
-        Spline basis at the particle positions.
-    prj_t : numpy.ndarray, shape (n, n_proj, 2)
-        Observed 2-D shifts (Angstroms).
-    R2 : numpy.ndarray, shape (n_proj, 2, 3)
-        Top two rows of each projection's rotation matrix.
-    wgt : numpy.ndarray, shape (n, n_proj)
-        Per-observation weights; 0 excludes the observation.
-
-    Returns
-    -------
-    tuple
-        ``(AtA, Atb)`` with shapes ``(3*nc, 3*nc)`` and ``(3*nc,)``.
-    """
-    nc = B.shape[1]
-    AtA = _np.zeros((3 * nc, 3 * nc))
-    Atb = _np.zeros((nc, 3))
-    for k in range(R2.shape[0]):
-        w = wgt[:, k]
-        if not _np.any(w):
-            continue
-        Bw   = B * w[:, None]
-        BtB  = B.T @ Bw
-        AtA += _np.kron(BtB, R2[k].T @ R2[k])
-        Atb += (Bw.T @ prj_t[:, k, :]) @ R2[k]
-    return AtA, Atb.ravel()
-
-
-def _solve_global_field(B, prj_t, R2, wgt, P, lam):
-    """Solve the penalised normal equations for the field coefficients.
-
-    Returns
-    -------
-    numpy.ndarray, shape (nc, 3)
-    """
-    nc = B.shape[1]
-    AtA, Atb = _global_field_normal_eqs(B, prj_t, R2, wgt)
-    Pk = _np.kron(P, _np.eye(3))
-    # Scale the penalty so that lam is dimensionless and comparable across
-    # datasets: without this, lam would absorb the units of prj_t and the
-    # particle count.
-    tr_a = _np.trace(AtA)
-    tr_p = _np.trace(Pk)
-    scale = (tr_a / tr_p) if (tr_p > 0 and tr_a > 0) else 1.0
-    M = AtA + (lam * scale) * Pk
-    # Ridge floor keeps the system solvable when a control point has no
-    # particles in its support.
-    M[_np.diag_indices_from(M)] += 1e-9 * max(tr_a, 1.0) / (3 * nc)
-    return _np.linalg.solve(M, Atb).reshape(nc, 3)
-
-
-def _image_warp_basis(G, B=None, R2k=None, rcond=1e-10):
-    """Per-projection 2-D warp basis, flattened as ``[i*2+r, j*2+s]``.
-
-    Parameters
-    ----------
-    G : numpy.ndarray, shape (n, m)
-        2-D spline basis at the projected particle coordinates.
-    B, R2k : optional
-        Global-field basis and projection rotation.  When both are given, the
-        part of the warp basis lying inside the global field's span *at this
-        projection* is projected out.
-
-        .. warning:: This is almost always the wrong thing to do and is off by
-           default.  At a single projection the global field spans ``span(B)``
-           independently per output component (``R2k`` has rank 2), which
-           contains essentially all of a 2-D spline in projected coordinates:
-           measured at 99.96% for a ``(4,4,2)`` field against a ``(4,4)`` warp.
-           Orthogonalising here therefore annihilates the warp rather than
-           separating it.  What distinguishes the global field from the image
-           warp is that its coefficients are shared *across* projections, which
-           is a constraint in the joint (particle × projection) space; a correct
-           orthogonalisation has to be performed there, and the result is no
-           longer block-diagonal per projection.
-    rcond : float, optional
-        Relative singular-value cutoff for the span.
-
-    Returns
-    -------
-    numpy.ndarray, shape (2n, 2m)
-    """
-    n, m = G.shape
-    T = _np.zeros((2 * n, 2 * m))
-    for s in range(2):
-        T[s::2, s::2] = G
-    if B is None or R2k is None:
-        return T
-    S = (B[:, None, :, None] * R2k[None, :, None, :]).reshape(2 * n, -1)
-    U, sv, _ = _np.linalg.svd(S, full_matrices=False)
-    if sv.size and sv[0] > 0:
-        Q = U[:, sv > sv[0] * rcond]
-        T -= Q @ (Q.T @ T)
-    return T
-
-
-def _solve_penalized(A, b, w, P, lam):
-    """Weighted least squares with a scaled roughness penalty.
-
-    Parameters
-    ----------
-    A : numpy.ndarray, shape (r, p)
-    b : numpy.ndarray, shape (r,)
-    w : numpy.ndarray, shape (r,)
-        Non-negative observation weights.
-    P : numpy.ndarray, shape (p, p)
-        Penalty matrix.
-    lam : float
-        Dimensionless stiffness.
-
-    Returns
-    -------
-    numpy.ndarray, shape (p,)
-    """
-    Aw   = A * w[:, None]
-    AtA  = A.T @ Aw
-    Atb  = Aw.T @ b
-    tr_a = _np.trace(AtA)
-    tr_p = _np.trace(P)
-    scale = (tr_a / tr_p) if (tr_p > 0 and tr_a > 0) else 1.0
-    M = AtA + (lam * scale) * P
-    M[_np.diag_indices_from(M)] += 1e-9 * max(tr_a, 1.0) / max(A.shape[1], 1)
-    return _np.linalg.solve(M, Atb)
-
-
-def _predict_global_field(B, C, R2):
-    """Project a fitted field back to per-projection 2-D shifts.
-
-    Returns
-    -------
-    numpy.ndarray, shape (n, n_proj, 2)
-    """
-    D = B @ C                                  # (n, 3) displacement field
-    return _np.einsum('id,krd->ikr', D, R2)    # (n, n_proj, 2)
-
-
-###########################################################################
-# In-plane rotation (prj_eu) helpers
-###########################################################################
-
-def _prj_eu_to_inplane(eu):
-    """Extract the in-plane angle (rad) from ZYZ ``prj_eu``.
-
-    Robust to the ``beta ~ 0`` gimbal (where the two Z angles are individually
-    ambiguous but their sum is the in-plane rotation): builds the two relevant
-    matrix entries and returns ``atan2(R10, R00)``.  *eu* may be any shape
-    ``(..., 3)``.
-    """
-    eu = _np.asarray(eu, dtype=_np.float64)
-    th, ph, ps = eu[..., 0], eu[..., 1], eu[..., 2]
-    R10 = _np.cos(th) * _np.sin(ps) + _np.cos(ph) * _np.cos(ps) * _np.sin(th)
-    R00 = _np.cos(th) * _np.cos(ph) * _np.cos(ps) - _np.sin(th) * _np.sin(ps)
-    return _np.arctan2(R10, R00)
-
-
-def _inplane_to_prj_eu(psi):
-    """ZYZ ``prj_eu`` for a pure in-plane rotation ``psi`` (rad), cone = 0.
-
-    ``eZYZ([psi, 0, 0]) == Rz(psi)``, so the out-of-plane (cone) component is
-    zero by construction -- the deliberate choice: the per-projection cone is
-    noise and is never propagated.
-    """
-    psi = _np.asarray(psi, dtype=_np.float64)
-    z = _np.zeros_like(psi)
-    return _np.stack([psi, z, z], axis=-1)
-
-
-def _rigid_inplane(xy, shift, w):
-    """Per-tilt rigid in-plane rotation from a shift field (affine antisymmetric).
-
-    Fits ``shift = A @ [x, y, 1]`` (weighted) and returns the scalar
-    ``psi = 0.5 (A_yx - A_xy)`` -- the rotational part of the affine, uniform
-    over the projection.  *xy* is the projected position ``(x', y')``; *shift*
-    is ``(dx', dy')``.
-    """
-    A = _np.column_stack([xy, _np.ones(len(xy))])
-    Aw = A * w[:, None]
-    cx = _np.linalg.lstsq(Aw, shift[:, 0] * w, rcond=None)[0]   # dx' coeffs
-    cy = _np.linalg.lstsq(Aw, shift[:, 1] * w, rcond=None)[0]   # dy' coeffs
-    return 0.5 * (cy[0] - cx[1])
-
-
-def _smooth_inplane(xy, psi, w, grid=(6, 6), lam=1.0):
-    """Regularised per-tilt smoothing of a measured in-plane field ``psi(x', y')``.
-
-    A weighted B-spline over the projected coordinates (reusing the image-warp
-    machinery), so genuine spatial variation is preserved while per-particle
-    noise is averaged out.  Weights should be the per-observation reliability
-    (e.g. ``prj_cc``).
-    """
-    p3 = _np.column_stack([xy, _np.zeros(len(xy))])
-    bbox = (p3.min(0), p3.max(0))
-    B = _bspline_basis_3d(p3, (int(grid[0]), int(grid[1]), 1), bbox)
-    Pen = _grid_penalty((int(grid[0]), int(grid[1]), 1))
-    coef = _solve_penalized(B, psi[:, None], w, Pen, lam)
-    return (B @ coef)[:, 0]
-
-
-###########################################################################
-# Multi-reference classification weights
 ###########################################################################
 
 def _ml_class_weights(cc, beta, floor=1e-3):
@@ -386,9 +75,10 @@ class _IterationFiles:
 
     def __init__(self):
         self.ptcl_rslt = ''
-        self.ptcl_temp = ''
+        self.ptcl_rec  = ''
         self.reference = ''
         self.ite_dir   = ''
+        self.ite       = 0
 
     def check(self):
         if not _file_exists(self.ptcl_rslt):
@@ -425,6 +115,8 @@ class SubtomoAvgBase:
             # absent in files written by the legacy STA class.
             tomofile  = args.get('tomogram_file')
             self.tomogram_file     = ''
+            self._use_2d_stats  = int(args.get('use_2d_stats',0))
+            self._use_ctf_stats = int(args.get('use_ctf_stats',0))
             self.initial_reference = args.get('initial_reference','')
             self.initial_particles = args.get('initial_particles','')
             if tomofile is not None:
@@ -438,6 +130,16 @@ class SubtomoAvgBase:
             self.tomogram_file     = ''
             self.initial_reference = ''
             self.initial_particles = ''
+            self._use_2d_stats     = 0
+            self._use_ctf_stats    = 0
+
+    @property
+    def use_2d_stats(self) -> int:
+        return self._use_2d_stats
+
+    @property
+    def use_ctf_stats(self) -> int:
+        return self._use_ctf_stats
 
     # ------------------------------------------------------------------
     # Resolution conversions
@@ -517,9 +219,10 @@ class SubtomoAvgBase:
         else:
             base = self.iteration_dir(ite)
             rslt.ptcl_rslt = base + 'particles.ptclsraw'
-            rslt.ptcl_temp = base + 'temp.ptclsraw'
+            rslt.ptcl_rec  = base + 'particles_rec.ptclsraw'
             rslt.reference = base + 'reference.refstxt'
             rslt.ite_dir   = base
+            rslt.ite       = ite
         return rslt
 
     def path_map(self, ite, ref=1) -> str:
@@ -756,7 +459,7 @@ class SubtomoAvgCore(SubtomoAvgBase):
         raise NotImplementedError
 
     def select_particles(self, cur, prv):
-        """Select particles and write ``cur.ptcl_temp``.
+        """Select particles and write ``cur.ptcl_rec``.
 
         Parameters
         ----------
@@ -899,11 +602,65 @@ class SubtomoAvg(SubtomoAvgCore):
 
        Default: ``1``.
 
-    .. attribute:: max_2d_delta_angstroms
-       :type: float
+    .. attribute:: solver_2d
+       :type: :class:`~susan.solvers.Solver2D` or None
 
-       Maximum per-iteration 2-D shift magnitude (Å).  ``0`` disables.
-       Default: ``0``.
+       Refinement of the 2-D iterations from the alignment statistics: the
+       aligner writes ``output_type='alignment_stats'`` (recommended: offset
+       step 0.5 px; the cone and in-plane search of the 2-D iterations
+       define the sequential angular search of the orientation correction,
+       e.g. ``set_angular_search(2, 1, 1, 0.5)``; with :attr:`aligner`
+       ``halfsets_independ`` the statistics are per half-set), then
+       :meth:`~susan.solvers.Solver2D.solve` gives the particles of the next
+       iteration; the statistics also carry the uncertainty of what it applied
+       (:attr:`solver_highres`).  ``None``: plain 2-D alignment (no fitting;
+       overfits at low SNR).  Default: ``Solver2D()``.
+
+    .. attribute:: solver_ctf
+       :type: :class:`~susan.solvers.SolverCTF` or None
+
+       Defocus correction of the CTF iterations from pooled statistics: the
+       :attr:`ctf_refiner` writes ``output_type='refinement_stats'`` (no
+       per-particle search; its :attr:`~susan.modules.CtfRefiner.defocus_angstroms`
+       span is the range of the per-particle curves; with :attr:`ctf_refiner`
+       ``halfsets_independ`` the statistics are per half-set), then
+       :meth:`~susan.solvers.SolverCTF.solve` gives the particles of the next
+       iteration: per-tilt offset, global tilt geometry and per-particle depth
+       error, and, when the refiner has an offset search, the significant
+       per-tilt translation bias.  Astigmatism and phase shift are kept.
+       ``None``: the free per-particle refinement.
+       Default: ``None``.
+
+    .. attribute:: solver_highres
+       :type: :class:`~susan.solvers.SolverHighRes` or None
+
+       Particles of the reconstruction, in every iteration type, from the
+       latest statistics (written to ``ite_xxxx/particles_rec.ptclsraw``,
+       which never feeds the alignment): per-tilt weights, ``def_Bfct`` from
+       the shift uncertainty (plus the per-tilt B-factor of the CTF
+       statistics with ``SolverHighRes.b_tilt``), ``def_mres`` from the
+       angular uncertainty (with the particle radius
+       from the reference mask), and the :attr:`cc_threshold` selection.  The
+       null of :meth:`update_null` is the baseline of the 2-D weights when
+       there is one, otherwise the second CC peak.  ``None``: the
+       :attr:`cc_threshold` selection only.  Default: ``SolverHighRes()``.
+
+    .. attribute:: use_2d_stats
+       :type: int
+
+       Iteration whose 2-D statistics (``particles.stats.npz``) feed
+       :attr:`solver_highres`, ``0`` none.  Set to the iteration by every 2-D
+       iteration run with :attr:`solver_2d` (before :attr:`solver_highres`, so
+       it uses its own); kept in ``info.prjtxt``.  After an aggressive 3-D
+       refinement the statistics no longer describe the particles: set it to
+       ``0``.  A missing file or a different number of particles skips that
+       part with a warning.
+
+    .. attribute:: use_ctf_stats
+       :type: int
+
+       Same for the CTF statistics (``particles.ctfstats.npz``), set by every
+       CTF iteration run with :attr:`solver_ctf`.
 
     .. attribute:: max_tilt_reconstruction
        :type: None, float, or array-like of length 2
@@ -933,115 +690,6 @@ class SubtomoAvg(SubtomoAvgCore):
        * Dict — passed verbatim as keyword arguments (e.g.
          ``{'bin_size_deg': 4.0, 'k_per_bin': 2}``).
 
-    .. attribute:: type_2d_shift_fitting
-       :type: str
-
-       .. warning:: **Experimental.**
-
-       Post-alignment 2-D shift regularisation: ``'none'``, ``'affine'``,
-       ``'gaussian'``, ``'tps'``, or ``'global'``.  Default: ``'none'``.
-
-       ``'tps'`` fits a regularised thin-plate spline to the per-tilt 2-D
-       shift field.  It is the middle ground between ``'affine'`` (globally
-       rigid) and ``'gaussian'`` (purely local): a globally smooth warp whose
-       stiffness is set by :attr:`tps_lambda`.
-
-       ``'global'`` is different in kind from the other three.  Those fit each
-       projection independently in the projected 2-D plane; ``'global'`` fits
-       a single 3-D displacement field per tomogram, jointly across the whole
-       tilt series, and projects it back into each image.  Because every tilt
-       constrains one field, it can represent deformations that are invisible
-       to a per-tilt 2-D fit, notably doming: a displacement along the
-       specimen normal projects as ``sinθ·dz``, so it vanishes at 0° and is
-       carried almost entirely by the high-tilt images.  Always fits from
-       origin, so :attr:`fitting_from_origin` does not apply.
-
-    .. attribute:: global_grid
-       :type: tuple of 3 int
-
-       .. warning:: **Experimental.**
-
-       Control points per axis for the ``'global'`` B-spline field.  Deliberately
-       anisotropic by default: the lateral extent of a tomogram exceeds its
-       thickness by one to two orders of magnitude, so Z needs far fewer knots.
-       Degree adapts per axis (cubic where the axis allows, linear at 2 control
-       points).  A tomogram needs at least ``3 * nx * ny * nz`` particles or it
-       is skipped.  Default: ``(4, 4, 2)``.
-
-    .. attribute:: global_lambda
-       :type: float or None
-
-       .. warning:: **Experimental.**
-
-       Roughness penalty for the ``'global'`` field, normalised so the value is
-       comparable across datasets.  ``None`` (default) selects it per tomogram
-       by two-fold cross-validation over particles, which lets a tomogram with
-       no real deformation collapse to a stiff, near-null field on its own
-       rather than by user choice.
-
-    .. attribute:: tps_lambda
-       :type: float
-
-       .. warning:: **Experimental.**
-
-       Stiffness of the ``'tps'`` shift warp (dimensionless; coordinates are
-       normalised per tomogram so the value is comparable across datasets).
-       ``0`` interpolates every shift (overfits noise), large values converge
-       to the pure affine fit.  Default: ``1.0``.
-
-    .. attribute:: image_grid
-       :type: tuple of 2 int
-
-       .. warning:: **Experimental.**
-
-       Control points per axis for the per-projection 2-D warp used by
-       ``type_2d_shift_fitting = 'global+image'``, fitted on the residual left
-       by the global field.  Models per-image effects no specimen-frame field
-       can express: residual stage drift, magnification and rotation errors,
-       beam-induced image warp within an exposure.  Default: ``(4, 4)``.
-
-    .. attribute:: image_lambda
-       :type: float or None
-
-       .. warning:: **Experimental.**
-
-       Stiffness of the image warp; ``None`` (default) selects it by two-fold
-       cross-validation over particles, pooled across projections.
-
-    .. attribute:: image_orthogonalize
-       :type: bool
-
-       .. warning:: **Experimental.**  Default ``False``; leave it there.
-
-       Project the image-warp basis out of the global field's span at each
-       projection.  This does *not* separate the two terms.  At a single
-       projection the global field already spans ``span(B)`` independently per
-       output component, which contains ~99.96% of a 2-D spline in projected
-       coordinates, so enabling this annihilates the warp instead: in
-       simulation a genuine 28.6 Å per-image warp is recovered as 27.7 Å with
-       the flag off and 1.1 Å with it on.
-
-       With the flag off, the global field is fitted first and the warp takes
-       the residual, so content representable by both is attributed to the
-       global field.  The total written to ``prj_t`` is correct either way;
-       only the split between the two terms is ambiguous, which matters if the
-       global field's amplitude is being read as a physical doming
-       measurement.  Resolving it properly requires a joint solve over both
-       coefficient blocks, which is not implemented.
-
-    .. attribute:: fitting_from_origin
-       :type: bool
-
-       .. warning:: **Experimental.**
-
-       Controls what the ``'affine'``/``'gaussian'``/``'tps'`` shift
-       regularisers fit.  If ``True`` (default) they fit the absolute current
-       ``prj_t`` (measured from origin).  If ``False`` they fit only the
-       incremental ``prj_t`` (the delta versus the previous iteration) and
-       add the smoothed delta back onto the previous shifts.  Incremental
-       deltas are smaller and noisier, so :attr:`tps_lambda` typically needs
-       to be larger in this mode.  Default: ``True``.
-
     .. attribute:: smooth_ctf
        :type: bool
 
@@ -1065,8 +713,9 @@ class SubtomoAvg(SubtomoAvgCore):
 
        .. warning:: **Experimental.**
 
-       Stiffness of the ``'tps'`` defocus warp, analogous to
-       :attr:`tps_lambda` but applied independently to the CTF deltas.
+       Stiffness of the ``'tps'`` defocus warp (dimensionless; coordinates are
+       normalised per tomogram).  ``0`` interpolates every delta, large values
+       converge to the affine fit.
        Default: ``1.0``.
 
     .. attribute:: reweight_classification
@@ -1142,6 +791,8 @@ class SubtomoAvg(SubtomoAvgCore):
         _prsr.write(fp, 'tomogram_file',      self._tomogram_file)
         _prsr.write(fp, 'initial_reference',  self._initial_reference)
         _prsr.write(fp, 'initial_particles',  self._initial_particles)
+        _prsr.write(fp, 'use_2d_stats',       str(self._use_2d_stats))
+        _prsr.write(fp, 'use_ctf_stats',      str(self._use_ctf_stats))
         fp.close()
 
     @property
@@ -1165,6 +816,24 @@ class SubtomoAvg(SubtomoAvgCore):
         self._save_prjtxt()
 
     @property
+    def use_2d_stats(self) -> int:
+        return self._use_2d_stats
+
+    @use_2d_stats.setter
+    def use_2d_stats(self, value):
+        self._use_2d_stats = int(value)
+        self._save_prjtxt()
+
+    @property
+    def use_ctf_stats(self) -> int:
+        return self._use_ctf_stats
+
+    @use_ctf_stats.setter
+    def use_ctf_stats(self, value):
+        self._use_ctf_stats = int(value)
+        self._save_prjtxt()
+
+    @property
     def initial_particles(self) -> str:
         return self._initial_particles
 
@@ -1181,6 +850,8 @@ class SubtomoAvg(SubtomoAvgCore):
         self._tomogram_file     = ''
         self._initial_reference = ''
         self._initial_particles = ''
+        self._use_2d_stats      = 0
+        self._use_ctf_stats     = 0
         self.pix_size           = None
         super().__init__(prj_name, box_size)
 
@@ -1190,21 +861,12 @@ class SubtomoAvg(SubtomoAvgCore):
         self.cc_threshold  = 0.8
         self.fsc_threshold = 0.143
 
-        self.max_2d_delta_angstroms    = 0
         self.max_tilt_reconstruction   = -1
         self.use_nominal               = False
         self.discard_oversampled_views = None
-        self.type_2d_shift_fitting     = 'none'
-        self.tps_lambda                = 1.0
-        self.global_grid               = (4, 4, 2)
-        self.global_lambda             = None
-        self.image_grid                = (4, 4)
-        self.image_lambda              = None
-        self.image_orthogonalize       = False
-        self.inplane_grid              = (6, 6)
-        self.inplane_lambda            = 1.0
-        self.fit_cc_weight             = True
-        self.fitting_from_origin       = True
+        self.solver_2d                 = _ssa_solvers.Solver2D()
+        self.solver_ctf                = None
+        self.solver_highres            = _ssa_solvers.SolverHighRes()
         self.smooth_ctf                = False
         self.type_ctf_smoothing        = 'gaussian'
         self.ctf_tps_lambda            = 1.0
@@ -1280,6 +942,7 @@ class SubtomoAvg(SubtomoAvgCore):
         self.aligner.list_gpus_ids   = self.list_gpus_ids
         self.aligner.dimensionality  = ite_type
         self.aligner.verbosity       = self.verbosity
+        self.aligner.output_type     = 'alignment_stats' if (ite_type == 2 and self.solver_2d is not None) else 'alignment'
 
         print('  [%dD Alignment] Start:' % ite_type)
         t0 = _ssa_utils.time_now()
@@ -1298,6 +961,7 @@ class SubtomoAvg(SubtomoAvgCore):
     def _run_ctf_refinement(self, cur, prv):
         self.ctf_refiner.list_gpus_ids   = self.list_gpus_ids
         self.ctf_refiner.verbosity       = self.verbosity
+        self.ctf_refiner.output_type     = 'refinement_stats' if self.solver_ctf is not None else 'refinement'
 
         print('  [CTF Refinement] Start:')
         t0 = _ssa_utils.time_now()
@@ -1313,316 +977,8 @@ class SubtomoAvg(SubtomoAvgCore):
         print('  [CTF Refinement] Finished. Elapsed time: %.1f seconds (%s).'
               % (elapsed.total_seconds(), str(elapsed)))
 
-    def _resolve_image_grid(self, use_depth):
-        """Normalise :attr:`image_grid` to ``(mx, my, mz)``.
-
-        A 2-tuple gains a depth axis of 2 control points (linear in depth) when
-        *use_depth* is set, or 1 (no depth dependence) otherwise.
-        """
-        g = tuple(int(v) for v in self.image_grid)
-        if len(g) == 2:
-            return g + ((2,) if use_depth else (1,))
-        return g if use_depth else (g[0], g[1], 1)
-
-    def _fit_image_warp(self, B, R2, pt, res, wgt, use_depth=False):
-        """Fit a per-projection warp to the residual left by the global field.
-
-        Each projection gets its own B-spline warp.  With *use_depth* off the
-        warp is a function of the projected coordinates ``(x', y')`` only, which
-        forces every particle along a line of sight to share one shift.  With it
-        on the domain gains a third axis and the warp becomes a per-projection
-        *3-D* field.
-
-        That third axis is the **specimen** Z, not the rotated depth
-        ``d = (R·pos)_z``.  The two carry the same extra information, since
-
-            d = −tanθ·x' + z/cosθ
-
-        so the only content in *d* not already spanned by ``x'`` is the specimen
-        Z term, amplified by ``1/cosθ``.  But ``(x', y', d)`` is badly
-        conditioned: the particle cloud in ``(x', d)`` is a thin slab rotated by
-        the tilt angle, so the two coordinates are strongly correlated.
-        ``(x', y', z)`` carries the same information with the image-plane and
-        thickness directions cleanly separated.
-
-        This is the model implied by a global 3-D field failing while a
-        per-projection fit succeeds: the deformation is three-dimensional but
-        *changes between exposures*, as dose-driven beam-induced deformation
-        does.  A static field cannot represent that; a per-projection 3-D field
-        can.
-
-        Parameters
-        ----------
-        B : numpy.ndarray, shape (n, nc)
-            Global-field basis at the particle positions.
-        R2 : numpy.ndarray, shape (n_proj, 2, 3)
-        pt : numpy.ndarray, shape (n, 3)
-            Particle positions (Angstroms).
-        res : numpy.ndarray, shape (n, n_proj, 2)
-            Residual after the global field.
-        wgt : numpy.ndarray, shape (n, n_proj)
-        use_depth : bool, optional
-            Include the specimen-Z axis.  Default ``False``.
-
-        Returns
-        -------
-        tuple
-            ``(pred, lam)`` with *pred* shaped ``(n, n_proj, 2)``.
-        """
-        n, n_proj = res.shape[0], res.shape[1]
-        grid2 = self._resolve_image_grid(use_depth)
-        P2    = _np.kron(_grid_penalty(grid2), _np.eye(2))
-        third = pt[:, 2] if use_depth else _np.zeros(n)
-
-        bases, targets, weights = [], [], []
-        for k in range(n_proj):
-            xy = pt @ R2[k].T                       # projected coordinates
-            p3 = _np.column_stack([xy, third])
-            bbox = (p3.min(axis=0), p3.max(axis=0))
-            G = _bspline_basis_3d(p3, grid2, bbox)
-            bases.append(_image_warp_basis(
-                G, B if self.image_orthogonalize else None, R2[k]))
-            targets.append(res[:, k, :].ravel())
-            weights.append(_np.repeat(wgt[:, k], 2))
-
-        lam_grid = (_np.logspace(-3, 3, 13) if self.image_lambda is None
-                    else _np.atleast_1d(float(self.image_lambda)))
-
-        if lam_grid.size > 1:
-            rng  = _np.random.default_rng(1)
-            fold = rng.permutation(n) % 2
-            rows = [_np.repeat(fold == f, 2) for f in (0, 1)]
-            best_lam, best_err = lam_grid[0], _np.inf
-            for lam in lam_grid:
-                err = 0.0
-                for f in (0, 1):
-                    va, tr = rows[f], ~rows[f]
-                    for k in range(n_proj):
-                        a = _solve_penalized(bases[k][tr], targets[k][tr],
-                                             weights[k][tr], P2, lam)
-                        r = bases[k][va] @ a - targets[k][va]
-                        w = weights[k][va]
-                        if w.sum() > 0:
-                            err += float((w * r ** 2).sum() / w.sum())
-                if err < best_err:
-                    best_lam, best_err = lam, err
-            lam = best_lam
-        else:
-            lam = float(lam_grid[0])
-
-        pred = _np.zeros_like(res)
-        for k in range(n_proj):
-            a = _solve_penalized(bases[k], targets[k], weights[k], P2, lam)
-            pred[:, k, :] = (bases[k] @ a).reshape(n, 2)
-        return pred, lam
-
-    def _fit_global_deformation(self, ptcls_in, with_image=False, with_global=True,
-                                use_depth=False, with_inplane=False):
-        """Fit a global 3-D deformation field per tomogram and rewrite ``prj_t``.
-
-        Models the specimen as a single smooth 3-D displacement field
-        ``D(x, y, z)`` sampled by every projection through its own rotation,
-        so all tilts constrain one object.  The field is a tensor-product
-        cubic B-spline over :attr:`global_grid` control points, fitted jointly
-        across the tilt series by penalised least squares and written back as
-        ``prj_t[i,k] = (R_k · D(pos_i))[:2]``.
-
-        The fit is always from origin: the returned ``prj_t`` is entirely the
-        model's output, so nothing unregularised carries across iterations.
-
-        Stiffness is chosen by two-fold cross-validation over particles unless
-        :attr:`global_lambda` is set explicitly.
-
-        Parameters
-        ----------
-        ptcls_in : :class:`~susan.data.Particles`
-            Modified in place.
-        """
-        grid  = tuple(int(g) for g in self.global_grid)
-        nc    = int(_np.prod(grid))
-        tomos = _ssa_data.Tomograms(self.tomogram_file)
-        pt    = ptcls_in.pos()
-
-        lam_grid = (_np.logspace(-3, 3, 13) if self.global_lambda is None
-                    else _np.atleast_1d(float(self.global_lambda)))
-
-        # Minimum particles: the global field needs 3 unknowns per control
-        # point over the whole series; the image warp needs 2 per control
-        # point but only sees one projection at a time.
-        if with_global:
-            n_min, what = 3 * nc, '%dx%dx%d global grid' % grid
-        else:
-            g2    = self._resolve_image_grid(use_depth)
-            n_min = 3 * int(_np.prod(g2))
-            what  = '%dx%dx%d image grid' % g2
-
-        # Accumulate sums of squares so the summary is a properly pooled RMS
-        # rather than an average of per-tomogram RMS values.
-        lams_l1, lams_l2, lams_inpl = [], [], []
-        acc = {'n_tomo': 0, 'n_ptcl': 0, 'w': 0.0,
-               'obs': 0.0, 'field': 0.0, 'warp': 0.0, 'res': 0.0}
-        verbose = self.verbosity > 1
-
-        for tcix in range(tomos.n_tomos):
-            idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
-            n_t = int(idx.sum())
-            if n_t < n_min:
-                if n_t > 0:
-                    print('    Tomogram %d: %d particles < %d needed for a %s; '
-                          'skipped.' % (tcix, n_t, n_min, what))
-                continue
-
-            n_proj = int(tomos.num_proj[tcix])
-            R2 = tomos.proj_scale[tcix, :n_proj, None, None] * \
-                 _ssa_utils.euZYZ_to_rotm(tomos.proj_eZYZ[tcix, :n_proj], degrees=True)[:, :2, :]
-
-            pt_t  = pt[idx].astype(_np.float64)
-            obs   = ptcls_in.prj_t[idx, :n_proj, :].astype(_np.float64)
-            valid = ptcls_in.prj_w[idx, :n_proj] > 0
-            if self.fit_cc_weight:
-                # Reliability weighting: down-weight low-CC (e.g. high-tilt)
-                # observations instead of treating every valid one equally.
-                wgt = valid * _np.maximum(
-                    ptcls_in.prj_cc[idx, :n_proj].astype(_np.float64), 0.0)
-                m = wgt[wgt > 0].mean() if _np.any(wgt > 0) else 1.0
-                wgt = wgt / m                       # normalise so lambda stays comparable
-            else:
-                wgt = valid.astype(_np.float64)
-            bbox  = (pt_t.min(axis=0), pt_t.max(axis=0))
-            B     = _bspline_basis_3d(pt_t, grid, bbox)
-            P     = _grid_penalty(grid)
-
-            def _rms(v):
-                if wgt.sum() <= 0:
-                    return 0.0
-                return _np.sqrt(float((wgt * (v ** 2).sum(axis=2)).sum() / wgt.sum()))
-
-            rms_before = _rms(obs)
-
-            if with_global:
-                if lam_grid.size > 1:
-                    rng  = _np.random.default_rng(0)
-                    fold = rng.permutation(n_t) % 2
-                    best_lam, best_err = lam_grid[0], _np.inf
-                    for lam in lam_grid:
-                        err = 0.0
-                        for f in (0, 1):
-                            tr, va = (fold != f), (fold == f)
-                            if tr.sum() < 3 * nc or va.sum() < 1:
-                                err = _np.inf
-                                break
-                            C = _solve_global_field(B[tr], obs[tr], R2, wgt[tr], P, lam)
-                            r = _predict_global_field(B[va], C, R2) - obs[va]
-                            w = wgt[va]
-                            if w.sum() > 0:
-                                err += float((w * (r ** 2).sum(axis=2)).sum() / w.sum())
-                        if err < best_err:
-                            best_lam, best_err = lam, err
-                    lam = best_lam
-                else:
-                    lam = float(lam_grid[0])
-
-                C    = _solve_global_field(B, obs, R2, wgt, P, lam)
-                pred = _predict_global_field(B, C, R2)
-                amp  = _np.sqrt(((B @ C) ** 2).sum(axis=1))
-                lams_l1.append(lam)
-                acc['field'] += float((amp ** 2).sum())
-                if verbose:
-                    print('    Tomogram %d: %d particles, L1 lambda=%.3g, '
-                          'field RMS %.2f A, unexplained RMS %.2f A (of %.2f A).'
-                          % (tcix, n_t, lam, float(_np.sqrt((amp ** 2).mean())),
-                             _rms(pred - obs), rms_before))
-            else:
-                pred = _np.zeros_like(obs)
-                if verbose:
-                    print('    Tomogram %d: %d particles, no global field, '
-                          'input RMS %.2f A.' % (tcix, n_t, rms_before))
-
-            if with_image:
-                warp, lam2 = self._fit_image_warp(B, R2, pt_t, obs - pred, wgt,
-                                                  use_depth=use_depth)
-                pred = pred + warp
-                lams_l2.append(lam2)
-                acc['warp'] += float((wgt * (warp ** 2).sum(axis=2)).sum())
-                if verbose:
-                    print('      image warp: lambda=%.3g, warp RMS %.2f A, '
-                          'unexplained RMS %.2f A.'
-                          % (lam2, float(_np.sqrt((warp ** 2).sum(axis=2).mean())),
-                             _rms(pred - obs)))
-
-            acc['n_tomo'] += 1
-            acc['n_ptcl'] += n_t
-            acc['w']      += float(wgt.sum())
-            acc['obs']    += float((wgt * (obs ** 2).sum(axis=2)).sum())
-            acc['res']    += float((wgt * ((pred - obs) ** 2).sum(axis=2)).sum())
-
-            prj_new = ptcls_in.prj_t[idx]
-            prj_new[:, :n_proj, :] = pred.astype(ptcls_in.prj_t.dtype)
-            ptcls_in.prj_t[idx] = prj_new
-
-            # ---- in-plane rotation (prj_eu) -----------------------------
-            # prj_eu only rotates the cropped projection; it does NOT move the
-            # crop point (verified in reconstruct.h / crop_projections.h).  So
-            # prj_t is left exactly as written above -- the rotational shift it
-            # carries is the (needed) position correction; prj_eu carries only
-            # the orientation.  No subtraction, no double counting.
-            if with_inplane:
-                psi_meas = _prj_eu_to_inplane(ptcls_in.prj_eu[idx, :n_proj, :])
-                psi_out = _np.zeros((n_t, n_proj))
-                # Case 2 if an angle search has populated prj_eu, else case 1.
-                measured = float(_np.abs(psi_meas)[wgt > 0].max()
-                                 if _np.any(wgt > 0) else 0.0) > _np.deg2rad(0.02)
-                for k in range(n_proj):
-                    xyk = pt_t @ R2[k].T                  # projected (x', y')
-                    if measured:                          # smooth measured angles
-                        psi_out[:, k] = _smooth_inplane(
-                            xyk, psi_meas[:, k], wgt[:, k],
-                            grid=self.inplane_grid, lam=self.inplane_lambda)
-                    else:                                 # rigid psi_k from shifts
-                        psi_out[:, k] = _rigid_inplane(xyk, pred[:, k, :], wgt[:, k])
-                eu_new = ptcls_in.prj_eu[idx]
-                eu_new[:, :n_proj, :] = _inplane_to_prj_eu(psi_out).astype(
-                    ptcls_in.prj_eu.dtype)
-                ptcls_in.prj_eu[idx] = eu_new
-                lams_inpl.append((measured, float(_np.rad2deg(_np.abs(psi_out).max()))))
-
-        if acc['n_tomo'] == 0:
-            print('    Shift fitting: no tomogram had enough particles.')
-            return
-
-        # Geometric mean: lambda is swept on a log grid, so the log-average is
-        # the meaningful summary and a single loose tomogram does not dominate.
-        def _gmean(v):
-            return float(_np.exp(_np.mean(_np.log(_np.maximum(v, 1e-30)))))
-        def _rms_pooled(key, w):
-            return float(_np.sqrt(acc[key] / w)) if w > 0 else 0.0
-
-        w        = acc['w']
-        rms_in   = _rms_pooled('obs', w)
-        rms_out  = _rms_pooled('res', w)
-        expl     = 100.0 * (1.0 - (rms_out / rms_in) ** 2) if rms_in > 0 else 0.0
-        parts    = []
-        if lams_l1:
-            parts.append('global lambda %.4g, field RMS %.2f A'
-                         % (_gmean(lams_l1),
-                            _np.sqrt(acc['field'] / max(acc['n_ptcl'], 1))))
-        if lams_l2:
-            parts.append('image lambda %.4g, warp RMS %.2f A'
-                         % (_gmean(lams_l2), _rms_pooled('warp', w)))
-        print('    Shift fitting: %d tomograms, %d particles; %s.'
-              % (acc['n_tomo'], acc['n_ptcl'], '; '.join(parts)))
-        print('      input RMS %.2f A -> unexplained %.2f A (%.0f%% of variance '
-              'explained).' % (rms_in, rms_out, expl))
-        if lams_inpl:
-            src = 'smoothed measured' if lams_inpl[0][0] else 'rigid (from shifts)'
-            print('      in-plane (prj_eu): %s, max |psi| %.3f deg.'
-                  % (src, max(v for _, v in lams_inpl)))
-
-    def _regularize_2d_parameters(self, ptcls_in, cur, prv):
-        """Apply 2-D shift regularisation and/or CTF smoothing in-place.
-
-        Saves the modified particles to ``cur.ptcl_rslt``.
-        """
+    def _smooth_ctf_parameters(self, ptcls_in, cur, prv):
+        """Smooth the per-particle CTF defocus deltas in place (:attr:`smooth_ctf`); saves ``cur.ptcl_rslt``."""
 
         def _smooth_deltas(points, deltas, sigma, k):
             tree = _KDTree(points)
@@ -1657,129 +1013,207 @@ class SubtomoAvg(SubtomoAvgCore):
             sol = _np.linalg.lstsq(A, rhs, rcond=None)[0]
             return (K @ sol[:m] + P @ sol[m:]).astype(deltas.dtype)
 
-        # When fitting_from_origin is False, the regularisers act on the
-        # incremental shift (delta versus the previous iteration) and the
-        # smoothed delta is added back onto the previous prj_t.
-        prj_base = None
-        if (not self.fitting_from_origin
-                and self.type_2d_shift_fitting.lower() in ('affine', 'gaussian', 'tps')):
-            prj_base = _ssa_data.Particles(prv.ptcl_rslt).prj_t
-
-        if self.type_2d_shift_fitting == 'none':
-            # max_2d_delta_angstroms only applies to 2D alignment, not CTF refinement
-            if self.max_2d_delta_angstroms > 0 and self._validate_iteration_type() == 2:
-                if self.aligner.allow_drift:
-                    print('    Limiting 2D drift to %.2f Å.' % self.max_2d_delta_angstroms)
-                    ptcls_old  = _ssa_data.Particles(prv.ptcl_rslt)
-                    delta      = ptcls_in.prj_t - ptcls_old.prj_t
-                    norm       = _np.linalg.norm(delta, axis=2)
-                    scale      = self.max_2d_delta_angstroms / _np.maximum(norm, self.max_2d_delta_angstroms)
-                    scale[norm < self.max_2d_delta_angstroms] = 1
-                    ptcls_in.prj_t[:] = ptcls_old.prj_t + scale[:, :, _np.newaxis] * delta
+        method = self.type_ctf_smoothing.lower()
+        print('    Smoothing CTF defocus deltas (%s).' % method)
+        ptcls_old = _ssa_data.Particles(prv.ptcl_rslt)
+        delta_U   = ptcls_in.def_U - ptcls_old.def_U
+        delta_V   = ptcls_in.def_V - ptcls_old.def_V
+        pt    = ptcls_in.pos()
+        tomos = _ssa_data.Tomograms(self.tomogram_file)
+        min_n = 4 if method == 'tps' else 2
+        for tcix in range(tomos.n_tomos):
+            idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
+            n_t = idx.sum()
+            if n_t < min_n:
+                continue
+            k_eff = min(7, n_t)
+            for i in range(tomos.num_proj[tcix]):
+                pt0 = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
+                d   = _np.stack([delta_U[idx, i], delta_V[idx, i]], axis=1)
+                if method == 'tps':
+                    s = _tps_fit(pt0, d, self.ctf_tps_lambda)
                 else:
-                    print('    Limiting 2D shift to %.2f Å.' % self.max_2d_delta_angstroms)
-                    norm  = _np.linalg.norm(ptcls_in.prj_t, axis=2)
-                    scale = self.max_2d_delta_angstroms / _np.maximum(norm, self.max_2d_delta_angstroms)
-                    scale[norm < self.max_2d_delta_angstroms] = 1
-                    ptcls_in.prj_t[:] = scale[:, :, _np.newaxis] * ptcls_in.prj_t
-
-        elif self.type_2d_shift_fitting.lower() == 'affine':
-            pt    = ptcls_in.pos()
-            tomos = _ssa_data.Tomograms(self.tomogram_file)
-            for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
-                if idx.sum() < 4:
-                    continue
-                for i in range(tomos.num_proj[tcix]):
-                    base    = 0.0 if prj_base is None else prj_base[idx, i]
-                    pt0     = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
-                    pt1     = pt0 + (ptcls_in.prj_t[idx, i] - base)
-                    pt0_aug = _np.hstack([pt0, _np.ones((pt0.shape[0], 1))])
-                    xform, _, _, _ = _np.linalg.lstsq(pt0_aug, pt1, rcond=None)
-                    ptcls_in.prj_t[idx, i] = base + (pt0_aug @ xform - pt0)
-
-        elif self.type_2d_shift_fitting.lower() == 'gaussian':
-            pt    = ptcls_in.pos()
-            tomos = _ssa_data.Tomograms(self.tomogram_file)
-            for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
-                n_t = idx.sum()
-                if n_t < 2:
-                    continue
-                k_eff = min(7, n_t)
-                for i in range(tomos.num_proj[tcix]):
-                    base  = 0.0 if prj_base is None else prj_base[idx, i]
-                    pt0   = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
                     sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
-                    ptcls_in.prj_t[idx, i] = base + _smooth_deltas(
-                        pt0, ptcls_in.prj_t[idx, i] - base, sigma=sigma, k=k_eff)
-
-        elif (self.type_2d_shift_fitting.lower()
-              .replace('+inplane', '').replace('_inplane', '').rstrip('+_')
-              in ('global', 'global+image', 'global_image', 'global+local',
-                  'global_local', 'image', 'local', 'local_3d', 'image_3d')):
-            # Shift field (global / image / depth), with an optional '+inplane'
-            # suffix that also regularises the in-plane rotation into prj_eu.
-            # 'local' is an accepted alias for 'image' (per-projection warp).
-            m    = self.type_2d_shift_fitting.lower()
-            wi   = 'inplane' in m
-            base = m.replace('+inplane', '').replace('_inplane', '').rstrip('+_')
-            kw   = dict(with_inplane=wi)
-            if base in ('global+image', 'global_image', 'global+local', 'global_local'):
-                kw['with_image'] = True
-            elif base in ('image', 'local'):
-                kw.update(with_image=True, with_global=False)
-            elif base in ('local_3d', 'image_3d'):
-                kw.update(with_image=True, with_global=False, use_depth=True)
-            self._fit_global_deformation(ptcls_in, **kw)
-
-        elif self.type_2d_shift_fitting.lower() == 'tps':
-            pt    = ptcls_in.pos()
-            tomos = _ssa_data.Tomograms(self.tomogram_file)
-            for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
-                if idx.sum() < 4:
-                    continue
-                for i in range(tomos.num_proj[tcix]):
-                    base = 0.0 if prj_base is None else prj_base[idx, i]
-                    pt0  = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
-                    ptcls_in.prj_t[idx, i] = base + _tps_fit(
-                        pt0, ptcls_in.prj_t[idx, i] - base, self.tps_lambda)
-
-        else:
-            raise ValueError(
-                "Unrecognised type_2d_shift_fitting %r.  Accepted: 'none', "
-                "'affine', 'gaussian', 'tps', 'global', 'global+image' (alias "
-                "'global+local'), 'image'/'local', 'local_3d', and their "
-                "'+inplane' variants." % self.type_2d_shift_fitting)
-
-        if self.smooth_ctf and self._validate_iteration_type() == 'ctf':
-            method = self.type_ctf_smoothing.lower()
-            print('    Smoothing CTF defocus deltas (%s).' % method)
-            ptcls_old = _ssa_data.Particles(prv.ptcl_rslt)
-            delta_U   = ptcls_in.def_U - ptcls_old.def_U
-            delta_V   = ptcls_in.def_V - ptcls_old.def_V
-            pt    = ptcls_in.pos()
-            tomos = _ssa_data.Tomograms(self.tomogram_file)
-            min_n = 4 if method == 'tps' else 2
-            for tcix in range(tomos.n_tomos):
-                idx = ptcls_in.tomo_id == tomos.tomo_id[tcix]
-                n_t = idx.sum()
-                if n_t < min_n:
-                    continue
-                k_eff = min(7, n_t)
-                for i in range(tomos.num_proj[tcix]):
-                    pt0 = (tomos.project(tcix, pt[idx], i, shift=False))[:, :2]
-                    d   = _np.stack([delta_U[idx, i], delta_V[idx, i]], axis=1)
-                    if method == 'tps':
-                        s = _tps_fit(pt0, d, self.ctf_tps_lambda)
-                    else:
-                        sigma = _np.median(_np.linalg.norm(pt0, axis=1)) * 0.25
-                        s = _smooth_deltas(pt0, d, sigma=sigma, k=k_eff)
-                    ptcls_in.def_U[idx, i] = ptcls_old.def_U[idx, i] + s[:, 0]
-                    ptcls_in.def_V[idx, i] = ptcls_old.def_V[idx, i] + s[:, 1]
+                    s = _smooth_deltas(pt0, d, sigma=sigma, k=k_eff)
+                ptcls_in.def_U[idx, i] = ptcls_old.def_U[idx, i] + s[:, 0]
+                ptcls_in.def_V[idx, i] = ptcls_old.def_V[idx, i] + s[:, 1]
 
         ptcls_in.save(cur.ptcl_rslt)
+
+    def _solve_2d(self, ptcls_aligned, cur, prv):
+        """2-D solution of the aligned particles from the statistics (:attr:`solver_2d`); saves ``cur.ptcl_rslt``."""
+        print('    2D solver (per tomogram%s):' % (' and half-set' if self.aligner.halfsets_independ else ''))
+        P = self.solver_2d.solve(prv.ptcl_rslt, _ssa_io.ali_stats.path(cur.ptcl_rslt), self.tomogram_file)
+        P.ali_cc[:] = ptcls_aligned.ali_cc
+        P.prj_cc[:] = ptcls_aligned.prj_cc
+        P.save(cur.ptcl_rslt)
+        self.use_2d_stats = cur.ite
+        return P
+
+    def _solve_ctf(self, cur, prv):
+        """Defocus correction of the input particles from the statistics (:attr:`solver_ctf`); saves ``cur.ptcl_rslt``."""
+        print('    CTF solver (per tomogram%s):' % (' and half-set' if self.ctf_refiner.halfsets_independ else ''))
+        offset_search = max(self.ctf_refiner.offset.span[:2]) > 0
+        P = self.solver_ctf.solve(prv.ptcl_rslt, _ssa_io.ctf_stats.path(cur.ptcl_rslt), self.tomogram_file,
+                                  offset_search=offset_search)
+        P.save(cur.ptcl_rslt)
+        self.use_ctf_stats = cur.ite
+        return P
+
+    def _stats_file(self, ite, path, name):
+        """File of the statistics of iteration ite, None when disabled (0) or missing (a warning)."""
+        if ite < 1:
+            return None
+        f = path(self.iteration_files(ite).ptcl_rslt)
+        if not _file_exists(f):
+            _warnings.warn('The %s statistics of iteration %d (%s) do not exist: not used.' % (name, ite, f),
+                           RuntimeWarning, stacklevel=3)
+            return None
+        return f
+
+    def _mask_radius(self, prv):
+        """Particle radius (Angstroms) from the reference mask: 90th percentile of the distance from the box centre
+        of the voxels above 0.5; None without a mask."""
+        refs = _ssa_data.Reference(prv.reference)
+        r = 0.0
+        for msk in refs.msk:
+            if not msk or not _file_exists(msk):
+                continue
+            vol, apix = _mrc_read(msk)
+            c = _np.argwhere(vol > 0.5) - _np.array(vol.shape) // 2
+            if len(c):
+                r = max(r, float(_np.percentile(_np.linalg.norm(c, axis=1), 90)) * float(apix[0]))
+        return r if r > 0 else None
+
+    def _solve_highres(self, ptcls, cur, prv):
+        """Particles of the reconstruction from the statistics of :attr:`use_2d_stats` and :attr:`use_ctf_stats`."""
+        f2d = self._stats_file(self.use_2d_stats, _ssa_io.ali_stats.path, '2D')
+        fct = self._stats_file(self.use_ctf_stats, _ssa_io.ctf_stats.path, 'CTF')
+        null = self._null_baseline(ptcls) if f2d is not None else None
+        print('    Reconstruction particles from the statistics: 2D %s, CTF %s.' % (
+            ('iteration %d (%s baseline)' % (self.use_2d_stats, 'null' if null is not None else 'second peak')) if f2d else 'none',
+            ('iteration %d' % self.use_ctf_stats) if fct else 'none'))
+        return self.solver_highres.solve(ptcls, f2d, fct, self.tomogram_file, cc_threshold=self.cc_threshold,
+                                         null_baseline=null, radius=self._mask_radius(prv))
+
+    # ------------------------------------------------------------------
+    # Null of the 2-D statistics
+    # ------------------------------------------------------------------
+
+    def _null_dir(self):
+        return self.prj_name + '/null/'
+
+    def _null_setup(self):
+        """The settings a null depends on (written to and compared with ``null/null.json``)."""
+        a = self.aligner
+        return dict(box_size=int(self.box_size), tomogram_file=str(self.tomogram_file),
+                    highpass=float(a.bandpass.highpass), lowpass=float(a.bandpass.lowpass), rolloff=float(a.bandpass.rolloff),
+                    cc_type=str(a.cc_type), ctf_correction=str(a.ctf_correction), extra_padding=int(a.extra_padding),
+                    offset_span=[float(v) for v in a.offset.span], offset_step=float(a.offset.step),
+                    offset_type=str(a.offset.kind), halfsets_independ=bool(a.halfsets_independ))
+
+    def update_null(self, iter_base, kind='rot90'):
+        """Null of the 2-D statistics, kept in ``{project}/null/`` and used by the 2-D iterations until updated.
+
+        Null references are made from the maps of iteration ``iter_base`` (:func:`susan.utils.null_map`), following
+        the half-map policy of :attr:`aligner` (with ``halfsets_independ`` each half map gives its half's null), and
+        the particles of ``iter_base`` are aligned to them in 2-D with the current :attr:`aligner` settings. The CC
+        baseline (median null peak per tomogram, half-set and tilt) and a descriptor of the setup
+        (``null.json``) are kept; the alignment outputs are removed. Before use the descriptor is compared with the
+        setup of the iteration (a warning when they differ). Without a null the weights use the second CC peak,
+        which matches it on EMPIAR-10064 (same reconstruction).
+
+        Parameters
+        ----------
+        iter_base : int
+            Iteration whose maps and particles are used.
+        kind : str
+            ``'rot90'`` (the map rotated 90 degrees about y; default) or ``'phase_random'``.
+        """
+        import json as _json
+        base = self.iteration_files(iter_base)
+        d = self._null_dir()
+        if not _file_exists(d):
+            _mkdir(d)
+        refs = _ssa_data.Reference(base.reference)
+        halves = bool(self.aligner.halfsets_independ)
+        for i in range(refs.n_refs):
+            msk, _ = _mrc_read(refs.msk[i])
+            srcs = (('h1', refs.h1), ('h2', refs.h2)) if halves else (('ref', refs.ref),)
+            for name, lst in srcs:
+                vol, apix = _mrc_read(lst[i])
+                out = d + 'null_class%03d_%s.mrc' % (i + 1, name)
+                _mrc_write(_ssa_utils.null_map(vol, msk, kind, seed=i).astype(_np.float32), out, apix)
+                lst[i] = out
+        refs.save(d + 'null.refstxt')
+        a = self.aligner
+        prev = (a.output_type, a.dimensionality, a.cone, a.inplane)
+        a.output_type, a.dimensionality = 'alignment_stats', 2
+        a.cone, a.inplane = type(a.cone)(0, 1), type(a.inplane)(0, 1)
+        a.list_gpus_ids, a.verbosity = self.list_gpus_ids, self.verbosity
+        out = d + 'null_ali.ptclsraw'
+        print('  [Null] Aligning the particles of iteration %d to the %s null:' % (iter_base, kind))
+        try:
+            if self.mpi.arg > 1:
+                a.mpi.cmd, a.mpi.arg = self.mpi.cmd, self.mpi.arg
+                a.align_mpi(out, d + 'null.refstxt', self.tomogram_file, base.ptcl_rslt, self.box_size)
+            else:
+                a.align(out, d + 'null.refstxt', self.tomogram_file, base.ptcl_rslt, self.box_size)
+        finally:
+            a.output_type, a.dimensionality, a.cone, a.inplane = prev
+        S = _ssa_io.ali_stats.read(out)
+        P = _ssa_data.Particles(base.ptcl_rslt)
+        cc = S['projections/stats'][..., _ssa_io.ali_stats.FIELDS.index('cc')]
+        tid, hid = P.tomo_id.flatten().astype(int), P.half_id.flatten().astype(int)
+        tids = _np.unique(tid)
+        K = cc.shape[1]
+        b = _np.full((len(tids), 3, K), _np.nan)
+        for it, t in enumerate(tids):
+            for h in (0, 1, 2):
+                r = (tid == t) & (hid == h)
+                for k in range(K):
+                    v = cc[r, k]
+                    v = v[_np.isfinite(v) & (v > 0)]
+                    if len(v) >= 10:
+                        b[it, h, k] = _np.median(v)
+        _np.savez(d + 'null_baseline.npz', tomo_id=tids, baseline=b)
+        with open(d + 'null.json', 'w') as fp:
+            _json.dump(dict(iter_base=int(iter_base), kind=kind, setup=self._null_setup()), fp, indent=1)
+        for f in (out, _ssa_io.ali_stats.path(out)):
+            if _file_exists(f):
+                _rm(f)
+        print('  [Null] Baseline kept in %s (median %.4g).' % (d, _np.nanmedian(b)))
+
+    def _null_baseline(self, ptcls):
+        """(n_ptcl, K) null baseline of the particles from ``null/``, None when there is no null."""
+        import json as _json
+        d = self._null_dir()
+        if not (_file_exists(d + 'null.json') and _file_exists(d + 'null_baseline.npz')):
+            return None
+        with open(d + 'null.json') as fp:
+            desc = _json.load(fp)
+        cur = self._null_setup()
+        diff = []
+        for k, v in desc['setup'].items():
+            c = cur.get(k)
+            if isinstance(v, float) and isinstance(c, float):
+                if abs(v - c) > 0.05 * max(abs(v), abs(c), 1e-12):
+                    diff.append('%s %g -> %g' % (k, v, c))
+            elif v != c:
+                diff.append('%s %s -> %s' % (k, v, c))
+        if diff:
+            _warnings.warn('The null of iteration %d was made with another setup (%s): its baseline may not apply; '
+                           'call update_null.' % (desc['iter_base'], '; '.join(diff)), RuntimeWarning, stacklevel=3)
+        z = _np.load(d + 'null_baseline.npz')
+        tids, b = list(z['tomo_id']), z['baseline']
+        n, K = ptcls.prj_w.shape
+        out = _np.full((n, K), _np.nan)
+        tid, hid = ptcls.tomo_id.flatten().astype(int), ptcls.half_id.flatten().astype(int)
+        for i in range(n):
+            if tid[i] in tids:
+                kk = min(K, b.shape[2])
+                out[i, :kk] = b[tids.index(tid[i]), min(max(hid[i], 0), 2), :kk]
+        return out
 
     def _apply_cc_threshold(self, ptcls_in):
         """Zero the half-set label of low-CC particles; return selected subset."""
@@ -1916,7 +1350,7 @@ class SubtomoAvg(SubtomoAvgCore):
             self._run_alignment(cur, prv, ite_type)
 
     def select_particles(self, cur, prv):
-        """Classify, regularise, threshold, and write ``cur.ptcl_temp``.
+        """Classify, regularise, threshold, and write ``cur.ptcl_rec``.
 
         Parameters
         ----------
@@ -1924,14 +1358,15 @@ class SubtomoAvg(SubtomoAvgCore):
         """
         print('  [Aligned particles] Processing:')
         ptcls_in = _ssa_data.Particles(cur.ptcl_rslt)
+        ite_type = self._validate_iteration_type()
+        use_solver = ite_type == 2 and self.solver_2d is not None
 
-        should_fix_2d = (
-            (self.max_2d_delta_angstroms > 0)
-            or (self.type_2d_shift_fitting != 'none')
-            or self.smooth_ctf
-        )
-        if self._validate_iteration_type() in (2, 'ctf') and should_fix_2d:
-            self._regularize_2d_parameters(ptcls_in, cur, prv)
+        if use_solver:
+            ptcls_in = self._solve_2d(ptcls_in, cur, prv)
+        if ite_type == 'ctf' and self.solver_ctf is not None:
+            ptcls_in = self._solve_ctf(cur, prv)
+        if ite_type == 'ctf' and self.smooth_ctf:
+            self._smooth_ctf_parameters(ptcls_in, cur, prv)
 
         if ptcls_in.n_refs > 1:
             ptcls_in.ref_cix = _np.argmax(ptcls_in.ali_cc, axis=0).astype(_np.uint32)
@@ -1946,7 +1381,10 @@ class SubtomoAvg(SubtomoAvgCore):
                     float(self.reweight_classification)).astype(ptcls_in.ali_cc.dtype)
             ptcls_in.save(cur.ptcl_rslt)
 
-        ptcls_out = self._apply_cc_threshold(ptcls_in)
+        if self.solver_highres is not None:
+            ptcls_out = self._solve_highres(ptcls_in, cur, prv)
+        else:
+            ptcls_out = self._apply_cc_threshold(ptcls_in)
 
         v = self.discard_oversampled_views
         flatten_active = (v is not None) and (
@@ -1960,7 +1398,7 @@ class SubtomoAvg(SubtomoAvgCore):
         if tilt_active:
             self._apply_tilt_limit(ptcls_out)
 
-        ptcls_out.save(cur.ptcl_temp)
+        ptcls_out.save(cur.ptcl_rec)
         print('  [Aligned particles] Done.')
 
     def run_reconstruction(self, cur, prv):
@@ -1979,15 +1417,13 @@ class SubtomoAvg(SubtomoAvgCore):
             self.averager.mpi.cmd = self.mpi.cmd
             self.averager.mpi.arg = self.mpi.arg
             self.averager.reconstruct_mpi(
-                cur.ite_dir + 'map', self.tomogram_file, cur.ptcl_temp, self.box_size)
+                cur.ite_dir + 'map', self.tomogram_file, cur.ptcl_rec, self.box_size)
         else:
             self.averager.reconstruct(
-                cur.ite_dir + 'map', self.tomogram_file, cur.ptcl_temp, self.box_size)
+                cur.ite_dir + 'map', self.tomogram_file, cur.ptcl_rec, self.box_size)
         elapsed = _ssa_utils.time_now() - t0
         print('  [Reconstruct Maps] Finished. Elapsed time: %.1f seconds (%s).'
               % (elapsed.total_seconds(), str(elapsed)))
-
-        _rm(cur.ptcl_temp)
 
         refs = _ssa_data.Reference(prv.reference)
         for i in range(refs.n_refs):

@@ -197,6 +197,24 @@ class Aligner(_BandpassFpix):
         With :attr:`dimensionality` 2, ``'dense'`` writes the legacy CSV
         ``{output}_{host}_{thread}.csv`` (``TID,PartID,RID,ProjID,ProjW,X,Y,CC``:
         per projection, the CC map of the orientation with the highest peak).
+        ``'alignment_stats'`` (:attr:`dimensionality` 2 only): as
+        ``'alignment'``, plus ``{output stem}.stats.npz`` with statistics of
+        the raw CC (no projection weight, no priors) over the offsets: per
+        particle and projection at the input orientation (peak, sub-pixel
+        peak, z-score, Hessian, second peak), and per tomogram in equal-count
+        groups of the particle x, y (:attr:`stats_groups`), the same for the
+        mean CC map of each group; with :attr:`halfsets_independ` the groups
+        are drawn per half-set (no group mixes the halves).  The angular
+        search is sequential, not joint, the same for every particle: the
+        :attr:`cone` points at in-plane 0, then the :attr:`inplane` points at
+        cone 0; it does not change the particles' angles (only the offsets of
+        the input orientation are aligned), the groups up to 2 x 2 keep the
+        peak of their mean CC map per angle.  Requires :attr:`refine` levels
+        ``= 0``, :attr:`angle_sigma` ``= 0`` and :attr:`pseudo_symmetry`
+        ``'c1'``.  Read it with :func:`susan.io.ali_stats.read`.
+    stats_groups : list of int
+        Group sizes gs of ``'alignment_stats'``: gs x gs equal-count bins of
+        the particle x, y per tomogram.  Default: ``[1, 2, 3, 4, 5]``.
     dense_reduce : str
         How the offset samples of an output voxel are reduced in ``'dense'``
         3-D output: ``'max'`` (the sample with the highest z) or ``'mean'``
@@ -243,6 +261,7 @@ class Aligner(_BandpassFpix):
         self.mpi               = _dt.mpi_params('srun -n %d ',1)
         self.verbosity         = 0
         self.output_type       = 'alignment'
+        self.stats_groups      = [1,2,3,4,5]
         self.dense_reduce      = 'max'
         self.dense_bin         = 1
         self.dilate            = 0
@@ -341,8 +360,18 @@ class Aligner(_BandpassFpix):
         if not self.cc_stats_type in ['none','sigma']:
             raise ValueError('Invalid cc statistic method. Only "none" or "sigma" are valid')
 
-        if not self.output_type in ['alignment','dense']:
-            raise ValueError('Invalid output type. Only "alignment" or "dense" are valid')
+        if not self.output_type in ['alignment','alignment_stats','dense']:
+            raise ValueError('Invalid output type. Only "alignment", "alignment_stats" or "dense" are valid')
+
+        if self.output_type == 'alignment_stats':
+            if self.dimensionality != 2:
+                raise ValueError('output_type "alignment_stats" requires dimensionality 2')
+            if self.refine.levels != 0 or self.angle_sigma > 0 or self.pseudo_symmetry != 'c1':
+                raise ValueError('output_type "alignment_stats" (sequential angular search) requires refine levels = 0, '
+                                 'angle_sigma = 0 and pseudo_symmetry "c1"')
+
+        if not 1 <= len(self.stats_groups) <= 8 or any(int(g) < 1 for g in self.stats_groups):
+            raise ValueError('stats_groups: 1 to 8 group sizes, each at least 1')
 
         if not self.dense_reduce in ['max','mean']:
             raise ValueError('Invalid dense reduction. Only "max" or "mean" are valid')
@@ -411,6 +440,8 @@ class Aligner(_BandpassFpix):
         args = args + ' -output_type '     + self.output_type
         args = args + ' -dense_reduce '    + self.dense_reduce
         args = args + ' -dense_bin %d'     % self.dense_bin
+        if self.output_type == 'alignment_stats':
+            args = args + ' -stats_groups '    + ','.join('%d' % int(g) for g in self.stats_groups)
         args = args + ' -refs_file '       + refs_file
         args = args + ' -n_threads %d'     % n_threads
         args = args + ' -gpu_list '        + gpu_str
@@ -1311,6 +1342,23 @@ class CtfRefiner(_BandpassFpix):
         phase-shift deviation (see :attr:`offset_sigma`).  Converted to
         radians before being passed to the binary.  ``0`` (default)
         disables it.
+    output_type : str
+        ``'refinement'`` (default): the free per-particle search; the refined
+        particles are written to the output file.  ``'refinement_stats'``: no
+        per-particle search and the particles are written unchanged, plus
+        ``{output stem}.ctfstats.npz`` with the CTF statistics pooled per
+        tomogram in equal-count groups of the particle x, y
+        (:attr:`stats_groups`; with :attr:`halfsets_independ` drawn per
+        half-set), over the defocus grid of :attr:`defocus_angstroms`; the
+        substack and reference whitened as :attr:`cc_type` (``'basic'``
+        recommended: the whitening biases the defocus).  Requires a
+        :attr:`defocus_angstroms` span larger than 0.  Read it with
+        :func:`susan.io.ctf_stats.read`, correct the particles with
+        :class:`susan.solvers.SolverCTF`.
+    stats_groups : list of int
+        Group sizes gs of ``'refinement_stats'``: gs x gs equal-count bins of
+        the particle x, y per tomogram.  The solver needs 1 and 3.
+        Default: ``[1, 3]``.
     mpi : :class:`~susan.utils.datatypes.mpi_params`
         MPI launcher configuration used by :meth:`refine_mpi`.
         Default: ``mpi_params('srun -n %d ', 1)``.
@@ -1336,6 +1384,8 @@ class CtfRefiner(_BandpassFpix):
         self.offset_sigma       = 0.0
         self.defocus_sigma      = 0.0
         self.phase_sigma_deg    = 0.0
+        self.output_type        = 'refinement'
+        self.stats_groups       = [1,3]
         self.mpi                = _dt.mpi_params('srun -n %d ',1)
         self.verbosity          = 0
 
@@ -1396,6 +1446,15 @@ class CtfRefiner(_BandpassFpix):
         if self.phase_sigma_deg < 0:
             raise ValueError('phase_sigma_deg must be >= 0 (0 disables the phase-shift prior).')
 
+        if not self.output_type in ['refinement','refinement_stats']:
+            raise ValueError('Invalid output type. Only "refinement" or "refinement_stats" are valid')
+
+        if self.output_type == 'refinement_stats' and not self.defocus_angstroms.span > 0:
+            raise ValueError('output_type "refinement_stats" requires a defocus_angstroms span larger than 0')
+
+        if not 1 <= len(self.stats_groups) <= 8 or any(int(g) < 1 for g in self.stats_groups):
+            raise ValueError('stats_groups: 1 to 8 group sizes, each at least 1')
+
     def get_args(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):
         """Build the command-line argument string for ``susan_ctf_refiner``.
 
@@ -1448,6 +1507,9 @@ class CtfRefiner(_BandpassFpix):
         args = args + ' -offset_sigma %f'  % self.offset_sigma
         args = args + ' -defocus_sigma %f' % self.defocus_sigma
         args = args + ' -phase_sigma %f'   % _math.radians(self.phase_sigma_deg)
+        args = args + ' -output_type '     + self.output_type
+        if self.output_type == 'refinement_stats':
+            args = args + ' -stats_groups '    + ','.join('%d' % int(g) for g in self.stats_groups)
         return args
 
     def refine(self, ptcls_out, refs_file, tomos_file, ptcls_in, box_size):

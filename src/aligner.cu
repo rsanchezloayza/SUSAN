@@ -50,14 +50,29 @@ int main(int ac, char** av) {
         StackReader stkrdr(&ptcls,&tomos,&barrier,info.norm_type);
         AliPool pool(&info,&refs,tomos.num_proj,ptcls.n_ptcl,stkrdr,info.n_threads);
 
+        /// type 2: per projection and grouped statistics of the CC evidence (ali_stats.h)
+        AliStats stats;
+        const bool save_stats = info.output_type == ALI_OUTPUT_ALIGNMENT_STATS;
+        if( save_stats ) {
+            stats.setup(tomos,info.off_type,info.off_x,info.off_y,info.off_z,info.off_s,
+                        std::vector<int>(info.stats_groups,info.stats_groups+info.n_stats_groups),info.n_threads,
+                        info.ali_halves,ArgsAli::stats_angles(info));
+            stats.set_layout(ptcls,tomos);
+            stats.set_range(0,ptcls.n_ptcl,0,ptcls.n_ptcl);
+            pool.set_stats(&stats,ptcls.p_raw);
+        }
+
         stkrdr.start();
         pool.start();
 
         stkrdr.wait();
         pool.wait();
 
-        if( info.output_type == ALI_OUTPUT_ALIGNMENT )
+        if( info.output_type != ALI_OUTPUT_DENSE )
             ptcls.save(info.output);
+
+        if( save_stats && !stats.save(info.output) )
+            fprintf(stderr,"Error writing the statistics of %s\n",info.output);
     }
     else {
         DataInfo::exit_bad_args();

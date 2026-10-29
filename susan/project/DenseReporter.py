@@ -453,11 +453,7 @@ class DenseReporter:
         ref = _ssa_data.Reference(self.reference)
         vol, apix = _mrc.read(ref.ref[0])
         msk, _ = _mrc.read(ref.msk[0])
-        vol = vol.astype(_np.float64)
-        msk = _np.clip(msk.astype(_np.float64),0,1)
-        dec = _ssa_utils.phase_randomize(vol,fpix=0,seed=seed).astype(_np.float64)*msk
-        inm = msk > 0.5
-        dec = ((dec - dec[inm].mean())/dec[inm].std()*vol[inm].std() + vol[inm].mean())*msk
+        dec = _ssa_utils.null_map(vol,msk,'phase_random',seed)
         map_file = _os.path.join(folder,'decoy.mrc')
         _mrc.write(dec.astype(_np.float32),map_file,apix=float(apix[0]))
         refs_file = _os.path.join(folder,'decoy.refstxt')

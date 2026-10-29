@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cmath>
 #include <vector>
+#include <algorithm>
 #include <mpi.h>
 
 #include "datatypes.h"
@@ -177,6 +178,48 @@ public:
     }
 
 
+
+    /// The particle counts of scatter_particles, from the main node to all.
+    void bcast_scatter(MpiScatterInfo&scatter_info) {
+        MPI_Bcast((void*)scatter_info.count_per_node,num_nodes,MPI_UNSIGNED,0,MPI_COMM_WORLD);
+    }
+
+    /// First global particle index of this node (the scatter is contiguous).
+    uint32 scatter_offset(const MpiScatterInfo&scatter_info) {
+        uint32 offset = 0;
+        for(int i=0;i<node_id;i++) offset += scatter_info.count_per_node[i];
+        return offset;
+    }
+
+    /// Byte buffers: broadcast from the main node, and point to point (in chunks: MPI counts are int).
+    void bcast_bytes(std::vector<uint8_t>&b) {
+        uint64_t n = b.size();
+        MPI_Bcast((void*)&n,1,MPI_UINT64_T,0,MPI_COMM_WORLD);
+        b.resize(n);
+        for(uint64_t pos=0;pos<n;pos+=SUSAN_MPI_CHUNK_BYTES) {
+            int c = (int)std::min<uint64_t>(SUSAN_MPI_CHUNK_BYTES,n-pos);
+            MPI_Bcast((void*)(b.data()+pos),c,MPI_BYTE,0,MPI_COMM_WORLD);
+        }
+    }
+
+    void send_bytes(int dst,const std::vector<uint8_t>&b,int tag) {
+        uint64_t n = b.size();
+        MPI_Send((void*)&n,1,MPI_UINT64_T,dst,tag,MPI_COMM_WORLD);
+        for(uint64_t pos=0;pos<n;pos+=SUSAN_MPI_CHUNK_BYTES) {
+            int c = (int)std::min<uint64_t>(SUSAN_MPI_CHUNK_BYTES,n-pos);
+            MPI_Send((void*)(b.data()+pos),c,MPI_BYTE,dst,tag,MPI_COMM_WORLD);
+        }
+    }
+
+    void recv_bytes(int src,std::vector<uint8_t>&b,int tag) {
+        uint64_t n = 0;
+        MPI_Recv((void*)&n,1,MPI_UINT64_T,src,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+        b.resize(n);
+        for(uint64_t pos=0;pos<n;pos+=SUSAN_MPI_CHUNK_BYTES) {
+            int c = (int)std::min<uint64_t>(SUSAN_MPI_CHUNK_BYTES,n-pos);
+            MPI_Recv((void*)(b.data()+pos),c,MPI_BYTE,src,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+        }
+    }
 
     void delete_scattered_ptcls(Particles*ptcls_in) {
         delete ptcls_in;

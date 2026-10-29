@@ -28,6 +28,7 @@ __all__ = ['dose_from_fsc',
            'spectral_weight_CFSC',
            'apply_spectral_weight',
            'phase_randomize',
+           'null_map',
            'fsc_sharpen',
            'fsc_sharpen_filter',
            'euDYN_rotm',
@@ -498,6 +499,34 @@ def fsc_sharpen_filter(apix, bfactor, **kwargs):
     >>> sta.map_filter_fsc = fsc_sharpen_filter(sta.pix_size, bfactor=-120)
     """
     return lambda vol, fsc: fsc_sharpen(vol, fsc, apix, bfactor, **kwargs)
+
+
+def null_map(vol, mask, kind='rot90', seed=None):
+    """A reference without the structure of ``vol``, for null alignments.
+
+    ``kind`` ``'rot90'``: ``vol`` rotated 90 degrees about y; ``'phase_random'``: :func:`phase_randomize` of ``vol``
+    (all frequencies: same amplitudes, random phases).  Then masked and rescaled to the mean and std of ``vol`` inside
+    the mask (``mask > 0.5``).  Returns a float64 volume.
+
+    Parameters
+    ----------
+    vol, mask : numpy.ndarray
+        Reference map and its mask (same shape; the mask is clipped to [0, 1]).
+    kind : str
+        ``'rot90'`` or ``'phase_random'``.
+    seed : int, optional
+        Seed of the phases (``'phase_random'``).
+    """
+    vol = np.asarray(vol).astype(np.float64)
+    msk = np.clip(np.asarray(mask).astype(np.float64),0,1)
+    if kind == 'rot90':
+        dec = np.ascontiguousarray(np.rot90(vol,1,axes=(0,2)))*msk
+    elif kind == 'phase_random':
+        dec = phase_randomize(vol,fpix=0,seed=seed).astype(np.float64)*msk
+    else:
+        raise ValueError('kind: "rot90" or "phase_random"')
+    inm = msk > 0.5
+    return ((dec - dec[inm].mean())/dec[inm].std()*vol[inm].std() + vol[inm].mean())*msk
 
 ###########################################
 

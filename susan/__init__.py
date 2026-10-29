@@ -21,6 +21,7 @@ from . import io
 from . import utils
 from . import modules
 from . import project
+from . import solvers
 
 try:
     from . import ml

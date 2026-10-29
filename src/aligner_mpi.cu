@@ -139,13 +139,39 @@ int main(int ac, char** av) {
         AliPoolMpi pool(&info,&refs,tomos.num_proj,ptcls->n_ptcl,stkrdr,info.n_threads);
         pool.set_mpi(&mpi_iface,&mpi_progress,ptcls_io);
 
+        /// type 2 statistics (ali_stats.h): the main node computes the layout (tomogram and group labels of every
+        /// particle) and holds the rows of all the particles; each node processes its contiguous range.
+        AliStats stats;
+        const bool save_stats = info.output_type == ALI_OUTPUT_ALIGNMENT_STATS;
+        if( save_stats ) {
+            stats.setup(tomos,info.off_type,info.off_x,info.off_y,info.off_z,info.off_s,
+                        std::vector<int>(info.stats_groups,info.stats_groups+info.n_stats_groups),info.n_threads,
+                        info.ali_halves,ArgsAli::stats_angles(info));
+            mpi_iface.bcast_scatter(scatter_info);
+            std::vector<uint8_t> layout;
+            if( mpi_iface.is_main_node() ) {
+                stats.set_layout(*ptcls_io,tomos);
+                layout = stats.pack_layout();
+            }
+            mpi_iface.bcast_bytes(layout);
+            if( !mpi_iface.is_main_node() )
+                stats.unpack_layout(layout);
+            int lo = mpi_iface.scatter_offset(scatter_info);
+            int hi = lo + scatter_info.count_per_node[mpi_iface.node_id];
+            if( mpi_iface.is_main_node() )
+                stats.set_range(lo,hi,0,stats.n_ptcl);
+            else
+                stats.set_range(lo,hi,lo,hi-lo);
+            pool.set_stats(&stats,ptcls->p_raw);
+        }
+
         stkrdr.start();
         pool.start();
 
         stkrdr.wait();
         pool.wait();
 
-        if( info.output_type == ALI_OUTPUT_ALIGNMENT ) {
+        if( info.output_type != ALI_OUTPUT_DENSE ) {
             if( mpi_iface.is_main_node() ) {
                 printf("\tGathering data files...");
                 fflush(stdout);
@@ -157,6 +183,22 @@ int main(int ac, char** av) {
                 ptcls_io->save(info.output);
                 printf(" Done\n");
                 fflush(stdout);
+            }
+        }
+
+        if( save_stats ) {
+            if( mpi_iface.is_main_node() ) {
+                std::vector<uint8_t> b;
+                for(int i=1;i<mpi_iface.num_nodes;i++) {
+                    mpi_iface.recv_bytes(i,b,3);
+                    stats.merge_node(b);
+                }
+                stats.finish();
+                if( !stats.save(info.output) )
+                    fprintf(stderr,"Error writing the statistics of %s\n",info.output);
+            }
+            else {
+                mpi_iface.send_bytes(0,stats.pack_node(),3);
             }
         }
 
