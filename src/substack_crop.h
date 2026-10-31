@@ -58,14 +58,35 @@ public:
         pad_type  = in_pad_type;
         valid.resize((size_t)N*N);
         tmp.resize((size_t)N*N);
+        if( norm_type == LOCAL_NORM ) {
+            sat_s .resize((size_t)(N+1)*(N+1));
+            sat_s2.resize((size_t)(N+1)*(N+1));
+            sat_n .resize((size_t)(N+1)*(N+1));
+            win_px.assign(1,std::max(1,(int)lroundf(SUSAN_LCN_NOREF_FRAC*N)));
+        }
+    }
+
+    /// Reference radii (A) for the local normalization, one per reference.
+    void set_local_radii(const std::vector<float>&R_angstrom) {
+        radii_A = R_angstrom;
     }
 
     void setup(Tomogram*tomo_in,const ProjStats*stats_in) {
         tomo  = tomo_in;
         stats = stats_in;
+        if( norm_type == LOCAL_NORM && !radii_A.empty() && tomo->pix_size > 0 ) {
+            win_px.resize(radii_A.size()+1);
+            int largest = 1;
+            for(size_t r=0;r<radii_A.size();r++) {
+                win_px[r] = std::max(1,(int)lroundf(SUSAN_LCN_MARGIN*radii_A[r]/tomo->pix_size));
+                largest = std::max(largest,win_px[r]);
+            }
+            win_px[radii_A.size()] = largest;
+        }
     }
 
-    bool crop(float*ss,float2&pad,const float*stack,const V3f&p_proj,const int k,const uint32 seed_id) {
+    /// ref_ix < 0: window of the largest reference (or the box fraction without references).
+    bool crop(float*ss,float2&pad,const float*stack,const V3f&p_proj,const int k,const uint32 seed_id,const int ref_ix=-1) {
         const int W = tomo->stk_dim.x;
         const int H = tomo->stk_dim.y;
         const int cx = (int)floorf(p_proj(0));
@@ -131,7 +152,15 @@ public:
         if( std < SUSAN_FLOAT_TOL || std::isnan(std) || std::isinf(std) )
             return false;
 
-        if( norm_type == NO_NORM ) {
+        if( norm_type == LOCAL_NORM ) {
+            int Rw = win_px.back();
+            if( ref_ix >= 0 && ref_ix + 1 < (int)win_px.size() )
+                Rw = win_px[ref_ix];
+            local_normalize(ss,Rw);
+            pad.x = 0;
+            pad.y = 1;
+        }
+        else if( norm_type == NO_NORM ) {
             pad.x = avg;
             pad.y = std;
         }
@@ -161,8 +190,55 @@ public:
 protected:
     std::vector<unsigned char> valid;
     std::vector<unsigned char> tmp;
+    std::vector<double> sat_s;
+    std::vector<double> sat_s2;
+    std::vector<int>    sat_n;
+    std::vector<float>  radii_A;
+    std::vector<int>    win_px;
     std::mt19937 rng;
     std::normal_distribution<float> nrm{0.0f,1.0f};
+
+    /// Per-pixel (x-mean)/std over the valid pixels of the (2Rw+1)^2 window (summed-area tables).
+    void local_normalize(float*ss,const int Rw) {
+        const int S = N+1;
+        for(int i=0;i<S;i++) { sat_s[i] = 0; sat_s2[i] = 0; sat_n[i] = 0; }
+        for(int j=0;j<N;j++) {
+            const size_t r0 = (size_t)j*S;
+            const size_t r1 = (size_t)(j+1)*S;
+            sat_s[r1] = 0; sat_s2[r1] = 0; sat_n[r1] = 0;
+            double rs=0,rs2=0;
+            int rn=0;
+            for(int i=0;i<N;i++) {
+                if( valid[j*N+i] ) {
+                    const double v = ss[j*N+i];
+                    rs += v; rs2 += v*v; rn++;
+                }
+                sat_s [r1+i+1] = sat_s [r0+i+1] + rs;
+                sat_s2[r1+i+1] = sat_s2[r0+i+1] + rs2;
+                sat_n [r1+i+1] = sat_n [r0+i+1] + rn;
+            }
+        }
+        for(int j=0;j<N;j++) {
+            const int ya = std::max(j-Rw,0);
+            const int yb = std::min(j+Rw+1,N);
+            for(int i=0;i<N;i++) {
+                const int xa = std::max(i-Rw,0);
+                const int xb = std::min(i+Rw+1,N);
+                const size_t a = (size_t)ya*S+xa, b = (size_t)ya*S+xb, c = (size_t)yb*S+xa, d = (size_t)yb*S+xb;
+                const int    n  = sat_n [d] - sat_n [b] - sat_n [c] + sat_n [a];
+                const double s1 = sat_s [d] - sat_s [b] - sat_s [c] + sat_s [a];
+                const double s2 = sat_s2[d] - sat_s2[b] - sat_s2[c] + sat_s2[a];
+                float val = 0;
+                if( n >= 2 ) {
+                    const double mu = s1/n;
+                    const double sd = sqrt( fmax(s2/n - mu*mu,0.0) );
+                    if( sd >= SUSAN_FLOAT_TOL )
+                        val = (float)( (ss[j*N+i]-mu)/sd );
+                }
+                ss[j*N+i] = val;
+            }
+        }
+    }
 
     void erode() {
         for(int it=0;it<EDGE_ERODE;it++) {

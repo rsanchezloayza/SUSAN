@@ -65,22 +65,31 @@ class Solver2D:
         Cross-validation folds.  Default ``5``.
     seed : int
         Seed of the folds.  Default ``0``.
+    edge_fraction : float
+        Summary: suggest a wider angular range when more than this fraction of the per-tilt angle estimates (of the
+        components that survive the shrinkage) sit at the scanned edge.  Default ``0.1``.
+    max_offset_step : float
+        Summary: suggest a smaller offset step above this many pixels (0.5 px gave a consistent gain on
+        EMPIAR-10064).  Default ``0.5``.
     verbosity : int
-        ``0`` silent, ``1`` one line per tomogram and half.  Default ``1``.
+        ``0`` silent, ``1`` a summary (corrections, convergence, suggested search changes), ``2`` also one line per
+        tomogram and half.  Default ``1``.
     """
 
     def __init__(self):
-        self.models    = (2, 3, 4, 5)
-        self.n_fold    = 5
-        self.seed      = 0
-        self.verbosity = 1
-        self.solved    = None
+        self.models          = (2, 3, 4, 5)
+        self.n_fold          = 5
+        self.seed            = 0
+        self.edge_fraction   = 0.1
+        self.max_offset_step = 0.5
+        self.verbosity       = 1
+        self.solved          = None
 
     # ------------------------------------------------------------------
     # Public
     # ------------------------------------------------------------------
 
-    def solve(self, ptcls_in, stats, tomos):
+    def solve(self, ptcls_in, stats, tomos, aligner=None):
         """Particles for the next alignment.
 
         Parameters
@@ -90,6 +99,8 @@ class Solver2D:
         stats : str or dict
             The ``.stats.npz`` (or the aligner output ``.ptclsraw``), or :func:`susan.io.ali_stats.read` of it.
         tomos : str or :class:`susan.data.Tomograms`
+        aligner : :class:`susan.modules.Aligner`, optional
+            The aligner of the iteration: with it the summary suggests changes of its offset search.
 
         Returns
         -------
@@ -122,6 +133,8 @@ class Solver2D:
         self.solved = _np.zeros(P.prj_w.shape, bool)
         post_cov = _np.full(P.prj_w.shape + (3,), _np.nan, _np.float32)
         ang_var = _np.full(P.prj_w.shape + (3,), _np.nan, _np.float32)
+        ang_rv = _np.zeros(P.prj_w.shape + (3,))
+        clamped, ang_noise = [], []
         for t in _np.unique(tid):
             cix, ti = int(T.get_cix(t)), stomo.index(int(t))
             K = int(T.num_proj[cix])
@@ -139,7 +152,7 @@ class Solver2D:
                     grp[gs] = (S['grouped%d/stats' % gs][ti][o:o + G, :K], S['grouped%d/label' % gs][sel] - o,
                                S['grouped%d/half' % gs][ti][o:o + G, :K])
                 valid_k = P.prj_w[sel][:, :K].max(0) > 0
-                if self.verbosity:
+                if self.verbosity > 1:
                     print('    Tomogram %d%s:' % (t, (', half %d' % h) if h else ''), end='', flush=True)
                 r = self._solve_tomo(st[sel][:, :K], xpx[sel][:, :K], grp, apix, valid_k)
                 ok = _np.isfinite(r['shift'][..., 0])
@@ -152,18 +165,58 @@ class Solver2D:
                     self.solved[i, k] = True
                 rv = self._solve_angles(S, ti, h, sel, xpx[sel][:, :K])
                 if rv is not None:
-                    rv, var = rv
+                    rv, var, clp, sd = rv
+                    clamped.append(clp)
+                    ang_noise.append(sd)
                     m = _np.isfinite(rv[..., 0]) & (P.prj_w[sel][:, :K] > 0)
                     ii, kk = sel[_np.where(m)[0]], _np.where(m)[1]
                     D = _rotvec_rotm(rv[m])
                     P.prj_eu[ii, kk] = _ssa_utils.rotm_to_euZYZ(D @ _ssa_utils.euZYZ_to_rotm(prj_eu_in[ii, kk]))
                     ang_var[ii, kk] = var[m]
+                    ang_rv[ii, kk] = rv[m]
         self._append_variances(stats, S, post_cov, ang_var)
+        if self.verbosity:
+            self._summary(P, prj_t_in, T, S, post_cov, ang_rv, clamped, ang_noise, aligner)
         return P
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    def _summary(self, P, prj_t_in, T, S, post_cov, ang_rv, clamped, ang_noise, aligner):
+        """Corrections applied to the dataset; [converged] when none is beyond its noise (rms angle change below the
+        median split-half sd of the per-tilt estimates, rms shift change below the median posterior sd); search changes
+        suggested by the data."""
+        on = self.solved
+        tid = P.tomo_id.flatten().astype(int)
+        apix = _np.array([float(T.pix_size[int(T.get_cix(t))]) for t in tid])[:, None] * _np.ones(on.shape)
+        d = _np.linalg.norm(P.prj_t - prj_t_in, axis=-1)
+        d_rms = _math.sqrt(_np.mean(d[on] ** 2)) if on.any() else 0.0
+        d_px = _math.sqrt(_np.mean((d[on] / apix[on]) ** 2)) if on.any() else 0.0
+        noise = _np.median(_np.sqrt((post_cov[on][:, 0] + post_cov[on][:, 2]) / 2) * apix[on]) if on.any() else 0.0
+        a = _np.linalg.norm(ang_rv, axis=-1)
+        a_on = a > 0
+        a_rms = _math.sqrt(_np.mean(a[a_on] ** 2)) if a_on.any() else 0.0
+        tags = []
+        if on.any() and (not a_on.any() or a_rms <= _np.nanmedian(ang_noise)) and d_rms <= noise:
+            tags.append('[converged]')
+        sug = []
+        if clamped and _np.max(clamped) > self.edge_fraction:
+            sug.append('Increase angular range')
+        if aligner is not None and on.any():
+            r = min(aligner.offset.span[:2])
+            off = (P.prj_t - prj_t_in) / apix[..., None]
+            for k in range(on.shape[1]):
+                if on[:, k].any() and _np.median(_np.linalg.norm(off[on[:, k], k], axis=-1)) > r / 2:
+                    sug.append('Increase offset range')
+                    break
+        if float(S.get('off_step', 0)) > self.max_offset_step:
+            sug.append('Reduce offset step')
+        if sug:
+            tags.append('[Suggestion: %s.]' % ', '.join(sug))
+        print('    Solving 2D alignments.%s' % ''.join(' ' + t for t in tags))
+        print('    Corrections: shifts %.2f Å rms (%.2f px), angles %.3f° rms. Using %.0f%% of projections.' % (
+            d_rms, d_px, a_rms, 100 * on.sum() / max((P.prj_w > 0).sum(), 1)), flush=True)
 
     @staticmethod
     def _append_variances(stats, S, post_cov, ang_var):
@@ -403,7 +456,7 @@ class Solver2D:
         cov[_np.isfinite(field[..., 0])] = [s2, 0.0, s2]
         Cp = _np.linalg.inv(Io + I2 / s2)
         cov[ii, kk] = _np.stack([Cp[:, 0, 0], Cp[:, 0, 1], Cp[:, 1, 1]], 1)
-        if self.verbosity:
+        if self.verbosity > 1:
             names = {0: 'rigid'}
             for m in models:
                 names[m], names[-m] = '%dx%d' % (m, m), '%dx%d frozen rigid' % (m, m)
@@ -417,8 +470,10 @@ class Solver2D:
     def _solve_angles(self, S, ti, h, sel, xpx):
         """7. rotation vectors (deg, detector frame, (n, K, 3)) of the particles sel of tomogram index ti and half h and
         their variances (deg^2; per tilt f1 v1 of the shrunk 1x1 estimate, plus f2 (v2 + v1) of the 2x2 field with v2
-        averaged over the groups, the regression of the field not counted), xpx (n, K, 2) their projected positions;
-        None without the sequential angular search."""
+        averaged over the groups, the regression of the field not counted), and the largest fraction, over the
+        components that survive the shrinkage, of the 1x1 estimates at the scanned edge, and the median split-half sd
+        (deg) of the 1x1 estimates; xpx (n, K, 2) their projected positions; None without the sequential angular
+        search."""
         A = S.get('angles')
         if A is None or A.shape[0] < 2 or 'grouped1/ang_cc' not in S:
             return None
@@ -459,11 +514,15 @@ class Solver2D:
         lim = _np.abs(A).max(0)
         rv = _np.clip(rv, -lim, lim)
         var = _np.where(_np.isfinite(var), var, 0.0)
-        if self.verbosity:
+        rc = _np.hypot(A[:, 0], A[:, 1]).max()
+        edge = _np.stack([_np.hypot(e1[:, 0], e1[:, 1]) >= 0.99 * rc] * 2 + [_np.abs(e1[:, 2]) >= 0.99 * lim[2]], -1)
+        fin = _np.isfinite(e1)
+        clp = max([edge[fin[:, c], c].mean() for c in range(3) if f1[c] > 0 and fin[:, c].any()], default=0.0)
+        if self.verbosity > 1:
             rms = _np.sqrt(_np.nanmean(rv[_np.isfinite(rv[..., 0])].reshape(-1, 3) ** 2, 0))
             print('      angles (x, y, in-plane): rms %.3f %.3f %.3f deg; shrinkage 1x1 %s, 2x2 %s' % (
                 tuple(rms) + (_np.round(f1, 2), _np.round(f2, 2))), flush=True)
-        return rv, var
+        return rv, var, clp, _math.sqrt(_np.nanmedian(v1)) if _np.isfinite(v1).any() else _np.nan
 
 
 # ----------------------------------------------------------------------

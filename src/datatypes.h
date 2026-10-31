@@ -159,7 +159,8 @@ typedef enum {
     ZERO_MEAN,
     ZERO_MEAN_1_STD,
     GAT_RAW,
-    GAT_NORMAL
+    GAT_NORMAL,
+    LOCAL_NORM
 } NormalizationType_t;
 
 typedef enum {
@@ -207,6 +208,9 @@ typedef enum {
 #define GRID_CORRECT_KB_MAX 4.0f
 #define EDGE_ERODE          1
 #define EDGE_MIN_VALID      16
+#define SUSAN_LCN_PROFILE_FRAC 0.05f  /// reference radius: outermost shell with rms above this fraction of the maximum
+#define SUSAN_LCN_MARGIN       1.2f   /// local window half-side as a multiple of the reference radius
+#define SUSAN_LCN_NOREF_FRAC   0.5f   /// local window half-side as a fraction of the box when there is no reference
 #define FILL_MIN_RUN        8
 #define FILL_TOL            1e-5f
 #define GAT_TILE            32

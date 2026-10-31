@@ -713,16 +713,7 @@ public:
         sweep_defocus(g_1d,out_dir);
 
         /// FAILED PER-TILT ESTIMATES: no ring band past the first zero follows the fitted CTF (max_res 0) -> prj_wgt 0.
-        int nf = 0;
-        for(int k=0;k<K;k++) { c_failed[k] = !(c_estimate[k].max_res > 0); if( c_failed[k] ) nf++; }
-        if( verbosity > 0 ) {
-            const char*type_name[4] = {"none","magnitude per series, angle per projection","series","per projection"};
-            printf("    Astigmatism (%s): U-V %.0f A, %.1f sigma, %d projections, %s",type_name[astig_type],
-                   2*astig_amp_px*lin_fpix_to_defocus/2,astig_sigma,astig_n,(astig_sigma>=ASTIG_SIGMA)?"kept":"set to 0");
-            printf("; CTF estimate failed (prj_wgt 0):");
-            for(int k=0;k<K;k++) if( c_failed[k] ) printf(" %d",k);
-            printf("%s\n",nf?"":" none");
-        }
+        for(int k=0;k<K;k++) c_failed[k] = !(c_estimate[k].max_res > 0);
 
         /// FLAG EMPTY PROJECTIONS (blank frames in the stack)
         mark_empty_projections(input,p_tomo);
@@ -980,6 +971,22 @@ public:
         }
     }
 
+
+    /// mean U, V and the standard deviation of the mean defocus over the projections with weight
+    void summary(float&du,float&dv,float&spread) {
+        double su=0, sv=0, sd=0, sd2=0;
+        int n = 0;
+        for(int k=0;k<K;k++) {
+            if( !(c_prj_wgt[k] > 0) ) continue;
+            double d = 0.5*(c_estimate[k].U+c_estimate[k].V);
+            su += c_estimate[k].U; sv += c_estimate[k].V; sd += d; sd2 += d*d; n++;
+        }
+        du = dv = spread = 0;
+        if( n > 0 ) {
+            du = su/n; dv = sv/n;
+            spread = sqrt(fmax(sd2/n - (sd/n)*(sd/n),0.0));
+        }
+    }
 
 protected:
     void save_cpu_mrc(single*p_cpu,const int m,const int n,const int k,const char*out_dir,const char*name,const int req_verb) {

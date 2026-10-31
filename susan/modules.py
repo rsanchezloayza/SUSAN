@@ -130,6 +130,7 @@ class Aligner(_BandpassFpix):
         estimated per projection) are experimental: only for stacks of
         detector counts or a linear scaling of them, not for dose-weighted,
         binned by averaging or interpolated stacks.
+        ``'local'``: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).
     ctf_correction : str
         CTF correction strategy.  One of ``'none'``, ``'phase_flip'``,
         ``'on_reference'``, ``'on_substack'``, ``'wiener_ssnr'``.
@@ -348,8 +349,8 @@ class Aligner(_BandpassFpix):
         if not self.padding_type in ['zero','noise']:
             raise ValueError('Invalid padding type. Only "zero" or "noise" are valid')
         
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal','local']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw", "poisson_normal" or "local" are valid')
         
         if not self.ctf_correction in ['none','phase_flip','on_reference','on_substack','wiener_ssnr','cfsc']:
             raise ValueError('Invalid ctf correction type. Only "none", "phase_flip", "on_reference", "on_substack", "wiener_ssnr" or "cfsc" are valid')
@@ -568,6 +569,7 @@ class Averager(_BandpassFpix):
         estimated per projection) are experimental: only for stacks of
         detector counts or a linear scaling of them, not for dose-weighted,
         binned by averaging or interpolated stacks.
+        ``'local'``: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).
     weighting_type : str
         Particle weighting scheme.  One of ``'none'``, ``'particle'``,
         ``'projection'``, ``'3DCC'``, ``'2DCC'``.  Default: ``'none'``.
@@ -676,8 +678,8 @@ class Averager(_BandpassFpix):
         if self.splat_gain < 0:
             raise ValueError('Invalid splat gain. Must be 0 (disabled) or positive')
 
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal','local']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw", "poisson_normal" or "local" are valid')
 
         if not self.weighting_type in ['none','particle','projection','3DCC','2DCC']:
             raise ValueError('Invalid weighting type. Only "none", "particle", "projection", "3DCC" or "2DCC" are valid')
@@ -823,6 +825,7 @@ class SubtomoRec(_BandpassFpix):
         estimated per projection) are experimental: only for stacks of
         detector counts or a linear scaling of them, not for dose-weighted,
         binned by averaging or interpolated stacks.
+        ``'local'``: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).
     ctf_correction : str
         CTF correction applied during back-projection.  One of ``'none'``,
         ``'phase_flip'``, ``'wiener'``, ``'wiener_ssnr'``, ``'pre_wiener'``.
@@ -874,8 +877,8 @@ class SubtomoRec(_BandpassFpix):
         if not self.padding_type in ['zero','noise']:
             raise ValueError('Invalid padding type. Only "zero" or "noise" are valid')
 
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal','local']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw", "poisson_normal" or "local" are valid')
 
         if not self.ctf_correction in ['none','phase_flip','wiener','wiener_ssnr', 'pre_wiener']:
             raise ValueError('Invalid ctf correction type. Only "none", "phase_flip", "wiener", "pre_wiener" or "wiener_ssnr" are valid')
@@ -973,6 +976,7 @@ class CropProjection:
     normalize_type : str
         Per-patch normalisation.  One of ``'none'``, ``'zero_mean'``,
         ``'zero_mean_one_std'`` and ``'zero_mean_unit_var'``.
+        ``'local'``: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).
         Default: ``'zero_mean_one_std'``.
     invert_contrast : bool
         Invert the sign of the cropped projections.  Default: ``False``.
@@ -984,8 +988,8 @@ class CropProjection:
         self.invert_contrast   = False
 
     def _validate(self):
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal','local']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw", "poisson_normal" or "local" are valid')
 
     def get_args(self, out_dir, tomos_file, ptcls_in, box_size):
         """Build the command-line argument string for ``susan_crop_projections``.
@@ -1278,6 +1282,7 @@ class CtfRefiner(_BandpassFpix):
         estimated per projection) are experimental: only for stacks of
         detector counts or a linear scaling of them, not for dose-weighted,
         binned by averaging or interpolated stacks.
+        ``'local'``: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).
         Default: ``'zero_mean_one_std'``.
     cc_type : str
         Cross-correlation variant used for scoring: ``'basic'``, ``'cfsc'``
@@ -1419,8 +1424,8 @@ class CtfRefiner(_BandpassFpix):
         if not self.padding_type in ['zero','noise']:
             raise ValueError('Invalid padding type. Only "zero" or "noise" are valid')
         
-        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal']:
-            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw" or "poisson_normal" are valid')
+        if not self.normalize_type in ['none','zero_mean','zero_mean_one_std','zero_mean_unit_var','poisson_raw','poisson_normal','local']:
+            raise ValueError('Invalid normalization type. Only "none", "zero_mean", "zero_mean_one_std", "zero_mean_unit_var", "poisson_raw", "poisson_normal" or "local" are valid')
         
         if not self.cc_type in ['basic','cfsc','cfsc_substack']:
             raise ValueError('Invalid cc type. Only "basic", "cfsc" or "cfsc_substack" are valid')

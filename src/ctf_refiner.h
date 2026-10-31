@@ -780,7 +780,7 @@ protected:
                 Math::set( ptr->c_ali.ptr[k].R, R_gpu );
 
                 /// Crop
-                if( !ss_cropper.crop(ptr->c_stk.ptr+(k*N*N),ptr->c_pad.ptr[k],p_stack,pt_crop,k,ptr->ptcl.ptcl_id()) )
+                if( !ss_cropper.crop(ptr->c_stk.ptr+(k*N*N),ptr->c_pad.ptr[k],p_stack,pt_crop,k,ptr->ptcl.ptcl_id(),r) )
                     ptr->c_ali.ptr[k].w = 0;
             }
             else {
@@ -814,6 +814,7 @@ public:
     ArgsCtfRef::Info *p_info;
     WorkerCommand    w_cmd;
     RefMap           *p_refs;
+    std::vector<float> local_radii;
     int max_K;
     int N;
     int M;
@@ -854,6 +855,9 @@ public:
             load_reference_spectral_weighted(in_p_refs,info->p_gpu[0]);
         else
             load_references(in_p_refs);
+
+        if( info->norm_type == LOCAL_NORM )
+            print_local_radii(local_radii);
     }
 
     ~CtfRefinerPool() {
@@ -867,6 +871,8 @@ protected:
         p_refs = new RefMap[R];
         for(int r=0;r<R;r++) {
             p_refs[r].load(in_p_refs->at(r));
+            if( p_info->norm_type == LOCAL_NORM )
+                local_radii.push_back( p_refs[r].local_radius() );
         }
     }
 
@@ -941,6 +947,8 @@ protected:
             /// Standard load: reads map/mask and applies the first
             /// normalize_masked (the result is mask*vol).
             p_refs[r].load(in_p_refs->at(r));
+            if( p_info->norm_type == LOCAL_NORM )
+                local_radii.push_back( p_refs[r].local_radius() );
 
             if( p_refs[r].has_ref_mask() ) {
 
@@ -968,6 +976,7 @@ protected:
         for(int i=0;i<p_info->n_threads;i++) {
             workers[i].p_stats = p_stats;
             workers[i].setup_global_data(i,p_refs,R,max_K,p_info,&w_cmd);
+            workers[i].ss_cropper.set_local_radii(local_radii);
             workers[i].start();
         }
         progress_start();

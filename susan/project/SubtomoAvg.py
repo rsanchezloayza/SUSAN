@@ -1042,8 +1042,8 @@ class SubtomoAvg(SubtomoAvgCore):
 
     def _solve_2d(self, ptcls_aligned, cur, prv):
         """2-D solution of the aligned particles from the statistics (:attr:`solver_2d`); saves ``cur.ptcl_rslt``."""
-        print('    2D solver (per tomogram%s):' % (' and half-set' if self.aligner.halfsets_independ else ''))
-        P = self.solver_2d.solve(prv.ptcl_rslt, _ssa_io.ali_stats.path(cur.ptcl_rslt), self.tomogram_file)
+        P = self.solver_2d.solve(prv.ptcl_rslt, _ssa_io.ali_stats.path(cur.ptcl_rslt), self.tomogram_file,
+                                 aligner=self.aligner)
         P.ali_cc[:] = ptcls_aligned.ali_cc
         P.prj_cc[:] = ptcls_aligned.prj_cc
         P.save(cur.ptcl_rslt)
@@ -1052,10 +1052,8 @@ class SubtomoAvg(SubtomoAvgCore):
 
     def _solve_ctf(self, cur, prv):
         """Defocus correction of the input particles from the statistics (:attr:`solver_ctf`); saves ``cur.ptcl_rslt``."""
-        print('    CTF solver (per tomogram%s):' % (' and half-set' if self.ctf_refiner.halfsets_independ else ''))
-        offset_search = max(self.ctf_refiner.offset.span[:2]) > 0
         P = self.solver_ctf.solve(prv.ptcl_rslt, _ssa_io.ctf_stats.path(cur.ptcl_rslt), self.tomogram_file,
-                                  offset_search=offset_search)
+                                  refiner=self.ctf_refiner)
         P.save(cur.ptcl_rslt)
         self.use_ctf_stats = cur.ite
         return P
@@ -1090,9 +1088,10 @@ class SubtomoAvg(SubtomoAvgCore):
         f2d = self._stats_file(self.use_2d_stats, _ssa_io.ali_stats.path, '2D')
         fct = self._stats_file(self.use_ctf_stats, _ssa_io.ctf_stats.path, 'CTF')
         null = self._null_baseline(ptcls) if f2d is not None else None
-        print('    Reconstruction particles from the statistics: 2D %s, CTF %s.' % (
-            ('iteration %d (%s baseline)' % (self.use_2d_stats, 'null' if null is not None else 'second peak')) if f2d else 'none',
-            ('iteration %d' % self.use_ctf_stats) if fct else 'none'))
+        if self.solver_highres.verbosity:
+            print('    Reconstruction particles from the statistics: 2D %s, CTF %s.' % (
+                ('iteration %d (%s baseline)' % (self.use_2d_stats, 'null' if null is not None else 'second peak')) if f2d else 'none',
+                ('iteration %d' % self.use_ctf_stats) if fct else 'none'))
         return self.solver_highres.solve(ptcls, f2d, fct, self.tomogram_file, cc_threshold=self.cc_threshold,
                                          null_baseline=null, radius=self._mask_radius(prv))
 
@@ -1223,7 +1222,6 @@ class SubtomoAvg(SubtomoAvgCore):
                 hid = ptcls_in.half_id[idx].flatten()
                 ccc = ptcls_in.ali_cc[i, idx].flatten()
 
-                n_rf = hid.shape[0]
                 n_h1 = (hid == 1).sum()
                 n_h2 = (hid == 2).sum()
 
@@ -1236,15 +1234,17 @@ class SubtomoAvg(SubtomoAvgCore):
 
                 ptcls_in.half_id[idx] = hid
 
-                print('    Class %2d: %7d particles [%7d].' % (i + 1, n_rf, (hid > 0).sum()))
-                print('      Half 1: %7d particles [%7d].'  % (n_h1, (hid == 1).sum()))
-                print('      Half 2: %7d particles [%7d].'  % (n_h2, (hid == 2).sum()))
-            else:
-                print('    Class %2d: %7d particles.' % (i + 1, 0))
-                print('      Half 1: %7d particles.'  % 0)
-                print('      Half 2: %7d particles.'  % 0)
-
         return ptcls_in[(ptcls_in.half_id > 0).flatten()]
+
+    @staticmethod
+    def _report_classes(ptcls_in, ptcls_out):
+        """One line per class: particles, used in the reconstruction, half-set ratio of the used."""
+        cin, cout = ptcls_in.ref_cix.flatten(), ptcls_out.ref_cix.flatten()
+        hid = ptcls_out.half_id.flatten()
+        for i in range(ptcls_in.n_refs):
+            n_h1, n_h2 = ((cout == i) & (hid == 1)).sum(), ((cout == i) & (hid == 2)).sum()
+            print('    Class %2d: %7d particles [%7d used] H1/H2 ratio: %s.' % (
+                i + 1, (cin == i).sum(), n_h1 + n_h2, ('%.2f' % (n_h1 / n_h2)) if n_h2 > 0 else '-'))
 
     def _apply_tilt_limit(self, ptcls_out):
         """Zero projections outside the allowed tilt range."""
@@ -1398,6 +1398,7 @@ class SubtomoAvg(SubtomoAvgCore):
         if tilt_active:
             self._apply_tilt_limit(ptcls_out)
 
+        self._report_classes(ptcls_in, ptcls_out)
         ptcls_out.save(cur.ptcl_rec)
         print('  [Aligned particles] Done.')
 

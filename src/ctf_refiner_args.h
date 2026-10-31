@@ -421,6 +421,8 @@ inline void print_full(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"\t\tSubstack normalization policy: Mean=0.\n");
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(fp,"\t\tSubstack normalization policy: Mean=0, Std=1.\n");
+    if( info.norm_type == LOCAL_NORM )
+        fprintf(fp,"\t\tSubstack normalization policy: Local (per-pixel Mean=0, Std=1).\n");
 
     if( info.cc_type == CC_TYPE_BASIC )
         fprintf(fp,"\t\tRefining using Cross-Correlation.\n");
@@ -499,6 +501,8 @@ inline void print_basic(const Info&info,FILE*fp=stdout) {
         fprintf(fp,"Normalized to Mean=0.\n");
     if( info.norm_type == ZERO_MEAN_1_STD )
         fprintf(fp,"Normalized to Mean=0, Std=1.\n");
+    if( info.norm_type == LOCAL_NORM )
+        fprintf(fp,"Normalized to local Mean=0, Std=1.\n");
 
     fprintf(fp,"    - ");
     if( info.cc_type == CC_TYPE_BASIC )

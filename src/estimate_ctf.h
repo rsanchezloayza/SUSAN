@@ -390,7 +390,6 @@ protected:
         if( show ) {
             printf("\r        Normalizing [%5d particles]: %6.2f%%.",ptcls.n_ptcl,100.0);
             fflush(stdout);
-            printf("\n");
         }
 
         w_cmd.presend_sync();
@@ -401,7 +400,10 @@ protected:
             Mrc::write(workers[0].c_rslt.ptr,(p_info->box_size/2)+1,p_info->box_size,tomo.num_proj,filename);
         }
         sprintf(filename,"%s/Tomo%05d",p_info->out_dir,tomo.tomo_id);
-        post_process(filename,workers[0].c_rslt.ptr,tomo,k0);
+        float du, dv, spread;
+        post_process(filename,workers[0].c_rslt.ptr,tomo,k0,du,dv,spread);
+        if( show )
+            printf(" Du: %.0f Å Dv: %.0f Å, tilt spread +-%.0f Å\n",du,dv,spread);
         w_cmd.send_command(WorkerCommand::BasicCommands::CMD_IDLE);
 
     }
@@ -452,12 +454,13 @@ protected:
         return defocus;
     }
 
-    void post_process(const char*out_dir,single*p_data,Tomogram&tomo,int k0) {
+    void post_process(const char*out_dir,single*p_data,Tomogram&tomo,int k0,float&du,float&dv,float&spread) {
         CtfLinearizer ctf_lin(p_info->p_gpu[0],p_info->box_size,tomo.num_proj,p_info->res_max/2);
         ctf_lin.load_info(p_info,&tomo);
         ctf_lin.set_rough_defocus(workers[0].base_defocus);
         ctf_lin.initial_estimation(out_dir,p_data);
         ctf_lin.process(out_dir,p_data,&tomo,k0,p_info->is_overfocus);
+        ctf_lin.summary(du,dv,spread);
     }
 
 };

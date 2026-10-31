@@ -75,7 +75,7 @@ class SolverHighRes:
     set_bfactor : bool
         Write def_Bfct (``False``: the input values are kept).  Default ``True``.
     verbosity : int
-        ``0`` silent, ``1`` a summary line, ``2`` also the lines of :meth:`SolverCTF.tilt_amplitudes`.  Default ``1``.
+        ``0`` silent, ``1`` a summary line, ``2`` also the lines of :meth:`SolverCTF.tilt_amplitudes`.  Default ``0``.
     used : dict
         After :meth:`solve`, what was applied: ``weights`` (source), ``b_tilt``, ``b_shift`` and ``max_res``.
     """
@@ -85,7 +85,7 @@ class SolverHighRes:
         self.set_max_res  = True
         self.set_bfactor  = True
         self.b_tilt       = False
-        self.verbosity    = 1
+        self.verbosity    = 0
         self.used         = {}
 
     # ------------------------------------------------------------------
@@ -141,7 +141,7 @@ class SolverHighRes:
         amp = {}
         if C is not None and (src == 'ctf' or (self.set_bfactor and self.b_tilt)):
             ctf = _SolverCTF()
-            ctf.verbosity = max(self.verbosity - 1, 0)
+            ctf.verbosity = 2 if self.verbosity > 1 else 0
             amp = ctf.tilt_amplitudes(C, P, tomos)
         post_cov = None if S is None else S.get('projections/post_cov')
         solved = None if post_cov is None else _np.isfinite(post_cov[:, :K, 0])

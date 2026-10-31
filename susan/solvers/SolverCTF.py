@@ -48,8 +48,8 @@ class SolverCTF:
        projections of the particle's own CC curves at the surface + ``R_k[2, 2] z``, shrunk by ``s^2 / (s^2 + noise^2)``
        from the even / odd projection split (0: nothing applied);
     5. per-projection translation bias from the imaginary part of the profiles, against its parity-split noise.  When
-       the refiner has an offset search (``offset_search`` of :meth:`solve`) and the bias is significant, it is
-       subtracted from ``prj_t`` of every particle of the projection; otherwise it is only reported.
+       refiner of :meth:`solve` has an offset search and the bias is significant, it is subtracted from ``prj_t`` of
+       every particle of the projection; otherwise it is only reported.
 
     The correction (offset + geometry + ``R_k[2, 2] dz``) is added to ``def_U`` and ``def_V`` alike: the astigmatism
     and the phase shift are not refined.
@@ -71,8 +71,15 @@ class SolverCTF:
     shift_sigma : float
         A translation bias is significant when it exceeds this many standard deviations (of the parity-split noise,
         pooled over the projections).  Default ``3``.
+    edge_fraction : float
+        Summary: suggest a wider defocus range when more than this fraction of the per-tilt offsets lie beyond half
+        the range of the per-particle curves.  Default ``0.1``.
+    step_fraction : float
+        Summary: suggest a smaller defocus step when the step exceeds this fraction of the half-maximum width of the
+        mean per-particle CC curve.  Default ``0.1``.
     verbosity : int
-        ``0`` silent, ``1`` one line per tomogram and half.  Default ``1``.
+        ``0`` silent, ``1`` a summary (corrections, convergence, suggested search changes), ``2`` also one line per
+        tomogram and half.  Default ``1``.
     report : dict
         After :meth:`solve`, per (tomogram id, half-set) the diagnostics of the last solve: ``offset`` (K),
         ``geometry`` (tilt offset, axis rotation; deg), ``cv``, ``dz`` (per particle), ``shrink``, ``dz_sd``,
@@ -80,19 +87,21 @@ class SolverCTF:
     """
 
     def __init__(self):
-        self.fit_range   = 2000.0
-        self.fit_step    = 5.0
-        self.dz_range    = 600.0
-        self.dz_step     = 5.0
-        self.shift_sigma = 3.0
-        self.verbosity   = 1
-        self.report      = {}
+        self.fit_range     = 2000.0
+        self.fit_step      = 5.0
+        self.dz_range      = 600.0
+        self.dz_step       = 5.0
+        self.shift_sigma   = 3.0
+        self.edge_fraction = 0.1
+        self.step_fraction = 0.1
+        self.verbosity     = 1
+        self.report        = {}
 
     # ------------------------------------------------------------------
     # Public
     # ------------------------------------------------------------------
 
-    def solve(self, ptcls_in, stats, tomos, offset_search=False):
+    def solve(self, ptcls_in, stats, tomos, refiner=None):
         """Particles for the next round.
 
         Parameters
@@ -102,17 +111,17 @@ class SolverCTF:
         stats : str or dict
             The ``.ctfstats.npz`` (or the refiner output ``.ptclsraw``), or :func:`susan.io.ctf_stats.read` of it.
         tomos : str or :class:`susan.data.Tomograms`
-        offset_search : bool
-            The refiner has an offset search (its translations are being refined): the significant translation bias
-            of a projection (the error of its ``prj_t``) is subtracted from ``prj_t`` (Angstroms,
-            detector frame) of all the particles of the projection.
-            Otherwise it is only reported.
+        refiner : :class:`susan.modules.CtfRefiner`, optional
+            The refiner of the iteration.  With an offset search (its translations are being refined) the significant
+            translation bias of a projection (the error of its ``prj_t``) is subtracted from ``prj_t`` (Angstroms,
+            detector frame) of all the particles of the projection; otherwise, or without it, it is only reported.
+            With it the summary also suggests changes of its offset search.
 
         Returns
         -------
         :class:`susan.data.Particles`
             def_U, def_V = input + the correction (0 where not solved); prj_t = input - the significant translation
-            bias when ``offset_search``.
+            bias when the refiner has an offset search.
         """
         P = _ssa_data.Particles(ptcls_in) if isinstance(ptcls_in, str) else ptcls_in.copy()
         S = _ctf_stats.read(stats) if isinstance(stats, str) else stats
@@ -126,7 +135,11 @@ class SolverCTF:
         tid = P.tomo_id.flatten().astype(int)
         hid = P.half_id.flatten().astype(int)
         pos = P.pos().astype(_np.float64)
+        offset_search = refiner is not None and max(refiner.offset.span[:2]) > 0
+        def_in = P.def_U.copy()
         self.report = {}
+        n_on, n_used = 0, 0
+        shifts = []
         for t, ti in enumerate(S['tomo_id'].astype(int)):
             cix = int(T.get_cix(ti))
             K = int(T.num_proj[cix])
@@ -134,19 +147,65 @@ class SolverCTF:
                 sel = _np.where((tid == ti) & ((hid == h) if h else True))[0]
                 if len(sel) == 0:
                     continue
-                if self.verbosity:
+                if self.verbosity > 1:
                     print('    Tomogram %d%s:' % (ti, (', half %d' % h) if h else ''), end='', flush=True)
                 r = self._solve_tomo(S, t, h, sel, T, cix, K, T.to_tomo(cix, pos[sel]))
+                on = P.prj_w[sel, :K] > 0
+                n_on += int(on.sum())
+                n_used += int((on & r['solved'][None]).sum())
                 P.def_U[sel, :K] += r['corr']
                 P.def_V[sel, :K] += r['corr']
+                apix = float(T.pix_size[cix])
+                shifts.append(_np.linalg.norm(r['shift_bias'][r['shift_applied']], axis=-1) * apix)
                 if offset_search:
-                    apix = float(T.pix_size[cix])
                     for k in _np.where(r['shift_applied'])[0]:
                         i = sel[P.prj_w[sel, k] > 0]
                         P.prj_t[i, k] -= (r['shift_bias'][k] * apix).astype(P.prj_t.dtype)
-                self.report[(ti, h)] = {k: r[k] for k in ('offset', 'geometry', 'cv', 'dz', 'shrink', 'dz_sd',
-                                                          'shift_bias', 'shift_noise', 'shift_applied')}
+                self.report[(ti, h)] = {k: r[k] for k in ('offset', 'offset_noise', 'geometry', 'cv', 'dz', 'shrink',
+                                                          'dz_sd', 'shift_bias', 'shift_noise', 'shift_applied')}
+        if self.verbosity:
+            self._summary(P.def_U - def_in, P.prj_w > 0, _np.concatenate(shifts or [_np.zeros(0)]), S, refiner,
+                          offset_search, 100 * n_used / max(n_on, 1))
         return P
+
+    def _summary(self, dd, on, sb, S, refiner, offset_search, used):
+        """Corrections applied to the dataset; [converged] when none is beyond its noise (rms per-tilt offset below twice
+        the median parity-split sd, geometry rejected, depth shrinkage at most 1/2: the applied depth within its
+        posterior sd, no significant shift bias); search changes suggested by the data (offsets beyond half the curve
+        range, step against the width of the mean CC curve)."""
+        rr = list(self.report.values())
+        off = _np.concatenate([r['offset'] for r in rr])
+        nv = _np.concatenate([r['offset_noise'] for r in rr])
+        m = _np.isfinite(nv)
+        off_sig = m.sum() > 2 and _math.sqrt(_np.mean(off[m] ** 2)) > 2 * _math.sqrt(_np.median(nv[m]))
+        geo = [r['geometry'] for r in rr if r['cv'] > 0]
+        depth = [r for r in rr if r['shrink'] > 0.5]
+        dz = _np.concatenate([r['dz'] for r in rr])
+        rms = lambda x: _math.sqrt(_np.mean(_np.square(x))) if _np.size(x) else 0.0
+        tags = []
+        if not (off_sig or geo or depth or sb.size):
+            tags.append('[converged]')
+        delta = S['delta'].astype(_np.float64)
+        sug = []
+        if off.size and _np.mean(_np.abs(off) > _np.abs(delta).max() / 2) > self.edge_fraction:
+            sug.append('Increase defocus range')
+        if refiner is not None and sb.size and not offset_search:
+            sug.append('Increase offset range')
+        with _np.errstate(all='ignore'):
+            c = _np.nanmean(S['curves'].astype(_np.float64).reshape(-1, len(delta)), 0)
+        c = c - _np.nanmin(c)
+        if _np.isfinite(c).all() and c.max() > 0:
+            half = delta[c >= c.max() / 2]
+            if delta[1] - delta[0] > self.step_fraction * (half.max() - half.min() + delta[1] - delta[0]):
+                sug.append('Reduce defocus step')
+        if sug:
+            tags.append('[Suggestion: %s.]' % ', '.join(sug))
+        print('    Solving CTF.%s' % ''.join(' ' + t for t in tags))
+        print('    Corrections: shifts %s. Using %.0f%% of projections.' % (
+            ('%.2f Å rms in %d tilts%s' % (rms(sb), sb.size, '' if offset_search else ', not applied')) if sb.size else 'none', used))
+        print('                 defocus %.0f Å rms (per tilt %.0f Å, depth %.0f Å), tilt geometry %s' % (
+            rms(dd[on]), rms(off), rms(dz),
+            ('%.2f° / axis %.2f°' % tuple(_np.abs(geo).max(0))) if geo else 'none'), flush=True)
 
     def tilt_amplitudes(self, stats, ptcls, tomos):
         """Per-projection CTF signal scale and relative amplitude B-factor.
@@ -191,7 +250,7 @@ class SolverCTF:
                 on = P.prj_w[sel, :K] > 0
                 exf = _np.array([_np.median(P.def_ExFl[sel, k][on[:, k]]) if on[:, k].any() else 0.0 for k in range(K)])
                 out[(ti, h)] = self._amplitudes_tomo(S, t, max(h - 1, 0), K, exf)
-                if self.verbosity:
+                if self.verbosity > 1:
                     r = out[(ti, h)]
                     print('    Tomogram %d%s: B %d projections, median noise %.0f A^2, shrinkage %.2f; ExpFilt %.1f-%.1f A^2' % (
                         ti, (', half %d' % h) if h else '', _np.isfinite(r['B']).sum(), _np.nanmedian(r['B_noise']),
@@ -351,7 +410,9 @@ class SolverCTF:
             return (out, mods) if model else out
 
         off, mods = gfit(1, 0, model=True)
+        solved = _np.isfinite(off)
         off = _np.nan_to_num(off)
+        off_noise = (gfit(1, 0, 0) - gfit(1, 0, 1)) ** 2 / 4
         lab3 = S['group3/label'][sel] - hh * 9
         cen = _np.array([p[lab3 == g].mean(0) if _np.any(lab3 == g) else _np.full(3, _np.nan) for g in range(9)])
         okc = _np.isfinite(cen[:, 0])
@@ -406,7 +467,7 @@ class SolverCTF:
             sb[k] = e[0]
             noise[k] = _math.sqrt(u2 * e[2]) if _np.isfinite(u2) else _np.nan
             applied[k] = _np.isfinite(noise[k]) and _np.linalg.norm(e[0]) > self.shift_sigma * noise[k]
-        if self.verbosity:
+        if self.verbosity > 1:
             fb = sb[_np.isfinite(sb)]
             print(' %d particles; per-tilt offset median abs %.0f A (max %.0f); geometry CV gain %+.2f -> %s; '
                   'dz signal sd %.0f A, shrinkage %.2f; shift bias rms %.3f px (max %.3f), %d significant' % (
@@ -414,7 +475,7 @@ class SolverCTF:
                       ('tilt %+.2f deg, axis %+.2f deg' % tuple(ab)) if cv > 0 else 'offset only', _math.sqrt(s2), lam,
                       _np.sqrt(_np.mean(fb ** 2)) if fb.size else _np.nan, _np.abs(fb).max() if fb.size else _np.nan, applied.sum()), flush=True)
         return dict(corr=corr, offset=off, geometry=ab, cv=cv, dz=dz, shrink=lam, dz_sd=_math.sqrt(s2),
-                    shift_bias=sb, shift_noise=noise, shift_applied=applied)
+                    shift_bias=sb, shift_noise=noise, shift_applied=applied, solved=solved, offset_noise=off_noise)
 
     def _amplitudes_tomo(self, S, t, hh, K, exf):
         """tilt_amplitudes of one tomogram index t and half hh (0-based); exf (K,) the exposure filter of the data."""

@@ -25,6 +25,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <cmath>
+#include <vector>
+#include <algorithm>
 
 #include "datatypes.h"
 #include "reference.h"
@@ -112,6 +115,39 @@ public:
         }
     }
 
+    /// Local normalization radius (A): outermost integer shell from the box centre whose rms of the
+    /// masked map is at least SUSAN_LCN_PROFILE_FRAC of the maximum shell rms, times the pixel size.
+    float local_radius() {
+        const single*v = (map != NULL)? map : half_A;
+        if( v == NULL || box_size == 0 )
+            return 0;
+        const int N = (int)box_size;
+        const int ns = (int)lroundf(sqrtf(3.0f)*(N/2)) + 2;
+        std::vector<double> sum(ns,0.0);
+        std::vector<long>   cnt(ns,0);
+        for(int z=0;z<N;z++) {
+            for(int y=0;y<N;y++) {
+                for(int x=0;x<N;x++) {
+                    const float dx = x-N/2, dy = y-N/2, dz = z-N/2;
+                    const int sh = (int)lroundf(sqrtf(dx*dx+dy*dy+dz*dz));
+                    const double val = v[((size_t)z*N+y)*N+x];
+                    sum[sh] += val*val;
+                    cnt[sh]++;
+                }
+            }
+        }
+        std::vector<double> prof(ns,0.0);
+        double mx = 0;
+        for(int i=0;i<ns;i++) {
+            if( cnt[i] > 0 ) prof[i] = sqrt(sum[i]/cnt[i]);
+            mx = std::max(mx,prof[i]);
+        }
+        int outer = 0;
+        for(int i=0;i<ns;i++)
+            if( prof[i] >= SUSAN_LCN_PROFILE_FRAC*mx ) outer = i;
+        return outer*pix_size;
+    }
+
 private:
     uint32 get_box_size(const char*fn) {
 
@@ -141,6 +177,14 @@ private:
         return Mrc::read(X,Y,Z,fn);
     }
 };
+
+/// Prints the local normalization radii (A), once.
+inline void print_local_radii(const std::vector<float>&radii) {
+    printf("    Local normalization reference radius (A):");
+    for(size_t r=0;r<radii.size();r++)
+        printf(" %.1f",radii[r]);
+    printf("\n");
+}
 
 #endif /// REF_MAPS_H
 
