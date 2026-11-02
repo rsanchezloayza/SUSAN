@@ -55,6 +55,13 @@ class DenseReporter:
     with their own ``ali_eu`` (a local search from posed particles) also get
     ``_blk.mrc``, the index of the winning block in the manifest.
 
+    :meth:`probe` searches only given points or particles and keeps the
+    blocks: no tomogram volume is written until :meth:`finalize` is called.
+    Its blocks are read with :meth:`block`, :meth:`values_at`,
+    :meth:`histogram` and ``assemble(region='blocks')``; :meth:`pick` and
+    :meth:`coverage` need the assembled volumes.  :meth:`clean` deletes the
+    block files.
+
     The analysis (:meth:`histogram`, :meth:`assemble`, :meth:`coverage`,
     :meth:`pick` and the exports) uses the loaded manifests: :meth:`run` loads
     its own, :meth:`load` loads earlier ones.
@@ -103,8 +110,8 @@ class DenseReporter:
     dense_reduce : str
         ``'max'`` or ``'mean'``: reduction of the samples of an output voxel.
     keep_blocks : bool
-        Keep the block files after :meth:`finalize` (debugging).  Default
-        ``False``.
+        Keep the block files after :meth:`finalize` (debugging; the blocks of
+        a :meth:`probe` are always kept).  Default ``False``.
     list_gpus_ids, mpi, verbosity
         As in :class:`susan.project.SubtomoAvg`.
     manifests : dict
@@ -386,39 +393,94 @@ class DenseReporter:
         str or dict
             The manifest for a single ``tomo_id``, otherwise {tomo_id: manifest}.
         """
-        if self.reference is None:
-            raise ValueError('Set reference.')
-        r = self.resolved(tomo_id)
-        if points is not None and ptcls is not None:
-            raise ValueError('Give ptcls or points, not both.')
         if imod_coords is not None:
             one_based = bool(imod_coords)
-        if points is not None:
-            P = self._point_blocks(points, tomo_id, one_based)
-        elif ptcls is None:
-            P = self.make_grid(tomo_id)
-        else:
-            P = _ssa_data.Particles(ptcls) if isinstance(ptcls,str) else ptcls
-            if tomo_id is not None:
-                P = P.select(_np.isin(P.tomo_id, self._tomo_ids(tomo_id)))
+        P = self._select(ptcls, points, tomo_id, one_based, grid=True)
+        r = self.resolved(tomo_id)
         self._run_aligner(output_prefix, self.reference, P, r)
         self._prefix = output_prefix
         return self._load_run(output_prefix, P.tomo_id, tomo_id)
 
-    def _load_run(self, output_prefix, tomo_ids, tomo_id, null=False):
-        """Load and finalize the manifests of a run; the file for a scalar ``tomo_id``, else {tomo_id: file}."""
+    def probe(self, output_prefix, points=None, ptcls=None, tomo_id=None, one_based=False):
+        """Run the dense search at given points or particles only, keeping the blocks.
+
+        As :meth:`run` without the assembly: the manifests are loaded but not
+        finalized (marked ``"probe": true``), no tomogram volume is written and
+        the block files are kept.  Read the blocks with :meth:`block`,
+        :meth:`values_at`, :meth:`histogram` or ``assemble(region='blocks')``;
+        call :meth:`finalize` for the tomogram volumes (needed by :meth:`pick`
+        and :meth:`coverage`; it keeps the blocks of a probe unless
+        ``keep_blocks=False``) and :meth:`clean` to delete the blocks.
+
+        Parameters
+        ----------
+        output_prefix : str
+            Prefix of the output files; its folders are created.
+        points : array_like, optional
+            Block centres, as in :meth:`run`.
+        ptcls : str or Particles, optional
+            Blocks at the particle positions.  One class only.  ``ali_t`` is
+            discarded (the blocks are centred on the positions); ``ali_eu`` is
+            kept, so the pose of a voxel is R(ali_eu) R(table[ang]) and a
+            small angular search probes the particles around their pose.
+        tomo_id : int or list of int, optional
+            Tomograms to search (all by default).
+        one_based : bool
+            ``points`` count from 1, as in :meth:`run`.
+
+        Returns
+        -------
+        str or dict
+            As :meth:`run`.
+        """
+        if (points is None) == (ptcls is None):
+            raise ValueError('Give points or ptcls (exactly one).')
+        P = self._select(ptcls, points, tomo_id, one_based, grid=False)
+        r = self.resolved(tomo_id)
+        self._run_aligner(output_prefix, self.reference, P, r)
+        self._prefix = output_prefix
+        return self._load_run(output_prefix, P.tomo_id, tomo_id, probe=True)
+
+    def _select(self, ptcls, points, tomo_id, one_based, grid):
+        """Blocks of a search: ``points``, ``ptcls`` (one class, ali_t discarded when not ``grid``) or, with
+        ``grid``, :meth:`make_grid`."""
+        if self.reference is None:
+            raise ValueError('Set reference.')
+        if points is not None and ptcls is not None:
+            raise ValueError('Give ptcls or points, not both.')
+        if points is not None:
+            return self._point_blocks(points, tomo_id, one_based)
+        if ptcls is None:
+            return self.make_grid(tomo_id)
+        P = _ssa_data.Particles(ptcls) if isinstance(ptcls,str) else ptcls
+        if tomo_id is not None:
+            P = P.select(_np.isin(P.tomo_id, self._tomo_ids(tomo_id)))
+        if not grid:
+            if P.n_refs != 1:
+                raise ValueError('probe: the particles must have one class (%d).' % P.n_refs)
+            P = P.copy()
+            P.ali_t[:] = 0
+        return P
+
+    def _load_run(self, output_prefix, tomo_ids, tomo_id, null=False, probe=False):
+        """Load the manifests of a run, finalized unless ``probe``; the file for a scalar ``tomo_id``, else
+        {tomo_id: file}."""
         tids  = [int(t) for t in _np.unique(tomo_ids)]
         files = {t: '%s_t%05d.json' % (output_prefix,t) for t in tids}
-        if null:
+        if null or probe:
             for f in files.values():
                 with open(f) as fp:
                     m = _json.load(fp)
-                m['null'] = 'decoy'
-                m['params']['refs_file'] = self.reference
+                if null:
+                    m['null'] = 'decoy'
+                    m['params']['refs_file'] = self.reference
+                if probe:
+                    m['probe'] = True
                 with open(f,'w') as fp:
                     _json.dump(m,fp,indent=1)
         self.load(files)
-        self.finalize(tids)
+        if not probe:
+            self.finalize(tids)
         if tomo_id is not None and _np.isscalar(tomo_id):
             return files[int(tomo_id)]
         return files
@@ -635,12 +697,16 @@ class DenseReporter:
     def _assemble_chunk(self, m, z0, z1, with_blk):
         """Sections z0 .. z1-1 of the assembly: z, cc, ang (and blk) of the highest-z sample; unsearched voxels
         0 (z, cc) / -1 (ang, blk); also the mask of searched voxels."""
-        shape = (z1-z0,) + tuple(m['tomogram']['size_out_xyz'][1::-1])
+        nx, ny, _ = m['tomogram']['size_out_xyz']
+        return self._assemble_box(m, _np.array((z0,0,0)), _np.array((z1,ny,nx)), with_blk)
+
+    def _assemble_box(self, m, lo_c, hi_c, with_blk):
+        """The assembly over the output voxels lo_c .. hi_c-1 (z, y, x), as :meth:`_assemble_chunk`."""
+        shape = tuple(int(v) for v in hi_c - lo_c)
         vol = dict(z=_np.full(shape,-_np.inf,dtype=_np.float32), cc=_np.zeros(shape,dtype=_np.float32),
                    ang=_np.full(shape,-1,dtype=_np.float32))
         if with_blk:
             vol['blk'] = _np.full(shape,-1,dtype=_np.float32)
-        lo_c, hi_c = _np.array((z0,0,0)), _np.array((z1,)+shape[1:])
         for i,blk in enumerate(m['blocks']):
             lo, hi = blk['_lo'], blk['_hi']
             a = _np.maximum(lo,lo_c)
@@ -671,9 +737,9 @@ class DenseReporter:
         the class description).  Null manifests: the histograms and
         statistics of z and cc (as :meth:`histogram`).  Both are recorded in
         the manifest and the block files are deleted unless ``keep_blocks``
-        (default :attr:`keep_blocks`).  Finalized manifests are skipped.
+        (default :attr:`keep_blocks`; always kept for a :meth:`probe`).
+        Finalized manifests are skipped.
         """
-        keep = self.keep_blocks if keep_blocks is None else keep_blocks
         tids = None if tomo_id is None else set(self._tomo_ids(tomo_id))
         for null,mans in ((False,self.manifests),(True,self.null_manifests)):
             for t,m in mans.items():
@@ -686,12 +752,29 @@ class DenseReporter:
                         m['hist'][fld] = dict(counts=counts.tolist(), edges=edges.tolist(), stats=st)
                 else:
                     self._write_volumes(m)
+                keep = keep_blocks if keep_blocks is not None else (m.get('probe',False) or self.keep_blocks)
                 if not keep:
-                    for blk in m['blocks']:
-                        for p in blk['files'].values():
-                            if _os.path.exists(p):
-                                _os.remove(p)
-                        blk['files'] = {}
+                    self._delete_blocks(m)
+                self._save_manifest(m)
+
+    @staticmethod
+    def _delete_blocks(m):
+        for blk in m['blocks']:
+            for p in blk['files'].values():
+                if _os.path.exists(p):
+                    _os.remove(p)
+            blk['files'] = {}
+
+    def clean(self, tomo_id=None):
+        """Delete the block files of the loaded manifests (all tomograms by default) and record it.
+
+        A :meth:`probe` that was not finalized loses its results."""
+        tids = None if tomo_id is None else set(self._tomo_ids(tomo_id))
+        for mans in (self.manifests,self.null_manifests):
+            for t,m in mans.items():
+                if tids is not None and t not in tids:
+                    continue
+                self._delete_blocks(m)
                 self._save_manifest(m)
 
     def _write_volumes(self, m):
@@ -725,7 +808,9 @@ class DenseReporter:
         ``value_range`` are ignored).  Returns (counts, edges, stats); stats
         holds n, mean, std, median, sigma = 1.4826 MAD, p99, p99.9 and max
         (from the histogram); median and sigma are the robust null of
-        :meth:`threshold`."""
+        :meth:`threshold`.  Before :meth:`finalize` (a :meth:`probe`), the
+        block files are read (a voxel of overlapping blocks counts once per
+        block)."""
         tid, m = self._manifest(tomo_id)
         if source == 'null':
             m = self.null_manifests.get(tid)
@@ -734,6 +819,9 @@ class DenseReporter:
             self._need_field(m,field)
             h = m['hist'][field]
             return _np.array(h['counts'],dtype=_np.int64), _np.array(h['edges']), dict(h['stats'])
+        if 'volumes' not in m:
+            return self._histogram(lambda: (self._read_slab(b,field,0,b['shape_xyz'][2]) for b in m['blocks']),
+                                   bins,value_range)
         return self._histogram(lambda: (v for _,v in self._field_chunks(m,field)),bins,value_range)
 
     @staticmethod
@@ -776,21 +864,102 @@ class DenseReporter:
         _,_,st = self.histogram(field,tid,source=source)
         return st['median'] + k*st['sigma']
 
-    def assemble(self, field='z', tomo_id=None, out=None):
+    def assemble(self, field='z', tomo_id=None, out=None, region=None):
         """Tomogram-sized volume (output grid of the manifest) of ``'z'``, ``'cc'``, ``'ang'`` or ``'blk'``.
 
         Where blocks overlap, the sample with the highest z (with its cc, angle
         and block); NaN (z, cc) or -1 (ang, blk) where no block searched.
         ``'blk'`` exists only for blocks with their own ali_eu.  ``out``: also
-        write it (MRC).  Returns the volume, shape (Z, Y, X)."""
+        write it (MRC).  Returns the volume, shape (Z, Y, X).
+
+        ``region='blocks'``: only the bounding box of the blocks, assembled in
+        memory from the block files (they must exist: a :meth:`probe` or
+        :attr:`keep_blocks`); returns (volume, corner), the corner in output
+        voxels (x, y, z)."""
         tid, m = self._manifest(tomo_id)
-        vol = self._read_vol(m,field)
+        corner = None
+        if region == 'blocks':
+            if not m['blocks'] or not any(blk['files'] for blk in m['blocks']):
+                raise ValueError('Tomogram %d has no block files.' % tid)
+            with_blk = any(_np.any(blk['ali_eu']) for blk in m['blocks'])
+            if field == 'blk' and not with_blk:
+                raise ValueError('No blk field (written only for blocks with their own ali_eu).')
+            lo = _np.min([blk['_lo'] for blk in m['blocks']],axis=0)
+            hi = _np.max([blk['_hi'] for blk in m['blocks']],axis=0)
+            vols, ok = self._assemble_box(m,lo,hi,with_blk)
+            vol = vols[field]
+            if field in ('z','cc'):
+                vol[~ok] = _np.nan
+            corner = lo[::-1].copy()
+        elif region is None:
+            vol = self._read_vol(m,field)
+        else:
+            raise ValueError("region: None or 'blocks'.")
         if out is not None:
             d = _os.path.dirname(out)
             if d and not _os.path.isdir(d):
                 _os.makedirs(d)
             _mrc.write(vol,out,apix=m['tomogram']['apix_out'])
-        return vol
+        return vol if corner is None else (vol, corner)
+
+    def _block_index(self, m, index, ptcl_id, point):
+        if sum(v is not None for v in (index,ptcl_id,point)) != 1:
+            raise ValueError('Give one of index, ptcl_id or point.')
+        if index is not None:
+            return int(index)
+        if ptcl_id is not None:
+            ids = [blk['ptcl_id'] for blk in m['blocks']]
+            if int(ptcl_id) not in ids:
+                raise ValueError('No block with ptcl_id %d.' % ptcl_id)
+            return ids.index(int(ptcl_id))
+        v = self._out_voxel(m,_np.asarray(point,dtype=float).reshape(1,3))[0]
+        for i,blk in enumerate(m['blocks']):
+            if _np.all(v >= blk['_lo']) and _np.all(v < blk['_hi']):
+                return i
+        raise ValueError('No block holds the point %s.' % str(tuple(point)))
+
+    @staticmethod
+    def _out_voxel(m, points):
+        """Tomogram voxels (N, 3; x, y, z) -> output voxels (N, 3; z, y, x)."""
+        b = int(m['tomogram']['bin'])
+        return _np.rint((points - (b-1)/2.0)/b).astype(int)[:,::-1]
+
+    def block(self, index=None, field='z', tomo_id=None, ptcl_id=None, point=None):
+        """One block's ``'z'``, ``'cc'`` or ``'ang'`` from its file (kept blocks: a :meth:`probe` or
+        :attr:`keep_blocks`).
+
+        The block is given by one of ``index`` (in the manifest), ``ptcl_id``
+        or ``point`` (tomogram voxels x, y, z, 0-based; the first block that
+        holds it).  Returns (volume (Z, Y, X), corner), the corner in output
+        voxels (x, y, z)."""
+        tid, m = self._manifest(tomo_id)
+        blk = m['blocks'][self._block_index(m,index,ptcl_id,point)]
+        if field not in blk['files'] or not _os.path.exists(blk['files'][field]):
+            raise ValueError('The block file of %s does not exist (deleted by finalize or clean?).' % field)
+        return _mrc.read(blk['files'][field])[0], _np.array(blk['corner_xyz'],dtype=int)
+
+    def values_at(self, points, field='z', tomo_id=None):
+        """``'z'``, ``'cc'`` or ``'ang'`` at tomogram voxels ``points`` (N, 3; x, y, z, 0-based) read from the
+        block files; where blocks overlap, the sample with the highest z (as :meth:`assemble`); NaN (z, cc) or
+        -1 (ang) outside the blocks."""
+        tid, m = self._manifest(tomo_id)
+        zyx = self._out_voxel(m,_np.asarray(points,dtype=float).reshape(-1,3))
+        best = _np.full(len(zyx),-_np.inf,dtype=_np.float32)
+        out = _np.full(len(zyx),-1 if field == 'ang' else _np.nan,dtype=_np.float32)
+        for blk in m['blocks']:
+            inside = _np.all((zyx >= blk['_lo']) & (zyx < blk['_hi']),axis=1)
+            if not inside.any():
+                continue
+            loc = tuple((zyx[inside] - blk['_lo']).T)
+            z = self._read_slab(blk,'z',0,blk['shape_xyz'][2])[loc]
+            upd = z > best[inside]
+            if not upd.any():
+                continue
+            v = z if field == 'z' else self._read_slab(blk,field,0,blk['shape_xyz'][2])[loc]
+            idx = _np.flatnonzero(inside)[upd]
+            best[idx] = z[upd]
+            out[idx] = v[upd]
+        return out
 
     def coverage(self, tomo_id=None, slab=None, thickness=None):
         """Fraction of the tomogram searched: XY footprint and XYZ volume.
