@@ -440,12 +440,14 @@ each side and sets the cosine taper width to <code class="docutils literal notra
 <dt class="sig sig-object py" id="susan.utils.datatypes.search_params">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">susan.utils.datatypes.</span></span><span class="sig-name descname"><span class="pre">search_params</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/datatypes.html#search_params"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils.datatypes.search_params" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Generic angular or offset search range and step.</p>
+<p>Generic search range and step: angles (aligner), defocus, astigmatism
+angle and phase shift (CTF refiner).</p>
 <p class="rubric">Attributes</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.utils.datatypes.search_params.span">
 <span class="sig-name descname"><span class="pre">span</span></span><a class="headerlink" href="#susan.utils.datatypes.search_params.span" title="Link to this definition">¶</a></dt>
-<dd><p>Total search range (half-range is <code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">/</span> <span class="pre">2</span></code>).</p>
+<dd><p>Total search range: the search covers <code class="docutils literal notranslate"><span class="pre">-span</span> <span class="pre">/</span> <span class="pre">2</span> <span class="pre">..</span> <span class="pre">span</span> <span class="pre">/</span> <span class="pre">2</span></code>
+around the current value.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>

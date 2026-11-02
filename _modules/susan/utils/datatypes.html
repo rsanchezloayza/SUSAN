@@ -420,14 +420,16 @@
 <a class="viewcode-back" href="../../../api/susan.utils.datatypes.html#susan.utils.datatypes.search_params">[docs]</a>
 <span class="nd">@_dc</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">search_params</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Generic angular or offset search range and step.</span>
+<span class="w">    </span><span class="sd">"""Generic search range and step: angles (aligner), defocus, astigmatism</span>
+<span class="sd">    angle and phase shift (CTF refiner).</span>
 
 <span class="sd">    .. rubric:: Attributes</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    span : float</span>
-<span class="sd">        Total search range (half-range is ``span / 2``).</span>
+<span class="sd">        Total search range: the search covers ``-span / 2 .. span / 2``</span>
+<span class="sd">        around the current value.</span>
 <span class="sd">    step : float</span>
 <span class="sd">        Step size of the search.</span>
 <span class="sd">    """</span>

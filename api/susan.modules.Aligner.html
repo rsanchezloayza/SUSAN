@@ -446,29 +446,20 @@ leaves roughly 20% of directions outside the reach of the next level.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.angle_sigma">
 <span class="sig-name descname"><span class="pre">angle_sigma</span></span><a class="headerlink" href="#susan.modules.Aligner.angle_sigma" title="Link to this definition">¶</a></dt>
-<dd><p>Width (degrees) of a Gaussian prior on the candidate orientation’s
-deviation from the previous pose.  Acts as a soft regulariser that
-down-weights candidates with large angular offsets.  The
-out-of-plane (cone) and in-plane (twist) deviations are penalised
-independently with the same width and multiplied, so the
-per-orientation score becomes
-<code class="docutils literal notranslate"><span class="pre">CC</span> <span class="pre">·</span> <span class="pre">exp(−θ_cone²</span> <span class="pre">/</span> <span class="pre">(2·angle_sigma²))</span> <span class="pre">·</span> <span class="pre">exp(−θ_inplane²</span> <span class="pre">/</span> <span class="pre">(2·angle_sigma²))</span></code>
-for the argmax tiebreak only.  Raw CC values are preserved in stats
-and downstream outputs.</p>
-<p><code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables the prior and reproduces the unregularised
-behaviour.  <code class="docutils literal notranslate"><span class="pre">θ</span></code> is the deviation from the current pose, so for a
-search of full width <code class="docutils literal notranslate"><span class="pre">span</span></code> the most-deviated candidate sits at
-<code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">/</span> <span class="pre">2</span></code>.  Useful settings (per axis): <code class="docutils literal notranslate"><span class="pre">angle_sigma</span> <span class="pre">=</span> <span class="pre">span</span></code>
-barely touches the search (edge candidate ≈ 0.88); <code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">/</span> <span class="pre">2</span></code> is
-mild (edge ≈ 0.61); <code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">/</span> <span class="pre">4</span></code> is aggressive (edge ≈ 0.14).
-Because the two axes multiply, a candidate at the edge of <em>both</em>
-cone and in-plane gets the square of the per-axis weight
-(e.g. <code class="docutils literal notranslate"><span class="pre">0.88²</span> <span class="pre">≈</span> <span class="pre">0.77</span></code>).</p>
-<p>Recommended in 2-D mode (<code class="docutils literal notranslate"><span class="pre">dimensionality=2</span></code>) with a cone search,
-where each tilt picks its own orientation and the
-per-particle degrees of freedom can otherwise drive overfitting.
-Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> for coarse / template-matching searches that depend
-on broad angular exploration.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
+<dd><p>Standard deviation (degrees) of a Gaussian prior on the candidate
+orientation’s deviation from the previous pose, cone (out-of-plane)
+and in-plane, each with this width.  <code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables it.
+Set it to the expected deviation of the true pose from the current
+one.  The score is a log posterior in CC units,
+<code class="docutils literal notranslate"><span class="pre">CC</span> <span class="pre">−</span> <span class="pre">λ·(θ_cone²</span> <span class="pre">+</span> <span class="pre">θ_inplane²)</span> <span class="pre">/</span> <span class="pre">(2·angle_sigma²)</span></code> (plus the
+offset term), where <code class="docutils literal notranslate"><span class="pre">λ</span> <span class="pre">=</span> <span class="pre">sd_CC²</span> <span class="pre">/</span> <span class="pre">A</span></code> converts the CC to a
+log-likelihood: <code class="docutils literal notranslate"><span class="pre">sd_CC</span></code> is the CC noise (robust sd on a ring of
+offsets outside the peak) and <code class="docutils literal notranslate"><span class="pre">A</span></code> the peak height above its
+median, measured per projection in 2-D and per particle in 3-D at
+the input pose.  So the prior’s effect follows the data: strong
+projections move freely, weak ones stay near the previous pose.
+Raw CC values are kept in the outputs.  Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> for coarse /
+template-matching searches.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -479,26 +470,15 @@ on broad angular exploration.  Default: <code class="docutils literal notranslat
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.offset_sigma">
 <span class="sig-name descname"><span class="pre">offset_sigma</span></span><a class="headerlink" href="#susan.modules.Aligner.offset_sigma" title="Link to this definition">¶</a></dt>
-<dd><p>Width (pixels/voxels) of a Gaussian prior on the candidate
-translation’s magnitude.  Acts as a soft regulariser that
-down-weights large shifts — the per-point score becomes
-<code class="docutils literal notranslate"><span class="pre">CC(t)</span> <span class="pre">·</span> <span class="pre">exp(−|t|²</span> <span class="pre">/</span> <span class="pre">(2·offset_sigma²))</span></code> for the
-translation argmax, and the combined joint score
-<code class="docutils literal notranslate"><span class="pre">CC</span> <span class="pre">·</span> <span class="pre">w_shift</span> <span class="pre">·</span> <span class="pre">w_angle</span></code> drives the cross-orientation tiebreak.
-Raw CC values are preserved in stats and downstream outputs; the
-Sigma cc-stats tracker’s PSR / z-score uses raw CC so its
-discriminability metric is not polluted by the prior.</p>
-<p>Units are pixels in 2-D mode and voxels in 3-D mode, matching
-<a class="reference internal" href="#susan.modules.Aligner.offset" title="susan.modules.Aligner.offset"><code class="xref py py-attr docutils literal notranslate"><span class="pre">offset</span></code></a> (<code class="docutils literal notranslate"><span class="pre">offset.span</span></code> / <code class="docutils literal notranslate"><span class="pre">offset.step</span></code>).  <code class="docutils literal notranslate"><span class="pre">0</span></code>
-(default) disables the prior and reproduces the unregularised
-behaviour.  Typical useful values lie between <code class="docutils literal notranslate"><span class="pre">offset.span</span> <span class="pre">/</span> <span class="pre">4</span></code>
-(aggressive: edge of the offset grid gets weight ≈ 0.14) and
-<code class="docutils literal notranslate"><span class="pre">offset.span</span> <span class="pre">/</span> <span class="pre">2</span></code> (mild: edge gets weight ≈ 0.61).</p>
-<p>Useful when the translational search has converged near the
-previous estimate and you want to prevent late iterations from
-wandering due to noise.  Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> for initial / coarse
-alignment when the true shift may be far from the current
-estimate.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
+<dd><p>Standard deviation (pixels in 2-D, voxels in 3-D, as <a class="reference internal" href="#susan.modules.Aligner.offset" title="susan.modules.Aligner.offset"><code class="xref py py-attr docutils literal notranslate"><span class="pre">offset</span></code></a>)
+of a Gaussian prior on the candidate translation, the term
+<code class="docutils literal notranslate"><span class="pre">λ·|t|²</span> <span class="pre">/</span> <span class="pre">(2·offset_sigma²)</span></code> of the same score (see
+<a class="reference internal" href="#susan.modules.Aligner.angle_sigma" title="susan.modules.Aligner.angle_sigma"><code class="xref py py-attr docutils literal notranslate"><span class="pre">angle_sigma</span></code></a>).  <code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables it.  Set it to the
+expected deviation of the true shift from the current one; useful
+in late refinement and in 2-D, where a single projection’s evidence
+is weak.  The noise ring needs room in the box beyond the offset
+search (about three peak widths, <code class="docutils literal notranslate"><span class="pre">box</span> <span class="pre">/</span> <span class="pre">lowpass</span></code> px each); without
+it the priors are disabled with a warning.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -554,7 +534,8 @@ and std of the valid pixels) or <code class="docutils literal notranslate"><span
 (generalized Anscombe transform with the camera gain and offset
 estimated per projection) are experimental: only for stacks of
 detector counts or a linear scaling of them, not for dose-weighted,
-binned by averaging or interpolated stacks.</p>
+binned by averaging or interpolated stacks.
+<code class="docutils literal notranslate"><span class="pre">'local'</span></code>: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -709,10 +690,37 @@ is R(ali_eu of its block) R(table[ang]).  Requires one reference,
 <a class="reference internal" href="#susan.modules.Aligner.refine" title="susan.modules.Aligner.refine"><code class="xref py py-attr docutils literal notranslate"><span class="pre">refine</span></code></a> levels <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">0</span></code> and <a class="reference internal" href="#susan.modules.Aligner.offset_space" title="susan.modules.Aligner.offset_space"><code class="xref py py-attr docutils literal notranslate"><span class="pre">offset_space</span></code></a> <code class="docutils literal notranslate"><span class="pre">'tomogram'</span></code>.
 With <a class="reference internal" href="#susan.modules.Aligner.dimensionality" title="susan.modules.Aligner.dimensionality"><code class="xref py py-attr docutils literal notranslate"><span class="pre">dimensionality</span></code></a> 2, <code class="docutils literal notranslate"><span class="pre">'dense'</span></code> writes the legacy CSV
 <code class="docutils literal notranslate"><span class="pre">{output}_{host}_{thread}.csv</span></code> (<code class="docutils literal notranslate"><span class="pre">TID,PartID,RID,ProjID,ProjW,X,Y,CC</span></code>:
-per projection, the CC map of the orientation with the highest peak).</p>
+per projection, the CC map of the orientation with the highest peak).
+<code class="docutils literal notranslate"><span class="pre">'alignment_stats'</span></code> (<a class="reference internal" href="#susan.modules.Aligner.dimensionality" title="susan.modules.Aligner.dimensionality"><code class="xref py py-attr docutils literal notranslate"><span class="pre">dimensionality</span></code></a> 2 only): as
+<code class="docutils literal notranslate"><span class="pre">'alignment'</span></code>, plus <code class="docutils literal notranslate"><span class="pre">{output</span> <span class="pre">stem}.stats.npz</span></code> with statistics of
+the raw CC (no projection weight, no priors) over the offsets: per
+particle and projection at the input orientation (peak, sub-pixel
+peak, z-score, Hessian, second peak), and per tomogram in equal-count
+groups of the particle x, y (<a class="reference internal" href="#susan.modules.Aligner.stats_groups" title="susan.modules.Aligner.stats_groups"><code class="xref py py-attr docutils literal notranslate"><span class="pre">stats_groups</span></code></a>), the same for the
+mean CC map of each group; with <a class="reference internal" href="#susan.modules.Aligner.halfsets_independ" title="susan.modules.Aligner.halfsets_independ"><code class="xref py py-attr docutils literal notranslate"><span class="pre">halfsets_independ</span></code></a> the groups
+are drawn per half-set (no group mixes the halves).  The angular
+search is sequential, not joint, the same for every particle: the
+<a class="reference internal" href="#susan.modules.Aligner.cone" title="susan.modules.Aligner.cone"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cone</span></code></a> points at in-plane 0, then the <a class="reference internal" href="#susan.modules.Aligner.inplane" title="susan.modules.Aligner.inplane"><code class="xref py py-attr docutils literal notranslate"><span class="pre">inplane</span></code></a> points at
+cone 0; it does not change the particles’ angles (only the offsets of
+the input orientation are aligned), the groups up to 2 x 2 keep the
+peak of their mean CC map per angle.  Requires <a class="reference internal" href="#susan.modules.Aligner.refine" title="susan.modules.Aligner.refine"><code class="xref py py-attr docutils literal notranslate"><span class="pre">refine</span></code></a> levels
+<code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">0</span></code>, <a class="reference internal" href="#susan.modules.Aligner.angle_sigma" title="susan.modules.Aligner.angle_sigma"><code class="xref py py-attr docutils literal notranslate"><span class="pre">angle_sigma</span></code></a> <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">0</span></code> and <a class="reference internal" href="#susan.modules.Aligner.pseudo_symmetry" title="susan.modules.Aligner.pseudo_symmetry"><code class="xref py py-attr docutils literal notranslate"><span class="pre">pseudo_symmetry</span></code></a>
+<code class="docutils literal notranslate"><span class="pre">'c1'</span></code>.  Read it with <code class="xref py py-func docutils literal notranslate"><span class="pre">susan.io.ali_stats.read()</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.Aligner.stats_groups">
+<span class="sig-name descname"><span class="pre">stats_groups</span></span><a class="headerlink" href="#susan.modules.Aligner.stats_groups" title="Link to this definition">¶</a></dt>
+<dd><p>Group sizes gs of <code class="docutils literal notranslate"><span class="pre">'alignment_stats'</span></code>: gs x gs equal-count bins of
+the particle x, y per tomogram.  Default: <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">2,</span> <span class="pre">3,</span> <span class="pre">4,</span> <span class="pre">5]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of int</p>
 </dd>
 </dl>
 </dd></dl>
@@ -975,6 +983,7 @@ of the output files (<code class="docutils literal notranslate"><span class="pre
 <li><a class="reference internal" href="#susan.modules.Aligner.mpi"><code class="docutils literal notranslate"><span class="pre">Aligner.mpi</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.verbosity"><code class="docutils literal notranslate"><span class="pre">Aligner.verbosity</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.output_type"><code class="docutils literal notranslate"><span class="pre">Aligner.output_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.Aligner.stats_groups"><code class="docutils literal notranslate"><span class="pre">Aligner.stats_groups</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.dense_reduce"><code class="docutils literal notranslate"><span class="pre">Aligner.dense_reduce</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.dense_bin"><code class="docutils literal notranslate"><span class="pre">Aligner.dense_bin</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.Aligner.dilate"><code class="docutils literal notranslate"><span class="pre">Aligner.dilate</span></code></a></li>

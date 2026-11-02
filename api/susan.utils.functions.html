@@ -705,6 +705,25 @@ Default: <code class="docutils literal notranslate"><span class="pre">0</span></
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.null_map">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">null_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rot90'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#null_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.null_map" title="Link to this definition">¶</a></dt>
+<dd><p>A reference without the structure of <code class="docutils literal notranslate"><span class="pre">vol</span></code>, for null alignments.</p>
+<p><code class="docutils literal notranslate"><span class="pre">kind</span></code> <code class="docutils literal notranslate"><span class="pre">'rot90'</span></code>: <code class="docutils literal notranslate"><span class="pre">vol</span></code> rotated 90 degrees about y; <code class="docutils literal notranslate"><span class="pre">'phase_random'</span></code>: <a class="reference internal" href="#susan.utils._functions.phase_randomize" title="susan.utils._functions.phase_randomize"><code class="xref py py-func docutils literal notranslate"><span class="pre">phase_randomize()</span></code></a> of <code class="docutils literal notranslate"><span class="pre">vol</span></code>
+(all frequencies: same amplitudes, random phases).  Then masked and rescaled to the mean and std of <code class="docutils literal notranslate"><span class="pre">vol</span></code> inside
+the mask (<code class="docutils literal notranslate"><span class="pre">mask</span> <span class="pre">&gt;</span> <span class="pre">0.5</span></code>).  Returns a float64 volume.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vol</strong> (<em>numpy.ndarray</em>) – Reference map and its mask (same shape; the mask is clipped to [0, 1]).</p></li>
+<li><p><strong>mask</strong> (<em>numpy.ndarray</em>) – Reference map and its mask (same shape; the mask is clipped to [0, 1]).</p></li>
+<li><p><strong>kind</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">'rot90'</span></code> or <code class="docutils literal notranslate"><span class="pre">'phase_random'</span></code>.</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Seed of the phases (<code class="docutils literal notranslate"><span class="pre">'phase_random'</span></code>).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="susan.utils._functions.fsc_sharpen">
 <span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">fsc_sharpen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fsc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bfactor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fom</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rosenthal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lowpass</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thres</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.143</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rolloff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#fsc_sharpen"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.fsc_sharpen" title="Link to this definition">¶</a></dt>
 <dd><p>FSC-weighted B-factor sharpening of a map from its half-map FSC.</p>
@@ -785,6 +804,59 @@ per-reference FSC in automatically each iteration.</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">sta</span><span class="o">.</span><span class="n">map_filter_fsc</span> <span class="o">=</span> <span class="n">fsc_sharpen_filter</span><span class="p">(</span><span class="n">sta</span><span class="o">.</span><span class="n">pix_size</span><span class="p">,</span> <span class="n">bfactor</span><span class="o">=-</span><span class="mi">120</span><span class="p">)</span>
 </pre></div>
 </div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.euZYZ_to_rotm">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">euZYZ_to_rotm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#euZYZ_to_rotm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.euZYZ_to_rotm" title="Link to this definition">¶</a></dt>
+<dd><p>SUSAN ZYZ angles <code class="docutils literal notranslate"><span class="pre">(...,</span> <span class="pre">3)</span></code> to rotation matrices <code class="docutils literal notranslate"><span class="pre">(...,</span> <span class="pre">3,</span> <span class="pre">3)</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">out</span></code>: preallocated C-contiguous float32 / float64 array, filled and returned.
+For single calls in tight loops <code class="xref py py-func docutils literal notranslate"><span class="pre">euZYZ_rotm()</span></code> (preallocated, float32) is faster.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.euDYN_to_rotm">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">euDYN_to_rotm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#euDYN_to_rotm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.euDYN_to_rotm" title="Link to this definition">¶</a></dt>
+<dd><p>Dynamo / ArtiaX ZXZ angles (phi, the, psi) <code class="docutils literal notranslate"><span class="pre">(...,</span> <span class="pre">3)</span></code> to rotation matrices <code class="docutils literal notranslate"><span class="pre">(...,</span> <span class="pre">3,</span> <span class="pre">3)</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.rotm_to_euZYZ">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">rotm_to_euZYZ</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#rotm_to_euZYZ"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.rotm_to_euZYZ" title="Link to this definition">¶</a></dt>
+<dd><p>Rotation matrices <code class="docutils literal notranslate"><span class="pre">(...,</span> <span class="pre">3,</span> <span class="pre">3)</span></code> to SUSAN ZYZ angles <code class="docutils literal notranslate"><span class="pre">(...,</span> <span class="pre">3)</span></code>, beta in [0, pi].</p>
+<p>At gimbal lock (<code class="docutils literal notranslate"><span class="pre">abs(R22)</span></code> within 1e-6 of 1) the in-plane angle goes to slot 2 and slot 0 is 0, as the C++ engine.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.euZYZ_to_euDYN">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">euZYZ_to_euDYN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#euZYZ_to_euDYN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.euZYZ_to_euDYN" title="Link to this definition">¶</a></dt>
+<dd><p>SUSAN ZYZ (alpha, beta, gamma) to Dynamo / ArtiaX (phi, the, psi) = (gamma - 90, beta, alpha + 90).</p>
+<p>Closed form, no matrices; the input is first taken to beta &gt;= 0, results wrapped to (-180, 180] (deg or rad).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.euDYN_to_euZYZ">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">euDYN_to_euZYZ</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#euDYN_to_euZYZ"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.euDYN_to_euZYZ" title="Link to this definition">¶</a></dt>
+<dd><p>Dynamo / ArtiaX (phi, the, psi) to SUSAN ZYZ (alpha, beta, gamma) = (psi - 90, the, phi + 90), beta &gt;= 0.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.euZYZ_to_euREL">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">euZYZ_to_euREL</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#euZYZ_to_euREL"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.euZYZ_to_euREL" title="Link to this definition">¶</a></dt>
+<dd><p>SUSAN ZYZ (alpha, beta, gamma) to RELION (rot, tilt, psi) = (180 - gamma, beta, 180 - alpha), tilt in [0, 180].</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.euREL_to_euZYZ">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">euREL_to_euZYZ</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#euREL_to_euZYZ"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.euREL_to_euZYZ" title="Link to this definition">¶</a></dt>
+<dd><p>RELION (rot, tilt, psi) to SUSAN ZYZ (alpha, beta, gamma) = (180 - psi, tilt, 180 - rot), beta &gt;= 0.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.euZYZ_flip_hand">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">euZYZ_flip_hand</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#euZYZ_flip_hand"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.euZYZ_flip_hand" title="Link to this definition">¶</a></dt>
+<dd><p>Angles of M R M, M = diag(1, 1, -1) (z mirror of the reference and the tomogram): (alpha + 180, beta, gamma + 180).</p>
+<p>Angles only: flipping a particle set also needs z -&gt; -z of the positions and shifts, and the reference flipped in z.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -940,6 +1012,64 @@ dtype float32, contiguous.  Allocated internally if not given.</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.suppress_peaks">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">suppress_peaks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zyx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_peaks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#suppress_peaks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.suppress_peaks" title="Link to this definition">¶</a></dt>
+<dd><p>Greedy non-maximum suppression of peaks on a voxel grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zyx</strong> (<em>array_like</em><em>, </em><em>(</em><em>N</em><em>, </em><em>3</em><em>) </em><em>int</em>) – Peak voxels (z, y, x), sorted by decreasing score.</p></li>
+<li><p><strong>shape</strong> (<em>tuple</em><em> of </em><em>int</em>) – Grid shape (Z, Y, X).</p></li>
+<li><p><strong>radius</strong> (<em>float</em>) – A peak is dropped when an already kept one lies within this distance
+(Euclidean, inclusive), in voxels.</p></li>
+<li><p><strong>max_peaks</strong> (<em>int</em><em>, </em><em>optional</em>) – Stop after this many kept peaks.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Indices into <code class="docutils literal notranslate"><span class="pre">zyx</span></code> of the kept peaks, in order.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray of int32</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.utils._functions.local_maxima">
+<span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">local_maxima</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#local_maxima"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.local_maxima" title="Link to this definition">¶</a></dt>
+<dd><p>Voxels of a 3D volume at or above <code class="docutils literal notranslate"><span class="pre">threshold</span></code> that are &gt;= their 26 neighbours (ties kept; NaN never).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>z, y, x of the maxima, in raster order.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>numpy.ndarray, (N, 3) int32</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="susan.utils._functions.RunningStats">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">RunningStats</span></span><a class="reference internal" href="../_modules/susan/utils/_functions.html#RunningStats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.RunningStats" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Min, max, mean and std of values seen in chunks (Chan et al. merge of per-chunk moments, float64).</p>
+<p>Example: one accumulator per volume written by <a class="reference internal" href="susan.io.mrc.html#susan.io.mrc.write_slices" title="susan.io.mrc.write_slices"><code class="xref py py-func docutils literal notranslate"><span class="pre">susan.io.mrc.write_slices()</span></code></a>, then
+<code class="docutils literal notranslate"><span class="pre">susan.io.mrc.set_statistics(filename,</span> <span class="pre">stats=rs.stats())</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.utils._functions.RunningStats.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#RunningStats.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.RunningStats.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add the finite values of an array (any shape).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="susan.utils._functions.RunningStats.stats">
+<span class="sig-name descname"><span class="pre">stats</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#RunningStats.stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.RunningStats.stats" title="Link to this definition">¶</a></dt>
+<dd><p>(min, max, mean, std) float32, population std; zeros when nothing was added.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="susan.utils._functions.mask_diameter">
 <span class="sig-prename descclassname"><span class="pre">susan.utils._functions.</span></span><span class="sig-name descname"><span class="pre">mask_diameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mask_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/utils/_functions.html#mask_diameter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.utils._functions.mask_diameter" title="Link to this definition">¶</a></dt>
 <dd><p>Estimate the particle diameter in pixels from a soft mask MRC file.</p>
@@ -1082,8 +1212,17 @@ the given resolution.  No pixel size or particle diameter is needed.</p>
 <li><a class="reference internal" href="#susan.utils._functions.spectral_weight_CFSC"><code class="docutils literal notranslate"><span class="pre">spectral_weight_CFSC()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.apply_spectral_weight"><code class="docutils literal notranslate"><span class="pre">apply_spectral_weight()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.phase_randomize"><code class="docutils literal notranslate"><span class="pre">phase_randomize()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.null_map"><code class="docutils literal notranslate"><span class="pre">null_map()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.fsc_sharpen"><code class="docutils literal notranslate"><span class="pre">fsc_sharpen()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.fsc_sharpen_filter"><code class="docutils literal notranslate"><span class="pre">fsc_sharpen_filter()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.euZYZ_to_rotm"><code class="docutils literal notranslate"><span class="pre">euZYZ_to_rotm()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.euDYN_to_rotm"><code class="docutils literal notranslate"><span class="pre">euDYN_to_rotm()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.rotm_to_euZYZ"><code class="docutils literal notranslate"><span class="pre">rotm_to_euZYZ()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.euZYZ_to_euDYN"><code class="docutils literal notranslate"><span class="pre">euZYZ_to_euDYN()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.euDYN_to_euZYZ"><code class="docutils literal notranslate"><span class="pre">euDYN_to_euZYZ()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.euZYZ_to_euREL"><code class="docutils literal notranslate"><span class="pre">euZYZ_to_euREL()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.euREL_to_euZYZ"><code class="docutils literal notranslate"><span class="pre">euREL_to_euZYZ()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.euZYZ_flip_hand"><code class="docutils literal notranslate"><span class="pre">euZYZ_flip_hand()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.get_extension"><code class="docutils literal notranslate"><span class="pre">get_extension()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.is_extension"><code class="docutils literal notranslate"><span class="pre">is_extension()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.force_extension"><code class="docutils literal notranslate"><span class="pre">force_extension()</span></code></a></li>
@@ -1092,6 +1231,13 @@ the given resolution.  No pixel size or particle diameter is needed.</p>
 <li><a class="reference internal" href="#susan.utils._functions.bin_vol"><code class="docutils literal notranslate"><span class="pre">bin_vol()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.bin_frame"><code class="docutils literal notranslate"><span class="pre">bin_frame()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.bin_frame_shape"><code class="docutils literal notranslate"><span class="pre">bin_frame_shape()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.suppress_peaks"><code class="docutils literal notranslate"><span class="pre">suppress_peaks()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.local_maxima"><code class="docutils literal notranslate"><span class="pre">local_maxima()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.RunningStats"><code class="docutils literal notranslate"><span class="pre">RunningStats</span></code></a><ul>
+<li><a class="reference internal" href="#susan.utils._functions.RunningStats.add"><code class="docutils literal notranslate"><span class="pre">RunningStats.add()</span></code></a></li>
+<li><a class="reference internal" href="#susan.utils._functions.RunningStats.stats"><code class="docutils literal notranslate"><span class="pre">RunningStats.stats()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#susan.utils._functions.mask_diameter"><code class="docutils literal notranslate"><span class="pre">mask_diameter()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.angular_step_from_fsc"><code class="docutils literal notranslate"><span class="pre">angular_step_from_fsc()</span></code></a></li>
 <li><a class="reference internal" href="#susan.utils._functions.is_odd"><code class="docutils literal notranslate"><span class="pre">is_odd()</span></code></a></li>

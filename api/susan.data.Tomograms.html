@@ -382,6 +382,13 @@ the particle position before projecting.  Same units as
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="susan.data.Tomograms.proj_scale">
+<span class="sig-name descname"><span class="pre">proj_scale</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">P</span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.proj_scale" title="Link to this definition">¶</a></dt>
+<dd><p>Per-projection magnification of the projected positions (x and y in
+the stack; 1 = none). Set by <a class="reference internal" href="#susan.data.Tomograms.set_angles" title="susan.data.Tomograms.set_angles"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_angles()</span></code></a> from the IMOD .xf.</p>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Tomograms.doses">
 <span class="sig-name descname"><span class="pre">doses</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">P</span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.doses" title="Link to this definition">¶</a></dt>
 <dd><p>Cumulative electron dose per projection in e⁻/Ų.</p>
@@ -416,6 +423,21 @@ the particle position before projecting.  Same units as
 <dt class="sig sig-object py" id="susan.data.Tomograms.handedness">
 <span class="sig-name descname"><span class="pre">handedness</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.handedness" title="Link to this definition">¶</a></dt>
 <dd><p>Z-axis handedness (+1 or −1).  Default −1.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.data.Tomograms.slab_plane">
+<span class="sig-name descname"><span class="pre">slab_plane</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.slab_plane" title="Link to this definition">¶</a></dt>
+<dd><p>Specimen plane (dz/dx, dz/dy, z0): Z = dz/dx X + dz/dy Y + z0, with X, Y,
+Z in Ångströms from the tomogram centre (the slopes are dimensionless).
+Default 0 (the tomogram mid-plane; not set).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.data.Tomograms.slab_thickness">
+<span class="sig-name descname"><span class="pre">slab_thickness</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.slab_thickness" title="Link to this definition">¶</a></dt>
+<dd><p>Specimen thickness in Ångströms, centred on <a class="reference internal" href="#susan.data.Tomograms.slab_plane" title="susan.data.Tomograms.slab_plane"><code class="xref py py-attr docutils literal notranslate"><span class="pre">slab_plane</span></code></a>.
+Default 0 (not set).</p>
 </dd></dl>
 
 <p class="rubric">CTF</p>
@@ -511,8 +533,9 @@ for all valid projections and 0 for the rest.</p>
 <p>If only <code class="docutils literal notranslate"><span class="pre">tlt_filename</span></code> is provided, tilt angles are set directly
 as the Y Euler angle (ZYZ convention) with no in-plane shifts.
 If <code class="docutils literal notranslate"><span class="pre">xf_filename</span></code> is also provided, the IMOD .xf affine transforms
-are combined with the tilt angles to produce full ZYZ orientations
-and X/Y shifts in Ångströms.</p>
+are combined with the tilt angles to produce full ZYZ orientations,
+X/Y shifts in Ångströms and the magnification (<code class="docutils literal notranslate"><span class="pre">proj_scale</span></code>); a
+stretch or skew in the .xf becomes part of the 3D rotation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -644,12 +667,15 @@ object can be over-dimensioned and only partially filled.</p>
 <li><a class="reference internal" href="#susan.data.Tomograms.proj_eZYZ"><code class="docutils literal notranslate"><span class="pre">Tomograms.proj_eZYZ</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.proj_shift"><code class="docutils literal notranslate"><span class="pre">Tomograms.proj_shift</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.proj_wgt"><code class="docutils literal notranslate"><span class="pre">Tomograms.proj_wgt</span></code></a></li>
+<li><a class="reference internal" href="#susan.data.Tomograms.proj_scale"><code class="docutils literal notranslate"><span class="pre">Tomograms.proj_scale</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.doses"><code class="docutils literal notranslate"><span class="pre">Tomograms.doses</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.nominal_tilt_angles"><code class="docutils literal notranslate"><span class="pre">Tomograms.nominal_tilt_angles</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.voltage"><code class="docutils literal notranslate"><span class="pre">Tomograms.voltage</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.sph_aber"><code class="docutils literal notranslate"><span class="pre">Tomograms.sph_aber</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.amp_cont"><code class="docutils literal notranslate"><span class="pre">Tomograms.amp_cont</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.handedness"><code class="docutils literal notranslate"><span class="pre">Tomograms.handedness</span></code></a></li>
+<li><a class="reference internal" href="#susan.data.Tomograms.slab_plane"><code class="docutils literal notranslate"><span class="pre">Tomograms.slab_plane</span></code></a></li>
+<li><a class="reference internal" href="#susan.data.Tomograms.slab_thickness"><code class="docutils literal notranslate"><span class="pre">Tomograms.slab_thickness</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.def_ang"><code class="docutils literal notranslate"><span class="pre">Tomograms.def_ang</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.def_phas"><code class="docutils literal notranslate"><span class="pre">Tomograms.def_phas</span></code></a></li>
 <li><a class="reference internal" href="#susan.data.Tomograms.def_Bfct"><code class="docutils literal notranslate"><span class="pre">Tomograms.def_Bfct</span></code></a></li>

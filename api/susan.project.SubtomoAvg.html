@@ -420,10 +420,68 @@ Individual pipeline steps (<a class="reference internal" href="#susan.project.Su
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.max_2d_delta_angstroms">
-<span class="sig-name descname"><span class="pre">max_2d_delta_angstroms</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.max_2d_delta_angstroms" title="Link to this definition">¶</a></dt>
-<dd><p>Maximum per-iteration 2-D shift magnitude (Å).  <code class="docutils literal notranslate"><span class="pre">0</span></code> disables.
-Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.solver_2d">
+<span class="sig-name descname"><span class="pre">solver_2d</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.solvers.Solver2D`</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_2d" title="Link to this definition">¶</a></dt>
+<dd><p>Refinement of the 2-D iterations from the alignment statistics: the
+aligner writes <code class="docutils literal notranslate"><span class="pre">output_type='alignment_stats'</span></code> (recommended: offset
+step 0.5 px; the cone and in-plane search of the 2-D iterations
+define the sequential angular search of the orientation correction,
+e.g. <code class="docutils literal notranslate"><span class="pre">set_angular_search(2,</span> <span class="pre">1,</span> <span class="pre">1,</span> <span class="pre">0.5)</span></code>; with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.aligner" title="susan.project.SubtomoAvg.SubtomoAvg.aligner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">aligner</span></code></a>
+<code class="docutils literal notranslate"><span class="pre">halfsets_independ</span></code> the statistics are per half-set), then
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">solve()</span></code> gives the particles of the next
+iteration; the statistics also carry the uncertainty of what it applied
+(<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_highres</span></code></a>).  <code class="docutils literal notranslate"><span class="pre">None</span></code>: plain 2-D alignment (no fitting;
+overfits at low SNR).  Default: <code class="docutils literal notranslate"><span class="pre">Solver2D()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.solver_ctf">
+<span class="sig-name descname"><span class="pre">solver_ctf</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.solvers.SolverCTF`</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_ctf" title="Link to this definition">¶</a></dt>
+<dd><p>Defocus correction of the CTF iterations from pooled statistics: the
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner" title="susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ctf_refiner</span></code></a> writes <code class="docutils literal notranslate"><span class="pre">output_type='refinement_stats'</span></code> (no
+per-particle search; its <a class="reference internal" href="susan.modules.CtfRefiner.html#susan.modules.CtfRefiner.defocus_angstroms" title="susan.modules.CtfRefiner.defocus_angstroms"><code class="xref py py-attr docutils literal notranslate"><span class="pre">defocus_angstroms</span></code></a>
+span is the range of the per-particle curves; with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner" title="susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ctf_refiner</span></code></a>
+<code class="docutils literal notranslate"><span class="pre">halfsets_independ</span></code> the statistics are per half-set), then
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">solve()</span></code> gives the particles of the next
+iteration: per-tilt offset, global tilt geometry and per-particle depth
+error, and, when the refiner has an offset search, the significant
+per-tilt translation bias.  Astigmatism and phase shift are kept.
+<code class="docutils literal notranslate"><span class="pre">None</span></code>: the free per-particle refinement.
+Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.solver_highres">
+<span class="sig-name descname"><span class="pre">solver_highres</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.solvers.SolverHighRes`</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="Link to this definition">¶</a></dt>
+<dd><p>Particles of the reconstruction, in every iteration type, from the
+latest statistics (written to <code class="docutils literal notranslate"><span class="pre">ite_xxxx/particles_rec.ptclsraw</span></code>,
+which never feeds the alignment): per-tilt weights, <code class="docutils literal notranslate"><span class="pre">def_Bfct</span></code> from
+the shift uncertainty (plus the per-tilt B-factor of the CTF
+statistics with <code class="docutils literal notranslate"><span class="pre">SolverHighRes.b_tilt</span></code>), <code class="docutils literal notranslate"><span class="pre">def_mres</span></code> from the
+angular uncertainty (with the particle radius
+from the reference mask), and the <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.cc_threshold" title="susan.project.SubtomoAvg.SubtomoAvg.cc_threshold"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cc_threshold</span></code></a> selection.  The
+null of <code class="xref py py-meth docutils literal notranslate"><span class="pre">update_null()</span></code> is the baseline of the 2-D weights when
+there is one, otherwise the second CC peak.  <code class="docutils literal notranslate"><span class="pre">None</span></code>: the
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.cc_threshold" title="susan.project.SubtomoAvg.SubtomoAvg.cc_threshold"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cc_threshold</span></code></a> selection only.  Default: <code class="docutils literal notranslate"><span class="pre">SolverHighRes()</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.use_2d_stats">
+<span class="sig-name descname"><span class="pre">use_2d_stats</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.use_2d_stats" title="Link to this definition">¶</a></dt>
+<dd><p>Iteration whose 2-D statistics (<code class="docutils literal notranslate"><span class="pre">particles.stats.npz</span></code>) feed
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_highres</span></code></a>, <code class="docutils literal notranslate"><span class="pre">0</span></code> none.  Set to the iteration by every 2-D
+iteration run with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_2d" title="susan.project.SubtomoAvg.SubtomoAvg.solver_2d"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_2d</span></code></a> (before <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_highres</span></code></a>, so
+it uses its own); kept in <code class="docutils literal notranslate"><span class="pre">info.prjtxt</span></code>.  After an aggressive 3-D
+refinement the statistics no longer describe the particles: set it to
+<code class="docutils literal notranslate"><span class="pre">0</span></code>.  A missing file or a different number of particles skips that
+part with a warning.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.use_ctf_stats">
+<span class="sig-name descname"><span class="pre">use_ctf_stats</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.use_ctf_stats" title="Link to this definition">¶</a></dt>
+<dd><p>Same for the CTF statistics (<code class="docutils literal notranslate"><span class="pre">particles.ctfstats.npz</span></code>), set by every
+CTF iteration run with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_ctf" title="susan.project.SubtomoAvg.SubtomoAvg.solver_ctf"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_ctf</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -461,136 +519,6 @@ the best particles per equal-area view bin (via
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.type_2d_shift_fitting">
-<span class="sig-name descname"><span class="pre">type_2d_shift_fitting</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.type_2d_shift_fitting" title="Link to this definition">¶</a></dt>
-<dd><div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><strong>Experimental.</strong></p>
-</div>
-<p>Post-alignment 2-D shift regularisation: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>, <code class="docutils literal notranslate"><span class="pre">'affine'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>, <code class="docutils literal notranslate"><span class="pre">'tps'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'global'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'none'</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">'tps'</span></code> fits a regularised thin-plate spline to the per-tilt 2-D
-shift field.  It is the middle ground between <code class="docutils literal notranslate"><span class="pre">'affine'</span></code> (globally
-rigid) and <code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code> (purely local): a globally smooth warp whose
-stiffness is set by <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda" title="susan.project.SubtomoAvg.SubtomoAvg.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">'global'</span></code> is different in kind from the other three.  Those fit each
-projection independently in the projected 2-D plane; <code class="docutils literal notranslate"><span class="pre">'global'</span></code> fits
-a single 3-D displacement field per tomogram, jointly across the whole
-tilt series, and projects it back into each image.  Because every tilt
-constrains one field, it can represent deformations that are invisible
-to a per-tilt 2-D fit, notably doming: a displacement along the
-specimen normal projects as <code class="docutils literal notranslate"><span class="pre">sinθ·dz</span></code>, so it vanishes at 0° and is
-carried almost entirely by the high-tilt images.  Always fits from
-origin, so <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.fitting_from_origin" title="susan.project.SubtomoAvg.SubtomoAvg.fitting_from_origin"><code class="xref py py-attr docutils literal notranslate"><span class="pre">fitting_from_origin</span></code></a> does not apply.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.global_grid">
-<span class="sig-name descname"><span class="pre">global_grid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span> <span class="pre">of</span> <span class="pre">3</span> <span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.global_grid" title="Link to this definition">¶</a></dt>
-<dd><div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><strong>Experimental.</strong></p>
-</div>
-<p>Control points per axis for the <code class="docutils literal notranslate"><span class="pre">'global'</span></code> B-spline field.  Deliberately
-anisotropic by default: the lateral extent of a tomogram exceeds its
-thickness by one to two orders of magnitude, so Z needs far fewer knots.
-Degree adapts per axis (cubic where the axis allows, linear at 2 control
-points).  A tomogram needs at least <code class="docutils literal notranslate"><span class="pre">3</span> <span class="pre">*</span> <span class="pre">nx</span> <span class="pre">*</span> <span class="pre">ny</span> <span class="pre">*</span> <span class="pre">nz</span></code> particles or it
-is skipped.  Default: <code class="docutils literal notranslate"><span class="pre">(4,</span> <span class="pre">4,</span> <span class="pre">2)</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.global_lambda">
-<span class="sig-name descname"><span class="pre">global_lambda</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.global_lambda" title="Link to this definition">¶</a></dt>
-<dd><div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><strong>Experimental.</strong></p>
-</div>
-<p>Roughness penalty for the <code class="docutils literal notranslate"><span class="pre">'global'</span></code> field, normalised so the value is
-comparable across datasets.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) selects it per tomogram
-by two-fold cross-validation over particles, which lets a tomogram with
-no real deformation collapse to a stiff, near-null field on its own
-rather than by user choice.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.tps_lambda">
-<span class="sig-name descname"><span class="pre">tps_lambda</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda" title="Link to this definition">¶</a></dt>
-<dd><div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><strong>Experimental.</strong></p>
-</div>
-<p>Stiffness of the <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> shift warp (dimensionless; coordinates are
-normalised per tomogram so the value is comparable across datasets).
-<code class="docutils literal notranslate"><span class="pre">0</span></code> interpolates every shift (overfits noise), large values converge
-to the pure affine fit.  Default: <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.image_grid">
-<span class="sig-name descname"><span class="pre">image_grid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span> <span class="pre">of</span> <span class="pre">2</span> <span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.image_grid" title="Link to this definition">¶</a></dt>
-<dd><div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><strong>Experimental.</strong></p>
-</div>
-<p>Control points per axis for the per-projection 2-D warp used by
-<code class="docutils literal notranslate"><span class="pre">type_2d_shift_fitting</span> <span class="pre">=</span> <span class="pre">'global+image'</span></code>, fitted on the residual left
-by the global field.  Models per-image effects no specimen-frame field
-can express: residual stage drift, magnification and rotation errors,
-beam-induced image warp within an exposure.  Default: <code class="docutils literal notranslate"><span class="pre">(4,</span> <span class="pre">4)</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.image_lambda">
-<span class="sig-name descname"><span class="pre">image_lambda</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.image_lambda" title="Link to this definition">¶</a></dt>
-<dd><div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><strong>Experimental.</strong></p>
-</div>
-<p>Stiffness of the image warp; <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) selects it by two-fold
-cross-validation over particles, pooled across projections.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.image_orthogonalize">
-<span class="sig-name descname"><span class="pre">image_orthogonalize</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.image_orthogonalize" title="Link to this definition">¶</a></dt>
-<dd><div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><strong>Experimental.</strong>  Default <code class="docutils literal notranslate"><span class="pre">False</span></code>; leave it there.</p>
-</div>
-<p>Project the image-warp basis out of the global field’s span at each
-projection.  This does <em>not</em> separate the two terms.  At a single
-projection the global field already spans <code class="docutils literal notranslate"><span class="pre">span(B)</span></code> independently per
-output component, which contains ~99.96% of a 2-D spline in projected
-coordinates, so enabling this annihilates the warp instead: in
-simulation a genuine 28.6 Å per-image warp is recovered as 27.7 Å with
-the flag off and 1.1 Å with it on.</p>
-<p>With the flag off, the global field is fitted first and the warp takes
-the residual, so content representable by both is attributed to the
-global field.  The total written to <code class="docutils literal notranslate"><span class="pre">prj_t</span></code> is correct either way;
-only the split between the two terms is ambiguous, which matters if the
-global field’s amplitude is being read as a physical doming
-measurement.  Resolving it properly requires a joint solve over both
-coefficient blocks, which is not implemented.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.fitting_from_origin">
-<span class="sig-name descname"><span class="pre">fitting_from_origin</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.fitting_from_origin" title="Link to this definition">¶</a></dt>
-<dd><div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><strong>Experimental.</strong></p>
-</div>
-<p>Controls what the <code class="docutils literal notranslate"><span class="pre">'affine'</span></code>/<code class="docutils literal notranslate"><span class="pre">'gaussian'</span></code>/<code class="docutils literal notranslate"><span class="pre">'tps'</span></code> shift
-regularisers fit.  If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default) they fit the absolute current
-<code class="docutils literal notranslate"><span class="pre">prj_t</span></code> (measured from origin).  If <code class="docutils literal notranslate"><span class="pre">False</span></code> they fit only the
-incremental <code class="docutils literal notranslate"><span class="pre">prj_t</span></code> (the delta versus the previous iteration) and
-add the smoothed delta back onto the previous shifts.  Incremental
-deltas are smaller and noisier, so <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda" title="susan.project.SubtomoAvg.SubtomoAvg.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a> typically needs
-to be larger in this mode.  Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf">
 <span class="sig-name descname"><span class="pre">smooth_ctf</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf" title="Link to this definition">¶</a></dt>
 <dd><div class="admonition warning">
@@ -621,8 +549,9 @@ Default: <code class="docutils literal notranslate"><span class="pre">'gaussian'
 <p class="admonition-title">Warning</p>
 <p><strong>Experimental.</strong></p>
 </div>
-<p>Stiffness of the <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> defocus warp, analogous to
-<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda" title="susan.project.SubtomoAvg.SubtomoAvg.tps_lambda"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tps_lambda</span></code></a> but applied independently to the CTF deltas.
+<p>Stiffness of the <code class="docutils literal notranslate"><span class="pre">'tps'</span></code> defocus warp (dimensionless; coordinates are
+normalised per tomogram).  <code class="docutils literal notranslate"><span class="pre">0</span></code> interpolates every delta, large values
+converge to the affine fit.
 Default: <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p>
 </dd></dl>
 
@@ -770,7 +699,7 @@ previous iteration.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.select_particles">
 <span class="sig-name descname"><span class="pre">select_particles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cur</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/project/SubtomoAvg.html#SubtomoAvg.select_particles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.select_particles" title="Link to this definition">¶</a></dt>
-<dd><p>Classify, regularise, threshold, and write <code class="docutils literal notranslate"><span class="pre">cur.ptcl_temp</span></code>.</p>
+<dd><p>Classify, regularise, threshold, and write <code class="docutils literal notranslate"><span class="pre">cur.ptcl_rec</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1067,18 +996,14 @@ reference is stabilising.</p>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.ctf_refiner</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.mpi"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.mpi</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.verbosity"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.verbosity</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.max_2d_delta_angstroms"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.max_2d_delta_angstroms</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_2d"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.solver_2d</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_ctf"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.solver_ctf</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.solver_highres</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.use_2d_stats"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.use_2d_stats</span></code></a></li>
+<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.use_ctf_stats"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.use_ctf_stats</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.max_tilt_reconstruction"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.max_tilt_reconstruction</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.use_nominal"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.use_nominal</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.discard_oversampled_views"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.discard_oversampled_views</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.type_2d_shift_fitting"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.type_2d_shift_fitting</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.global_grid"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.global_grid</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.global_lambda"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.global_lambda</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.tps_lambda"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.tps_lambda</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.image_grid"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.image_grid</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.image_lambda"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.image_lambda</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.image_orthogonalize"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.image_orthogonalize</span></code></a></li>
-<li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.fitting_from_origin"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.fitting_from_origin</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.smooth_ctf"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.smooth_ctf</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.type_ctf_smoothing"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.type_ctf_smoothing</span></code></a></li>
 <li><a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_tps_lambda"><code class="docutils literal notranslate"><span class="pre">SubtomoAvg.ctf_tps_lambda</span></code></a></li>

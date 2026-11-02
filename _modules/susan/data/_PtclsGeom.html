@@ -323,7 +323,8 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span> <span class="k">as</span> <span class="n">_TYPE_CHECKING</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">euZYZ_rotm</span> <span class="k">as</span> <span class="n">_euZYZ_rotm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils._functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">_renamed_kw</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">euZYZ_to_rotm</span> <span class="k">as</span> <span class="n">_euZYZ_to_rotm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.data._ptclsgeom_core</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">_inplace_shift</span><span class="p">,</span>
     <span class="n">_inplace_rot_shift</span><span class="p">,</span>
@@ -358,11 +359,10 @@
         
         <span class="k">if</span> <span class="n">eZYZdeg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         
-            <span class="n">eu</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+            <span class="n">eu</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">eu</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'eZYZdeg must be a 3-element array/vector.'</span><span class="p">)</span>
-            <span class="n">R</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-            <span class="n">_euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">,</span><span class="n">eu</span><span class="p">)</span>
+            <span class="n">R</span> <span class="o">=</span> <span class="n">_euZYZ_to_rotm</span><span class="p">(</span><span class="n">eu</span><span class="p">,</span><span class="n">degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">R</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span> <span class="ow">or</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
@@ -386,10 +386,11 @@
 <div class="viewcode-block" id="PtclsGeom.rot_shift">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.rot_shift">[docs]</a>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">rot_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">eZYZdeg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="nd">@_renamed_kw</span><span class="p">(</span><span class="n">ref_idx</span><span class="o">=</span><span class="s1">'ref_cix'</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rot_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">eZYZdeg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Apply a single rotation and/or translation to all particles in-place.</span>
 
-<span class="sd">        Modifies ``ali_eu[ref_idx]`` and ``ali_t[ref_idx]`` directly.</span>
+<span class="sd">        Modifies ``ali_eu[ref_cix]`` and ``ali_t[ref_cix]`` directly.</span>
 <span class="sd">        Supply either ``eZYZdeg`` or ``R``, not both.</span>
 
 <span class="sd">        Parameters</span>
@@ -401,16 +402,16 @@
 <span class="sd">            Rotation matrix.</span>
 <span class="sd">        t : array-like of float (3,), optional</span>
 <span class="sd">            Translation in Ångströms. Default zeros.</span>
-<span class="sd">        ref_idx : int, optional</span>
+<span class="sd">        ref_cix : int, optional</span>
 <span class="sd">            Reference alignment slot to modify. Default 0.</span>
 <span class="sd">        """</span>
         <span class="n">R</span> <span class="o">=</span> <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_validate_single_rotation</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">R</span><span class="p">)</span>
         <span class="n">t</span> <span class="o">=</span> <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_validate_single_translation</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
                 
         <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_inplace_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_inplace_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">t</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_inplace_rot_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">R</span><span class="p">,</span><span class="n">t</span><span class="p">)</span></div>
+            <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_inplace_rot_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">R</span><span class="p">,</span><span class="n">t</span><span class="p">)</span></div>
 
     
 <span class="c1">###############################################################################</span>
@@ -424,14 +425,9 @@
         
         <span class="k">if</span> <span class="n">eZYZdeg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         
-            <span class="n">eu</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">eu</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">eu</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="n">R</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-                <span class="n">_euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">eu</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">eu</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="n">R</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-                    <span class="n">_euZYZ_rotm</span><span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">eu</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">eu</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">eZYZdeg</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">eu</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">eu</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span><span class="p">):</span>
+                <span class="n">R</span> <span class="o">=</span> <span class="n">_euZYZ_to_rotm</span><span class="p">(</span><span class="n">eu</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'eZYZdeg must be a 3-element array/vector or a stack of them.'</span><span class="p">)</span>
             
@@ -480,7 +476,8 @@
 <div class="viewcode-block" id="PtclsGeom.expand_by_rot_shift">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.expand_by_rot_shift">[docs]</a>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">expand_by_rot_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">eZYZdeg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
+    <span class="nd">@_renamed_kw</span><span class="p">(</span><span class="n">ref_idx</span><span class="o">=</span><span class="s1">'ref_cix'</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expand_by_rot_shift</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">eZYZdeg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">R</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Expand a particle list by applying multiple rotations/translations.</span>
 
 <span class="sd">        For each particle, produces one output copy per supplied</span>
@@ -497,7 +494,7 @@
 <span class="sd">            Rotation matrices. Mutually exclusive with eZYZdeg.</span>
 <span class="sd">        t : array-like, shape (K, 3) or (3,), optional</span>
 <span class="sd">            Translations in Ångströms for each transform. Default zeros.</span>
-<span class="sd">        ref_idx : int, optional</span>
+<span class="sd">        ref_cix : int, optional</span>
 <span class="sd">            Reference alignment slot to use as input and output. Default 0.</span>
 
 <span class="sd">        Returns</span>
@@ -512,11 +509,11 @@
         <span class="n">ptcls_out</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">idx_expand</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="n">R</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_outplace_shift</span><span class="p">(</span><span class="n">ptcls_out</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_outplace_shift</span><span class="p">(</span><span class="n">ptcls_out</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">t</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_outplace_rot_shift</span><span class="p">(</span><span class="n">ptcls_out</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">ptcls_out</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">],</span><span class="n">R</span><span class="p">,</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_outplace_rot_shift</span><span class="p">(</span><span class="n">ptcls_out</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">ptcls_out</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">],</span><span class="n">R</span><span class="p">,</span><span class="n">t</span><span class="p">)</span>
         
-        <span class="n">ptcls_out</span><span class="o">.</span><span class="n">update_position</span><span class="p">(</span><span class="n">ref_idx</span><span class="p">)</span>
+        <span class="n">ptcls_out</span><span class="o">.</span><span class="n">update_position</span><span class="p">(</span><span class="n">ref_cix</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ptcls_out</span></div>
 
         
@@ -626,7 +623,8 @@
 <div class="viewcode-block" id="PtclsGeom.discard_closer">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.discard_closer">[docs]</a>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">discard_closer</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">min_dist_angs</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
+    <span class="nd">@_renamed_kw</span><span class="p">(</span><span class="n">ref_idx</span><span class="o">=</span><span class="s1">'ref_cix'</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discard_closer</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">min_dist_angs</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Remove duplicate/overlapping particles closer than a minimum distance.</span>
 
 <span class="sd">        Within each tomogram, particles are sorted by descending ``ali_cc``</span>
@@ -638,9 +636,9 @@
 <span class="sd">        ptcls : Particles</span>
 <span class="sd">        min_dist_angs : float</span>
 <span class="sd">            Minimum allowed inter-particle distance in Ångströms.</span>
-<span class="sd">        ref_idx : int, optional</span>
+<span class="sd">        ref_cix : int, optional</span>
 <span class="sd">            Reference index used to compute effective positions</span>
-<span class="sd">            (position + ali_t[ref_idx]). Default 0.</span>
+<span class="sd">            (position + ali_t[ref_cix]). Default 0.</span>
 <span class="sd">        verbose : bool, optional</span>
 <span class="sd">            Print per-tomogram particle counts. Default False.</span>
 
@@ -657,9 +655,9 @@
             
         <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">t_id</span><span class="p">:</span>
             <span class="n">t_mask</span>  <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span> <span class="o">==</span> <span class="n">tid</span>
-            <span class="n">cur_cc</span>  <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,</span><span class="n">t_mask</span><span class="p">]</span>
+            <span class="n">cur_cc</span>  <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,</span><span class="n">t_mask</span><span class="p">]</span>
             <span class="n">sort_ix</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">cur_cc</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-            <span class="n">pos</span>     <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span> <span class="o">+</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,</span><span class="n">t_mask</span><span class="p">]</span>
+            <span class="n">pos</span>     <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span> <span class="o">+</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,</span><span class="n">t_mask</span><span class="p">]</span>
             <span class="n">w_mask</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">mask</span><span class="p">[</span><span class="n">t_mask</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
             <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_disable_closer</span><span class="p">(</span><span class="n">w_mask</span><span class="p">,</span><span class="n">pos</span><span class="p">,</span><span class="n">sort_ix</span><span class="p">,</span><span class="n">dist</span><span class="p">)</span>
             <span class="n">mask</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">w_mask</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
@@ -674,8 +672,9 @@
 
 <span class="c1">###############################################################################</span>
     <span class="nd">@staticmethod</span>
+    <span class="nd">@_renamed_kw</span><span class="p">(</span><span class="n">ref_idx</span><span class="o">=</span><span class="s1">'ref_cix'</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">discard_oversampled_views</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">bin_size_deg</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">k_per_bin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                                  <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weight_mask</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
+                                  <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weight_mask</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Flatten preferential orientation by keeping the best particles per view bin.</span>
 
 <span class="sd">        Particles are binned by view direction on an equal-area "ring" grid:</span>
@@ -692,10 +691,10 @@
 <span class="sd">            Angular resolution of the equal-area grid in degrees. Default 5.0.</span>
 <span class="sd">        k_per_bin : int, optional</span>
 <span class="sd">            Maximum number of particles kept per bin. Default 1.</span>
-<span class="sd">        ref_idx : int, optional</span>
+<span class="sd">        ref_cix : int, optional</span>
 <span class="sd">            Reference index used to read angles and cc. Default 0.</span>
 <span class="sd">        weight_mask : bool, optional</span>
-<span class="sd">            If True, particles with ``ali_w[ref_idx] &lt;= 0`` are never kept.</span>
+<span class="sd">            If True, particles with ``ali_w[ref_cix] &lt;= 0`` are never kept.</span>
 <span class="sd">            Default True.</span>
 <span class="sd">        verbose : bool, optional</span>
 <span class="sd">            Print how many particles were kept. Default False.</span>
@@ -711,9 +710,9 @@
 
         <span class="n">n_rings</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="mf">180.0</span><span class="o">/</span><span class="n">bin_size_deg</span><span class="p">))</span>
 
-        <span class="n">e0</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:,</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">e1</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:,</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">cc</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span><span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">e0</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,:,</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">e1</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_eu</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,:,</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">cc</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span><span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># View-direction unit vector (works for either ZYZ-range convention).</span>
         <span class="n">vx</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">e0</span><span class="p">)</span><span class="o">*</span><span class="n">_np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">e1</span><span class="p">)</span>
@@ -723,7 +722,7 @@
         <span class="n">lon</span>   <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">vy</span><span class="p">,</span><span class="n">vx</span><span class="p">)</span>                  <span class="c1"># azimuth,    [-pi,pi]</span>
 
         <span class="k">if</span> <span class="n">weight_mask</span><span class="p">:</span>
-            <span class="n">cc</span><span class="p">[</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_w</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,:]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">_np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="n">cc</span><span class="p">[</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_w</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,:]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">_np</span><span class="o">.</span><span class="n">inf</span>
 
         <span class="c1"># Equal-area "ring" grid: equal-width latitude rings, each split into</span>
         <span class="c1"># a longitude count proportional to sin(theta). Cell area stays ~dtheta^2</span>
@@ -765,16 +764,17 @@
 <div class="viewcode-block" id="PtclsGeom.get_min_distance">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.Geom.html#susan.data._PtclsGeom.PtclsGeom.get_min_distance">[docs]</a>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_min_distance</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">ref_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="nd">@_renamed_kw</span><span class="p">(</span><span class="n">ref_idx</span><span class="o">=</span><span class="s1">'ref_cix'</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_min_distance</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Return the distance to the nearest neighbour for every particle.</span>
 
 <span class="sd">        Computed per tomogram using effective positions</span>
-<span class="sd">        (position + ali_t[ref_idx]).</span>
+<span class="sd">        (position + ali_t[ref_cix]).</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        ptcls : Particles</span>
-<span class="sd">        ref_idx : int, optional</span>
+<span class="sd">        ref_cix : int, optional</span>
 <span class="sd">            Reference index for the translation offset. Default 0.</span>
 
 <span class="sd">        Returns</span>
@@ -787,7 +787,7 @@
         
         <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">t_id</span><span class="p">:</span>
             <span class="n">t_mask</span>  <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span> <span class="o">==</span> <span class="n">tid</span>
-            <span class="n">pos</span>     <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span> <span class="o">+</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_idx</span><span class="p">,</span><span class="n">t_mask</span><span class="p">]</span>
+            <span class="n">pos</span>     <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span> <span class="o">+</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_t</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,</span><span class="n">t_mask</span><span class="p">]</span>
             <span class="n">d_mask</span>  <span class="o">=</span> <span class="n">dist</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span>
             <span class="n">PtclsGeom</span><span class="o">.</span><span class="n">_get_min_dist</span><span class="p">(</span><span class="n">d_mask</span><span class="p">,</span><span class="n">pos</span><span class="p">)</span>
             <span class="n">dist</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">d_mask</span>

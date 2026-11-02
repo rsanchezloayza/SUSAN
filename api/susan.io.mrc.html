@@ -329,7 +329,7 @@ the MRC mode field (float32 for mode 2, int16 for mode 1, etc.).</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="susan.io.mrc.write">
-<span class="sig-prename descclassname"><span class="pre">susan.io.mrc.</span></span><span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ispg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fill_statistics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/io/mrc.html#write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.io.mrc.write" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">susan.io.mrc.</span></span><span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ispg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fill_statistics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/io/mrc.html#write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.io.mrc.write" title="Link to this definition">¶</a></dt>
 <dd><p>Write a numpy array to an MRC2014 file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -342,7 +342,13 @@ float16, float32, float64.</p></li>
 Default 1.</p></li>
 <li><p><strong>ispg</strong> (<em>int</em><em>, </em><em>optional</em>) – Space-group number written to the header.  Default 1 (P1).</p></li>
 <li><p><strong>fill_statistics</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), compute and write min, max, mean, and std
-into the header statistics fields.</p></li>
+into the header statistics fields (finite values only, so NaN
+voxels are skipped).</p></li>
+<li><p><strong>origin</strong> (<em>array-like</em><em> of </em><em>shape</em><em> (</em><em>3</em><em>,</em><em>)</em><em>, </em><em>optional</em><em>, </em><em>ordered</em><em> (</em><em>X</em><em>, </em><em>Y</em><em>, </em><em>Z</em><em>)</em><em>.</em>) – Position of the first voxel in Ångströms (header words 50-52).
+Default 0.</p></li>
+<li><p><strong>start</strong> (<em>array-like</em><em> of </em><em>int</em><em>, </em><em>shape</em><em> (</em><em>3</em><em>,</em><em>)</em><em>, </em><em>optional</em><em>, </em><em>ordered</em><em> (</em><em>X</em><em>, </em><em>Y</em><em>, </em><em>Z</em><em>)</em><em>.</em>) – Index of the first voxel in a parent grid (nxstart, nystart,
+nzstart; header words 5-7).  Default 0.  Some programs add it
+to the origin: set one of the two.</p></li>
 </ul>
 </dd>
 </dl>
@@ -361,6 +367,89 @@ into the header statistics fields.</p></li>
 <li><p><strong>shape</strong> (<em>numpy.ndarray</em>) – Volume dimensions as (NX, NY, NZ), shape (3,) uint32.</p></li>
 <li><p><strong>pix_size</strong> (<em>numpy.ndarray</em>) – Pixel size in Ångströms, shape (3,) float32, ordered (X, Y, Z).</p></li>
 <li><p><strong>dtype</strong> (<em>numpy.dtype</em>) – NumPy dtype corresponding to the MRC mode field.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.io.mrc.set_statistics">
+<span class="sig-prename descclassname"><span class="pre">susan.io.mrc.</span></span><span class="sig-name descname"><span class="pre">set_statistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/io/mrc.html#set_statistics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.io.mrc.set_statistics" title="Link to this definition">¶</a></dt>
+<dd><p>Write min, max, mean and std into the header of an existing MRC file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – MRC file to update (only the header statistics fields are written).</p></li>
+<li><p><strong>data</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – Values the statistics are computed from (normally the file’s data;
+finite values only).</p></li>
+<li><p><strong>mask</strong> (<em>numpy.ndarray</em><em> of </em><em>bool</em><em>, </em><em>optional</em>) – Voxels of <code class="docutils literal notranslate"><span class="pre">data</span></code> to include (e.g. the valid region of a partially
+filled volume).  Default: all.  An empty mask writes zeros.</p></li>
+<li><p><strong>stats</strong> (<em>array-like</em><em> of </em><em>4</em><em>, </em><em>optional</em>) – Precomputed (min, max, mean, std), instead of <code class="docutils literal notranslate"><span class="pre">data</span></code>; e.g. from
+<code class="xref py py-class docutils literal notranslate"><span class="pre">susan.utils.RunningStats</span></code> over chunks written with
+<a class="reference internal" href="#susan.io.mrc.write_slices" title="susan.io.mrc.write_slices"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_slices()</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.io.mrc.create">
+<span class="sig-prename descclassname"><span class="pre">susan.io.mrc.</span></span><span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ispg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/io/mrc.html#create"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.io.mrc.create" title="Link to this definition">¶</a></dt>
+<dd><p>Create an MRC2014 file of the given shape, to be filled with <a class="reference internal" href="#susan.io.mrc.write_slices" title="susan.io.mrc.write_slices"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_slices()</span></code></a>.</p>
+<p>The header holds the final shape, pixel size and origin from the start;
+the data is allocated (sparse where the filesystem allows) and reads as
+zeros until written.  Header statistics are zero: set them with
+<a class="reference internal" href="#susan.io.mrc.set_statistics" title="susan.io.mrc.set_statistics"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_statistics()</span></code></a> once the data is written.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – Output file path (overwritten if it exists).</p></li>
+<li><p><strong>shape</strong> (<em>tuple</em><em> of </em><em>int</em>) – (Z, Y, X).</p></li>
+<li><p><strong>dtype</strong> (<em>numpy dtype</em><em>, </em><em>optional</em>) – As <a class="reference internal" href="#susan.io.mrc.write" title="susan.io.mrc.write"><code class="xref py py-func docutils literal notranslate"><span class="pre">write()</span></code></a> (float64 is stored as float32).  Default float32.</p></li>
+<li><p><strong>apix</strong> – As <a class="reference internal" href="#susan.io.mrc.write" title="susan.io.mrc.write"><code class="xref py py-func docutils literal notranslate"><span class="pre">write()</span></code></a>.</p></li>
+<li><p><strong>ispg</strong> – As <a class="reference internal" href="#susan.io.mrc.write" title="susan.io.mrc.write"><code class="xref py py-func docutils literal notranslate"><span class="pre">write()</span></code></a>.</p></li>
+<li><p><strong>origin</strong> – As <a class="reference internal" href="#susan.io.mrc.write" title="susan.io.mrc.write"><code class="xref py py-func docutils literal notranslate"><span class="pre">write()</span></code></a>.</p></li>
+<li><p><strong>start</strong> – As <a class="reference internal" href="#susan.io.mrc.write" title="susan.io.mrc.write"><code class="xref py py-func docutils literal notranslate"><span class="pre">write()</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.io.mrc.write_slices">
+<span class="sig-prename descclassname"><span class="pre">susan.io.mrc.</span></span><span class="sig-name descname"><span class="pre">write_slices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/io/mrc.html#write_slices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.io.mrc.write_slices" title="Link to this definition">¶</a></dt>
+<dd><p>Write Z-sections into an existing MRC file, starting at section <code class="docutils literal notranslate"><span class="pre">z0</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – File created by <a class="reference internal" href="#susan.io.mrc.create" title="susan.io.mrc.create"><code class="xref py py-func docutils literal notranslate"><span class="pre">create()</span></code></a> (or any MRC file of matching shape).</p></li>
+<li><p><strong>data</strong> (<em>numpy.ndarray</em>) – (n, Y, X) or a single (Y, X) section, with the file’s dtype
+(float64 is converted to float32 for float32 files).</p></li>
+<li><p><strong>z0</strong> (<em>int</em>) – First section written; <code class="docutils literal notranslate"><span class="pre">z0</span> <span class="pre">+</span> <span class="pre">n</span></code> must not exceed the file’s Z.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="susan.io.mrc.read_slices">
+<span class="sig-prename descclassname"><span class="pre">susan.io.mrc.</span></span><span class="sig-name descname"><span class="pre">read_slices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/io/mrc.html#read_slices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.io.mrc.read_slices" title="Link to this definition">¶</a></dt>
+<dd><p>Read Z-sections <code class="docutils literal notranslate"><span class="pre">z0</span> <span class="pre">..</span> <span class="pre">z1-1</span></code> of an MRC file without loading the rest.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – Path to the MRC file.</p></li>
+<li><p><strong>z0</strong> (<em>int</em>) – First section.</p></li>
+<li><p><strong>z1</strong> (<em>int</em><em>, </em><em>optional</em>) – One past the last section.  Default <code class="docutils literal notranslate"><span class="pre">z0</span> <span class="pre">+</span> <span class="pre">1</span></code>.</p></li>
+<li><p><strong>out</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – Preallocated C-contiguous (z1 - z0, Y, X) array of the file’s dtype,
+filled and returned (for reading many chunks in a loop).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>data</strong> (<em>numpy.ndarray</em>) – (z1 - z0, Y, X), dtype from the MRC mode (<code class="docutils literal notranslate"><span class="pre">out</span></code> when given).</p></li>
+<li><p><strong>pix_size</strong> (<em>numpy.ndarray</em>) – Pixel size in Ångströms, shape (3,) float32, ordered (X, Y, Z).</p></li>
 </ul>
 </p>
 </dd>
@@ -428,6 +517,10 @@ into the header statistics fields.</p></li>
 <li><a class="reference internal" href="#susan.io.mrc.read"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
 <li><a class="reference internal" href="#susan.io.mrc.write"><code class="docutils literal notranslate"><span class="pre">write()</span></code></a></li>
 <li><a class="reference internal" href="#susan.io.mrc.get_info"><code class="docutils literal notranslate"><span class="pre">get_info()</span></code></a></li>
+<li><a class="reference internal" href="#susan.io.mrc.set_statistics"><code class="docutils literal notranslate"><span class="pre">set_statistics()</span></code></a></li>
+<li><a class="reference internal" href="#susan.io.mrc.create"><code class="docutils literal notranslate"><span class="pre">create()</span></code></a></li>
+<li><a class="reference internal" href="#susan.io.mrc.write_slices"><code class="docutils literal notranslate"><span class="pre">write_slices()</span></code></a></li>
+<li><a class="reference internal" href="#susan.io.mrc.read_slices"><code class="docutils literal notranslate"><span class="pre">read_slices()</span></code></a></li>
 </ul>
 </li>
 </ul>

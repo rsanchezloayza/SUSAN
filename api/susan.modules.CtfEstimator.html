@@ -388,14 +388,33 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfEstimator.est_phase_shift">
 <span class="sig-name descname"><span class="pre">est_phase_shift</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.est_phase_shift" title="Link to this definition">¶</a></dt>
-<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the hybrid refinement searches for an additional
-per-projection phase shift (Volta phase plate use case) and writes it
-to <code class="docutils literal notranslate"><span class="pre">Defocus.ph_shft</span></code>.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the phase-shift search is
-skipped and <code class="docutils literal notranslate"><span class="pre">ph_shft</span></code> is forced to <code class="docutils literal notranslate"><span class="pre">0</span></code> for every projection;
-defocus refinement still runs normally.  Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the per-projection defocus sweep also scans a phase shift
+in [0, pi) (Volta phase plate use case) and writes it to
+<code class="docutils literal notranslate"><span class="pre">Defocus.ph_shft</span></code>.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, <code class="docutils literal notranslate"><span class="pre">ph_shft</span></code> is <code class="docutils literal notranslate"><span class="pre">0</span></code> for every
+projection; the defocus sweep runs normally.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.CtfEstimator.astigmatism">
+<span class="sig-name descname"><span class="pre">astigmatism</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.astigmatism" title="Link to this definition">¶</a></dt>
+<dd><p>Astigmatism model, from the ring of each projection’s linearized
+spectrum (r = m + a cos 2theta + b sin 2theta):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'magnitude'</span></code> (default): one U - V for the tilt series (the
+objective lens), kept only when significant; the angle per
+projection, where that projection’s own astigmatism is significant.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'series'</span></code>: one U - V and one angle for the series.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'projection'</span></code>: U - V and angle fitted per projection.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'none'</span></code>: U = V.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
 </dd>
 </dl>
 </dd></dl>
@@ -423,11 +442,13 @@ This sharpens the peak and removes a bias that grows quickly as
 depth of the Thon ring modulation and written as a ninth column of
 <code class="docutils literal notranslate"><span class="pre">defocus.txt</span></code>, which <a class="reference internal" href="susan.data.Tomograms.html#susan.data.Tomograms.set_defocus" title="susan.data.Tomograms.set_defocus"><code class="xref py py-meth docutils literal notranslate"><span class="pre">susan.data.Tomograms.set_defocus()</span></code></a> loads
 into <code class="docutils literal notranslate"><span class="pre">proj_wgt</span></code> (and <code class="docutils literal notranslate"><span class="pre">update_defocus</span></code> then copies into the
-per-particle <code class="docutils literal notranslate"><span class="pre">prj_w</span></code>).  The weight is proportional to the SSNR of
-the projection and normalised so the best tilt of each stack is
-<code class="docutils literal notranslate"><span class="pre">1</span></code>; empty projections get <code class="docutils literal notranslate"><span class="pre">0</span></code>.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the column is
-written as <code class="docutils literal notranslate"><span class="pre">1</span></code> for every projection, preserving the previous
-behaviour of uniform weights.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+per-particle <code class="docutils literal notranslate"><span class="pre">prj_w</span></code>).  The weight is sqrt(SSNR) of the projection
+(the weight enters linearly, so the amplitude ratio is the optimum),
+normalised so the best tilt of each stack is <code class="docutils literal notranslate"><span class="pre">1</span></code>; empty projections
+get <code class="docutils literal notranslate"><span class="pre">0</span></code>.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the column is written as <code class="docutils literal notranslate"><span class="pre">1</span></code> for every
+projection.  Either way, projections whose estimate failed (no ring
+past the first zero follows the fitted CTF) get <code class="docutils literal notranslate"><span class="pre">0</span></code>.
+Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>bool</p>
@@ -585,6 +606,7 @@ defocus values applied for every tomogram.</p>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.resolution_thres"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.resolution_thres</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.overfocus"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.overfocus</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.est_phase_shift"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.est_phase_shift</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfEstimator.astigmatism"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.astigmatism</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.dechirp_cs"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.dechirp_cs</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.est_initial_snr"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.est_initial_snr</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.verbosity"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.verbosity</span></code></a></li>

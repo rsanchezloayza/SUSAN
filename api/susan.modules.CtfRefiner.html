@@ -379,6 +379,7 @@ and std of the valid pixels) or <code class="docutils literal notranslate"><span
 estimated per projection) are experimental: only for stacks of
 detector counts or a linear scaling of them, not for dose-weighted,
 binned by averaging or interpolated stacks.
+<code class="docutils literal notranslate"><span class="pre">'local'</span></code>: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).
 Default: <code class="docutils literal notranslate"><span class="pre">'zero_mean_one_std'</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -441,8 +442,11 @@ or to prevent overfitting. Default: <code class="docutils literal notranslate"><
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfRefiner.defocus_angstroms">
 <span class="sig-name descname"><span class="pre">defocus_angstroms</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.defocus_angstroms" title="Link to this definition">¶</a></dt>
-<dd><p>Defocus search range and step in Ångströms.
-Default: <code class="docutils literal notranslate"><span class="pre">search_params(1000,</span> <span class="pre">100)</span></code>.</p>
+<dd><p>Defocus search in Ångströms.  <code class="docutils literal notranslate"><span class="pre">span</span></code> is the total width, as in the
+aligner’s angular search: the deltas go from <code class="docutils literal notranslate"><span class="pre">-span/2</span></code> to
+<code class="docutils literal notranslate"><span class="pre">span/2</span></code> around the current defocus, with the step adjusted to
+divide the half-width.
+Default: <code class="docutils literal notranslate"><span class="pre">search_params(1000,</span> <span class="pre">100)</span></code> (<code class="docutils literal notranslate"><span class="pre">-500</span> <span class="pre">..</span> <span class="pre">500</span></code> Å).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="susan.utils.datatypes.html#susan.utils.datatypes.search_params" title="susan.utils.datatypes.search_params"><code class="xref py py-class docutils literal notranslate"><span class="pre">search_params</span></code></a></p>
@@ -453,7 +457,9 @@ Default: <code class="docutils literal notranslate"><span class="pre">search_par
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfRefiner.angles">
 <span class="sig-name descname"><span class="pre">angles</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.angles" title="Link to this definition">¶</a></dt>
-<dd><p>Tilt-angle search range and step in degrees.
+<dd><p>Astigmatism-angle search in degrees (only with
+<a class="reference internal" href="#susan.modules.CtfRefiner.refine_astigmatism" title="susan.modules.CtfRefiner.refine_astigmatism"><code class="xref py py-attr docutils literal notranslate"><span class="pre">refine_astigmatism</span></code></a>); <code class="docutils literal notranslate"><span class="pre">span</span></code> is the total width
+(<code class="docutils literal notranslate"><span class="pre">-span/2</span> <span class="pre">..</span> <span class="pre">span/2</span></code>).
 Default: <code class="docutils literal notranslate"><span class="pre">search_params(2,</span> <span class="pre">1)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -465,10 +471,11 @@ Default: <code class="docutils literal notranslate"><span class="pre">search_par
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfRefiner.phase_shift_deg">
 <span class="sig-name descname"><span class="pre">phase_shift_deg</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.phase_shift_deg" title="Link to this definition">¶</a></dt>
-<dd><p>Phase-shift search range and step in sexagesimal degrees (converted
-to radians before being passed to the binary).  <code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">=</span> <span class="pre">0</span></code> disables
-the search (single iteration at the stored per-projection value).
-Useful for Volta phase-plate data where the plate setting drifts.
+<dd><p>Phase-shift search in sexagesimal degrees (converted to radians
+before being passed to the binary); <code class="docutils literal notranslate"><span class="pre">span</span></code> is the total width
+(<code class="docutils literal notranslate"><span class="pre">-span/2</span> <span class="pre">..</span> <span class="pre">span/2</span></code>).  <code class="docutils literal notranslate"><span class="pre">span</span> <span class="pre">=</span> <span class="pre">0</span></code> disables the search (single
+iteration at the stored per-projection value).  Useful for Volta
+phase-plate data where the plate setting drifts.
 Default: <code class="docutils literal notranslate"><span class="pre">search_params(0,</span> <span class="pre">1)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -504,14 +511,15 @@ Default: <code class="docutils literal notranslate"><span class="pre">ssnr(0,</s
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfRefiner.offset_sigma">
 <span class="sig-name descname"><span class="pre">offset_sigma</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.offset_sigma" title="Link to this definition">¶</a></dt>
-<dd><p>Width (pixels) of a Gaussian prior on the translation magnitude.
-Down-weights large in-plane shifts during the joint
-(defocus, phase-shift, translation) argmax — the per-point score
-becomes <code class="docutils literal notranslate"><span class="pre">CC(t)</span> <span class="pre">·</span> <span class="pre">exp(−|t|²</span> <span class="pre">/</span> <span class="pre">(2·offset_sigma²))</span></code>.  Raw CC values
-are preserved in stats and downstream outputs.</p>
-<p><code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables the prior.  Typical useful values lie
-between <code class="docutils literal notranslate"><span class="pre">offset.span</span> <span class="pre">/</span> <span class="pre">4</span></code> (aggressive) and <code class="docutils literal notranslate"><span class="pre">offset.span</span> <span class="pre">/</span> <span class="pre">2</span></code>
-(mild).  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
+<dd><p>Standard deviation (pixels) of a Gaussian prior on the translation.
+The per-projection score of the joint (defocus, phase shift,
+translation) search is a log posterior in CC units,
+<code class="docutils literal notranslate"><span class="pre">CC</span> <span class="pre">−</span> <span class="pre">λ·(|t|²/(2·offset_sigma²)</span> <span class="pre">+</span> <span class="pre">(dU²</span> <span class="pre">+</span> <span class="pre">dV²)/(2·defocus_sigma²)</span> <span class="pre">+</span>
+<span class="pre">dP²/(2·phase_sigma²))</span></code>, with <code class="docutils literal notranslate"><span class="pre">λ</span> <span class="pre">=</span> <span class="pre">sd_CC²</span> <span class="pre">/</span> <span class="pre">A</span></code> measured per
+projection at the starting CTF (CC noise on a ring of offsets outside
+the peak, peak height above its median), as the aligner’s priors.
+So the priors’ effect follows the data.  Raw CC values are kept in
+the outputs.  <code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables it.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -522,16 +530,14 @@ between <code class="docutils literal notranslate"><span class="pre">offset.span
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfRefiner.defocus_sigma">
 <span class="sig-name descname"><span class="pre">defocus_sigma</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.defocus_sigma" title="Link to this definition">¶</a></dt>
-<dd><p>Width (Ångströms) of a Gaussian prior on the <strong>isotropic</strong> defocus
-deviation <code class="docutils literal notranslate"><span class="pre">|(dU,</span> <span class="pre">dV)|</span></code>.  Pulls the per-tilt argmax toward the
-starting defocus, the main lever to stop noise-driven defocus
-drift in low-signal tilts.  Form: <code class="docutils literal notranslate"><span class="pre">exp(−(dU²</span> <span class="pre">+</span> <span class="pre">dV²)</span> <span class="pre">/</span>
-<span class="pre">(2·defocus_sigma²))</span></code>.  In non-astigmatism mode <code class="docutils literal notranslate"><span class="pre">dV</span> <span class="pre">=</span> <span class="pre">dU</span></code> so the
-formula reduces to <code class="docutils literal notranslate"><span class="pre">exp(−dU²</span> <span class="pre">/</span> <span class="pre">defocus_sigma²)</span></code> — the same σ
-value is then the “1/e along dU” radius.</p>
-<p><code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables.  Typical starting values:
-<code class="docutils literal notranslate"><span class="pre">defocus_angstroms.span</span> <span class="pre">/</span> <span class="pre">4</span></code> (aggressive) to
-<code class="docutils literal notranslate"><span class="pre">defocus_angstroms.span</span> <span class="pre">/</span> <span class="pre">2</span></code> (mild).  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
+<dd><p>Standard deviation (Ångströms) of a Gaussian prior on the defocus
+deviation <code class="docutils literal notranslate"><span class="pre">(dU,</span> <span class="pre">dV)</span></code> from the starting values (see
+<a class="reference internal" href="#susan.modules.CtfRefiner.offset_sigma" title="susan.modules.CtfRefiner.offset_sigma"><code class="xref py py-attr docutils literal notranslate"><span class="pre">offset_sigma</span></code></a>).  Set it to the expected per-projection error
+of the starting defocus.  A single projection constrains the defocus
+weakly, so without this prior the per-projection estimate follows the
+noise (synthetic EMPIAR-10064-like data: 1200 Å error from a 400 Å
+start); with it the estimate stays near the start unless the data
+disagree clearly.  <code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables it.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
@@ -542,13 +548,48 @@ value is then the “1/e along dU” radius.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.CtfRefiner.phase_sigma_deg">
 <span class="sig-name descname"><span class="pre">phase_sigma_deg</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.phase_sigma_deg" title="Link to this definition">¶</a></dt>
-<dd><p>Width (sexagesimal degrees) of a Gaussian prior on the phase-shift
-deviation.  Converted to radians before being passed to the binary.
-Form: <code class="docutils literal notranslate"><span class="pre">exp(−dP²</span> <span class="pre">/</span> <span class="pre">(2·phase_sigma_rad²))</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">0</span></code> (default) disables.  Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled).</p>
+<dd><p>Standard deviation (sexagesimal degrees) of a Gaussian prior on the
+phase-shift deviation (see <a class="reference internal" href="#susan.modules.CtfRefiner.offset_sigma" title="susan.modules.CtfRefiner.offset_sigma"><code class="xref py py-attr docutils literal notranslate"><span class="pre">offset_sigma</span></code></a>).  Converted to
+radians before being passed to the binary.  <code class="docutils literal notranslate"><span class="pre">0</span></code> (default)
+disables it.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.CtfRefiner.output_type">
+<span class="sig-name descname"><span class="pre">output_type</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.output_type" title="Link to this definition">¶</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">'refinement'</span></code> (default): the free per-particle search; the refined
+particles are written to the output file.  <code class="docutils literal notranslate"><span class="pre">'refinement_stats'</span></code>: no
+per-particle search and the particles are written unchanged, plus
+<code class="docutils literal notranslate"><span class="pre">{output</span> <span class="pre">stem}.ctfstats.npz</span></code> with the CTF statistics pooled per
+tomogram in equal-count groups of the particle x, y
+(<a class="reference internal" href="#susan.modules.CtfRefiner.stats_groups" title="susan.modules.CtfRefiner.stats_groups"><code class="xref py py-attr docutils literal notranslate"><span class="pre">stats_groups</span></code></a>; with <a class="reference internal" href="#susan.modules.CtfRefiner.halfsets_independ" title="susan.modules.CtfRefiner.halfsets_independ"><code class="xref py py-attr docutils literal notranslate"><span class="pre">halfsets_independ</span></code></a> drawn per
+half-set), over the defocus grid of <a class="reference internal" href="#susan.modules.CtfRefiner.defocus_angstroms" title="susan.modules.CtfRefiner.defocus_angstroms"><code class="xref py py-attr docutils literal notranslate"><span class="pre">defocus_angstroms</span></code></a>; the
+substack and reference whitened as <a class="reference internal" href="#susan.modules.CtfRefiner.cc_type" title="susan.modules.CtfRefiner.cc_type"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cc_type</span></code></a> (<code class="docutils literal notranslate"><span class="pre">'basic'</span></code>
+recommended: the whitening biases the defocus).  Requires a
+<a class="reference internal" href="#susan.modules.CtfRefiner.defocus_angstroms" title="susan.modules.CtfRefiner.defocus_angstroms"><code class="xref py py-attr docutils literal notranslate"><span class="pre">defocus_angstroms</span></code></a> span larger than 0.  Read it with
+<code class="xref py py-func docutils literal notranslate"><span class="pre">susan.io.ctf_stats.read()</span></code>, correct the particles with
+<code class="xref py py-class docutils literal notranslate"><span class="pre">susan.solvers.SolverCTF</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.CtfRefiner.stats_groups">
+<span class="sig-name descname"><span class="pre">stats_groups</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.stats_groups" title="Link to this definition">¶</a></dt>
+<dd><p>Group sizes gs of <code class="docutils literal notranslate"><span class="pre">'refinement_stats'</span></code>: gs x gs equal-count bins of
+the particle x, y per tomogram.  The solver needs 1 and 3.
+Default: <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">3]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of int</p>
 </dd>
 </dl>
 </dd></dl>
@@ -740,6 +781,8 @@ Default: <code class="docutils literal notranslate"><span class="pre">mpi_params
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.offset_sigma"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.offset_sigma</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.defocus_sigma"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.defocus_sigma</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.phase_sigma_deg"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.phase_sigma_deg</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfRefiner.output_type"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.output_type</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfRefiner.stats_groups"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.stats_groups</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.mpi"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.mpi</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.verbosity"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.verbosity</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfRefiner.set_offset_search"><code class="docutils literal notranslate"><span class="pre">CtfRefiner.set_offset_search()</span></code></a></li>

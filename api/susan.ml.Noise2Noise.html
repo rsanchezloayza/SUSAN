@@ -357,12 +357,14 @@ Default: <code class="docutils literal notranslate"><span class="pre">6</span></
 <dt class="sig sig-object py" id="susan.ml.Noise2Noise.save">
 <span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/ml/_noise2noise.html#Noise2Noise.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.ml.Noise2Noise.save" title="Link to this definition">¶</a></dt>
 <dd><p>Save architecture hyperparameters and weights.</p>
+<p>The weights are stored independently of the GPU split, so the file loads with any <code class="docutils literal notranslate"><span class="pre">gpus</span></code> list.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.ml.Noise2Noise.load">
 <span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gpus</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[0]</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#susan.ml.Noise2Noise" title="susan.ml._noise2noise.Noise2Noise"><span class="pre">Noise2Noise</span></a></span></span><a class="reference internal" href="../_modules/susan/ml/_noise2noise.html#Noise2Noise.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.ml.Noise2Noise.load" title="Link to this definition">¶</a></dt>
-<dd><p>Reconstruct model from a file saved with <a class="reference internal" href="#susan.ml.Noise2Noise.save" title="susan.ml.Noise2Noise.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">save()</span></code></a>.</p>
+<dd><p>Reconstruct model from a file saved with <a class="reference internal" href="#susan.ml.Noise2Noise.save" title="susan.ml.Noise2Noise.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">save()</span></code></a>, on <code class="docutils literal notranslate"><span class="pre">gpus</span></code> (any number of GPUs, also for
+files saved with a different split).</p>
 </dd></dl>
 
 <p class="rubric">Utilities</p>

@@ -389,7 +389,8 @@ and std of the valid pixels) or <code class="docutils literal notranslate"><span
 (generalized Anscombe transform with the camera gain and offset
 estimated per projection) are experimental: only for stacks of
 detector counts or a linear scaling of them, not for dose-weighted,
-binned by averaging or interpolated stacks.</p>
+binned by averaging or interpolated stacks.
+<code class="docutils literal notranslate"><span class="pre">'local'</span></code>: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -443,12 +444,16 @@ bandpass lowpass and the per-projection <code class="docutils literal notranslat
 cutoff and instead set the width of a tangential gaussian insertion
 kernel, so every frequency up to Nyquist is inserted, progressively
 blurred rather than truncated.  The width is
-<code class="docutils literal notranslate"><span class="pre">clamp(splat_gain*0.4*R/R_ref,</span> <span class="pre">0.4,</span> <span class="pre">1.5)</span></code> fourier pixels with
-<code class="docutils literal notranslate"><span class="pre">R_ref</span> <span class="pre">=</span> <span class="pre">min(lowpass,</span> <span class="pre">def_mres)</span></code>, so it is flat (and equivalent to
-trilinear) up to <code class="docutils literal notranslate"><span class="pre">R_ref/splat_gain</span></code> and then grows.  <code class="docutils literal notranslate"><span class="pre">1</span></code> is the
-physically anchored value; larger distrusts the stated resolution more
-and starts blurring earlier.  Overrides <code class="docutils literal notranslate"><span class="pre">gridding_type</span></code>.  Costs
-roughly 4x more time in the insertion stage than linear gridding.
+<code class="docutils literal notranslate"><span class="pre">clamp(splat_gain*0.4*R/R_ref,</span> <span class="pre">0.4,</span> <span class="pre">2.0)</span></code> fourier pixels of the padded
+box (support up to 9x9x9) with <code class="docutils literal notranslate"><span class="pre">R_ref</span> <span class="pre">=</span> <span class="pre">min(lowpass,</span> <span class="pre">def_mres)</span></code>, so it
+is flat (and equivalent to trilinear) up to <code class="docutils literal notranslate"><span class="pre">R_ref/splat_gain</span></code> and then
+grows.  <code class="docutils literal notranslate"><span class="pre">1</span></code> is the physically anchored value; larger distrusts the
+stated resolution more and starts blurring earlier.  Overrides
+<code class="docutils literal notranslate"><span class="pre">gridding_type</span></code> (insertion, and the linear gridding correction,
+which matches the splat’s radial width).  Costs about the same time as KB
+gridding at gains where most pixels reach the cap less below. The half-map
+FSC overstates its gain (each half matches a blurred map better); check
+the gain against a model.
 Default: <code class="docutils literal notranslate"><span class="pre">0</span></code> (disabled, ordinary reconstruction).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>

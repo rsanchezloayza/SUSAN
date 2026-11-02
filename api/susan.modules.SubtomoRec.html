@@ -377,7 +377,8 @@ and std of the valid pixels) or <code class="docutils literal notranslate"><span
 (generalized Anscombe transform with the camera gain and offset
 estimated per projection) are experimental: only for stacks of
 detector counts or a linear scaling of them, not for dose-weighted,
-binned by averaging or interpolated stacks.</p>
+binned by averaging or interpolated stacks.
+<code class="docutils literal notranslate"><span class="pre">'local'</span></code>: per-pixel zero mean / unit variance over a window of the reference radius (plus a margin; half the box without a reference).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
