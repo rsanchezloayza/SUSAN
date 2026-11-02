@@ -851,7 +851,7 @@ def euDYN_to_rotm(eu, degrees=False, out=None):
 def rotm_to_euZYZ(R, degrees=False, out=None):
     """Rotation matrices ``(..., 3, 3)`` to SUSAN ZYZ angles ``(..., 3)``, beta in [0, pi].
 
-    At gimbal lock (|R22| within 1e-6 of 1) the in-plane angle goes to slot 2 and slot 0 is 0, as the C++ engine.
+    At gimbal lock (``abs(R22)`` within 1e-6 of 1) the in-plane angle goes to slot 2 and slot 0 is 0, as the C++ engine.
     """
     M = _rot_in(R, 2, False, None if out is None else out.dtype)
     e = _rot_out(out, M.shape[:-1], M.dtype)

@@ -268,7 +268,7 @@ class SolverCTF:
         return dict(LambdaPi=_math.pi * lam, CsLambda3PiH=lam ** 3 * cs * 1e7 * _math.pi / 2, AC=ac, CA=_math.sqrt(1 - ac * ac))
 
     def _fit_profile(self, x, w, s, c, v, dref, cst, DG, apix, NP, model=False, amp=False):
-        """delta (A) of a profile (NaN without data), and the model m(v) = A(v) CTF(v) (per unit |P|^2) when model=True;
+        """delta (A) of a profile (NaN without data), and the model m(v) = A(v) CTF(v) (per unit ``|P|^2``) when model=True;
         with amp=True the amplitude A(v) and the CTF(v) of the fit."""
         ok = (w > 0) & (c > 0)
         if ok.sum() < 20 or dref <= 0:
