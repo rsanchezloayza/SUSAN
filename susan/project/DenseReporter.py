@@ -100,11 +100,14 @@ class DenseReporter:
         Default ``1``.
     thickness : float or None
         Thickness searched, in pixels, centred on the slab plane (or on the
-        tomogram centre without slab).  ``None``: the whole tomogram without
-        slab, one layer of blocks with slab.  Default ``None``.
+        tomogram centre without slab).  ``None``: the ``slab_thickness`` of
+        the tomograms when set (> 0), else the whole tomogram without slab
+        and one layer of blocks with slab.  Default ``None``.
     slab : tuple (a, b, c), dict {tomo_id: (a, b, c)} or None
         Specimen plane, Z = a X + b Y + c, in angstroms, in the particle frame
-        (relative to the tomogram centre).  Default ``None``.
+        (relative to the tomogram centre).  ``None``: the ``slab_plane`` of
+        the tomograms with ``slab_thickness`` > 0, else no slab.
+        Default ``None``.
     dense_bin : int
         Binning of the output volumes (done in the aligner).  Default ``1``.
     dense_reduce : str
@@ -201,12 +204,26 @@ class DenseReporter:
         m,_ = _mrc.read(ref.msk[0])
         return float(_np.cbrt(3*_np.clip(m,0,1).sum()/(4*_np.pi)))
 
+    def _tomo_slab(self, tomo_id):
+        """cix of the tomogram when its .tomostxt sets a slab (slab_thickness > 0), else None."""
+        if self._tomos is None or tomo_id not in self._tomos.tomo_id:
+            return None
+        cix = self._cix(tomo_id)
+        return cix if self._tomos.slab_thickness[cix] > 0 else None
+
     def _slab_of(self, tomo_id):
         if self.slab is None:
-            return None
+            cix = self._tomo_slab(tomo_id)
+            return None if cix is None else tuple(float(v) for v in self._tomos.slab_plane[cix])
         if isinstance(self.slab,dict):
             return self.slab[tomo_id]
         return self.slab
+
+    def _thickness_of(self, tomo_id):
+        if self.thickness is not None:
+            return float(self.thickness)
+        cix = self._tomo_slab(tomo_id)
+        return None if cix is None else float(self._tomos.slab_thickness[cix]/self._tomos.pix_size[cix])
 
     @staticmethod
     def _slab_z0(slab, x, y, size, apix):
@@ -237,8 +254,8 @@ class DenseReporter:
         for t in tids:
             cix  = self._cix(t)
             size = self._tomos.tomo_size[cix].astype(float)
-            if self.thickness is not None:
-                depth[t] = float(self.thickness)
+            if self._thickness_of(t) is not None:
+                depth[t] = self._thickness_of(t)
             elif self._slab_of(t) is None:
                 depth[t] = size[2]
             else:
@@ -972,7 +989,7 @@ class DenseReporter:
         apix = float(m['tomogram']['apix'])
         sx, sy, sz = m['tomogram']['size_out_xyz']
         slab = self._slab_of(tid) if slab is None else slab
-        thickness = self.thickness if thickness is None else thickness
+        thickness = self._thickness_of(tid) if thickness is None else thickness
         size = _np.array(m['tomogram']['size_xyz'],dtype=float)
         whole = slab is None and thickness is None
         if not whole:
