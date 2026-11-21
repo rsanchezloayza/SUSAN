@@ -222,11 +222,11 @@ protected:
 
         if( p_stats != NULL ) {
             stats_prof.alloc((size_t)CtfStats::NPQ*max_K*p_stats->NB);
-            stats_curv.alloc((size_t)max_K*p_stats->ND);
-            stats_dref.alloc(max_K);
+            stats_curv.alloc((size_t)2*p_stats->ND);
+            stats_dref.alloc(2*max_K);
             hstats_prof.alloc((size_t)CtfStats::NPQ*max_K*p_stats->NB);
-            hstats_curv.alloc((size_t)max_K*p_stats->ND);
-            hstats_dref.alloc(max_K);
+            hstats_curv.alloc((size_t)2*p_stats->ND);
+            hstats_dref.alloc(2*max_K);
         }
 
         int num_vols = R;
@@ -514,7 +514,7 @@ protected:
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
     }
 
-    /// output_type refinement_stats: the particle's profiles over the linearized coordinate and its CC curves, added to
+    /// output_type refinement_stats: the particle's profiles over the linearized coordinate and its depth curves, added to
     /// the worker's partial sums of the CtfStats (the particle is not modified)
     void stats_particle(AliRef&vol,AliSubstack&ss_data,CtfRefBuffer*ptr,AliData&ali_data,GPU::Stream&stream) {
         Rot33 Rot;
@@ -529,7 +529,8 @@ protected:
 
         int K = ptr->K, NB = p_stats->NB, ND = p_stats->ND;
         memcpy(hstats_dref.ptr,p_stats->dref_tomo(ptr->ptcl_gix),sizeof(float)*K);
-        GPU::upload_async(stats_dref.ptr,hstats_dref.ptr,K,stream.strm);
+        memcpy(hstats_dref.ptr+K,p_stats->r22_tomo(ptr->ptcl_gix),sizeof(float)*K);
+        GPU::upload_async(stats_dref.ptr,hstats_dref.ptr,2*K,stream.strm);
         stats_prof.clear(stream.strm);
 
         int3 ss = make_int3(MP,NP,K);
@@ -537,18 +538,15 @@ protected:
         dim3 grd = GPU::calc_grid_size(blk,MP,NP,K);
         GpuKernelsCtfStats::profile<<<grd,blk,0,stream.strm>>>(stats_prof.ptr,ss_data.ss_fourier.ptr,ali_data.prj_c.ptr,ptr->g_ali.ptr,
                                    ptr->g_def.ptr,stats_dref.ptr,ptr->ctf_vals,p_stats->vmax,NB,bandpass.x,bandpass.y,ss);
-        dim3 grd_c = GPU::calc_grid_size(blk,ND,K,1);
-        GpuKernelsCtfStats::curves<<<grd_c,blk,0,stream.strm>>>(stats_curv.ptr,stats_prof.ptr,stats_dref.ptr,ptr->ctf_vals,p_stats->vmax,
-                                   NB,p_stats->d0,p_stats->dstep,ND,K);
+        dim3 grd_c = GPU::calc_grid_size(blk,ND,2,1);
+        GpuKernelsCtfStats::depth<<<grd_c,blk,0,stream.strm>>>(stats_curv.ptr,stats_prof.ptr,stats_dref.ptr,stats_dref.ptr+K,
+                                   ptr->ctf_vals,p_stats->vmax,NB,p_stats->d0,p_stats->dstep,ND,K);
         GPU::download_async(hstats_prof.ptr,stats_prof.ptr,(size_t)CtfStats::NPQ*K*NB,stream.strm);
-        GPU::download_async(hstats_curv.ptr,stats_curv.ptr,(size_t)K*ND,stream.strm);
+        GPU::download_async(hstats_curv.ptr,stats_curv.ptr,(size_t)2*ND,stream.strm);
         stream.sync();
 
         p_stats->add_particle(worker_id,ptr->ptcl_gix,K,hstats_prof.ptr);
-        float*row = p_stats->curve_row(ptr->ptcl_gix);
-        for(int k=0;k<K;k++)
-            if( ptr->c_ali.ptr[k].w > 0 )
-                memcpy(row + (size_t)k*ND,hstats_curv.ptr + (size_t)k*ND,sizeof(float)*ND);
+        memcpy(p_stats->depth_row(ptr->ptcl_gix),hstats_curv.ptr,sizeof(float)*2*ND);
     }
 
     static int setup_grid(float&out_step,const float range,const float in_step) {

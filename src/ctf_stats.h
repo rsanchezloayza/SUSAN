@@ -26,13 +26,12 @@
 ///   group<gs>/x, w, s, c (n_tomo, G, 2, max_K, NB): sum Re(G), |P|^2, |F|^2, pixel count of the groups (gs x gs
 ///   equal-count bins of the particle x, y in each tomogram; the groups of half h are (h-1) gs^2 .. h gs^2 - 1 with
 ///   independent half-sets, halves = 2) split by the particle index parity; group<gs>/label (n_ptcl).
-///   shift/ix, iy, wxx, wyy, wxy (n_tomo, halves, 2, max_K, NB): sum Im(G) kx, Im(G) ky, kx^2 |P|^2, ky^2 |P|^2,
-///   kx ky |P|^2 of all the particles of the half-set and parity (kx, ky in pixels of the padded box NP).
-///   curves (n_ptcl, max_K, ND): max(sum_v c X, 0) / sqrt(sum_v c^2 W) of the particle's own profile, c the CTF at
-///   D_ref + delta; delta (ND), dref (n_tomo, max_K), vmax, nb, box (NP), apix, kv, cs, ac, tomo_id, halves.
-/// The sums come from partial sums (Partial: doubles per worker), merged by addition: the workers' at the end of each
-/// tomogram, and the MPI nodes' for a tomogram split between nodes. A node holds the curve rows of its range (the main
-/// node, all of them).
+///   depth (n_ptcl, 2, ND): sum over the even / odd projections k of max(sum_v c X, 0) / sqrt(sum_v c^2 W) of the
+///   particle's own profile, c the CTF at D_ref + R_k[2,2] delta (the particle depth error delta along the beam);
+///   delta (ND), dref (n_tomo, max_K), vmax, nb, box (NP), apix, kv, cs, ac, tomo_id, halves.
+/// The sums come from partial sums (Partial: doubles per worker, saved as float32), merged by addition: the workers' at
+/// the end of each tomogram, and the MPI nodes' for a tomogram split between nodes. A node holds the depth rows of its
+/// range (the main node, all of them).
 
 #include <vector>
 #include <map>
@@ -70,31 +69,24 @@ __global__ void profile(float*p_prof,const float2*p_ss,const float2*p_prj,const 
         float2 G = cuCmulf(F,P);
         float ph = 2*M_PI*(x*p_ali[k].t.x + y*p_ali[k].t.y)/ss_siz.y;
         float c = cosf(ph), sn = sinf(ph);
-        float re = G.x*c - G.y*sn;
-        float im = G.x*sn + G.y*c;
-        float P2 = P.x*P.x + P.y*P.y;
         size_t Q = (size_t)ss_siz.z*NB;
         float*p = p_prof + (size_t)k*NB + b;
-        atomicAdd(p      ,re);
-        atomicAdd(p +   Q,P2);
+        atomicAdd(p      ,G.x*c - G.y*sn);
+        atomicAdd(p +   Q,P.x*P.x + P.y*P.y);
         atomicAdd(p + 2*Q,F.x*F.x + F.y*F.y);
         atomicAdd(p + 3*Q,1.0f);
-        atomicAdd(p + 4*Q,im*x);
-        atomicAdd(p + 5*Q,im*y);
-        atomicAdd(p + 6*Q,x*x*P2);
-        atomicAdd(p + 7*Q,y*y*P2);
-        atomicAdd(p + 8*Q,x*y*P2);
     }
 }
 
-__global__ void curves(float*p_out,const float*p_prof,const float*p_dref,const CtfConst ctf,const float vmax,const int NB,
-                       const float d0,const float dstep,const int ND,const int K) {
+__global__ void depth(float*p_out,const float*p_prof,const float*p_dref,const float*p_r22,const CtfConst ctf,const float vmax,
+                      const int NB,const float d0,const float dstep,const int ND,const int K) {
     int3 ss_idx = get_th_idx();
-    if( ss_idx.x < ND && ss_idx.y < K && ss_idx.z < 1 ) {
-        int j = ss_idx.x, k = ss_idx.y;
-        float out = NAN;
-        if( p_dref[k] > 0 ) {
-            float D = p_dref[k] + d0 + j*dstep;
+    if( ss_idx.x < ND && ss_idx.y < 2 && ss_idx.z < 1 ) {
+        int j = ss_idx.x, par = ss_idx.y;
+        float acc = 0;
+        for(int k=par;k<K;k+=2) {
+            if( p_dref[k] <= 0 ) continue;
+            float D = p_dref[k] + p_r22[k]*(d0 + j*dstep);
             const float*X = p_prof + (size_t)k*NB;
             const float*W = p_prof + (size_t)K*NB + (size_t)k*NB;
             float num = 0, den = 0;
@@ -106,9 +98,9 @@ __global__ void curves(float*p_out,const float*p_prof,const float*p_dref,const C
                 num += cc*X[b];
                 den += cc*cc*W[b];
             }
-            if( den > 0 ) out = fmaxf(num,0.0f)/sqrtf(den);
+            if( den > 0 ) acc += fmaxf(num,0.0f)/sqrtf(den);
         }
-        p_out[(size_t)k*ND + j] = out;
+        p_out[(size_t)par*ND + j] = acc;
     }
 }
 
@@ -118,8 +110,7 @@ class CtfStats : public StatsGroups {
 
 public:
     static const int NQ  = 4;   /// group quantities: Re(G), |P|^2, |F|^2, count
-    static const int NS  = 5;   /// shift quantities
-    static const int NPQ = 9;   /// per-particle profile quantities
+    static const int NPQ = NQ;  /// per-particle profile quantities
 
     struct Group {
         int gs;
@@ -129,19 +120,16 @@ public:
         std::vector<double> sum[NQ];   /// (n_tomo, G, 2, max_K, NB)
     };
 
-    /// Sufficient statistics of one tomogram, by quantity: the groups and the shift sums, split by particle parity.
+    /// Sufficient statistics of one tomogram, by quantity: the groups, split by particle parity.
     struct Partial {
         std::vector<double> g;      /// (NQ, n_groups, 2, max_K, NB)
-        std::vector<double> s;      /// (NS, halves, 2, max_K, NB)
 
         void merge(const Partial&o) {
             for(size_t i=0;i<g.size();i++) g[i] += o.g[i];
-            for(size_t i=0;i<s.size();i++) s[i] += o.s[i];
         }
 
         void clear() {
             std::fill(g.begin(),g.end(),0.0);
-            std::fill(s.begin(),s.end(),0.0);
         }
     };
 
@@ -154,13 +142,13 @@ public:
     float dstep;
     int   n_groups;
     int   lo, hi;                       /// particles processed here: global indices [lo, hi)
-    int   row0, n_rows;                 /// curve rows held here
+    int   row0, n_rows;                 /// depth rows held here
     std::vector<float>   apix, kv, cs, ac;
     std::vector<int>     half;          /// half-set (0, 1) of each particle
     std::vector<float>   dref;          /// (n_tomo, max_K)
+    std::vector<float>   r22;           /// (n_tomo, max_K) R[2,2] of the projections
     std::vector<float>   delta;         /// (ND)
-    std::vector<float>   curves;        /// (n_rows, max_K, ND)
-    std::vector<double>  shift[NS];     /// (n_tomo, halves, 2, max_K, NB)
+    std::vector<float>   depth;         /// (n_rows, 2, ND)
     std::vector<Group>   groups;
     std::vector<int>     done;          /// per tomogram: statistics computed
     std::vector<Partial> work;          /// per worker, current tomogram
@@ -180,10 +168,12 @@ public:
         delta.resize(ND);
         for(int j=0;j<ND;j++) delta[j] = d0 + j*dstep;
         apix.resize(n_tomo); kv.resize(n_tomo); cs.resize(n_tomo); ac.resize(n_tomo);
+        r22.assign((size_t)n_tomo*max_K,0);
         float amin = 1e9;
         for(int t=0;t<n_tomo;t++) {
             apix[t] = tomos[t].pix_size; kv[t] = tomos[t].KV; cs[t] = tomos[t].CS; ac[t] = tomos[t].AC;
             amin = fmin(amin,apix[t]);
+            for(int k=0;k<(int)tomos[t].num_proj;k++) r22[(size_t)t*max_K + k] = tomos[t].R[k](2,2);
         }
         float smax = fpix_max/(box*amin);
         vmax = SUSAN_CTF_STATS_VMAX*smax*smax;
@@ -198,13 +188,9 @@ public:
             for(int c=0;c<NQ;c++)
                 g.sum[c].assign((size_t)n_tomo*g.G*2*max_K*NB,0.0);
         }
-        for(int c=0;c<NS;c++)
-            shift[c].assign((size_t)n_tomo*halves*2*max_K*NB,0.0);
         work.resize(n_threads);
-        for(Partial&w: work) {
+        for(Partial&w: work)
             w.g.assign((size_t)NQ*n_groups*2*max_K*NB,0.0);
-            w.s.assign((size_t)NS*halves*2*max_K*NB,0.0);
-        }
         done.assign(n_tomo,0);
     }
 
@@ -234,21 +220,25 @@ public:
         set_tomo_ranges();
     }
 
-    /// Particles processed here and curve rows held here (single node: 0, n_ptcl, 0, n_ptcl).
+    /// Particles processed here and depth rows held here (single node: 0, n_ptcl, 0, n_ptcl).
     void set_range(int in_lo,int in_hi,int in_row0,int in_n_rows) {
         lo = in_lo;
         hi = in_hi;
         row0 = in_row0;
         n_rows = in_n_rows;
-        curves.assign((size_t)n_rows*max_K*ND,NAN);
+        depth.assign((size_t)n_rows*2*ND,0);
     }
 
     const float*dref_tomo(int gix) const {
         return dref.data() + (size_t)tix[gix]*max_K;
     }
 
-    float*curve_row(int gix) {
-        return curves.data() + (size_t)(gix-row0)*max_K*ND;
+    const float*r22_tomo(int gix) const {
+        return r22.data() + (size_t)tix[gix]*max_K;
+    }
+
+    float*depth_row(int gix) {
+        return depth.data() + (size_t)(gix-row0)*2*ND;
     }
 
     /// worker `thr` adds the profiles (NPQ, K, NB) of particle gix
@@ -264,10 +254,6 @@ public:
                 double*a = w.g.data() + (((size_t)c*n_groups + g.offset + l)*2 + par)*max_K*NB;
                 for(size_t kb=0;kb<Q;kb++) a[kb] += prof[c*Q + kb];
             }
-        }
-        for(int c=0;c<NS;c++) {
-            double*a = w.s.data() + (((size_t)c*halves + half[gix])*2 + par)*max_K*NB;
-            for(size_t kb=0;kb<Q;kb++) a[kb] += prof[(NQ + c)*Q + kb];
         }
     }
 
@@ -318,13 +304,13 @@ public:
         set_tomo_ranges();
     }
 
-    /// MPI: what a node sends to the main node: its curve rows, the statistics of the tomograms it completed and the
+    /// MPI: what a node sends to the main node: its depth rows, the statistics of the tomograms it completed and the
     /// partial sums of the others.
     std::vector<uint8_t> pack_node() const {
         std::vector<uint8_t> b;
         put(b,row0);
         put(b,n_rows);
-        put_vec(b,curves);
+        put_vec(b,depth);
         int nd = 0;
         for(int t=0;t<n_tomo;t++) nd += done[t];
         put(b,nd);
@@ -335,14 +321,11 @@ public:
                 size_t n = (size_t)g.G*2*max_K*NB;
                 for(int c=0;c<NQ;c++) put_raw(b,g.sum[c].data()+t*n,n*sizeof(double));
             }
-            size_t ns = (size_t)halves*2*max_K*NB;
-            for(int c=0;c<NS;c++) put_raw(b,shift[c].data()+t*ns,ns*sizeof(double));
         }
         put(b,(int)pending.size());
         for(const auto&it: pending) {
             put(b,it.first);
             put_vec(b,it.second.g);
-            put_vec(b,it.second.s);
         }
         return b;
     }
@@ -353,7 +336,7 @@ public:
         int r0, nr, nd, np;
         get(b,pos,r0);
         get(b,pos,nr);
-        get_raw(b,pos,curves.data()+(size_t)(r0-row0)*max_K*ND,(size_t)nr*max_K*ND*sizeof(float));
+        get_raw(b,pos,depth.data()+(size_t)(r0-row0)*2*ND,(size_t)nr*2*ND*sizeof(float));
         get(b,pos,nd);
         for(int i=0;i<nd;i++) {
             int t;
@@ -362,8 +345,6 @@ public:
                 size_t n = (size_t)g.G*2*max_K*NB;
                 for(int c=0;c<NQ;c++) get_raw(b,pos,g.sum[c].data()+t*n,n*sizeof(double));
             }
-            size_t ns = (size_t)halves*2*max_K*NB;
-            for(int c=0;c<NS;c++) get_raw(b,pos,shift[c].data()+t*ns,ns*sizeof(double));
             done[t] = 1;
         }
         get(b,pos,np);
@@ -372,7 +353,6 @@ public:
             int t;
             get(b,pos,t);
             get_vec(b,pos,p.g,(size_t)NQ*n_groups*2*max_K*NB);
-            get_vec(b,pos,p.s,(size_t)NS*halves*2*max_K*NB);
             auto it = pending.find(t);
             if( it == pending.end() )
                 pending[t] = p;
@@ -393,16 +373,16 @@ public:
         using Npz::npy;
         std::vector<Npz::Entry> ents;
         const char*qn[NQ] = {"x","w","s","c"};
+        std::vector<float> f;
         for(Group&g: groups) {
             std::string pfx = "group" + std::to_string(g.gs) + "/";
-            for(int c=0;c<NQ;c++)
-                ents.push_back(npy(pfx+qn[c],"<f8",{(size_t)n_tomo,(size_t)g.G,2,(size_t)max_K,(size_t)NB},g.sum[c].data(),g.sum[c].size()*sizeof(double)));
+            for(int c=0;c<NQ;c++) {
+                f.assign(g.sum[c].begin(),g.sum[c].end());
+                ents.push_back(npy(pfx+qn[c],"<f4",{(size_t)n_tomo,(size_t)g.G,2,(size_t)max_K,(size_t)NB},f.data(),f.size()*sizeof(float)));
+            }
             ents.push_back(npy(pfx+"label","<i4",{(size_t)n_ptcl},g.label.data(),g.label.size()*sizeof(int)));
         }
-        const char*sn[NS] = {"ix","iy","wxx","wyy","wxy"};
-        for(int c=0;c<NS;c++)
-            ents.push_back(npy(std::string("shift/")+sn[c],"<f8",{(size_t)n_tomo,(size_t)halves,2,(size_t)max_K,(size_t)NB},shift[c].data(),shift[c].size()*sizeof(double)));
-        ents.push_back(npy("curves","<f4",{(size_t)n_ptcl,(size_t)max_K,(size_t)ND},curves.data(),curves.size()*sizeof(float)));
+        ents.push_back(npy("depth","<f4",{(size_t)n_ptcl,2,(size_t)ND},depth.data(),depth.size()*sizeof(float)));
         ents.push_back(npy("delta","<f4",{(size_t)ND},delta.data(),delta.size()*sizeof(float)));
         ents.push_back(npy("dref","<f4",{(size_t)n_tomo,(size_t)max_K},dref.data(),dref.size()*sizeof(float)));
         ents.push_back(npy("vmax","<f4",{},&vmax,sizeof(float)));
@@ -425,9 +405,6 @@ protected:
             for(int c=0;c<NQ;c++)
                 memcpy(g.sum[c].data()+t*n,p.g.data()+((size_t)c*n_groups + g.offset)*2*max_K*NB,n*sizeof(double));
         }
-        size_t ns = (size_t)halves*2*max_K*NB;
-        for(int c=0;c<NS;c++)
-            memcpy(shift[c].data()+t*ns,p.s.data()+c*ns,ns*sizeof(double));
         done[t] = 1;
     }
 };

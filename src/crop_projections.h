@@ -181,7 +181,7 @@ protected:
             fprintf(fp,"%08d@%s  ",mrc_writer.K,work_file);
 
             /// rlnCoordinate{X,Y,Z}
-            fprintf(fp,"%4d  %4d  %4d  ",pt_crop(0),pt_crop(1),k);
+            fprintf(fp,"%.1f  %.1f  %4d  ",pt_crop(0),pt_crop(1),k);
 
             /// rlnMicrographName
             fprintf(fp,"%s  ",p_tomo->stk_name);

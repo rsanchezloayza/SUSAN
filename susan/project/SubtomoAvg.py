@@ -607,9 +607,8 @@ class SubtomoAvg(SubtomoAvgCore):
 
        Refinement of the 2-D iterations from the alignment statistics: the
        aligner writes ``output_type='alignment_stats'`` (recommended: offset
-       step 0.5 px; the cone and in-plane search of the 2-D iterations
-       define the sequential angular search of the orientation correction,
-       e.g. ``set_angular_search(2, 1, 1, 0.5)``; with :attr:`aligner`
+       step 0.5 px; the angular search is not run, the orientation
+       correction comes from the positions; with :attr:`aligner`
        ``halfsets_independ`` the statistics are per half-set), then
        :meth:`~susan.solvers.Solver2D.solve` gives the particles of the next
        iteration; the statistics also carry the uncertainty of what it applied
@@ -622,12 +621,11 @@ class SubtomoAvg(SubtomoAvgCore):
        Defocus correction of the CTF iterations from pooled statistics: the
        :attr:`ctf_refiner` writes ``output_type='refinement_stats'`` (no
        per-particle search; its :attr:`~susan.modules.CtfRefiner.defocus_angstroms`
-       span is the range of the per-particle curves; with :attr:`ctf_refiner`
+       span is the range of the per-particle depth curves; with :attr:`ctf_refiner`
        ``halfsets_independ`` the statistics are per half-set), then
        :meth:`~susan.solvers.SolverCTF.solve` gives the particles of the next
-       iteration: per-tilt offset, global tilt geometry and per-particle depth
-       error, and, when the refiner has an offset search, the significant
-       per-tilt translation bias.  Astigmatism and phase shift are kept.
+       iteration: per-tilt offset (shrunk along the acquisition order) and
+       per-particle depth error.  Astigmatism and phase shift are kept.
        ``None``: the free per-particle refinement.
        Default: ``None``.
 
@@ -943,17 +941,23 @@ class SubtomoAvg(SubtomoAvgCore):
         self.aligner.dimensionality  = ite_type
         self.aligner.verbosity       = self.verbosity
         self.aligner.output_type     = 'alignment_stats' if (ite_type == 2 and self.solver_2d is not None) else 'alignment'
+        prev = self.aligner.cone, self.aligner.inplane
+        if self.aligner.output_type == 'alignment_stats':
+            self.aligner.cone, self.aligner.inplane = type(prev[0])(0, 1), type(prev[1])(0, 1)
 
         print('  [%dD Alignment] Start:' % ite_type)
         t0 = _ssa_utils.time_now()
-        if self.mpi.arg > 1:
-            self.aligner.mpi.cmd = self.mpi.cmd
-            self.aligner.mpi.arg = self.mpi.arg
-            self.aligner.align_mpi(cur.ptcl_rslt, prv.reference,
+        try:
+            if self.mpi.arg > 1:
+                self.aligner.mpi.cmd = self.mpi.cmd
+                self.aligner.mpi.arg = self.mpi.arg
+                self.aligner.align_mpi(cur.ptcl_rslt, prv.reference,
+                                       self.tomogram_file, prv.ptcl_rslt, self.box_size)
+            else:
+                self.aligner.align(cur.ptcl_rslt, prv.reference,
                                    self.tomogram_file, prv.ptcl_rslt, self.box_size)
-        else:
-            self.aligner.align(cur.ptcl_rslt, prv.reference,
-                               self.tomogram_file, prv.ptcl_rslt, self.box_size)
+        finally:
+            self.aligner.cone, self.aligner.inplane = prev
         elapsed = _ssa_utils.time_now() - t0
         print('  [%dD Alignment] Finished. Elapsed time: %.1f seconds (%s).'
               % (ite_type, elapsed.total_seconds(), str(elapsed)))
@@ -1052,8 +1056,7 @@ class SubtomoAvg(SubtomoAvgCore):
 
     def _solve_ctf(self, cur, prv):
         """Defocus correction of the input particles from the statistics (:attr:`solver_ctf`); saves ``cur.ptcl_rslt``."""
-        P = self.solver_ctf.solve(prv.ptcl_rslt, _ssa_io.ctf_stats.path(cur.ptcl_rslt), self.tomogram_file,
-                                  refiner=self.ctf_refiner)
+        P = self.solver_ctf.solve(prv.ptcl_rslt, _ssa_io.ctf_stats.path(cur.ptcl_rslt), self.tomogram_file)
         P.save(cur.ptcl_rslt)
         self.use_ctf_stats = cur.ite
         return P

@@ -220,7 +220,7 @@ typedef enum {
 #define GAT_RAW_B_TOL       1.0f
 #define SUSAN_MPI_CHUNK_BYTES ((uint64_t)1<<30)   /// bytes per MPI message of the byte-buffer transfers (MPI counts are int)
 #define ALI_STATS_ANG_MAX_GS 2   /// alignment_stats: the groups up to this size keep the CC per scanned angle
-#define SUSAN_CTF_STATS_BINS 512    /// refinement_stats profiles: bins of the linearized coordinate v = s^2 D(phi) / D_ref
+#define SUSAN_CTF_STATS_BINS 128    /// refinement_stats profiles: bins of the linearized coordinate v = s^2 D(phi) / D_ref
 #define SUSAN_CTF_STATS_VMAX 1.3f   /// profile range in units of the band's maximum s^2 (D(phi) / D_ref up to 1.3)
 #define W_INV_STD_SPLAT     0.74f
 #define NOISE_RING_GAP      3.0f

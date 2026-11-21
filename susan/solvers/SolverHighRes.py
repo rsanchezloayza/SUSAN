@@ -125,7 +125,7 @@ class SolverHighRes:
         """
         P = _ssa_data.Particles(ptcls) if isinstance(ptcls, str) else ptcls.copy()
         S = self._read(stats_2d, _ali_stats, 'projections/stats', P.n_ptcl, 'The 2D statistics')
-        C = self._read(stats_ctf, _ctf_stats, 'curves', P.n_ptcl, 'The CTF statistics')
+        C = self._read(stats_ctf, _ctf_stats, None, P.n_ptcl, 'The CTF statistics')
         if C is not None and tomos is None:
             raise ValueError('The tomograms are needed with the CTF statistics.')
         n, K = P.prj_w.shape
@@ -204,9 +204,9 @@ class SolverHighRes:
         if stats is None:
             return None
         S = io.read(stats) if isinstance(stats, str) else stats
-        if S[key].shape[0] != n:
-            _warnings.warn('%s have %d rows, the particles %d: not used.' % (name, S[key].shape[0], n), RuntimeWarning,
-                           stacklevel=3)
+        rows = S[key or ('depth' if 'depth' in S else 'curves')].shape[0]
+        if rows != n:
+            _warnings.warn('%s have %d rows, the particles %d: not used.' % (name, rows, n), RuntimeWarning, stacklevel=3)
             return None
         return S
 

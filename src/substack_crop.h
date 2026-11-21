@@ -33,8 +33,8 @@
 #include "mrc.h"
 
 /// Crop that may leave the frame: a projection is used when the box centre is inside the frame
-/// and not on the fill value. Normalization over the valid pixels (eroded by EDGE_ERODE); the
-/// invalid ones are filled as the padding: noise with the valid mean / std, or 0.
+/// and not on the fill value. Statistics over the valid pixels (eroded by EDGE_ERODE); the invalid
+/// ones are filled with them before the normalization: noise N(mean,std), or the mean.
 class SubstackCrop {
 
 public:
@@ -152,6 +152,9 @@ public:
         if( std < SUSAN_FLOAT_TOL || std::isnan(std) || std::isinf(std) )
             return false;
 
+        if( n_bad > 0 && norm_type != LOCAL_NORM )
+            fill(ss,avg,std,seed_id,k);
+
         if( norm_type == LOCAL_NORM ) {
             int Rw = win_px.back();
             if( ref_ix >= 0 && ref_ix + 1 < (int)win_px.size() )
@@ -159,6 +162,8 @@ public:
             local_normalize(ss,Rw);
             pad.x = 0;
             pad.y = 1;
+            if( n_bad > 0 )
+                fill(ss,0,1,seed_id,k);
         }
         else if( norm_type == NO_NORM ) {
             pad.x = avg;
@@ -170,19 +175,6 @@ public:
         else {
             Math::normalize(ss,N*N,avg,1.0);
             pad.y = std;
-        }
-
-        if( n_bad > 0 ) {
-            if( pad_type == PAD_GAUSSIAN ) {
-                rng.seed( seed_id*1000003u + (uint32)k );
-                nrm.reset();
-                for(int i=0;i<N*N;i++)
-                    if( !valid[i] ) ss[i] = pad.x + pad.y*nrm(rng);
-            }
-            else {
-                for(int i=0;i<N*N;i++)
-                    if( !valid[i] ) ss[i] = 0;
-            }
         }
         return true;
     }
@@ -197,6 +189,20 @@ protected:
     std::vector<int>    win_px;
     std::mt19937 rng;
     std::normal_distribution<float> nrm{0.0f,1.0f};
+
+    /// Invalid pixels: N(avg,std) for gaussian padding, avg otherwise.
+    void fill(float*ss,const float avg,const float std,const uint32 seed_id,const int k) {
+        if( pad_type == PAD_GAUSSIAN ) {
+            rng.seed( seed_id*1000003u + (uint32)k );
+            nrm.reset();
+            for(int i=0;i<N*N;i++)
+                if( !valid[i] ) ss[i] = avg + std*nrm(rng);
+        }
+        else {
+            for(int i=0;i<N*N;i++)
+                if( !valid[i] ) ss[i] = avg;
+        }
+    }
 
     /// Per-pixel (x-mean)/std over the valid pixels of the (2Rw+1)^2 window (summed-area tables).
     void local_normalize(float*ss,const int Rw) {

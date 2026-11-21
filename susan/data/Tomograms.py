@@ -35,6 +35,8 @@ from susan.utils import euZYZ_to_rotm as _euZYZ_to_rotm
 from susan.utils import bin_frame as _bin_frame
 from susan.utils import bin_frame_shape as _bin_frame_shape
 
+_APIX_RTOL = 1e-4  # relative tolerance of the MRC header pixel size (float32 cell / sampling)
+
 def _xf_geometry(A,d,tilt):
     """Raw-stack projection for one IMOD .xf line and tilt angle (degrees).
 
@@ -1024,7 +1026,7 @@ class Tomograms:
         else:
             raise NameError('Invalid filename')
 
-    def bin(self, scale, in_subfolder=True, filename=None) -> Tomograms:
+    def bin(self, scale, in_subfolder=True, filename=None, write_if_mismatch=False) -> Tomograms:
         """Downsample every tilt-series stack and return a binned ``Tomograms``.
 
         Each MRC stack referenced in ``stack_file`` is read, every projection
@@ -1061,6 +1063,14 @@ class Tomograms:
         filename : str, optional
             If given, also save the returned ``Tomograms`` to this
             ``.tomostxt`` file.
+        write_if_mismatch : bool, optional
+            If False (default), every stack is binned and written. If True, a
+            binned stack that already exists at the output path with the
+            expected shape and pixel size is kept as it is, and only the
+            missing or different ones are binned; useful to refresh the
+            metadata of a binned set (e.g. new geometry) without rewriting
+            its stacks. The existing stacks must have been binned about the
+            same centre as :func:`susan.utils.bin_frame`.
 
         Returns
         -------
@@ -1117,18 +1127,22 @@ class Tomograms:
                 out_dir = in_dir
             out_path = _os.path.join(out_dir, out_base) if out_dir else out_base
 
-            stk_in, _ = _mrc.read(in_path)
-            P  = int(stk_in.shape[0])
-            H  = int(stk_in.shape[1])
-            W  = int(stk_in.shape[2])
+            W, H, P = (int(v) for v in _mrc_info(in_path)[0])
             H_b, W_b = _bin_frame_shape(H, W, float(scale))
 
-            stk_out = _np.empty((P, H_b, W_b), dtype=_np.float32)
-            stk_in_f32 = _np.ascontiguousarray(stk_in, dtype=_np.float32)
-            for p in range(P):
-                _bin_frame(stk_in_f32[p], float(scale), out_frame=stk_out[p])
+            keep = False
+            if write_if_mismatch and _os.path.exists(out_path):
+                shape, apix, _ = _mrc_info(out_path)
+                keep = (tuple(int(v) for v in shape) == (W_b, H_b, P)) and \
+                       bool(_np.isclose(apix[0], new.pix_size[i], rtol=_APIX_RTOL))
 
-            _mrc.write(stk_out, out_path, apix=float(new.pix_size[i]))
+            if not keep:
+                stk_in, _ = _mrc.read(in_path)
+                stk_out = _np.empty((P, H_b, W_b), dtype=_np.float32)
+                stk_in_f32 = _np.ascontiguousarray(stk_in, dtype=_np.float32)
+                for p in range(P):
+                    _bin_frame(stk_in_f32[p], float(scale), out_frame=stk_out[p])
+                _mrc.write(stk_out, out_path, apix=float(new.pix_size[i]))
 
             new.stack_file[i]    = out_path
             new.stack_size[i, 0] = W_b

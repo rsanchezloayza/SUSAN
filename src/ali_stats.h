@@ -21,7 +21,7 @@
 
 /// 2D alignment statistics (-output_type alignment_stats, type 2), saved to <output stem>.stats.npz:
 ///   projections/stats (n_ptcl, max_K, NF): PeakStats fields per particle and projection.
-///   grouped<gs>/stats, count, label, half: per tomogram, group (gs x gs equal-count bins of the particle x, y) and
+///   grouped<gs>/stats, label, half: per tomogram, group (gs x gs equal-count bins of the particle x, y) and
 ///   projection, the statistics of the group's mean CC map at the input in-plane angle; half: peak (x, y) of the
 ///   A - B split of the group (particle index parity). With independent half-sets (halves = 2) the bins are drawn per
 ///   half and the groups of half h are (h-1) gs^2 .. h gs^2 - 1 (gold standard: no group mixes the halves).
@@ -346,7 +346,6 @@ public:
             std::string pfx = "grouped" + std::to_string(g.gs) + "/";
             size_t G = (size_t)g.G;
             ents.push_back(npy(pfx+"stats","<f4",{(size_t)n_tomo,G,(size_t)max_K,(size_t)NF},g.stats.data(),g.stats.size()*sizeof(float)));
-            ents.push_back(npy(pfx+"count","<i4",{(size_t)n_tomo,G,(size_t)max_K},g.count.data(),g.count.size()*sizeof(int)));
             ents.push_back(npy(pfx+"label","<i4",{(size_t)n_ptcl},g.label.data(),g.label.size()*sizeof(int)));
             ents.push_back(npy(pfx+"half","<f4",{(size_t)n_tomo,G,(size_t)max_K,2},g.half.data(),g.half.size()*sizeof(float)));
             if( g.ang_off >= 0 ) {

@@ -666,7 +666,7 @@ inline void print_full(const Info&info,FILE*fp) {
     else
         fprintf(fp,"\t\t%s offset search (2D): Range=[%.2f,%.2f]. Total points: %d\n",PointsProvider::name(info.off_type),info.off_x,info.off_y,total_points);
     
-    if( info.ignore_ref )
+    if( info.ignore_ref || info.type == 2 )
         fprintf(fp,"\t\tAligning each particle to its class/reference only.\n");
 }
 
@@ -769,7 +769,7 @@ inline void print_basic(const Info&info,FILE*fp) {
     else
         fprintf(fp,"    - %s offset (2D): [%.2f,%.2f]. Points: %d\n",PointsProvider::name(info.off_type),info.off_x,info.off_y,total_points);
     
-    if( info.ignore_ref )
+    if( info.ignore_ref || info.type == 2 )
         fprintf(fp,"    - Aligning each particle to its class/reference only.\n");
 }
 

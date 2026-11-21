@@ -21,7 +21,7 @@
 
 /// Per projection statistics of the 2D CC evidence (aligner type 2, -output_type alignment_stats).
 /// C (P): raw CC (not weighted by prj_w, no priors) at the input orientation at every offset point (pixels).
-/// Fields (NaN when undefined): cc, px, py, z_peak, h_xx, h_xy, h_yy, dx2, dy2, r2
+/// Fields (NaN when undefined): cc, px, py, z_peak, h_xx, h_xy, h_yy, r2
 
 #include <cmath>
 #include <cstdint>
@@ -32,8 +32,8 @@
 
 namespace PeakStats {
 
-const int NF = 10;
-static const char* FIELDS[NF] = {"cc","px","py","z_peak","h_xx","h_xy","h_yy","dx2","dy2","r2"};
+const int NF = 8;
+static const char* FIELDS[NF] = {"cc","px","py","z_peak","h_xx","h_xy","h_yy","r2"};
 
 /// Reusable buffers of compute() (no allocations after the first calls).
 struct Workspace {
@@ -137,7 +137,7 @@ inline void compute(Workspace&ws,float*out,const float*C,int P,const float*pts_x
     }
 
     /// second peak: the highest local maximum (3x3) farther than excl px from the main peak
-    double best=-INFINITY; int by=0,bx=0;
+    double best=-INFINITY;
     for(int iy=0;iy<ny;iy++)
         for(int ix=0;ix<nx;ix++) {
             double v = Vat(iy,ix);
@@ -147,13 +147,10 @@ inline void compute(Workspace&ws,float*out,const float*C,int P,const float*pts_x
             for(int dy=-1;dy<=1 && is_max;dy++)
                 for(int dx=-1;dx<=1;dx++)
                     if( Vat(iy+dy,ix+dx) > v ) { is_max=false; break; }
-            if( is_max && v > best ) { best=v; by=iy; bx=ix; }
+            if( is_max && v > best ) best=v;
         }
-    if( std::isfinite(best) ) {
-        out[7] = (bx-ix0)*step;
-        out[8] = (by-iy0)*step;
-        out[9] = (c0 != 0) ? best/c0 : NAN;
-    }
+    if( std::isfinite(best) )
+        out[7] = (c0 != 0) ? best/c0 : NAN;
 }
 
 }

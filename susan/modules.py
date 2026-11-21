@@ -68,8 +68,10 @@ class Aligner(_BandpassFpix):
         Process the two half-sets with independent references.
         Default: ``False``.
     ignore_classes : bool
-        Ignore reference-class assignments; align against all references.
-        Default: ``False``.
+        3D: if True, align each particle only against its own class
+        (``ref_cix``); if False, against every reference (multi-reference
+        alignment).  2D alignment always uses the particle's own class (one
+        set of per-projection corrections per particle).  Default: ``False``.
     cone : :class:`~susan.utils.datatypes.search_params`
         Out-of-plane (cone) angular search range and step in degrees.
         Default: ``search_params(0, 1)`` (no search).  The range is honoured
@@ -119,7 +121,8 @@ class Aligner(_BandpassFpix):
     padding_type : str
         Fill of the padded region and of the box pixels outside the stack
         frame or on its alignment fill: ``'noise'`` (gaussian with the mean
-        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.
+        and std of the projection's valid pixels) or ``'zero'`` (their mean,
+        0 once the mean is removed).  Default: ``'noise'``.
     normalize_type : str
         Per-substack normalisation applied before correlation.  One of
         ``'none'``, ``'zero_mean'``, ``'zero_mean_one_std'``,
@@ -559,7 +562,8 @@ class Averager(_BandpassFpix):
     padding_type : str
         Fill of the padded region and of the box pixels outside the stack
         frame or on its alignment fill: ``'noise'`` (gaussian with the mean
-        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.
+        and std of the projection's valid pixels) or ``'zero'`` (their mean,
+        0 once the mean is removed).  Default: ``'noise'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
         ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'poisson_raw'``,
@@ -815,7 +819,8 @@ class SubtomoRec(_BandpassFpix):
     padding_type : str
         Fill of the padded region and of the box pixels outside the stack
         frame or on its alignment fill: ``'noise'`` (gaussian with the mean
-        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.
+        and std of the projection's valid pixels) or ``'zero'`` (their mean,
+        0 once the mean is removed).  Default: ``'noise'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
         ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'poisson_raw'``,
@@ -1272,7 +1277,8 @@ class CtfRefiner(_BandpassFpix):
     padding_type : str
         Fill of the padded region and of the box pixels outside the stack
         frame or on its alignment fill: ``'noise'`` (gaussian with the mean
-        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.
+        and std of the projection's valid pixels) or ``'zero'`` (their mean,
+        0 once the mean is removed).  Default: ``'noise'``.
     normalize_type : str
         Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,
         ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``,
@@ -1362,8 +1368,8 @@ class CtfRefiner(_BandpassFpix):
         :class:`susan.solvers.SolverCTF`.
     stats_groups : list of int
         Group sizes gs of ``'refinement_stats'``: gs x gs equal-count bins of
-        the particle x, y per tomogram.  The solver needs 1 and 3.
-        Default: ``[1, 3]``.
+        the particle x, y per tomogram.  The solver needs 1.
+        Default: ``[1]``.
     mpi : :class:`~susan.utils.datatypes.mpi_params`
         MPI launcher configuration used by :meth:`refine_mpi`.
         Default: ``mpi_params('srun -n %d ', 1)``.
@@ -1390,7 +1396,7 @@ class CtfRefiner(_BandpassFpix):
         self.defocus_sigma      = 0.0
         self.phase_sigma_deg    = 0.0
         self.output_type        = 'refinement'
-        self.stats_groups       = [1,3]
+        self.stats_groups       = [1]
         self.mpi                = _dt.mpi_params('srun -n %d ',1)
         self.verbosity          = 0
 

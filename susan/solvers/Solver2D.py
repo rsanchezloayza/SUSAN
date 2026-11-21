@@ -18,56 +18,63 @@
 
 import math as _math
 import os as _os
-import warnings as _warnings
 
 import numpy as _np
+import scipy.sparse as _sp
 
 import susan.data as _ssa_data
 import susan.io.ali_stats as _ali_stats
 import susan.utils as _ssa_utils
-from susan.solvers._solvers_core import fit_robust as _fit_robust_core
 
 __all__ = ['Solver2D']
 
 _CHI2_2_MEDIAN = 1.3863
 _F = {f: i for i, f in enumerate(_ali_stats.FIELDS)}
+_TINY = 1e-12
+_MIN_OBS = 20          # usable particle peaks of a projection
+_OBS_PER_DOF = 4       # observations per field parameter of the finest level
+_MAX_LEVEL = 4
+_LAM_RANGE = 1e4       # strengths within [1/range, range] of the data scale
+_LAM_RTOL = 1e-2
+_LAM_OUTER = 12
+_LAM_DAMP = 0.5
+_BASE_OUTER = 3
+_CV_OUTER = 8
+_CV_SCALES = (1.0, 1e-3)
 
 
 class Solver2D:
     """2D refinement from the statistics of a 2D alignment (``output_type='alignment_stats'``).
 
     Per tomogram (and per half-set when the groups of the statistics are per half), every parameter estimated from
-    the data:
+    the data.  Model of the peak of particle j on projection k (detector px, from the input pose):
+    t_k + w_k [-y, x] + [c_yk z, -c_xk z] + f_k(x, y) + P_k delta_j, with the shift t_k, the rotations about the beam
+    w_k and about the detector x and y c_k (z the depth from the median depth), a multi-scale field f_k (hierarchical
+    bilinear grids, without the shift and the rotation), and one 3D offset delta_j per particle (prior covariance from
+    the even/odd projection split).  The group peaks (2x2 to 5x5) enter as observations of the same model at their
+    centroids with the precision of their half-split reproducibility; the particles with their curvature on the scale of
+    their residuals.  Robust (Cauchy) weights; the projections are independent given the offsets.
 
-    1. group peaks: precision from the half-split reproducibility; groups that do not reproduce are dropped;
-    2. rigid correction per projection (shift + in-plane rotation) from the finest usable grouping (3x3, 2x2, else
-       the 1x1 shift);
-    3. particles: reliability P(real | z_peak, r2, projection signal) from a logistic model of their agreement with the
-       rigid prediction, and their precision on the absolute scale of the residuals;
-    4. per projection, the field model (rigid; rigid + G x G grid; the grid with the rigid part kept) by
-       cross-validation on held-out particle and group peaks;
-    5. cross-tilt shrinkage of the non-rigid part toward the similar projections, its strength by cross-validation;
-    6. per particle posterior of the observation and the field;
-    7. the orientation of each projection (rotations about the detector x, y and the beam) from the 1x1 and 2x2
-       group peaks over the sequential angular search: per projection, plus a linear field over the 2x2 groups, each
-       shrunk by its reproducibility (split halves of the groups).
+    1. base fit: one strength per level of the field, a fixed point (pooled over the projections); the finest level
+       from the observations per parameter;
+    2. per projection, by cross-validation on held-out particle and group peaks: no field, or the field up to each
+       level, at the strength of step 1 or 1000 times weaker, with the rigid part free or kept from the fit without
+       field;
+    3. the rotations of each projection are those of the base fit; its shift those of the model of step 2.
 
-    Usage: align the particles in 2D with ``output_type='alignment_stats'`` (offset step 0.5 px; the cone and in-plane
-    search define the sequential angular search, none: the orientations are kept; with independent half-sets the
-    groups are per half), then :meth:`solve` gives the particles of the next alignment; :class:`SolverHighRes` makes
-    those of the reference reconstruction from the same statistics.
+    Usage: align the particles in 2D with ``output_type='alignment_stats'`` (offset step 0.5 px, no angular search;
+    with independent half-sets the groups are per half), then :meth:`solve` gives the particles of the next alignment;
+    :class:`SolverHighRes` makes those of the reference reconstruction from the same statistics.
 
     Attributes
     ----------
-    models : tuple of int
-        Grid sizes G of the non-rigid field tried per projection.  Default ``(2, 3, 4, 5)``.
     n_fold : int
         Cross-validation folds.  Default ``5``.
     seed : int
         Seed of the folds.  Default ``0``.
     edge_fraction : float
-        Summary: suggest a wider angular range when more than this fraction of the per-tilt angle estimates (of the
-        components that survive the shrinkage) sit at the scanned edge.  Default ``0.1``.
+        Summary: suggest a wider offset range when more than this fraction of the peaks of a projection sit at the edge
+        of the offset search.  Default ``0.1``.
     max_offset_step : float
         Summary: suggest a smaller offset step above this many pixels (0.5 px gave a consistent gain on
         EMPIAR-10064).  Default ``0.5``.
@@ -77,7 +84,6 @@ class Solver2D:
     """
 
     def __init__(self):
-        self.models          = (2, 3, 4, 5)
         self.n_fold          = 5
         self.seed            = 0
         self.edge_fraction   = 0.1
@@ -105,16 +111,13 @@ class Solver2D:
         Returns
         -------
         :class:`susan.data.Particles`
-            prj_t = input prj_t + solved shift; prj_eu = the solved rotation (step 7) applied to the input prj_eu;
-            prj_w unchanged (an unsolved projection keeps its pose and is retried in the next round).
-            :attr:`solved` (n_ptcl, K) marks the solved projections.  The uncertainty of what was applied is added to
-            the statistics (the file when ``stats`` is a path, else the dict): ``projections/post_cov`` (n_ptcl, K, 3)
-            float32, the posterior covariance [xx, xy, yy] (px^2) of the shift, inv(I_obs + I / s^2) with the robustly
-            reweighted observation (s^2 I for the particles that keep the field), NaN where unsolved;
-            ``projections/ang_var`` (n_ptcl, K, 3) float32, the variance (deg^2) of the applied rotation about x, y and
-            the beam: per tilt f1 v1 of the shrunk 1x1 estimate plus f2 (v2 + v1) of the 2x2 field (v2 averaged over
-            the groups, the regression of the field not counted: an approximation), 0 for a component without
-            estimate, NaN where no rotation was applied.
+            prj_t = input prj_t + solved shift; prj_eu = the solved rotation applied to the input prj_eu; prj_w
+            unchanged (an unsolved projection keeps its pose).  :attr:`solved` (n_ptcl, K) marks the solved
+            projections.  The uncertainty of what was applied is added to the statistics (the file when ``stats`` is a
+            path, else the dict): ``projections/post_cov`` (n_ptcl, K, 3) float32, the posterior covariance
+            [xx, xy, yy] (px^2) of the shift, the projection of the covariance of the 3D offset of the particle, NaN
+            where unsolved; ``projections/ang_var`` (n_ptcl, K, 3) float32, the variance (deg^2) of the applied
+            rotation about x, y and the beam, NaN where no rotation was applied.
         """
         P = _ssa_data.Particles(ptcls_in) if isinstance(ptcls_in, str) else ptcls_in.copy()
         S = _ali_stats.read(stats) if isinstance(stats, str) else stats
@@ -128,21 +131,29 @@ class Solver2D:
         stomo = [int(t) for t in S['tomo_id']]
         tid = P.tomo_id.flatten().astype(int)
         hid = P.half_id.flatten().astype(int)
-        xpx = self._projected_positions(P, T)
+        pos = P.pos()
         prj_t_in, prj_eu_in = P.prj_t.copy(), P.prj_eu.copy()
         self.solved = _np.zeros(P.prj_w.shape, bool)
         post_cov = _np.full(P.prj_w.shape + (3,), _np.nan, _np.float32)
         ang_var = _np.full(P.prj_w.shape + (3,), _np.nan, _np.float32)
-        ang_rv = _np.zeros(P.prj_w.shape + (3,))
-        clamped, ang_noise = [], []
+        ang_ss, ang_n = 0.0, 0
+        ang_noise = []
+        span = min(aligner.offset.span[:2]) if aligner is not None else None
+        edge = []
         for t in _np.unique(tid):
             cix, ti = int(T.get_cix(t)), stomo.index(int(t))
             K = int(T.num_proj[cix])
             apix = float(T.pix_size[cix])
+            st_ = _np.where(tid == t)[0]
+            xyz_t = self._projected_positions(T, cix, pos[st_], K)
+            Pk = _np.stack([_ssa_utils.euZYZ_to_rotm(T.proj_eZYZ[cix, k], degrees=True)[:2].astype(_np.float64) *
+                            float(T.proj_scale[cix, k]) for k in range(K)])
             for h in ((1, 2) if halves == 2 else (0,)):
-                sel = _np.where((tid == t) & ((hid == h) if h else True))[0]
+                m_ = (hid[st_] == h) if h else _np.ones(len(st_), bool)
+                sel = st_[m_]
                 if len(sel) == 0:
                     continue
+                xyz = xyz_t[m_]
                 grp = {}
                 for gs in gsizes:
                     G, o = gs * gs, (h - 1) * gs * gs if h else 0
@@ -152,9 +163,10 @@ class Solver2D:
                     grp[gs] = (S['grouped%d/stats' % gs][ti][o:o + G, :K], S['grouped%d/label' % gs][sel] - o,
                                S['grouped%d/half' % gs][ti][o:o + G, :K])
                 valid_k = P.prj_w[sel][:, :K].max(0) > 0
+                edge += [(int(t), int(k)) for k in self._at_edge(st[sel][:, :K], valid_k, span, float(S.get('off_step', 0.5)))]
                 if self.verbosity > 1:
                     print('    Tomogram %d%s:' % (t, (', half %d' % h) if h else ''), end='', flush=True)
-                r = self._solve_tomo(st[sel][:, :K], xpx[sel][:, :K], grp, apix, valid_k)
+                r = self._solve_tomo(st[sel][:, :K], xyz[..., :2], xyz[..., 2], Pk, grp, apix, valid_k)
                 ok = _np.isfinite(r['shift'][..., 0])
                 for k in range(K):
                     i = sel[ok[:, k]]
@@ -163,30 +175,43 @@ class Solver2D:
                     P.prj_t[i, k] = prj_t_in[i, k] + r['shift'][ok[:, k], k] * apix
                     post_cov[i, k] = r['cov'][ok[:, k], k]
                     self.solved[i, k] = True
-                rv = self._solve_angles(S, ti, h, sel, xpx[sel][:, :K])
-                if rv is not None:
-                    rv, var, clp, sd = rv
-                    clamped.append(clp)
-                    ang_noise.append(sd)
-                    m = _np.isfinite(rv[..., 0]) & (P.prj_w[sel][:, :K] > 0)
-                    ii, kk = sel[_np.where(m)[0]], _np.where(m)[1]
-                    D = _rotvec_rotm(rv[m])
-                    P.prj_eu[ii, kk] = _ssa_utils.rotm_to_euZYZ(D @ _ssa_utils.euZYZ_to_rotm(prj_eu_in[ii, kk]))
-                    ang_var[ii, kk] = var[m]
-                    ang_rv[ii, kk] = rv[m]
+                rv = _np.broadcast_to(r['rv'][None], (len(sel), K, 3))
+                var = _np.broadcast_to(r['var'][None], (len(sel), K, 3))
+                vk = r['var'][_np.isfinite(r['rv']).all(-1)]
+                ang_noise.append(_math.sqrt(_np.median(vk[vk > 0])) if (vk > 0).any() else _np.nan)
+                m = _np.isfinite(rv).all(-1) & (P.prj_w[sel][:, :K] > 0)
+                ii, kk = sel[_np.where(m)[0]], _np.where(m)[1]
+                D = _rotvec_rotm(rv[m])
+                P.prj_eu[ii, kk] = _ssa_utils.rotm_to_euZYZ(D @ _ssa_utils.euZYZ_to_rotm(prj_eu_in[ii, kk]))
+                ang_var[ii, kk] = var[m]
+                a = _np.linalg.norm(rv[m], axis=-1)
+                ang_ss += float(_np.sum(a[a > 0] ** 2))
+                ang_n += int((a > 0).sum())
         self._append_variances(stats, S, post_cov, ang_var)
         if self.verbosity:
-            self._summary(P, prj_t_in, T, S, post_cov, ang_rv, clamped, ang_noise, aligner)
+            self._summary(P, prj_t_in, T, S, post_cov, (ang_ss, ang_n), ang_noise, sorted(set(edge)), aligner)
         return P
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 
-    def _summary(self, P, prj_t_in, T, S, post_cov, ang_rv, clamped, ang_noise, aligner):
+    def _at_edge(self, stats, valid_k, span, step):
+        """projections with more than edge_fraction of their peaks at the edge of the offset search (half-width span px,
+        step px; none without the span)"""
+        p = _np.abs(stats[..., [_F['px'], _F['py']]].astype(_np.float64))
+        fin = _np.isfinite(p[..., 0])
+        if span is None or not fin.any():
+            return []
+        at = fin & (p >= span - step / 2).any(-1)
+        frac = at.sum(0) / _np.maximum(fin.sum(0), 1)
+        return list(_np.where(valid_k & (frac > self.edge_fraction))[0])
+
+    def _summary(self, P, prj_t_in, T, S, post_cov, ang, ang_noise, edge, aligner):
         """Corrections applied to the dataset; [converged] when none is beyond its noise (rms angle change below the
-        median split-half sd of the per-tilt estimates, rms shift change below the median posterior sd); search changes
-        suggested by the data."""
+        median sd of the per-tilt estimates, rms shift change below the median posterior sd); search changes
+        suggested by the data.  ang: sum of squares and count of the applied rotations (deg); edge: (tomogram,
+        projection) with peaks at the edge of the offset search."""
         on = self.solved
         tid = P.tomo_id.flatten().astype(int)
         apix = _np.array([float(T.pix_size[int(T.get_cix(t))]) for t in tid])[:, None] * _np.ones(on.shape)
@@ -194,16 +219,16 @@ class Solver2D:
         d_rms = _math.sqrt(_np.mean(d[on] ** 2)) if on.any() else 0.0
         d_px = _math.sqrt(_np.mean((d[on] / apix[on]) ** 2)) if on.any() else 0.0
         noise = _np.median(_np.sqrt((post_cov[on][:, 0] + post_cov[on][:, 2]) / 2) * apix[on]) if on.any() else 0.0
-        a = _np.linalg.norm(ang_rv, axis=-1)
-        a_on = a > 0
-        a_rms = _math.sqrt(_np.mean(a[a_on] ** 2)) if a_on.any() else 0.0
+        a_on = ang[1] > 0
+        a_rms = _math.sqrt(ang[0] / ang[1]) if a_on else 0.0
         tags = []
-        if on.any() and (not a_on.any() or a_rms <= _np.nanmedian(ang_noise)) and d_rms <= noise:
+        if on.any() and (not a_on or a_rms <= _np.nanmedian(ang_noise)) and d_rms <= noise:
             tags.append('[converged]')
         sug = []
-        if clamped and _np.max(clamped) > self.edge_fraction:
-            sug.append('Increase angular range')
-        if aligner is not None and on.any():
+        if edge:
+            sug.append('Increase offset range (peaks at the search edge on tomogram:projection %s)' % ' '.join(
+                '%d:%d' % e for e in edge))
+        elif aligner is not None and on.any():
             r = min(aligner.offset.span[:2])
             off = (P.prj_t - prj_t_in) / apix[..., None]
             for k in range(on.shape[1]):
@@ -229,305 +254,314 @@ class Solver2D:
             _os.replace(out + '.tmp.npz', out)
 
     @staticmethod
-    def _projected_positions(P, T):
-        """(n, K, 2) projected particle positions, px from the frame centre (crop geometry, without prj_t)."""
-        out = _np.full(P.prj_t.shape[:2] + (2,), _np.nan)
-        tid = P.tomo_id.flatten().astype(int)
-        pt = P.pos()
-        for t in _np.unique(tid):
-            cix = int(T.get_cix(t))
-            sel = _np.where(tid == t)[0]
-            p = T.to_tomo(cix, pt[sel]).astype(_np.float64)
-            for k in range(int(T.num_proj[cix])):
-                out[sel, k] = T.project(cix, p, k)[:, :2] / float(T.pix_size[cix])
+    def _projected_positions(T, cix, pos, K):
+        """(n, K, 3) projected positions of the particles pos (n, 3) of tomogram cix: x, y px from the frame centre
+        (crop geometry, without prj_t) and the depth px."""
+        p = T.to_tomo(cix, pos).astype(_np.float64)
+        out = _np.empty((len(p), K, 3))
+        for k in range(K):
+            out[:, k] = T.project(cix, p, k) / float(T.pix_size[cix])
         return out
 
-    def _solve_tomo(self, stats, xpx, groups, apix, valid_k):
-        """solve_auto of poc/susan_poc/pool2d.py: stats (n, K, NF), xpx (n, K, 2) px, groups {gs: (gstats (G, K, NF),
-        label (n,), half (G, K, 2))} -> dict(shift (n, K, 2) px, angle (n, K) deg, ...)."""
+    def _solve_tomo(self, stats, xpx, zpx, Pk, groups, apix, valid_k):
+        """stats (n, K, NF), xpx (n, K, 2) and zpx (n, K) px, Pk (K, 2, 3) the px shift on each projection of a 3D offset
+        in px, groups {gs: (gstats (G, K, NF), label (n,), half (G, K, 2))} -> dict(shift (n, K, 2) px, cov (n, K, 3)
+        px^2, rv (K, 3) and var (K, 3) the rotation vector (deg, detector frame) and its variance of each projection)."""
         F = _F
-        models, n_fold = tuple(self.models), self.n_fold
         n, K, _ = stats.shape
-        rng = _np.random.default_rng(self.seed)
+        I2, I3 = _np.eye(2), _np.eye(3)
         obs = stats[..., [F['px'], F['py']]].astype(_np.float64)
         Ip = _info(stats)
-        zp = _np.nan_to_num(stats[..., F['z_peak']])
-        r2p = _np.nan_to_num(stats[..., F['r2']], nan=0.0)
-        vp = _np.isfinite(obs[..., 0]) & _plausible(Ip) & (_np.nan_to_num(stats[..., F['cc']]) > 0) & valid_k[None]
+        fin = _np.isfinite(xpx[..., 0]) & _np.isfinite(zpx)
         validp = _np.isfinite(obs[..., 0])
+        vp = validp & _plausible(Ip) & (_np.nan_to_num(stats[..., F['cc']]) > 0) & valid_k[None] & fin
         lo, hi = _np.nanmin(xpx.reshape(-1, 2), 0), _np.nanmax(xpx.reshape(-1, 2), 0)
-        I2 = _np.eye(2)
-        # 1. groups: reproducibility
+        xyz = _np.concatenate([xpx, zpx[..., None]], -1)
+        shift = _np.full((n, K, 2), _np.nan)
+        cov = _np.full((n, K, 3), _np.nan)
+        rv, var = _np.full((K, 3), _np.nan), _np.full((K, 3), _np.nan)
+        out = dict(shift=shift, cov=cov, rv=rv, var=var)
+
+        # group peaks: precision from the half-split reproducibility; the groups that do not reproduce are dropped
         G_ = {}
         for gs, (gst, lab, half) in groups.items():
-            cen = _group_centroids(xpx, lab, validp, gst.shape[0])
+            if gs < 2:
+                continue
+            cen = _group_centroids(xyz, lab, validp, gst.shape[0])
             go = gst[..., [F['px'], F['py']]].astype(_np.float64)
             d2 = (half.astype(_np.float64) ** 2).sum(-1)
             gv = _np.isfinite(go[..., 0]) & _np.isfinite(cen[..., 0]) & _np.isfinite(d2)
             med = _np.array([_np.median(d2[gv[:, k], k]) if gv[:, k].any() else _np.nan for k in range(K)])
             sig2 = med / (_CHI2_2_MEDIAN * 4)
-            rep_ok = gv & (d2 <= 9 * med[None])
-            if gst.shape[0] == 1:
-                m1 = _np.nanmedian(d2[0])
-                rep_ok = gv & (d2 <= 9 * m1)
-                sig2 = _np.where(_np.isfinite(d2[0]), _np.maximum(d2[0], 1e-6) / 4, _np.nan)
-            Ig = _np.where(_np.isfinite(sig2)[None, :, None, None],
-                           I2[None, None] / _np.where(_np.isfinite(sig2), _np.maximum(sig2, 1e-6), 1.0)[None, :, None, None], 0.0)
-            G_[gs] = dict(o=go, I=_np.broadcast_to(Ig, (gst.shape[0], K, 2, 2)).copy(), c=cen, ok=rep_ok,
-                          z=_np.nan_to_num(gst[..., F['z_peak']]))
+            Ig = _np.where(_np.isfinite(sig2), 1.0 / _np.where(_np.isfinite(sig2), _np.maximum(sig2, 1e-6), 1.0), 0.0)
+            G_[gs] = dict(o=go, I=Ig, c=cen[..., :2], cz=cen[..., 2], ok=gv & (d2 <= 9 * med[None]))
 
-        def rigid_eval(t, w, x):
-            return t[None] + w * _np.stack([-x[:, 1], x[:, 0]], -1)
+        act = _np.array([k for k in _np.where(valid_k)[0] if vp[:, k].sum() >= _MIN_OBS], int)
+        Ka = len(act)
+        if Ka == 0:
+            return out
 
-        # 2. rigid part from the finest usable grouping
-        rt, rw, rl = _np.full((K, 2), _np.nan), _np.full(K, _np.nan), _np.full(K, -1)
-        for gs in G_:
-            sk = _np.array([1.0 / G_[gs]['I'][G_[gs]['ok'][:, k], k, 0, 0].mean() if G_[gs]['ok'][:, k].any() else _np.nan
-                            for k in range(K)])
-            G_[gs]['use'] = _np.isfinite(sk) & (sk <= 9 * _np.nanmedian(sk))
-        for k in _np.where(valid_k)[0]:
-            for gs in (3, 2, 1):
-                if gs not in G_ or not G_[gs]['use'][k]:
-                    continue
-                g = G_[gs]
-                u = g['ok'][:, k]
-                if gs == 1:
-                    rt[k], rw[k], rl[k] = g['o'][0, k], 0.0, 1
-                    break
-                if u.sum() >= min(4, gs * gs):
-                    th, _ = _fit_robust(_rigid_rows(g['c'][u, k]), g['I'][u, k], g['o'][u, k], _np.ones(u.sum()), _np.zeros(3))
-                    rt[k], rw[k], rl[k] = th[:2], th[2], gs
-                    break
-        # 3. particles: reliability and absolute precision
-        res = _np.full((n, K), _np.nan)
-        for k in _np.where(_np.isfinite(rt[:, 0]))[0]:
-            res[:, k] = _np.sqrt(((obs[:, k] - rigid_eval(rt[k], rw[k], xpx[:, k])) ** 2).sum(-1))
-        lab_ok = vp & _np.isfinite(res)
-        zk = G_[1]['z'][0] if 1 in G_ else _np.nanmedian(_np.where(vp, zp, _np.nan), 0)
-        zkp = _np.broadcast_to(_np.nan_to_num(zk)[None], zp.shape)
-        confp = lab_ok & (zp >= _np.quantile(zp[lab_ok], 0.75)) & (r2p <= _np.quantile(r2p[lab_ok], 0.25))
-        r_agree = 1.5 * _np.quantile(res[confp], 0.9)
-        X = _np.stack([_np.ones(lab_ok.sum()), zp[lab_ok], r2p[lab_ok], zkp[lab_ok]], 1)
-        beta = _logistic(X, (res[lab_ok] <= r_agree).astype(float))
-        Pp = _np.where(vp, 1 / (1 + _np.exp(-_np.clip(beta[0] + beta[1] * zp + beta[2] * r2p + beta[3] * zkp, -30, 30))), 0.0)
-        Ia = _np.zeros_like(Ip)
-        for k in _np.where(_np.isfinite(rt[:, 0]))[0]:
-            v = Pp[:, k] > 1e-3
-            if not v.any():
-                continue
-            r = obs[v, k] - rigid_eval(rt[k], rw[k], xpx[v, k])
-            m2 = _np.einsum('na,nab,nb->n', r, Ip[v, k], r)
-            kap_k = max(_wmedian(m2, Pp[v, k]) / _CHI2_2_MEDIAN, 1e-12)
-            Ia[v, k] = Ip[v, k] / kap_k
-        # 4. per projection model by cross-validation
-        fine = [gs for gs in (3, 4, 5) if gs in G_]
-        LAT = _np.stack(_np.meshgrid(_np.linspace(lo[0], hi[0], 7), _np.linspace(lo[1], hi[1], 7)), -1).reshape(-1, 2)
-        DLAT = _rigid_rows(LAT).reshape(-1, 3)
-        PL = _np.linalg.solve(DLAT.T @ DLAT + 1e-12 * _np.eye(3), DLAT.T)
-        L5 = _np.stack(_np.meshgrid(_np.linspace(lo[0], hi[0], 5), _np.linspace(lo[1], hi[1], 5)), -1).reshape(-1, 2)
-        DL = {(nm, G): _design(x_, G, lo, hi) for nm, x_ in (('lat', LAT), ('l5', L5)) for G in models}
+        # observations of the active projections, sorted by projection
+        nobs = _np.median(vp[:, act].sum(0))
+        L = 0
+        while L < _MAX_LEVEL and 2 * (2 ** (L + 1) + 1) ** 2 - 3 <= nobs / _OBS_PER_DOF:
+            L += 1
+        Gn = 2 ** L + 1
+        M = Gn * Gn
+        Q, lvl = _ms_space(L, lo, hi)
+        q = Q.shape[1]
+        nl = _np.bincount(lvl)
+        nlev = L + 1
+        ar = _np.arange(5, 5 + q)
+        B = 5 + q
+        Tm = _np.zeros((5 + 2 * M, B))
+        Tm[:5, :5] = _np.eye(5)
+        Tm[5:, 5:] = Q
+        z0 = _np.array([_np.median(zpx[vp[:, k], k]) if vp[:, k].any() else 0.0 for k in range(K)])
+        Wall, Wl, Xl, Zl, Yl, Il, Jl, Dl = [], [], [], [], [], [], [], []
+        for a, k in enumerate(act):
+            W = _np.zeros((n, M))
+            W[fin[:, k]] = _field_basis(xpx[fin[:, k], k], Gn, lo, hi)
+            Wall.append(_sp.csr_matrix(W))
+            pi = _np.where(vp[:, k])[0]
+            Dk, Xk, Zk, Yk, Ik, Jk = [W[pi]], [xpx[pi, k]], [zpx[pi, k] - z0[k]], [obs[pi, k]], [Ip[pi, k]], [pi]
+            for g in G_.values():
+                gi = _np.where(g['ok'][:, k])[0]
+                Dk.append(_field_basis(g['c'][gi, k], Gn, lo, hi))
+                Xk.append(g['c'][gi, k])
+                Zk.append(g['cz'][gi, k] - z0[k])
+                Yk.append(g['o'][gi, k])
+                Ik.append(_np.broadcast_to(g['I'][k] * I2, (len(gi), 2, 2)))
+                Jk.append(_np.full(len(gi), -1))
+            Dl.append(_np.concatenate(Dk))
+            Wl.append(_sp.csr_matrix(Dl[-1]))
+            Xl.append(_np.concatenate(Xk))
+            Zl.append(_np.concatenate(Zk))
+            Yl.append(_np.concatenate(Yk))
+            Il.append(_np.concatenate(Ik))
+            Jl.append(_np.concatenate(Jk))
+        cnt = _np.array([len(j) for j in Jl])
+        off = _np.r_[0, _np.cumsum(cnt)]
+        X, Z, Y, I0, jid = [_np.concatenate(v) for v in (Xl, Zl, Yl, Il, Jl)]
+        ka = _np.repeat(_np.arange(Ka), cnt)
+        N = len(Z)
+        isp = jid >= 0
+        kt = act[ka]
+        Wflat = _sp.block_diag(Wl, format='csr')
+        WfT = Wflat.T.tocsr()
+        Dn = _np.concatenate(Dl)
+        nodes = _np.argsort(-Dn, 1)[:, :4]
+        wts = _np.take_along_axis(Dn, nodes, 1)
+        pidx = (ka[:, None, None] * M * M + nodes[:, :, None] * M + nodes[:, None, :]).reshape(N, 16)
+        pw = (wts[:, :, None] * wts[:, None, :]).reshape(N, 16)
+        del Dl, Dn
+        Rfl = _np.zeros((N, 2, 5))
+        Rfl[:, 0, 0] = 1
+        Rfl[:, 1, 1] = 1
+        Rfl[:, 0, 3], Rfl[:, 0, 4] = Z, -X[:, 1]
+        Rfl[:, 1, 2], Rfl[:, 1, 4] = -Z, X[:, 0]
+        PkN = Pk[kt[isp]]
+        dense_r = _np.zeros((n, K, 2))
+        dense_I = _np.zeros((n, K, 2, 2))
+        dense_u = _np.zeros((n, K), bool)
 
-        def apply(D, th):
-            return (D.reshape(-1, D.shape[2]) @ th).reshape(-1, 2)
+        def predict(u):
+            f = u[:, 5:] @ Q.T
+            pf = _np.stack([Wflat @ f[:, :M].ravel(), Wflat @ f[:, M:].ravel()], -1)
+            return _np.einsum('nai,ni->na', Rfl, u[ka, :5]) + pf
 
-        def predict(G, th, frozen, x, D=None):
-            if G == 0:
-                return rigid_eval(th[:2], th[2], x)
-            if D is None:
-                D = _design(x, G, lo, hi)
-            if not frozen:
-                return apply(D, th)
-            node = _np.zeros_like(th)
-            node[3:] = th[3:]
-            pr = PL @ apply(DL[('lat', G)], node).ravel()
-            return rigid_eval(th[:2], th[2], x) + apply(D, node) - rigid_eval(pr[:2], pr[2], x)
+        def quad(r, I):
+            return _np.einsum('na,nab,nb->n', r, I, r)
 
-        def score(O, II, Pw, pred):
-            r = O - pred
-            return float(_np.sum(Pw * -_np.log1p(_np.einsum('na,nab,nb->n', r, II, r) / 4)))
+        def scale(st):
+            """precision on the absolute scale of the residuals: the particles divided by their kappa"""
+            return I0 * _np.where(isp, 1.0 / st['kappa'][ka], 1.0)[:, None, None]
 
+        def info(st):
+            return scale(st) * st['w'][:, None, None]
+
+        def proj_offsets(delta):
+            pj = _np.zeros((N, 2))
+            pj[isp] = _np.einsum('naj,nj->na', PkN, delta[jid[isp]])
+            return pj
+
+        def assemble(Ie, ydel):
+            """data part of the normal equations per projection, in the reduced parameters"""
+            IR = _np.einsum('nab,nbj->naj', Ie, Rfl)
+            Iy = _np.einsum('nab,nb->na', Ie, ydel)
+            Hn = _np.zeros((Ka, 5 + 2 * M, 5 + 2 * M))
+            Hn[:, :5, :5] = _np.add.reduceat(_np.einsum('nai,naj->nij', Rfl, IR), off[:-1])
+            Hrf = (WfT @ IR.reshape(N, 10)).reshape(Ka, M, 2, 5)
+            Hn[:, 5:5 + M, :5], Hn[:, 5 + M:, :5] = Hrf[:, :, 0], Hrf[:, :, 1]
+            Hn[:, :5, 5:] = _np.swapaxes(Hn[:, 5:, :5], 1, 2)
+            for (i, j), v in (((0, 0), Ie[:, 0, 0]), ((0, 1), Ie[:, 0, 1]), ((1, 1), Ie[:, 1, 1])):
+                Hij = _np.bincount(pidx.ravel(), (pw * v[:, None]).ravel(), Ka * M * M).reshape(Ka, M, M)
+                Hn[:, 5 + i * M:5 + (i + 1) * M, 5 + j * M:5 + (j + 1) * M] = Hij
+                if i != j:
+                    Hn[:, 5 + j * M:5 + (j + 1) * M, 5 + i * M:5 + (i + 1) * M] = _np.swapaxes(Hij, 1, 2)
+            gf = (WfT @ Iy).reshape(Ka, M, 2)
+            gn = _np.concatenate([_np.add.reduceat(_np.einsum('nai,na->ni', Rfl, Iy), off[:-1]), gf[:, :, 0], gf[:, :, 1]], 1)
+            return Tm.T @ Hn @ Tm, gn @ Tm
+
+        def blocks(D, lv):
+            """normal matrix with the field strengths lv (Ka, q) and a vanishing prior on the rotations"""
+            A = D.copy()
+            A[:, ar, ar] += lv
+            A[:, 2:5, 2:5] += _TINY * I3
+            return A
+
+        def to_dense(r0, Ie):
+            dense_r.fill(0)
+            dense_I.fill(0)
+            dense_u.fill(False)
+            jp, kp = jid[isp], kt[isp]
+            dense_r[jp, kp] = r0[isp]
+            dense_I[jp, kp] = Ie[isp]
+            dense_u[jp, kp] = True
+
+        def offset_prior(r0, Ie):
+            """covariance of the 3D offsets from the even/odd projection split"""
+            to_dense(r0, Ie / (1 + quad(r0, Ie) / 4)[:, None, None])
+            C = _np.zeros((3, 3))
+            qual = (dense_u[:, 0::2].sum(1) >= 8) & (dense_u[:, 1::2].sum(1) >= 8)
+            if qual.sum() >= 10:
+                De = []
+                for par in (0, 1):
+                    m_ = _np.zeros(K, bool)
+                    m_[par::2] = True
+                    IP = dense_I[qual] * m_[None, :, None, None] @ Pk
+                    H = _np.einsum('kai,nkaj->nij', Pk, IP)
+                    g = _np.einsum('nkaj,nka->nj', IP, dense_r[qual])
+                    De.append(_np.linalg.solve(H + 1e-9 * _np.trace(H, axis1=1, axis2=2)[:, None, None] * I3, g[..., None])[..., 0])
+                De = [d - d.mean(0) for d in De]
+                C = (De[0].T @ De[1] + De[1].T @ De[0]) / (2 * qual.sum())
+                ev, V = _np.linalg.eigh(C)
+                C = (V * _np.clip(ev, 0, None)) @ V.T
+            return C
+
+        def offsets(r0, Ie, C):
+            """posterior of the 3D offsets from the residuals r0 of the field"""
+            to_dense(r0, Ie)
+            IP = dense_I @ Pk
+            H = _np.einsum('kai,nkaj->nij', Pk, IP)
+            g = _np.einsum('nkaj,nka->nj', IP, dense_r)
+            Mx = I3 + H @ C
+            delta = _np.einsum('ij,nj->ni', C, _np.linalg.solve(Mx, g[..., None])[..., 0])
+            Cp = C @ _np.linalg.inv(Mx)
+            return delta, (Cp + _np.swapaxes(Cp, 1, 2)) / 2
+
+        def update(st, u):
+            """offsets, kappa and robust weights at the solution u"""
+            st = dict(st, u=u)
+            Ie = info(st)
+            r0 = Y - predict(u)
+            st['C'] = offset_prior(r0, Ie)
+            st['delta'], st['Cp'] = offsets(r0, Ie, st['C'])
+            r = r0 - proj_offsets(st['delta'])
+            m2 = quad(r, I0)
+            kap = st['kappa'].copy()
+            for a_ in range(Ka):
+                sl = slice(off[a_], off[a_ + 1])
+                v_ = isp[sl]
+                if v_.any():
+                    kap[a_] = max(_np.median(m2[sl][v_]) / _CHI2_2_MEDIAN, 1e-12)
+            st['kappa'] = kap
+            st['w'] = 1 / (1 + quad(r, scale(st)) / 4)
+            return st
+
+        def step(st, lam, upd):
+            """one outer iteration of the base fit: solve at the strengths lam (nlev,), and their fixed-point update"""
+            D, g = assemble(info(st), Y - proj_offsets(st['delta']))
+            Sg = _np.linalg.inv(blocks(D, lam[lvl][None]))
+            u = _np.einsum('kij,kj->ki', Sg, g)
+            st = update(st, u)
+            st['Sc'] = _np.einsum('kii->ki', Sg[:, 2:5, 2:5])
+            lam_n = lam
+            if upd:
+                sdiag = _np.bincount(lvl, _np.einsum('aqq->q', Sg[:, 5:, 5:]), nlev)
+                lam_n = (nl * Ka - lam * sdiag) / _np.maximum(_np.bincount(lvl, (u[:, 5:] ** 2).sum(0), nlev), _TINY)
+                lam_n = _np.clip(lam ** (1 - _LAM_DAMP) * _np.maximum(lam_n, _TINY) ** _LAM_DAMP, s_[0] / _LAM_RANGE, s_[0] * _LAM_RANGE)
+            return st, lam_n
+
+        def dsolve(D, g, lv, frz=None, ur=None):
+            """solution at the strengths lv (Ka, q); frz: projections whose rigid part (5 parameters) stays at ur"""
+            A = blocks(D, lv)
+            u = _np.linalg.solve(A, g[..., None])[..., 0]
+            if frz is not None and frz.any():
+                Af = A[frz]
+                u[frz, :5] = ur[frz, :5]
+                u[frz, 5:] = _np.linalg.solve(Af[:, 5:, 5:], (g[frz, 5:] - _np.einsum('kij,kj->ki', Af[:, 5:, :5], ur[frz, :5]))[..., None])[..., 0]
+            return u
+
+        # 1. base fit
+        st = dict(kappa=_np.ones(Ka), w=_np.ones(N), delta=_np.zeros((n, 3)), C=_np.zeros((3, 3)), Cp=_np.zeros((n, 3, 3)))
+        for a in range(Ka):
+            sl = slice(off[a], off[a + 1])
+            r = Y[sl] - _np.median(Y[sl][isp[sl]], 0)
+            st['kappa'][a] = max(_np.median(quad(r, I0[sl])[isp[sl]]) / _CHI2_2_MEDIAN, 1e-12)
+        s_ = [float(I0[:, 0, 0].sum() + I0[:, 1, 1].sum()) / 2 / (2 * M - 3)]
+        for _ in range(_BASE_OUTER):
+            st = step(st, s_[0] * _np.ones(nlev), False)[0]
+        s_[0] = float(info(st)[:, [0, 1], [0, 1]].sum() / 2) / (2 * M - 3)
+        lam = s_[0] * _np.ones(nlev)
+        for _ in range(_LAM_OUTER):
+            st, lam_n = step(st, lam, True)
+            done = bool((_np.abs(lam_n - lam) <= _LAM_RTOL * lam).all())
+            lam = lam_n
+            if done:
+                break
+        c_base, Sc = st['u'][:, 2:5].copy(), st['Sc']
+
+        # 2. per projection model by cross-validation
+        big = s_[0] * _LAM_RANGE * 1e3
+        cands = [(-1, 1.0, False)] + [(l_, sc_, fz) for l_ in range(nlev) for sc_ in _CV_SCALES for fz in (False, True)]
+        lvc = [_np.broadcast_to(_np.where(lvl <= l_, lam[lvl] * sc_, big)[None], (Ka, q)) for l_, sc_, _ in cands]
+        Ie, Is = info(st), scale(st)
+        Yd = Y - proj_offsets(st['delta'])
+        fold = _np.random.default_rng(self.seed).integers(0, self.n_fold, N)
+        scr = _np.zeros((len(cands), Ka))
+        for fo in range(self.n_fold):
+            te = fold == fo
+            D, g = assemble(Ie * (~te)[:, None, None], Yd)
+            ur = dsolve(D, g, lvc[0])
+            for c_, (_, _, fz) in enumerate(cands):
+                u_ = ur if c_ == 0 else dsolve(D, g, lvc[c_], _np.full(Ka, fz), ur)
+                r_ = Yd[te] - predict(u_)[te]
+                scr[c_] += _np.bincount(ka[te], -_np.log1p(quad(r_, Is[te]) / 4), Ka)
+        best = _np.argmax(scr, 0)
+        lv = _np.stack([lvc[best[a]][a] for a in range(Ka)])
+        frz = _np.array([cands[best[a]][2] for a in range(Ka)])
+        for _ in range(_CV_OUTER):
+            D, g = assemble(info(st), Y - proj_offsets(st['delta']))
+            st = update(st, dsolve(D, g, lv, frz, dsolve(D, g, lvc[0])))
+
+        # 3. outputs: the shift of the model of step 2, the rotations of the base fit
+        u = st['u']
+        f = u[:, 5:] @ Q.T
         field = _np.full((n, K, 2), _np.nan)
-        model = _np.full(K, -99)
-        fits = {}
-        for k in _np.where(valid_k & _np.isfinite(rt[:, 0]))[0]:
-            ip = _np.where(Pp[:, k] > 1e-3)[0]
-            O, II, Xo, Pw = [obs[ip, k]], [Ia[ip, k]], [xpx[ip, k]], [Pp[ip, k]]
-            for gs in fine:
-                g = G_[gs]
-                ig = _np.where(g['ok'][:, k])[0]
-                O.append(g['o'][ig, k])
-                II.append(g['I'][ig, k])
-                Xo.append(g['c'][ig, k])
-                Pw.append(_np.ones(len(ig)))
-            O, II, Xo, Pw = _np.concatenate(O), _np.concatenate(II), _np.concatenate(Xo), _np.concatenate(Pw)
-            fold = rng.integers(0, n_fold, len(O))
-            th0r = _np.array([rt[k, 0], rt[k, 1], rw[k]])
-            best, per_fold = None, {}
-            cands = [(0, True)] + [(Gm, fz) for Gm in models for fz in ((True,) if rl[k] == 1 else (False, True))]
-            for Gm, fz in cands:
-                D = _design(Xo, Gm, lo, hi) if Gm else _rigid_rows(Xo)
-                th0 = _np.zeros(D.shape[2])
-                th0[:3] = th0r
-                sc, pf = 0.0, []
-                for f in range(n_fold):
-                    tr, te = fold != f, fold == f
-                    if Gm and Pw[tr].sum() < 2 * D.shape[2]:
-                        sc = -_np.inf
-                        break
-                    th = th0 if Gm == 0 else _fit_robust(D[tr], II[tr], O[tr], Pw[tr], th0, frozen=fz)[0]
-                    pf.append((th, 1.0))
-                    sc += score(O[te], II[te], Pw[te], predict(Gm, th, fz, Xo[te], D[te]))
-                if best is None or sc > best[0]:
-                    best = (sc, Gm, fz)
-                per_fold[(Gm, fz)] = pf
-            _, Gm, fz = best
-            D = _design(Xo, Gm, lo, hi) if Gm else _rigid_rows(Xo)
-            th0 = _np.zeros(D.shape[2])
-            th0[:3] = th0r
-            th = th0 if Gm == 0 else _fit_robust(D, II, O, Pw, th0, frozen=fz)[0]
-            model[k] = 0 if Gm == 0 else (-Gm if fz else Gm)
-            fits[k] = dict(G=Gm, fz=fz, th=th, folds=per_fold[(Gm, fz)], II=II, O=O, Pw=Pw, Xo=Xo, fold=fold, D=D)
-
-        def split(fk, th, x, D=None):
-            G = fk['G']
-            pr = PL @ predict(G, th, fk['fz'], LAT, DL.get(('lat', G))).ravel()
-            return pr, predict(G, th, fk['fz'], x, D) - rigid_eval(pr[:2], pr[2], x)
-
-        # 5. cross-tilt shrinkage of the non-rigid part
-        VK = sorted(fits)
-        alpha = _np.zeros(K)
-        if VK:
-            vec = _np.stack([split(fits[k], fits[k]['th'], L5, DL.get(('l5', fits[k]['G'])))[1].ravel() for k in VK])
-            dm = ((vec[:, None] - vec[None]) ** 2).sum(-1)
-            h2 = _np.median(dm[dm > 0]) if _np.any(dm > 0) else 1.0
-            for a_, k in enumerate(VK):
-                wv = _np.exp(-dm[a_] / h2)
-                wv[a_] = 0
-                wv = wv / max(wv.sum(), 1e-12)
-                fk = fits[k]
-
-                def target(x):
-                    out_ = _np.zeros((len(x), 2))
-                    Dx = {}
-                    for b_, l in enumerate(VK):
-                        if wv[b_] > 1e-3:
-                            G = fits[l]['G']
-                            if G and G not in Dx:
-                                Dx[G] = _design(x, G, lo, hi)
-                            out_ += wv[b_] * split(fits[l], fits[l]['th'], x, Dx.get(G))[1]
-                    return out_
-
-                Tk = target(fk['Xo'])
-                best = None
-                for al in (0.0, 0.25, 0.5, 0.75, 1.0):
-                    sc = 0.0
-                    for f, (th_f, _) in enumerate(fk['folds']):
-                        te = fk['fold'] == f
-                        pr, nr = split(fk, th_f, fk['Xo'][te], fk['D'][te] if fk['G'] else None)
-                        sc += score(fk['O'][te], fk['II'][te], fk['Pw'][te],
-                                    rigid_eval(pr[:2], pr[2], fk['Xo'][te]) + (1 - al) * nr + al * Tk[te])
-                    if best is None or sc > best[0]:
-                        best = (sc, al)
-                alpha[k] = best[1]
-                pr, nr = split(fk, fk['th'], xpx[:, k])
-                field[:, k] = rigid_eval(pr[:2], pr[2], xpx[:, k]) + (1 - alpha[k]) * nr + alpha[k] * target(xpx[:, k])
-        # 6. per particle posterior
-        conf = (Pp >= 0.9) & _np.isfinite(field[..., 0])
-        rr = (obs - field)[conf]
-        Iinv = _np.linalg.inv(Ip[conf])
-        keep = (rr ** 2).sum(-1) < _np.quantile((rr ** 2).sum(-1), 0.9)
-        rr, Iinv = rr[keep], Iinv[keep]
-        kap0 = _np.median(_np.einsum('na,nab,nb->n', rr, _np.linalg.inv(Iinv), rr)) / _CHI2_2_MEDIAN
-        v0 = _np.median((rr ** 2).sum(-1)) / _CHI2_2_MEDIAN
-        kg, sg = kap0 * _np.logspace(-4, 1, 101)[:, None, None], v0 * _np.logspace(-4, 1, 101)[None, :, None]
-        c00, c11, c01 = kg * Iinv[None, None, :, 0, 0] + sg, kg * Iinv[None, None, :, 1, 1] + sg, kg * Iinv[None, None, :, 0, 1]
-        det = c00 * c11 - c01 ** 2
-        ll = -0.5 * _np.sum(_np.log(det) + (c11 * rr[:, 0] ** 2 - 2 * c01 * rr[:, 0] * rr[:, 1] + c00 * rr[:, 1] ** 2) / det, -1)
-        ik, is_ = _np.unravel_index(_np.argmax(ll), ll.shape)
-        kap, s2 = kg[ik, 0, 0], sg[0, is_, 0]
-        shift = field.copy()
-        ii, kk = _np.where((Pp > 1e-3) & _np.isin(_np.arange(K), VK)[None])
-        Io = Ip[ii, kk] / kap
-        d = obs[ii, kk] - field[ii, kk]
-        Ic = _np.linalg.inv(_np.linalg.inv(Io) + I2 * s2)
-        Io = Io * (Pp[ii, kk] / (1 + _np.einsum('na,nab,nb->n', d, Ic, d) / 4))[:, None, None]
-        shift[ii, kk] = _np.linalg.solve(Io + I2 / s2, ((Io @ obs[ii, kk][..., None])[..., 0] + field[ii, kk] / s2)[..., None])[..., 0]
-        cov = _np.full((n, K, 3), _np.nan)
-        cov[_np.isfinite(field[..., 0])] = [s2, 0.0, s2]
-        Cp = _np.linalg.inv(Io + I2 / s2)
-        cov[ii, kk] = _np.stack([Cp[:, 0, 0], Cp[:, 0, 1], Cp[:, 1, 1]], 1)
+        for a, k in enumerate(act):
+            ok = fin[:, k]
+            xk, zk = xpx[ok, k], zpx[ok, k] - z0[k]
+            c = u[a, 2:5]
+            rg = _np.stack([u[a, 0] + c[1] * zk - c[2] * xk[:, 1], u[a, 1] + c[2] * xk[:, 0] - c[0] * zk], -1)
+            field[ok, k] = rg + _np.stack([Wall[a][ok] @ f[a, :M], Wall[a][ok] @ f[a, M:]], -1)
+        shift[:] = field + _np.einsum('kaj,nj->nka', Pk, st['delta'])
+        PC = _np.einsum('kai,nij->nkaj', Pk, st['Cp'])
+        for m_, (a_, b_) in enumerate(((0, 0), (0, 1), (1, 1))):
+            cov[..., m_] = _np.einsum('nkj,kj->nk', PC[:, :, a_], Pk[:, b_])
+        bad = ~_np.isfinite(field[..., 0])
+        shift[bad] = _np.nan
+        cov[bad] = _np.nan
+        deg = _math.degrees(1)
+        rv[act] = c_base * deg
+        var[act] = Sc * deg ** 2
         if self.verbosity > 1:
-            names = {0: 'rigid'}
-            for m in models:
-                names[m], names[-m] = '%dx%d' % (m, m), '%dx%d frozen rigid' % (m, m)
-            print(' rigid from %s; models %s; median alpha %.2f; s_res %.2f A' % (
-                {('%dx%d' % (g, g) if g > 0 else 'none'): int((rl[valid_k] == g).sum()) for g in sorted(set(rl[valid_k]))},
-                {names[m]: int((model == m).sum()) for m in sorted(set(model[VK]))}, _np.median(alpha[VK]) if VK else 0.0,
-                _math.sqrt(s2) * apix), flush=True)
-        return dict(field=field, shift=shift, cov=cov, rigid=(rt, rw, rl), model=model, alpha=alpha,
-                    s_res=_math.sqrt(s2), kap=kap, P=Pp)
+            nf = _np.bincount([cands[b][0] + 1 for b in best], minlength=nlev + 1)
+            print(' finest level %d (%dx%d); per projection: %s; median kappa %.2f; offset prior sd %s A' % (
+                L, Gn, Gn, ', '.join('%s %d' % ('rigid' if l_ == 0 else 'level %d' % (l_ - 1), c) for l_, c in enumerate(nf) if c),
+                _np.median(st['kappa']), _np.round(_np.sqrt(_np.diag(st['C'])) * apix, 2)), flush=True)
+        return out
 
-    def _solve_angles(self, S, ti, h, sel, xpx):
-        """7. rotation vectors (deg, detector frame, (n, K, 3)) of the particles sel of tomogram index ti and half h and
-        their variances (deg^2; per tilt f1 v1 of the shrunk 1x1 estimate, plus f2 (v2 + v1) of the 2x2 field with v2
-        averaged over the groups, the regression of the field not counted), and the largest fraction, over the
-        components that survive the shrinkage, of the 1x1 estimates at the scanned edge, and the median split-half sd
-        (deg) of the 1x1 estimates; xpx (n, K, 2) their projected positions; None without the sequential angular
-        search."""
-        A = S.get('angles')
-        if A is None or A.shape[0] < 2 or 'grouped1/ang_cc' not in S:
-            return None
-        A = A.astype(_np.float64)
-        n, K = xpx.shape[:2]
-        est = {}
-        for gs in (1, 2):
-            if 'grouped%d/ang_cc' % gs not in S:
-                continue
-            G = gs * gs
-            o = (h - 1) * G if h else 0
-            y = S['grouped%d/ang_cc' % gs][ti][o:o + G, :K]
-            yh = S['grouped%d/ang_half' % gs][ti][o:o + G, :K]
-            e = _vertex(y, A)
-            est[gs] = (e, (_vertex(yh[..., 0], A) - _vertex(yh[..., 1], A)) ** 2 / 4)
-        e1, v1 = est[1][0][0], est[1][1][0]
-        f1 = _shrink(e1, v1)
-        rv = _np.broadcast_to(f1 * _np.nan_to_num(e1), (n, K, 3)).copy()
-        var = _np.broadcast_to(f1 * v1, (n, K, 3)).copy()
-        f2 = _np.zeros(3)
-        if 2 in est:
-            e2, v2 = est[2]
-            dev = e2 - e1[None]
-            f2 = _shrink(dev, v2 + v1[None])
-            with _warnings.catch_warnings():
-                _warnings.simplefilter('ignore', RuntimeWarning)
-                var += f2 * (_np.nanmean(v2, 0) + v1)[None]
-            lab = S['grouped2/label'][sel] - ((h - 1) * 4 if h else 0)
-            cen = _group_centroids(xpx, lab, _np.isfinite(xpx[..., 0]), 4)
-            for k in range(K):
-                for c in _np.where(f2 > 0)[0]:
-                    u = _np.isfinite(dev[:, k, c]) & _np.isfinite(cen[:, k, 0])
-                    if u.sum() < 3:
-                        continue
-                    X = _np.c_[_np.ones(u.sum()), cen[u, k]]
-                    th = _np.linalg.lstsq(X, f2[c] * dev[u, k, c], rcond=None)[0]
-                    rv[:, k, c] += th[0] + xpx[:, k] @ th[1:]
-        lim = _np.abs(A).max(0)
-        rv = _np.clip(rv, -lim, lim)
-        var = _np.where(_np.isfinite(var), var, 0.0)
-        rc = _np.hypot(A[:, 0], A[:, 1]).max()
-        edge = _np.stack([_np.hypot(e1[:, 0], e1[:, 1]) >= 0.99 * rc] * 2 + [_np.abs(e1[:, 2]) >= 0.99 * lim[2]], -1)
-        fin = _np.isfinite(e1)
-        clp = max([edge[fin[:, c], c].mean() for c in range(3) if f1[c] > 0 and fin[:, c].any()], default=0.0)
-        if self.verbosity > 1:
-            rms = _np.sqrt(_np.nanmean(rv[_np.isfinite(rv[..., 0])].reshape(-1, 3) ** 2, 0))
-            print('      angles (x, y, in-plane): rms %.3f %.3f %.3f deg; shrinkage 1x1 %s, 2x2 %s' % (
-                tuple(rms) + (_np.round(f1, 2), _np.round(f2, 2))), flush=True)
-        return rv, var, clp, _math.sqrt(_np.nanmedian(v1)) if _np.isfinite(v1).any() else _np.nan
-
-
-# ----------------------------------------------------------------------
-# Helpers of the field fit
-# ----------------------------------------------------------------------
 
 def _field_basis(x, G, lo, hi):
     """(n, G*G) bilinear weights of the control-point grid."""
@@ -542,69 +576,42 @@ def _field_basis(x, G, lo, hi):
     return W
 
 
-def _design(x, G, lo, hi):
-    """(n, 2, P) design of the correction field: params [sx, sy, w, nodes_x (G*G), nodes_y (G*G)]."""
-    n = len(x)
-    Wn = _field_basis(x, G, lo, hi) if G > 0 else _np.zeros((n, 0))
-    m = Wn.shape[1]
-    D = _np.zeros((n, 2, 3 + 2 * m))
-    D[:, 0, 0] = 1
-    D[:, 1, 1] = 1
-    D[:, 0, 2] = -x[:, 1]
-    D[:, 1, 2] = x[:, 0]
-    D[:, 0, 3:3 + m] = Wn
-    D[:, 1, 3 + m:] = Wn
-    return D
-
-
-def _rigid_rows(x):
-    """(m, 2, 3) design of the rigid correction t + w J x."""
-    D = _np.zeros((len(x), 2, 3))
-    D[:, 0, 0] = 1
-    D[:, 1, 1] = 1
-    D[:, 0, 2] = -x[:, 1]
-    D[:, 1, 2] = x[:, 0]
-    return D
-
-
-def _vertex(y, A):
-    """peak of the CC over the sequential angular search: y (..., A) at the rotation vectors A (A, 3) deg -> (..., 3):
-    the cone points (and the input) by a 2D quadratic in (x, y), the in-plane points by a 1D quadratic; NaN when there
-    are too few points or the fit has no maximum; at most the scanned extent."""
-    out = _np.full(y.shape[:-1] + (3,), _np.nan)
-    y = y.astype(_np.float64)
-    cone = _np.r_[0, _np.where((_np.abs(A[:, 2]) < 1e-3) & (_np.hypot(A[:, 0], A[:, 1]) > 1e-3))[0]]
-    inp = _np.r_[0, _np.where((_np.hypot(A[:, 0], A[:, 1]) < 1e-3) & (_np.abs(A[:, 2]) > 1e-3))[0]]
-    if len(cone) >= 6:
-        u, v = A[cone, 0], A[cone, 1]
-        c = y[..., cone] @ _np.linalg.pinv(_np.c_[_np.ones_like(u), u, v, u * u, u * v, v * v]).T
-        h00, h01, h11 = 2 * c[..., 3], c[..., 4], 2 * c[..., 5]
-        det = h00 * h11 - h01 ** 2
-        ok = (h00 < 0) & (det > 0)
-        det = _np.where(ok, det, 1.0)
-        x = -(h11 * c[..., 1] - h01 * c[..., 2]) / det
-        z = -(-h01 * c[..., 1] + h00 * c[..., 2]) / det
-        r = _np.hypot(x, z)
-        sc = _np.minimum(1.0, _np.hypot(u, v).max() / _np.maximum(r, 1e-12))
-        out[..., 0] = _np.where(ok, x * sc, _np.nan)
-        out[..., 1] = _np.where(ok, z * sc, _np.nan)
-    if len(inp) >= 3:
-        w = A[inp, 2]
-        c = y[..., inp] @ _np.linalg.pinv(_np.c_[_np.ones_like(w), w, w * w]).T
-        ok = c[..., 2] < 0
-        out[..., 2] = _np.where(ok, _np.clip(-c[..., 1] / (2 * _np.where(ok, c[..., 2], -1.0)), w.min(), w.max()), _np.nan)
-    return out
-
-
-def _shrink(e, v):
-    """per component (last axis), the fraction of the spread of the estimates e beyond their noise variance v"""
-    out = _np.zeros(e.shape[-1])
-    for c in range(e.shape[-1]):
-        m = _np.isfinite(e[..., c]) & _np.isfinite(v[..., c])
-        if m.sum() > 2:
-            tau2 = max(_np.mean(e[..., c][m] ** 2) - _np.mean(v[..., c][m]), 0.0)
-            out[c] = tau2 / (tau2 + _np.mean(v[..., c][m])) if tau2 > 0 else 0.0
-    return out
+def _ms_space(L, lo, hi):
+    """orthonormal-in-coefficients hierarchical basis Q (2 G^2, 2 G^2 - 3) on the nodes of the G = 2**L + 1 grid, the level of
+    each column; level 0 without the constant x and y shifts and the rotation about the centre"""
+    G = 2 ** L + 1
+    gx, gy = _np.linspace(lo[0], hi[0], G), _np.linspace(lo[1], hi[1], G)
+    nx, ny = _np.meshgrid(gx, gy)
+    nx, ny = nx.ravel(), ny.ravel()
+    M = G * G
+    t = _np.linspace(0, 1, G)
+    cols, lvl = [], []
+    for l in range(L + 1):
+        Gl = 2 ** l + 1
+        h = 1.0 / (Gl - 1)
+        hat = _np.clip(1 - _np.abs(t[None] - _np.arange(Gl)[:, None] * h) / h, 0, None)
+        new = _np.ones((Gl, Gl), bool)
+        if l > 0:
+            new[::2, ::2] = False
+        H = _np.einsum('iy,jx->ijyx', hat, hat).reshape(Gl, Gl, M)[new.T]
+        Nl = H.shape[0]
+        if l == 0:
+            cx, cy = nx[[0, G - 1, M - G, M - 1]], ny[[0, G - 1, M - G, M - 1]]
+            Nc = _np.zeros((8, 3))
+            Nc[:4, 0] = 1
+            Nc[4:, 1] = 1
+            Nc[:4, 2] = -(cy - ny.mean())
+            Nc[4:, 2] = cx - nx.mean()
+            Cl = _np.linalg.qr(Nc, mode='complete')[0][:, 3:]
+            Bx = _np.zeros((8, 2 * M))
+            Bx[:4, :M], Bx[4:, M:] = H, H
+        else:
+            Cl = _np.eye(2 * Nl)
+            Bx = _np.zeros((2 * Nl, 2 * M))
+            Bx[:Nl, :M], Bx[Nl:, M:] = H, H
+        cols.append(Cl.T @ Bx)
+        lvl += [l] * Cl.shape[1]
+    return _np.concatenate(cols).T, _np.array(lvl, int)
 
 
 def _rotvec_rotm(rv):
@@ -620,9 +627,9 @@ def _rotvec_rotm(rv):
 
 
 def _group_centroids(xpx, label, valid, G):
-    """mean projected position (px) of the members of each group per projection -> (G, K, 2) (NaN when empty)."""
-    n, K, _ = xpx.shape
-    out = _np.full((G, K, 2), _np.nan)
+    """mean projected position (px) of the members of each group per projection -> (G, K, columns) (NaN when empty)."""
+    n, K, nc = xpx.shape
+    out = _np.full((G, K, nc), _np.nan)
     for g in range(G):
         m = label == g
         for k in range(K):
@@ -647,35 +654,9 @@ def _info(stats_kn):
 
 
 def _plausible(I):
-    """precisions with a sane condition number and scale (rank-deficient fits give absurd curvatures)."""
+    """precisions with a sane condition number and scale (rank-deficient fits give absurd curvatures; a peak without
+    curvature, NaN in the statistics, gives a vanishing one)."""
     ev = _np.linalg.eigvalsh(_np.nan_to_num(I.reshape(-1, 2, 2))).reshape(I.shape[:-2] + (2,))
     big = ev[..., 1]
     med = _np.nanmedian(_np.where(_np.isfinite(I).all((-1, -2)), big, _np.nan))
-    return _np.isfinite(I).all((-1, -2)) & (ev[..., 0] > big * 1e-4) & (big < 100 * med)
-
-
-def _logistic(X, y, iters=30, l2=1e-3):
-    """logistic regression by Newton (IRLS), X (n, p) -> beta (p,)."""
-    beta = _np.zeros(X.shape[1])
-    for _ in range(iters):
-        p_ = 1 / (1 + _np.exp(-_np.clip(X @ beta, -30, 30)))
-        W = p_ * (1 - p_) + 1e-9
-        H = (X * W[:, None]).T @ X + l2 * _np.eye(X.shape[1])
-        beta = beta + _np.linalg.solve(H, X.T @ (y - p_) - l2 * beta)
-    return beta
-
-
-def _wmedian(v, w):
-    if len(v) == 0 or w.sum() <= 0:
-        return 1.0
-    o = _np.argsort(v)
-    c = _np.cumsum(w[o])
-    return float(v[o][_np.searchsorted(c, 0.5 * c[-1])])
-
-
-def _fit_robust(D, I, O, P, th0, iters=6, ridge=1e-3, frozen=False):
-    """robust (Cauchy) weighted least squares from th0; P (m,) prior weights; frozen: the rigid part (first 3
-    parameters) stays at th0 and only the nodes are fitted -> th, kappa."""
-    c = _np.ascontiguousarray
-    return _fit_robust_core(c(D, dtype=_np.float64), c(I, dtype=_np.float64), c(O, dtype=_np.float64),
-                            c(P, dtype=_np.float64), c(th0, dtype=_np.float64), iters, ridge, frozen)
+    return _np.isfinite(I).all((-1, -2)) & (ev[..., 0] > big * 1e-4) & (big < 100 * med) & (big > 1e-4 * med)

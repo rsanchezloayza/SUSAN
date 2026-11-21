@@ -26,8 +26,8 @@ Keys (numpy arrays):
     (no projection weight, no priors) over the offsets at the input orientation; NaN where undefined.
 ``projections/fields`` (NF,)
     The field names.
-``grouped<gs>/stats`` (n_tomo, G, K, NF), ``grouped<gs>/count`` (n_tomo, G, K)
-    The same fields for the mean CC map of each group at the input orientation, and the number of particles in it; groups: gs x gs equal-count bins of the particle x, y per tomogram, G = halves * gs * gs.
+``grouped<gs>/stats`` (n_tomo, G, K, NF)
+    The same fields for the mean CC map of each group at the input orientation; groups: gs x gs equal-count bins of the particle x, y per tomogram, G = halves * gs * gs.
     With ``halves`` 2 (aligned with independent half-sets) the bins are drawn per half and the groups of half h are
     ``(h-1)*gs*gs .. h*gs*gs - 1``: no group mixes the halves.
 ``grouped<gs>/label`` (n_ptcl,)
@@ -51,7 +51,7 @@ __all__ = ['FIELDS', 'path', 'read']
 
 import numpy as _np
 
-FIELDS = ('cc', 'px', 'py', 'z_peak', 'h_xx', 'h_xy', 'h_yy', 'dx2', 'dy2', 'r2')
+FIELDS = ('cc', 'px', 'py', 'z_peak', 'h_xx', 'h_xy', 'h_yy', 'r2')
 
 
 def path(ptcls_out):
@@ -61,8 +61,16 @@ def path(ptcls_out):
 
 
 def read(filename):
-    """Load a ``.stats.npz`` (or the statistics of a ``.ptclsraw`` output) into a dict of arrays (keys above)."""
+    """Load a ``.stats.npz`` (or the statistics of a ``.ptclsraw`` output) into a dict of arrays (keys above); the
+    stats of a file with other fields (older aligners) are reordered to :data:`FIELDS`."""
     if filename.endswith('.ptclsraw'):
         filename = path(filename)
     with _np.load(filename) as f:
-        return {k: f[k] for k in f.files}
+        S = {k: f[k] for k in f.files}
+    names = tuple(str(v) for v in S.get('projections/fields', FIELDS))
+    if names != FIELDS:
+        idx = [names.index(n) for n in FIELDS]
+        for k in [k for k in S if k == 'projections/stats' or (k.startswith('grouped') and k.endswith('/stats'))]:
+            S[k] = S[k][..., idx]
+        S['projections/fields'] = _np.array(FIELDS)
+    return S

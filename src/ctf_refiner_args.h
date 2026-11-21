@@ -200,9 +200,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
     info.phase_sigma   = 0;
 
     info.output_type = CTF_OUTPUT_REFINEMENT;
-    info.n_stats_groups  = 2;
+    info.n_stats_groups  = 1;
     info.stats_groups[0] = 1;
-    info.stats_groups[1] = 3;
 
     memset(info.p_gpu    ,0,SUSAN_MAX_N_GPU*sizeof(uint32));
     memset(info.refs_file,0,SUSAN_FILENAME_LENGTH*sizeof(char));

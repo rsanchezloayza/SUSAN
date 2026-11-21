@@ -138,7 +138,7 @@ int main(int ac, char** av) {
         pool.set_mpi(&mpi_iface,&mpi_progress,ptcls_io);
 
         /// output_type refinement_stats (ctf_stats.h): the main node computes the layout (tomogram, group labels and
-        /// reference defocus) and holds the curve rows of all the particles; each node processes its contiguous range.
+        /// reference defocus) and holds the depth rows of all the particles; each node processes its contiguous range.
         CtfStats stats;
         const bool save_stats = info.output_type == CTF_OUTPUT_REFINEMENT_STATS;
         if( save_stats ) {

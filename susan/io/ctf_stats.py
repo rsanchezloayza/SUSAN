@@ -33,14 +33,12 @@ the tomograms file:
     the halves.  The ``2`` axis splits the particles by the parity of their index.
 ``group<gs>/label`` (n_ptcl,)
     Group of each particle (-1: none), an index into G.
-``shift/ix``, ``iy``, ``wxx``, ``wyy``, ``wxy`` (n_tomo, halves, 2, K, nb)
-    Sums of ``Im(G) kx``, ``Im(G) ky``, ``kx^2 |P|^2``, ``ky^2 |P|^2``, ``kx ky |P|^2`` of all the particles of each
-    half-set and index parity, for the per-projection translation bias.
-``curves`` (n_ptcl, K, ND)
-    Per particle and projection, ``max(sum_v c X, 0) / sqrt(sum_v c^2 W)`` of its own profile, ``c`` the CTF at
-    ``D_ref + delta``; NaN where undefined.
+``depth`` (n_ptcl, 2, ND)
+    Per particle, the sum over its even / odd projections k of ``max(sum_v c X, 0) / sqrt(sum_v c^2 W)`` of its own
+    profile, ``c`` the CTF at ``D_ref + R_k[2, 2] delta``: the CC against a depth error ``delta`` along the beam.
+    Older files hold ``curves`` (n_ptcl, K, ND) instead, the per-projection terms at ``D_ref + delta``.
 ``delta`` (ND,), ``dref`` (n_tomo, K)
-    The defocus grid (Angstroms, around the metadata defocus) and the reference defocus (0: no particles).
+    The defocus (depth) grid (Angstroms, around the metadata defocus) and the reference defocus (0: no particles).
 ``vmax`` (), ``nb`` (), ``box`` ()
     Range and bins of ``v``, and the padded box size (pixels).
 ``apix``, ``kv``, ``cs``, ``ac``, ``tomo_id`` (n_tomo,)

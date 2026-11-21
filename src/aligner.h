@@ -909,8 +909,8 @@ protected:
                     else
                         crop_loop(stack_buffer,stream);
                     break;
-                case ALI_2D:
-                    crop_loop(stack_buffer,stream);
+                case ALI_2D:  /// one prj_t / prj_eu per particle: refine against its own class only
+                    crop_loop_ignore_ref(stack_buffer,stream);
                     break;
                 default:
                     break;
