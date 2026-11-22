@@ -24,18 +24,21 @@ cdef inline void euZYZ_R(const real* eu, real* R) noexcept nogil:
 
 
 cdef inline void R_euZYZ(const real* R, real* eu) noexcept nogil:
-    if fabs(R[8] - 1) < 1e-6:
+    # as Math::Rmat_eZYZ: gimbal lock only when |sin(beta)| = |(R02, R12)| <= 1e-6 (beta from R22 alone dropped
+    # rotations below 0.08 deg)
+    cdef double sb = sqrt(<double>R[2]*R[2] + <double>R[5]*R[5])
+    if sb > 1e-6:
+        eu[0] = <real>atan2(R[5], R[2])
+        eu[1] = <real>atan2(sb, R[8])
+        eu[2] = <real>atan2(R[7], -R[6])
+    elif R[8] > 0:
         eu[0] = 0.0
         eu[1] = 0.0
         eu[2] = <real>atan2(R[3], R[4])
-    elif fabs(R[8] + 1) < 1e-6:
+    else:
         eu[0] = 0.0
         eu[1] = <real>3.14159265358979323846
         eu[2] = <real>atan2(R[3], R[4])
-    else:
-        eu[0] = <real>atan2(R[5], R[2])
-        eu[1] = <real>atan2(sqrt(fabs(1.0 - R[8]*R[8])), R[8])
-        eu[2] = <real>atan2(R[7], -R[6])
 
 
 cdef inline void euDYN_R(const real* eu, real* R) noexcept nogil:
