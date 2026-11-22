@@ -393,12 +393,14 @@ protected:
         }
 
     public:
-        /// First CTF zero, in Fourier pixels: the radius where gamma reaches pi.
+        /// CTF zero n, in Fourier pixels: the radius where gamma reaches a multiple of pi, counted from the first
+        /// one at least CTF_ZERO_PHASE_GAP past gamma(0) = phase (pi for phases in (-pi/4, 3pi/4]), so a phase
+        /// near a multiple of pi does not put the first zero at the origin.
         /// Both the resolution estimate and the SNR band are anchored to it so
         /// that projections with different defocus are compared at equivalent
         /// positions of the CTF rather than at fixed spatial frequencies.
         int ctf_zero_fpix(float def,float phase,int n_zero) {
-            float target = float(n_zero)*(float)M_PI;
+            float target = (float(n_zero-1) + ceilf((phase+CTF_ZERO_PHASE_GAP)/(float)M_PI))*(float)M_PI;
             for(int i=1;i<M;i++) {
                 float s  = float(i)/(float(N)*apix);
                 float s2 = s*s;
@@ -511,6 +513,7 @@ public:
 
     int  log_level;
     bool est_phase_shift;
+    float ph_nominal;
     bool est_initial_snr;
     bool dechirp_cs;
     float dechirp_coef;
@@ -550,6 +553,7 @@ public:
         apix = 1.0;
         new_apix = w_target_apix;
         ang_step = M_PI/R;
+        ph_nominal = 0;
 
         GPU::set_device(gpu_ix);
 
@@ -592,6 +596,7 @@ public:
         apix = p_tomo->pix_size;
         log_level = info->log_level;
         est_phase_shift = info->est_phase_shift;
+        ph_nominal      = info->ph_nominal;
         est_initial_snr = info->est_initial_snr;
         res_thres       = info->res_thres;
         max_nyquist = apix/new_apix;
@@ -902,18 +907,27 @@ public:
         return (float)(A/bg);
     }
 
+    /// Capped at CTF_WGT_MAX_REL times the median of the nonzero weights (one overestimated tilt cannot set the
+    /// scale of the others), then normalized to a maximum of 1.
     void normalize_prj_wgt() {
-        float max_wgt = 0;
+        std::vector<float> nz;
         for(int k=0;k<int(K);k++)
-            max_wgt = fmaxf(max_wgt,c_prj_wgt[k]);
+            if( c_prj_wgt[k] > SUSAN_FLOAT_TOL ) nz.push_back(c_prj_wgt[k]);
 
-        if( max_wgt < SUSAN_FLOAT_TOL ) {
+        if( nz.empty() ) {
             /// No usable first peak anywhere: fall back to uniform weights.
             for(int k=0;k<int(K);k++)
                 c_prj_wgt[k] = 1.0f;
             return;
         }
 
+        std::nth_element(nz.begin(),nz.begin()+nz.size()/2,nz.end());
+        const float cap = CTF_WGT_MAX_REL*nz[nz.size()/2];
+        float max_wgt = 0;
+        for(int k=0;k<int(K);k++) {
+            c_prj_wgt[k] = fminf(c_prj_wgt[k],cap);
+            max_wgt = fmaxf(max_wgt,c_prj_wgt[k]);
+        }
         for(int k=0;k<int(K);k++)
             c_prj_wgt[k] = c_prj_wgt[k]/max_wgt;
     }
@@ -1251,7 +1265,9 @@ protected:
 
     /// Mean defocus (and phase shift) per projection, low to high frequency: the local ring correlation averaged over
     /// the first rings (first to third zero) is scanned over +-SCAN_HALF_WIDTH around the ellipse mean defocus and the
-    /// tracked start (SCAN_STEP), and with est_phase_shift over the phase 0..pi (0.1 rad); then the band is extended
+    /// tracked start (SCAN_STEP), and with est_phase_shift over the phase in [nominal - pi/2, nominal + pi/2) (0.1 rad;
+    /// CTF^2 cannot tell phase and phase + pi apart, the nominal picks the one with the right CTF sign; without it
+    /// the phase is the nominal); then the band is extended
     /// outward while the correlation at the optimum stays > 0.3 (3 windows below it end it; not past res_max) and
     /// (d, phase) are re-scanned on it (+-500 A in 10 A, +-0.15 rad in 0.01 rad); twice. max_res at the result.
     void sweep_defocus(GPU::GArrSingle&g_1d,const char*out_dir) {
@@ -1300,10 +1316,11 @@ protected:
             std::sort(grid.begin(),grid.end());
             grid.erase(std::unique(grid.begin(),grid.end()),grid.end());
             if( grid.empty() ) grid.push_back(fmax(starts[0],(double)lo));
+            const double ph_lo = double(ph_nominal) - 0.5*M_PI;
             int n_ph = est_phase_shift ? 32 : 1;
-            double best = -3, d = grid[0], ph = 0;
+            double best = -3, d = grid[0], ph = ph_nominal;
             for(int ip=0;ip<n_ph;ip++) {
-                double p0 = 0.1*ip;
+                double p0 = est_phase_shift ? ph_lo + 0.1*ip : double(ph_nominal);
                 for(double x : grid) {
                     int i0 = ref.ctf_zero_fpix(float(x),float(p0),1);
                     int i3 = std::max(ref.ctf_zero_fpix(float(x),float(p0),3),std::max(i0,hw)+4);
@@ -1326,7 +1343,7 @@ protected:
                 double bd = d, bp = ph;
                 int np = est_phase_shift ? 31 : 1;
                 for(int ip=0;ip<np;ip++) {
-                    double p0 = est_phase_shift ? ph - 0.15 + 0.01*ip : 0.0;
+                    double p0 = est_phase_shift ? ph - 0.15 + 0.01*ip : double(ph_nominal);
                     for(double x=d-500; x<=d+500+5; x+=10) {
                         if( x < lo ) continue;
                         int j0 = std::max(ref.ctf_zero_fpix(float(x),float(p0),1),hw);
@@ -1336,11 +1353,12 @@ protected:
                 }
                 d = bd; ph = bp;
             }
-            ph = fmod(fmod(ph,M_PI)+M_PI,M_PI);
+            if( est_phase_shift )
+                ph = ph_lo + fmod(fmod(ph-ph_lo,M_PI)+M_PI,M_PI);
             float dd = float(sgn*d) - ini;
             c_estimate[k].U += dd;
             c_estimate[k].V += dd;
-            c_estimate[k].ph_shft = est_phase_shift ? float(ph) : 0.0f;
+            c_estimate[k].ph_shft = float(ph);
             c_estimate[k].score   = float(best);
             c_estimate[k].Bfactor = 0.0f;
             c_estimate[k].ExpFilt = 0.0f;

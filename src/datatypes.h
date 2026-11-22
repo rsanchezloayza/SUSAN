@@ -211,6 +211,8 @@ typedef enum {
 #define SUSAN_LCN_PROFILE_FRAC 0.05f  /// reference radius: outermost shell with rms above this fraction of the maximum
 #define SUSAN_LCN_MARGIN       1.2f   /// local window half-side as a multiple of the reference radius
 #define SUSAN_LCN_NOREF_FRAC   0.5f   /// local window half-side as a fraction of the box when there is no reference
+#define CTF_ZERO_PHASE_GAP  0.78539816f  /// rad: CTF zeros are counted from the first one at least this far past gamma(0)
+#define CTF_WGT_MAX_REL     3.0f         /// per-tilt weight cap, times the median of the nonzero weights
 #define FILL_MIN_RUN        8
 #define FILL_TOL            1e-5f
 #define GAT_TILE            32

@@ -1101,9 +1101,15 @@ class CtfEstimator:
         Default: ``False``.
     est_phase_shift : bool
         If ``True``, the per-projection defocus sweep also scans a phase shift
-        in [0, pi) (Volta phase plate use case) and writes it to
-        ``Defocus.ph_shft``.  If ``False``, ``ph_shft`` is ``0`` for every
-        projection; the defocus sweep runs normally.  Default: ``False``.
+        in ``nominal_phase_shift_deg`` +- 90 degrees and writes it to
+        ``Defocus.ph_shft`` (radians).  If ``False``, ``ph_shft`` is
+        ``nominal_phase_shift_deg`` for every projection.  Default: ``True``.
+    nominal_phase_shift_deg : float
+        Expected phase shift, in degrees: ``0`` without a phase plate, about
+        ``90`` with a Volta phase plate.  The power spectrum cannot tell a
+        phase shift from the same plus 180 degrees (the CTF with the opposite
+        sign); the estimate is the one within +-90 degrees of this value.
+        Default: ``0``.
     astigmatism : str
         Astigmatism model, from the ring of each projection's linearized
         spectrum (r = m + a cos 2theta + b sin 2theta):
@@ -1128,8 +1134,9 @@ class CtfEstimator:
         into ``proj_wgt`` (and ``update_defocus`` then copies into the
         per-particle ``prj_w``).  The weight is sqrt(SSNR) of the projection
         (the weight enters linearly, so the amplitude ratio is the optimum),
-        normalised so the best tilt of each stack is ``1``; empty projections
-        get ``0``.  If ``False``, the column is written as ``1`` for every
+        capped at 3 times the median of the stack (so one overestimated tilt
+        cannot scale down the others) and normalised so the best tilt of each
+        stack is ``1``; empty projections get ``0``.  If ``False``, the column is written as ``1`` for every
         projection.  Either way, projections whose estimate failed (no ring
         past the first zero follows the fitted CTF) get ``0``.
         Default: ``True``.
@@ -1151,7 +1158,8 @@ class CtfEstimator:
         self.defocus_angstroms = _dt.range_params(10000,65000)
         self.resolution_thres  = 0.75
         self.overfocus         = False
-        self.est_phase_shift   = False
+        self.est_phase_shift   = True
+        self.nominal_phase_shift_deg = 0.0
         self.est_initial_snr   = True
         self.dechirp_cs        = True
         self.astigmatism       = 'magnitude'
@@ -1206,6 +1214,7 @@ class CtfEstimator:
         args = args + ' -def_range %f,%f'  % (self.defocus_angstroms.min_val,self.defocus_angstroms.max_val)
         args = args + ' -overfocus %d'     % (1 if self.overfocus else 0)
         args = args + ' -est_phase_shift %d' % (1 if self.est_phase_shift else 0)
+        args = args + ' -nominal_phase_shift %f' % _math.radians(self.nominal_phase_shift_deg)
         args = args + ' -est_initial_snr %d' % (1 if self.est_initial_snr else 0)
         args = args + ' -astig_type '      + self.astigmatism
         args = args + ' -dechirp_cs %d'      % (1 if self.dechirp_cs else 0)

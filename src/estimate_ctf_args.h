@@ -38,6 +38,7 @@ typedef struct {
     single res_thres;
     bool   is_overfocus;
     bool   est_phase_shift;
+    single ph_nominal;
     bool   est_initial_snr;
     bool   dechirp_cs;
     uint32 astig_type;
@@ -98,6 +99,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
     memset(info.tomos_in,0,SUSAN_FILENAME_LENGTH*sizeof(char));
     info.is_overfocus    = true;
     info.est_phase_shift = true;
+    info.ph_nominal      = 0;
     info.est_initial_snr = false;
     info.dechirp_cs      = true;
     info.astig_type      = ASTIG_MAGNITUDE;
@@ -115,6 +117,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         GPU_LIST,
         OVERFOCUS,
         EST_PHASE_SHIFT,
+        NOMINAL_PHASE_SHIFT,
         EST_INITIAL_SNR,
         DECHIRP_CS,
         ASTIG_TYPE,
@@ -137,6 +140,7 @@ inline bool parse_args(Info&info,int ac,char** av) {
         {"log_level",  1, 0, LOG_LEVEL },
         {"overfocus",      1, 0, OVERFOCUS       },
         {"est_phase_shift",1, 0, EST_PHASE_SHIFT },
+        {"nominal_phase_shift",1, 0, NOMINAL_PHASE_SHIFT },
         {"est_initial_snr",1, 0, EST_INITIAL_SNR },
         {"dechirp_cs",     1, 0, DECHIRP_CS      },
         {"astig_type",     1, 0, ASTIG_TYPE      },
@@ -167,6 +171,9 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 break;
             case EST_PHASE_SHIFT:
                 info.est_phase_shift = atoi(optarg)>0;
+                break;
+            case NOMINAL_PHASE_SHIFT:
+                info.ph_nominal = atof(optarg);
                 break;
             case EST_INITIAL_SNR:
                 info.est_initial_snr = atoi(optarg)>0;
@@ -234,7 +241,10 @@ inline void print(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"\t\tMaximum resolution: %.1f Å.\n",info.res_max);
     fprintf(fp,"\t\tResolution threshold: %.2f.\n",info.res_thres);
     fprintf(fp,"\t\tDefocus range: %.2f - %.2f Å.\n",info.def_min,info.def_max);
-    fprintf(fp,"\t\tPhase shift estimation: %s.\n",info.est_phase_shift?"enabled":"disabled");
+    if( info.est_phase_shift )
+        fprintf(fp,"\t\tPhase shift estimation: enabled, in [%.1f, %.1f) deg.\n",(info.ph_nominal-0.5f*M_PI)*RAD2DEG,(info.ph_nominal+0.5f*M_PI)*RAD2DEG);
+    else
+        fprintf(fp,"\t\tPhase shift estimation: disabled, fixed at %.1f deg.\n",info.ph_nominal*RAD2DEG);
     fprintf(fp,"\t\tInitial SNR estimation: %s.\n",info.est_initial_snr?"enabled":"disabled");
     fprintf(fp,"\t\tCs de-chirp: %s.\n",info.dechirp_cs?"enabled":"disabled");
     if( info.astig_type == ASTIG_NONE       ) fprintf(fp,"\t\tAstigmatism: none.\n");
