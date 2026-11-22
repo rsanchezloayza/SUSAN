@@ -366,7 +366,9 @@ the particle position before projecting.  Same units as
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Tomograms.proj_eZYZ">
 <span class="sig-name descname"><span class="pre">proj_eZYZ</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">P</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.proj_eZYZ" title="Link to this definition">¶</a></dt>
-<dd><p>Per-projection tilt orientation as ZYZ Euler angles in degrees.</p>
+<dd><p>Per-projection tilt orientation as ZYZ Euler angles in degrees. Saved
+in the convention of <code class="xref py py-func docutils literal notranslate"><span class="pre">tilt_eZYZ()</span></code>: Y is the signed tilt, the last
+Z in [-90, 90].</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -456,7 +458,7 @@ Default 0 (not set).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.data.Tomograms.def_phas">
 <span class="sig-name descname"><span class="pre">def_phas</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float32</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">shape</span><span class="p"><span class="pre">(</span></span><span class="pre">N</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">P</span><span class="p"><span class="pre">)</span></span></span><a class="headerlink" href="#susan.data.Tomograms.def_phas" title="Link to this definition">¶</a></dt>
-<dd><p>Phase shift in degrees.</p>
+<dd><p>Phase shift in radians (as <code class="docutils literal notranslate"><span class="pre">Defocus.ph_shft</span></code> in the C++ code).</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -528,14 +530,16 @@ for all valid projections and 0 for the rest.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.data.Tomograms.set_angles">
-<span class="sig-name descname"><span class="pre">set_angles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tlt_filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xf_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xf_apix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/data/Tomograms.html#Tomograms.set_angles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Tomograms.set_angles" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">set_angles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tlt_filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xf_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xf_apix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xtilt_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/data/Tomograms.html#Tomograms.set_angles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Tomograms.set_angles" title="Link to this definition">¶</a></dt>
 <dd><p>Set per-projection tilt angles and optional IMOD alignment transforms.</p>
 <p>If only <code class="docutils literal notranslate"><span class="pre">tlt_filename</span></code> is provided, tilt angles are set directly
 as the Y Euler angle (ZYZ convention) with no in-plane shifts.
 If <code class="docutils literal notranslate"><span class="pre">xf_filename</span></code> is also provided, the IMOD .xf affine transforms
 are combined with the tilt angles to produce full ZYZ orientations,
 X/Y shifts in Ångströms and the magnification (<code class="docutils literal notranslate"><span class="pre">proj_scale</span></code>); a
-stretch or skew in the .xf becomes part of the 3D rotation.</p>
+stretch or skew in the .xf becomes part of the 3D rotation. This is
+exact for a similarity .xf; for a stretch or skew it matches IMOD in
+the central plane only (IMOD applies it as a 2D affine at all depths).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -544,6 +548,8 @@ stretch or skew in the .xf becomes part of the 3D rotation.</p>
 <li><p><strong>xf_filename</strong> (<em>str</em><em>, </em><em>optional</em>) – Path to a IMOD .xf alignment transform file.</p></li>
 <li><p><strong>xf_apix</strong> (<em>float</em><em>, </em><em>optional</em>) – Pixel size to use when converting .xf shifts to Ångströms.
 Defaults to <code class="docutils literal notranslate"><span class="pre">pix_size[idx]</span></code> if not given.</p></li>
+<li><p><strong>xtilt_filename</strong> (<em>str</em><em>, </em><em>optional</em>) – Path to a IMOD .xtilt file (one x-axis tilt per view, degrees, as
+<code class="docutils literal notranslate"><span class="pre">tilt</span> <span class="pre">-XTILTFILE</span></code>), applied before the tilt: <code class="docutils literal notranslate"><span class="pre">Ry(tilt)</span> <span class="pre">Rx(xtilt)</span></code>.</p></li>
 </ul>
 </dd>
 </dl>

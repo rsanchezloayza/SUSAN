@@ -360,7 +360,8 @@ Default: <code class="docutils literal notranslate"><span class="pre">0</span></
 <span class="sig-name descname"><span class="pre">padding_type</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.padding_type" title="Link to this definition">¶</a></dt>
 <dd><p>Fill of the padded region and of the box pixels outside the stack
 frame or on its alignment fill: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code> (gaussian with the mean
-and std of the valid pixels) or <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.</p>
+and std of the projection’s valid pixels) or <code class="docutils literal notranslate"><span class="pre">'zero'</span></code> (their mean,
+0 once the mean is removed).  Default: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -573,7 +574,17 @@ substack and reference whitened as <a class="reference internal" href="#susan.mo
 recommended: the whitening biases the defocus).  Requires a
 <a class="reference internal" href="#susan.modules.CtfRefiner.defocus_angstroms" title="susan.modules.CtfRefiner.defocus_angstroms"><code class="xref py py-attr docutils literal notranslate"><span class="pre">defocus_angstroms</span></code></a> span larger than 0.  Read it with
 <code class="xref py py-func docutils literal notranslate"><span class="pre">susan.io.ctf_stats.read()</span></code>, correct the particles with
-<code class="xref py py-class docutils literal notranslate"><span class="pre">susan.solvers.SolverCTF</span></code>.</p>
+<code class="xref py py-class docutils literal notranslate"><span class="pre">susan.solvers.SolverCTF</span></code>.  <code class="docutils literal notranslate"><span class="pre">'refinement_covar'</span></code>: as
+<code class="docutils literal notranslate"><span class="pre">'refinement'</span></code> (the search with the priors), plus
+<code class="docutils literal notranslate"><span class="pre">{output</span> <span class="pre">stem}.stats.npz</span></code> (the layout of the aligner’s
+<code class="docutils literal notranslate"><span class="pre">'alignment_covar'</span></code>) with the evidence at the refined CTF of every
+particle and projection: the peak statistics of the raw CC over the
+offsets, the CC to log-likelihood factor of its noise ring and the
+curvature of the best CC along the mean defocus, the astigmatism, the
+astigmatism angle and the phase shift (each searched axis; one extra
+correlation, plus two per axis);
+<code class="xref py py-func docutils literal notranslate"><span class="pre">susan.io.ali_stats.ctf_posterior()</span></code> turns them into the
+posterior covariance of the shift and the CTF parameters.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -585,8 +596,8 @@ recommended: the whitening biases the defocus).  Requires a
 <dt class="sig sig-object py" id="susan.modules.CtfRefiner.stats_groups">
 <span class="sig-name descname"><span class="pre">stats_groups</span></span><a class="headerlink" href="#susan.modules.CtfRefiner.stats_groups" title="Link to this definition">¶</a></dt>
 <dd><p>Group sizes gs of <code class="docutils literal notranslate"><span class="pre">'refinement_stats'</span></code>: gs x gs equal-count bins of
-the particle x, y per tomogram.  The solver needs 1 and 3.
-Default: <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">3]</span></code>.</p>
+the particle x, y per tomogram.  The solver needs 1.
+Default: <code class="docutils literal notranslate"><span class="pre">[1]</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>list of int</p>

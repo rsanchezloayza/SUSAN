@@ -376,7 +376,42 @@ Individual pipeline steps (<a class="reference internal" href="#susan.project.Su
 </tbody>
 </table>
 </div>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code>.  What runs after the alignment or refinement follows the
+output type of the module, which is never changed internally: the
+<code class="docutils literal notranslate"><span class="pre">set_iteration_*</span></code> presets set the type with the matching output
+type and the settings it needs.</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Preset</p></th>
+<th class="head"><p>Mode</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_3D()</span></code></p></td>
+<td><p>3-D alignment</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_2D()</span></code></p></td>
+<td><p>2-D, free per particle (<code class="docutils literal notranslate"><span class="pre">'alignment'</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_2D_regularized()</span></code></p></td>
+<td><p>2-D with priors, uncertainty (<code class="docutils literal notranslate"><span class="pre">'alignment_covar'</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_2D_pooled()</span></code></p></td>
+<td><p>2-D statistics + <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_2d" title="susan.project.SubtomoAvg.SubtomoAvg.solver_2d"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_2d</span></code></a> (<code class="docutils literal notranslate"><span class="pre">'alignment_stats'</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_CTF()</span></code></p></td>
+<td><p>CTF, free per particle (optional smoothing)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_CTF_regularized()</span></code></p></td>
+<td><p>CTF with priors, uncertainty (<code class="docutils literal notranslate"><span class="pre">'refinement_covar'</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_CTF_pooled()</span></code></p></td>
+<td><p>CTF statistics + <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_ctf" title="susan.project.SubtomoAvg.SubtomoAvg.solver_ctf"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_ctf</span></code></a> (<code class="docutils literal notranslate"><span class="pre">'refinement_stats'</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </dd></dl>
 
 <dl class="py attribute">
@@ -422,32 +457,28 @@ Individual pipeline steps (<a class="reference internal" href="#susan.project.Su
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.solver_2d">
 <span class="sig-name descname"><span class="pre">solver_2d</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.solvers.Solver2D`</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_2d" title="Link to this definition">¶</a></dt>
-<dd><p>Refinement of the 2-D iterations from the alignment statistics: the
-aligner writes <code class="docutils literal notranslate"><span class="pre">output_type='alignment_stats'</span></code> (recommended: offset
-step 0.5 px; the cone and in-plane search of the 2-D iterations
-define the sequential angular search of the orientation correction,
-e.g. <code class="docutils literal notranslate"><span class="pre">set_angular_search(2,</span> <span class="pre">1,</span> <span class="pre">1,</span> <span class="pre">0.5)</span></code>; with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.aligner" title="susan.project.SubtomoAvg.SubtomoAvg.aligner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">aligner</span></code></a>
-<code class="docutils literal notranslate"><span class="pre">halfsets_independ</span></code> the statistics are per half-set), then
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">solve()</span></code> gives the particles of the next
-iteration; the statistics also carry the uncertainty of what it applied
-(<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_highres</span></code></a>).  <code class="docutils literal notranslate"><span class="pre">None</span></code>: plain 2-D alignment (no fitting;
-overfits at low SNR).  Default: <code class="docutils literal notranslate"><span class="pre">Solver2D()</span></code>.</p>
+<dd><p>Used by the 2-D iterations whose aligner writes
+<code class="docutils literal notranslate"><span class="pre">output_type='alignment_stats'</span></code> (<code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_2D_pooled()</span></code>;
+recommended: offset step 0.5 px; the orientation correction comes from
+the positions; with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.aligner" title="susan.project.SubtomoAvg.SubtomoAvg.aligner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">aligner</span></code></a> <code class="docutils literal notranslate"><span class="pre">halfsets_independ</span></code> the
+statistics are per half-set): <code class="xref py py-meth docutils literal notranslate"><span class="pre">solve()</span></code>
+gives the particles of the next iteration, and the statistics carry the
+uncertainty of what it applied (<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_highres</span></code></a>).
+Default: <code class="docutils literal notranslate"><span class="pre">Solver2D()</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.solver_ctf">
 <span class="sig-name descname"><span class="pre">solver_ctf</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">:class:`~susan.solvers.SolverCTF`</span> <span class="pre">or</span> <span class="pre">None</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_ctf" title="Link to this definition">¶</a></dt>
-<dd><p>Defocus correction of the CTF iterations from pooled statistics: the
-<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner" title="susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ctf_refiner</span></code></a> writes <code class="docutils literal notranslate"><span class="pre">output_type='refinement_stats'</span></code> (no
+<dd><p>Used by the CTF iterations whose <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner" title="susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ctf_refiner</span></code></a> writes
+<code class="docutils literal notranslate"><span class="pre">output_type='refinement_stats'</span></code> (<code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_CTF_pooled()</span></code>; no
 per-particle search; its <a class="reference internal" href="susan.modules.CtfRefiner.html#susan.modules.CtfRefiner.defocus_angstroms" title="susan.modules.CtfRefiner.defocus_angstroms"><code class="xref py py-attr docutils literal notranslate"><span class="pre">defocus_angstroms</span></code></a>
-span is the range of the per-particle curves; with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner" title="susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ctf_refiner</span></code></a>
+span is the range of the per-particle depth curves; with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner" title="susan.project.SubtomoAvg.SubtomoAvg.ctf_refiner"><code class="xref py py-attr docutils literal notranslate"><span class="pre">ctf_refiner</span></code></a>
 <code class="docutils literal notranslate"><span class="pre">halfsets_independ</span></code> the statistics are per half-set), then
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">solve()</span></code> gives the particles of the next
-iteration: per-tilt offset, global tilt geometry and per-particle depth
-error, and, when the refiner has an offset search, the significant
-per-tilt translation bias.  Astigmatism and phase shift are kept.
-<code class="docutils literal notranslate"><span class="pre">None</span></code>: the free per-particle refinement.
-Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+iteration: per-tilt offset (shrunk along the acquisition order) and
+per-particle depth error.  Astigmatism and phase shift are kept.
+Default: <code class="docutils literal notranslate"><span class="pre">None</span></code> (the preset creates one).</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -470,18 +501,24 @@ there is one, otherwise the second CC peak.  <code class="docutils literal notra
 <span class="sig-name descname"><span class="pre">use_2d_stats</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.use_2d_stats" title="Link to this definition">¶</a></dt>
 <dd><p>Iteration whose 2-D statistics (<code class="docutils literal notranslate"><span class="pre">particles.stats.npz</span></code>) feed
 <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_highres</span></code></a>, <code class="docutils literal notranslate"><span class="pre">0</span></code> none.  Set to the iteration by every 2-D
-iteration run with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_2d" title="susan.project.SubtomoAvg.SubtomoAvg.solver_2d"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_2d</span></code></a> (before <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_highres</span></code></a>, so
-it uses its own); kept in <code class="docutils literal notranslate"><span class="pre">info.prjtxt</span></code>.  After an aggressive 3-D
-refinement the statistics no longer describe the particles: set it to
-<code class="docutils literal notranslate"><span class="pre">0</span></code>.  A missing file or a different number of particles skips that
-part with a warning.</p>
+iteration with <code class="docutils literal notranslate"><span class="pre">'alignment_stats'</span></code> or <code class="docutils literal notranslate"><span class="pre">'alignment_covar'</span></code> (before
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_highres" title="susan.project.SubtomoAvg.SubtomoAvg.solver_highres"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_highres</span></code></a>, so it uses its own); kept in <code class="docutils literal notranslate"><span class="pre">info.prjtxt</span></code>.
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_3D()</span></code> and <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_2D()</span></code> set it to <code class="docutils literal notranslate"><span class="pre">0</span></code>
+(their alignments move the particles away from the statistics).  A missing file or a different number of particles skips that
+part with a warning.  A later <code class="docutils literal notranslate"><span class="pre">'refinement_covar'</span></code> CTF iteration
+(<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.use_ctf_stats" title="susan.project.SubtomoAvg.SubtomoAvg.use_ctf_stats"><code class="xref py py-attr docutils literal notranslate"><span class="pre">use_ctf_stats</span></code></a>) replaces its shift posterior.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.project.SubtomoAvg.SubtomoAvg.use_ctf_stats">
 <span class="sig-name descname"><span class="pre">use_ctf_stats</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#susan.project.SubtomoAvg.SubtomoAvg.use_ctf_stats" title="Link to this definition">¶</a></dt>
-<dd><p>Same for the CTF statistics (<code class="docutils literal notranslate"><span class="pre">particles.ctfstats.npz</span></code>), set by every
-CTF iteration run with <a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.solver_ctf" title="susan.project.SubtomoAvg.SubtomoAvg.solver_ctf"><code class="xref py py-attr docutils literal notranslate"><span class="pre">solver_ctf</span></code></a>.</p>
+<dd><p>Same for the CTF statistics, set by every CTF iteration with
+<code class="docutils literal notranslate"><span class="pre">'refinement_stats'</span></code> (<code class="docutils literal notranslate"><span class="pre">particles.ctfstats.npz</span></code>: tilt amplitudes)
+or <code class="docutils literal notranslate"><span class="pre">'refinement_covar'</span></code> (<code class="docutils literal notranslate"><span class="pre">particles.stats.npz</span></code>: the shift
+posterior and the CC at the refined CTF; when later than
+<a class="reference internal" href="#susan.project.SubtomoAvg.SubtomoAvg.use_2d_stats" title="susan.project.SubtomoAvg.SubtomoAvg.use_2d_stats"><code class="xref py py-attr docutils literal notranslate"><span class="pre">use_2d_stats</span></code></a> its shift posterior gives B_shift).
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_3D()</span></code> and <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_iteration_2D()</span></code> set it to <code class="docutils literal notranslate"><span class="pre">0</span></code>
+when it points to <code class="docutils literal notranslate"><span class="pre">'refinement_covar'</span></code> evidence.</p>
 </dd></dl>
 
 <dl class="py attribute">

@@ -372,8 +372,10 @@
 <span class="sd">        Process the two half-sets with independent references.</span>
 <span class="sd">        Default: ``False``.</span>
 <span class="sd">    ignore_classes : bool</span>
-<span class="sd">        Ignore reference-class assignments; align against all references.</span>
-<span class="sd">        Default: ``False``.</span>
+<span class="sd">        3D: if True, align each particle only against its own class</span>
+<span class="sd">        (``ref_cix``); if False, against every reference (multi-reference</span>
+<span class="sd">        alignment).  2D alignment always uses the particle's own class (one</span>
+<span class="sd">        set of per-projection corrections per particle).  Default: ``False``.</span>
 <span class="sd">    cone : :class:`~susan.utils.datatypes.search_params`</span>
 <span class="sd">        Out-of-plane (cone) angular search range and step in degrees.</span>
 <span class="sd">        Default: ``search_params(0, 1)`` (no search).  The range is honoured</span>
@@ -423,7 +425,8 @@
 <span class="sd">    padding_type : str</span>
 <span class="sd">        Fill of the padded region and of the box pixels outside the stack</span>
 <span class="sd">        frame or on its alignment fill: ``'noise'`` (gaussian with the mean</span>
-<span class="sd">        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.</span>
+<span class="sd">        and std of the projection's valid pixels) or ``'zero'`` (their mean,</span>
+<span class="sd">        0 once the mean is removed).  Default: ``'noise'``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation applied before correlation.  One of</span>
 <span class="sd">        ``'none'``, ``'zero_mean'``, ``'zero_mean_one_std'``,</span>
@@ -517,6 +520,15 @@
 <span class="sd">        peak of their mean CC map per angle.  Requires :attr:`refine` levels</span>
 <span class="sd">        ``= 0``, :attr:`angle_sigma` ``= 0`` and :attr:`pseudo_symmetry`</span>
 <span class="sd">        ``'c1'``.  Read it with :func:`susan.io.ali_stats.read`.</span>
+<span class="sd">        ``'alignment_covar'`` (:attr:`dimensionality` 2 only): as</span>
+<span class="sd">        ``'alignment'`` (the full search, with refine levels and priors),</span>
+<span class="sd">        plus ``{output stem}.stats.npz`` with the evidence at the solution of</span>
+<span class="sd">        every particle and projection: the peak statistics of the raw CC</span>
+<span class="sd">        over the offsets at the best orientation, the CC to log-likelihood</span>
+<span class="sd">        factor of its noise ring and the angular curvature of the best CC</span>
+<span class="sd">        about each searched axis (one extra correlation, plus two per</span>
+<span class="sd">        searched axis); :func:`susan.io.ali_stats.posterior` turns them into</span>
+<span class="sd">        the posterior covariance of the shift and the angles.</span>
 <span class="sd">    stats_groups : list of int</span>
 <span class="sd">        Group sizes gs of ``'alignment_stats'``: gs x gs equal-count bins of</span>
 <span class="sd">        the particle x, y per tomogram.  Default: ``[1, 2, 3, 4, 5]``.</span>
@@ -671,8 +683,11 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cc_stats_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'none'</span><span class="p">,</span><span class="s1">'sigma'</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid cc statistic method. Only "none" or "sigma" are valid'</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'alignment'</span><span class="p">,</span><span class="s1">'alignment_stats'</span><span class="p">,</span><span class="s1">'dense'</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid output type. Only "alignment", "alignment_stats" or "dense" are valid'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'alignment'</span><span class="p">,</span><span class="s1">'alignment_stats'</span><span class="p">,</span><span class="s1">'alignment_covar'</span><span class="p">,</span><span class="s1">'dense'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid output type. Only "alignment", "alignment_stats", "alignment_covar" or "dense" are valid'</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s1">'alignment_covar'</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensionality</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'output_type "alignment_covar" requires dimensionality 2'</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s1">'alignment_stats'</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensionality</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
@@ -881,7 +896,8 @@
 <span class="sd">    padding_type : str</span>
 <span class="sd">        Fill of the padded region and of the box pixels outside the stack</span>
 <span class="sd">        frame or on its alignment fill: ``'noise'`` (gaussian with the mean</span>
-<span class="sd">        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.</span>
+<span class="sd">        and std of the projection's valid pixels) or ``'zero'`` (their mean,</span>
+<span class="sd">        0 once the mean is removed).  Default: ``'noise'``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,</span>
 <span class="sd">        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'poisson_raw'``,</span>
@@ -1149,7 +1165,8 @@
 <span class="sd">    padding_type : str</span>
 <span class="sd">        Fill of the padded region and of the box pixels outside the stack</span>
 <span class="sd">        frame or on its alignment fill: ``'noise'`` (gaussian with the mean</span>
-<span class="sd">        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.</span>
+<span class="sd">        and std of the projection's valid pixels) or ``'zero'`` (their mean,</span>
+<span class="sd">        0 once the mean is removed).  Default: ``'noise'``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,</span>
 <span class="sd">        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``, ``'poisson_raw'``,</span>
@@ -1633,7 +1650,8 @@
 <span class="sd">    padding_type : str</span>
 <span class="sd">        Fill of the padded region and of the box pixels outside the stack</span>
 <span class="sd">        frame or on its alignment fill: ``'noise'`` (gaussian with the mean</span>
-<span class="sd">        and std of the valid pixels) or ``'zero'``.  Default: ``'noise'``.</span>
+<span class="sd">        and std of the projection's valid pixels) or ``'zero'`` (their mean,</span>
+<span class="sd">        0 once the mean is removed).  Default: ``'noise'``.</span>
 <span class="sd">    normalize_type : str</span>
 <span class="sd">        Per-substack normalisation.  One of ``'none'``, ``'zero_mean'``,</span>
 <span class="sd">        ``'zero_mean_one_std'``, ``'zero_mean_unit_var'``,</span>
@@ -1720,11 +1738,21 @@
 <span class="sd">        recommended: the whitening biases the defocus).  Requires a</span>
 <span class="sd">        :attr:`defocus_angstroms` span larger than 0.  Read it with</span>
 <span class="sd">        :func:`susan.io.ctf_stats.read`, correct the particles with</span>
-<span class="sd">        :class:`susan.solvers.SolverCTF`.</span>
+<span class="sd">        :class:`susan.solvers.SolverCTF`.  ``'refinement_covar'``: as</span>
+<span class="sd">        ``'refinement'`` (the search with the priors), plus</span>
+<span class="sd">        ``{output stem}.stats.npz`` (the layout of the aligner's</span>
+<span class="sd">        ``'alignment_covar'``) with the evidence at the refined CTF of every</span>
+<span class="sd">        particle and projection: the peak statistics of the raw CC over the</span>
+<span class="sd">        offsets, the CC to log-likelihood factor of its noise ring and the</span>
+<span class="sd">        curvature of the best CC along the mean defocus, the astigmatism, the</span>
+<span class="sd">        astigmatism angle and the phase shift (each searched axis; one extra</span>
+<span class="sd">        correlation, plus two per axis);</span>
+<span class="sd">        :func:`susan.io.ali_stats.ctf_posterior` turns them into the</span>
+<span class="sd">        posterior covariance of the shift and the CTF parameters.</span>
 <span class="sd">    stats_groups : list of int</span>
 <span class="sd">        Group sizes gs of ``'refinement_stats'``: gs x gs equal-count bins of</span>
-<span class="sd">        the particle x, y per tomogram.  The solver needs 1 and 3.</span>
-<span class="sd">        Default: ``[1, 3]``.</span>
+<span class="sd">        the particle x, y per tomogram.  The solver needs 1.</span>
+<span class="sd">        Default: ``[1]``.</span>
 <span class="sd">    mpi : :class:`~susan.utils.datatypes.mpi_params`</span>
 <span class="sd">        MPI launcher configuration used by :meth:`refine_mpi`.</span>
 <span class="sd">        Default: ``mpi_params('srun -n %d ', 1)``.</span>
@@ -1751,7 +1779,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">defocus_sigma</span>      <span class="o">=</span> <span class="mf">0.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">phase_sigma_deg</span>    <span class="o">=</span> <span class="mf">0.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span>        <span class="o">=</span> <span class="s1">'refinement'</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">stats_groups</span>       <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_groups</span>       <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span>                <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">mpi_params</span><span class="p">(</span><span class="s1">'srun -n </span><span class="si">%d</span><span class="s1"> '</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">verbosity</span>          <span class="o">=</span> <span class="mi">0</span>
 
@@ -1815,8 +1843,8 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_sigma_deg</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'phase_sigma_deg must be &gt;= 0 (0 disables the phase-shift prior).'</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'refinement'</span><span class="p">,</span><span class="s1">'refinement_stats'</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid output type. Only "refinement" or "refinement_stats" are valid'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">'refinement'</span><span class="p">,</span><span class="s1">'refinement_stats'</span><span class="p">,</span><span class="s1">'refinement_covar'</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid output type. Only "refinement", "refinement_stats" or "refinement_covar" are valid'</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s1">'refinement_stats'</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">span</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'output_type "refinement_stats" requires a defocus_angstroms span larger than 0'</span><span class="p">)</span>

@@ -392,8 +392,10 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dl class="py attribute">
 <dt class="sig sig-object py" id="susan.modules.Aligner.ignore_classes">
 <span class="sig-name descname"><span class="pre">ignore_classes</span></span><a class="headerlink" href="#susan.modules.Aligner.ignore_classes" title="Link to this definition">¶</a></dt>
-<dd><p>Ignore reference-class assignments; align against all references.
-Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dd><p>3D: if True, align each particle only against its own class
+(<code class="docutils literal notranslate"><span class="pre">ref_cix</span></code>); if False, against every reference (multi-reference
+alignment).  2D alignment always uses the particle’s own class (one
+set of per-projection corrections per particle).  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>bool</p>
@@ -515,7 +517,8 @@ Default: <code class="docutils literal notranslate"><span class="pre">offset_par
 <span class="sig-name descname"><span class="pre">padding_type</span></span><a class="headerlink" href="#susan.modules.Aligner.padding_type" title="Link to this definition">¶</a></dt>
 <dd><p>Fill of the padded region and of the box pixels outside the stack
 frame or on its alignment fill: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code> (gaussian with the mean
-and std of the valid pixels) or <code class="docutils literal notranslate"><span class="pre">'zero'</span></code>.  Default: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.</p>
+and std of the projection’s valid pixels) or <code class="docutils literal notranslate"><span class="pre">'zero'</span></code> (their mean,
+0 once the mean is removed).  Default: <code class="docutils literal notranslate"><span class="pre">'noise'</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -705,7 +708,16 @@ cone 0; it does not change the particles’ angles (only the offsets of
 the input orientation are aligned), the groups up to 2 x 2 keep the
 peak of their mean CC map per angle.  Requires <a class="reference internal" href="#susan.modules.Aligner.refine" title="susan.modules.Aligner.refine"><code class="xref py py-attr docutils literal notranslate"><span class="pre">refine</span></code></a> levels
 <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">0</span></code>, <a class="reference internal" href="#susan.modules.Aligner.angle_sigma" title="susan.modules.Aligner.angle_sigma"><code class="xref py py-attr docutils literal notranslate"><span class="pre">angle_sigma</span></code></a> <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">0</span></code> and <a class="reference internal" href="#susan.modules.Aligner.pseudo_symmetry" title="susan.modules.Aligner.pseudo_symmetry"><code class="xref py py-attr docutils literal notranslate"><span class="pre">pseudo_symmetry</span></code></a>
-<code class="docutils literal notranslate"><span class="pre">'c1'</span></code>.  Read it with <code class="xref py py-func docutils literal notranslate"><span class="pre">susan.io.ali_stats.read()</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">'c1'</span></code>.  Read it with <code class="xref py py-func docutils literal notranslate"><span class="pre">susan.io.ali_stats.read()</span></code>.
+<code class="docutils literal notranslate"><span class="pre">'alignment_covar'</span></code> (<a class="reference internal" href="#susan.modules.Aligner.dimensionality" title="susan.modules.Aligner.dimensionality"><code class="xref py py-attr docutils literal notranslate"><span class="pre">dimensionality</span></code></a> 2 only): as
+<code class="docutils literal notranslate"><span class="pre">'alignment'</span></code> (the full search, with refine levels and priors),
+plus <code class="docutils literal notranslate"><span class="pre">{output</span> <span class="pre">stem}.stats.npz</span></code> with the evidence at the solution of
+every particle and projection: the peak statistics of the raw CC
+over the offsets at the best orientation, the CC to log-likelihood
+factor of its noise ring and the angular curvature of the best CC
+about each searched axis (one extra correlation, plus two per
+searched axis); <code class="xref py py-func docutils literal notranslate"><span class="pre">susan.io.ali_stats.posterior()</span></code> turns them into
+the posterior covariance of the shift and the angles.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
