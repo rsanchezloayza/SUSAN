@@ -1453,9 +1453,15 @@
 <span class="sd">        Default: ``False``.</span>
 <span class="sd">    est_phase_shift : bool</span>
 <span class="sd">        If ``True``, the per-projection defocus sweep also scans a phase shift</span>
-<span class="sd">        in [0, pi) (Volta phase plate use case) and writes it to</span>
-<span class="sd">        ``Defocus.ph_shft``.  If ``False``, ``ph_shft`` is ``0`` for every</span>
-<span class="sd">        projection; the defocus sweep runs normally.  Default: ``False``.</span>
+<span class="sd">        in ``nominal_phase_shift_deg`` +- 90 degrees and writes it to</span>
+<span class="sd">        ``Defocus.ph_shft`` (radians).  If ``False``, ``ph_shft`` is</span>
+<span class="sd">        ``nominal_phase_shift_deg`` for every projection.  Default: ``True``.</span>
+<span class="sd">    nominal_phase_shift_deg : float</span>
+<span class="sd">        Expected phase shift, in degrees: ``0`` without a phase plate, about</span>
+<span class="sd">        ``90`` with a Volta phase plate.  The power spectrum cannot tell a</span>
+<span class="sd">        phase shift from the same plus 180 degrees (the CTF with the opposite</span>
+<span class="sd">        sign); the estimate is the one within +-90 degrees of this value.</span>
+<span class="sd">        Default: ``0``.</span>
 <span class="sd">    astigmatism : str</span>
 <span class="sd">        Astigmatism model, from the ring of each projection's linearized</span>
 <span class="sd">        spectrum (r = m + a cos 2theta + b sin 2theta):</span>
@@ -1480,8 +1486,9 @@
 <span class="sd">        into ``proj_wgt`` (and ``update_defocus`` then copies into the</span>
 <span class="sd">        per-particle ``prj_w``).  The weight is sqrt(SSNR) of the projection</span>
 <span class="sd">        (the weight enters linearly, so the amplitude ratio is the optimum),</span>
-<span class="sd">        normalised so the best tilt of each stack is ``1``; empty projections</span>
-<span class="sd">        get ``0``.  If ``False``, the column is written as ``1`` for every</span>
+<span class="sd">        capped at 3 times the median of the stack (so one overestimated tilt</span>
+<span class="sd">        cannot scale down the others) and normalised so the best tilt of each</span>
+<span class="sd">        stack is ``1``; empty projections get ``0``.  If ``False``, the column is written as ``1`` for every</span>
 <span class="sd">        projection.  Either way, projections whose estimate failed (no ring</span>
 <span class="sd">        past the first zero follows the fitted CTF) get ``0``.</span>
 <span class="sd">        Default: ``True``.</span>
@@ -1503,7 +1510,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span> <span class="o">=</span> <span class="n">_dt</span><span class="o">.</span><span class="n">range_params</span><span class="p">(</span><span class="mi">10000</span><span class="p">,</span><span class="mi">65000</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">resolution_thres</span>  <span class="o">=</span> <span class="mf">0.75</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">overfocus</span>         <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">est_phase_shift</span>   <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">est_phase_shift</span>   <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nominal_phase_shift_deg</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">est_initial_snr</span>   <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dechirp_cs</span>        <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">astigmatism</span>       <span class="o">=</span> <span class="s1">'magnitude'</span>
@@ -1560,6 +1568,7 @@
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -def_range </span><span class="si">%f</span><span class="s1">,</span><span class="si">%f</span><span class="s1">'</span>  <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">min_val</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">defocus_angstroms</span><span class="o">.</span><span class="n">max_val</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -overfocus </span><span class="si">%d</span><span class="s1">'</span>     <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overfocus</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -est_phase_shift </span><span class="si">%d</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">est_phase_shift</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -nominal_phase_shift </span><span class="si">%f</span><span class="s1">'</span> <span class="o">%</span> <span class="n">_math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nominal_phase_shift_deg</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -est_initial_snr </span><span class="si">%d</span><span class="s1">'</span> <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">est_initial_snr</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -astig_type '</span>      <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">astigmatism</span>
         <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="s1">' -dechirp_cs </span><span class="si">%d</span><span class="s1">'</span>      <span class="o">%</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dechirp_cs</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>

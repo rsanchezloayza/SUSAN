@@ -389,12 +389,27 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dt class="sig sig-object py" id="susan.modules.CtfEstimator.est_phase_shift">
 <span class="sig-name descname"><span class="pre">est_phase_shift</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.est_phase_shift" title="Link to this definition">¶</a></dt>
 <dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the per-projection defocus sweep also scans a phase shift
-in [0, pi) (Volta phase plate use case) and writes it to
-<code class="docutils literal notranslate"><span class="pre">Defocus.ph_shft</span></code>.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, <code class="docutils literal notranslate"><span class="pre">ph_shft</span></code> is <code class="docutils literal notranslate"><span class="pre">0</span></code> for every
-projection; the defocus sweep runs normally.  Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+in <code class="docutils literal notranslate"><span class="pre">nominal_phase_shift_deg</span></code> +- 90 degrees and writes it to
+<code class="docutils literal notranslate"><span class="pre">Defocus.ph_shft</span></code> (radians).  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, <code class="docutils literal notranslate"><span class="pre">ph_shft</span></code> is
+<code class="docutils literal notranslate"><span class="pre">nominal_phase_shift_deg</span></code> for every projection.  Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="susan.modules.CtfEstimator.nominal_phase_shift_deg">
+<span class="sig-name descname"><span class="pre">nominal_phase_shift_deg</span></span><a class="headerlink" href="#susan.modules.CtfEstimator.nominal_phase_shift_deg" title="Link to this definition">¶</a></dt>
+<dd><p>Expected phase shift, in degrees: <code class="docutils literal notranslate"><span class="pre">0</span></code> without a phase plate, about
+<code class="docutils literal notranslate"><span class="pre">90</span></code> with a Volta phase plate.  The power spectrum cannot tell a
+phase shift from the same plus 180 degrees (the CTF with the opposite
+sign); the estimate is the one within +-90 degrees of this value.
+Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
 </dd>
 </dl>
 </dd></dl>
@@ -444,8 +459,9 @@ depth of the Thon ring modulation and written as a ninth column of
 into <code class="docutils literal notranslate"><span class="pre">proj_wgt</span></code> (and <code class="docutils literal notranslate"><span class="pre">update_defocus</span></code> then copies into the
 per-particle <code class="docutils literal notranslate"><span class="pre">prj_w</span></code>).  The weight is sqrt(SSNR) of the projection
 (the weight enters linearly, so the amplitude ratio is the optimum),
-normalised so the best tilt of each stack is <code class="docutils literal notranslate"><span class="pre">1</span></code>; empty projections
-get <code class="docutils literal notranslate"><span class="pre">0</span></code>.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the column is written as <code class="docutils literal notranslate"><span class="pre">1</span></code> for every
+capped at 3 times the median of the stack (so one overestimated tilt
+cannot scale down the others) and normalised so the best tilt of each
+stack is <code class="docutils literal notranslate"><span class="pre">1</span></code>; empty projections get <code class="docutils literal notranslate"><span class="pre">0</span></code>.  If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the column is written as <code class="docutils literal notranslate"><span class="pre">1</span></code> for every
 projection.  Either way, projections whose estimate failed (no ring
 past the first zero follows the fitted CTF) get <code class="docutils literal notranslate"><span class="pre">0</span></code>.
 Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
@@ -606,6 +622,7 @@ defocus values applied for every tomogram.</p>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.resolution_thres"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.resolution_thres</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.overfocus"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.overfocus</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.est_phase_shift"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.est_phase_shift</span></code></a></li>
+<li><a class="reference internal" href="#susan.modules.CtfEstimator.nominal_phase_shift_deg"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.nominal_phase_shift_deg</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.astigmatism"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.astigmatism</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.dechirp_cs"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.dechirp_cs</span></code></a></li>
 <li><a class="reference internal" href="#susan.modules.CtfEstimator.est_initial_snr"><code class="docutils literal notranslate"><span class="pre">CtfEstimator.est_initial_snr</span></code></a></li>
