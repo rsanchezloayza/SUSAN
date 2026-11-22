@@ -162,6 +162,33 @@ int main(int ac, char** av) {
             pool.set_stats(&stats,ptcls->p_raw);
         }
 
+        /// output_type refinement_covar (ali_stats.h): the main node holds the rows of all the particles.
+        AliStats covar;
+        const bool save_covar = info.output_type == CTF_OUTPUT_REFINEMENT_COVAR;
+        if( save_covar ) {
+            float steps[AliCovar::NC_CTF-1];
+            ArgsCtfRef::covar_steps(info,steps);
+            covar.setup(tomos,CIRCLE,info.off_x,info.off_y,info.off_z,info.off_s,std::vector<int>(),
+                        info.n_threads,info.use_halves,std::vector<M33f>(1,M33f::Identity()));
+            covar.setup_covar(AliCovar::NC_CTF,AliCovar::FIELDS_CTF,steps);
+            mpi_iface.bcast_scatter(scatter_info);
+            std::vector<uint8_t> layout;
+            if( mpi_iface.is_main_node() ) {
+                covar.set_layout(*ptcls_io,tomos);
+                layout = covar.pack_layout();
+            }
+            mpi_iface.bcast_bytes(layout);
+            if( !mpi_iface.is_main_node() )
+                covar.unpack_layout(layout);
+            int lo = mpi_iface.scatter_offset(scatter_info);
+            int hi = lo + scatter_info.count_per_node[mpi_iface.node_id];
+            if( mpi_iface.is_main_node() )
+                covar.set_range(lo,hi,0,covar.n_ptcl);
+            else
+                covar.set_range(lo,hi,lo,hi-lo);
+            pool.set_covar(&covar,ptcls->p_raw);
+        }
+
         stkrdr.start();
         pool.start();
 
@@ -194,6 +221,21 @@ int main(int ac, char** av) {
             }
             else {
                 mpi_iface.send_bytes(0,stats.pack_node(),3);
+            }
+        }
+
+        if( save_covar ) {
+            if( mpi_iface.is_main_node() ) {
+                std::vector<uint8_t> b;
+                for(int i=1;i<mpi_iface.num_nodes;i++) {
+                    mpi_iface.recv_bytes(i,b,4);
+                    covar.merge_node(b);
+                }
+                if( !covar.save(info.ptcls_out) )
+                    fprintf(stderr,"Error writing the covariance evidence of %s\n",info.ptcls_out);
+            }
+            else {
+                mpi_iface.send_bytes(0,covar.pack_node(),4);
             }
         }
 

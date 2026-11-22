@@ -142,11 +142,17 @@ int main(int ac, char** av) {
         /// type 2 statistics (ali_stats.h): the main node computes the layout (tomogram and group labels of every
         /// particle) and holds the rows of all the particles; each node processes its contiguous range.
         AliStats stats;
-        const bool save_stats = info.output_type == ALI_OUTPUT_ALIGNMENT_STATS;
+        const bool covar = info.output_type == ALI_OUTPUT_ALIGNMENT_COVAR;
+        const bool save_stats = info.output_type == ALI_OUTPUT_ALIGNMENT_STATS || covar;
         if( save_stats ) {
             stats.setup(tomos,info.off_type,info.off_x,info.off_y,info.off_z,info.off_s,
-                        std::vector<int>(info.stats_groups,info.stats_groups+info.n_stats_groups),info.n_threads,
-                        info.ali_halves,ArgsAli::stats_angles(info));
+                        covar ? std::vector<int>() : std::vector<int>(info.stats_groups,info.stats_groups+info.n_stats_groups),
+                        info.n_threads,info.ali_halves,covar ? std::vector<M33f>(1,M33f::Identity()) : ArgsAli::stats_angles(info));
+            if( covar ) {
+                float steps[3];
+                ArgsAli::covar_steps(info,steps);
+                stats.setup_covar(AliCovar::NC,AliCovar::FIELDS,steps);
+            }
             mpi_iface.bcast_scatter(scatter_info);
             std::vector<uint8_t> layout;
             if( mpi_iface.is_main_node() ) {

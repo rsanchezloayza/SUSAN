@@ -31,7 +31,12 @@ __all__ = ['Solver2D']
 _CHI2_2_MEDIAN = 1.3863
 _F = {f: i for i, f in enumerate(_ali_stats.FIELDS)}
 _TINY = 1e-12
-_MIN_OBS = 20          # usable particle peaks of a projection
+_MIN_OBS = 2           # usable particle peaks of a projection (shift and in-plane rotation determined)
+_MIN_KAPPA = 10        # particle peaks for a projection's own residual scale; fewer: the tomogram's pooled scale
+_MIN_OWN = 10          # particles of a tomogram (half) to estimate its own priors; fewer: the median of the others
+_KAPPA_RANGE = 10      # a projection's residual scale is at least the tomogram's median / range
+_SHIFT_PREC = 1e-8     # shift prior precision, relative to the data scale (projections without data in a CV fold)
+_ROT_PREC = (1.0, 1e12)  # rotation prior precision range (1/rad^2): sd between 1e-6 rad and 1 rad (the start)
 _OBS_PER_DOF = 4       # observations per field parameter of the finest level
 _MAX_LEVEL = 4
 _LAM_RANGE = 1e4       # strengths within [1/range, range] of the data scale
@@ -53,10 +58,16 @@ class Solver2D:
     bilinear grids, without the shift and the rotation), and one 3D offset delta_j per particle (prior covariance from
     the even/odd projection split).  The group peaks (2x2 to 5x5) enter as observations of the same model at their
     centroids with the precision of their half-split reproducibility; the particles with their curvature on the scale of
-    their residuals.  Robust (Cauchy) weights; the projections are independent given the offsets.
+    their residuals (their own with at least 10 particle peaks, else the tomogram's; at least a tenth of the
+    tomogram's median, so that no projection takes over the 3D offsets).  Robust (Cauchy) weights; the
+    projections are independent given the offsets.  A projection needs 2 usable particle peaks.  A tomogram (half)
+    with fewer than 10 particles does not estimate its rotation prior, kappa and offset prior: it takes the median of
+    those of the tomograms (of the same half) that do.
 
-    1. base fit: one strength per level of the field, a fixed point (pooled over the projections); the finest level
-       from the observations per parameter;
+    1. base fit: one strength per level of the field and one zero-mean prior per rotation axis, fixed points (pooled
+       over the projections of the tomogram); the rotations of projections that the data determine poorly (few
+       particles, little spread in depth or in the plane) shrink towards none; the finest level from the observations
+       per parameter;
     2. per projection, by cross-validation on held-out particle and group peaks: no field, or the field up to each
        level, at the strength of step 1 or 1000 times weaker, with the rigid part free or kept from the fit without
        field;
@@ -140,6 +151,7 @@ class Solver2D:
         ang_noise = []
         span = min(aligner.offset.span[:2]) if aligner is not None else None
         edge = []
+        jobs = []
         for t in _np.unique(tid):
             cix, ti = int(T.get_cix(t)), stomo.index(int(t))
             K = int(T.num_proj[cix])
@@ -164,9 +176,17 @@ class Solver2D:
                                S['grouped%d/half' % gs][ti][o:o + G, :K])
                 valid_k = P.prj_w[sel][:, :K].max(0) > 0
                 edge += [(int(t), int(k)) for k in self._at_edge(st[sel][:, :K], valid_k, span, float(S.get('off_step', 0.5)))]
+                jobs.append((t, h, K, apix, sel, xyz, Pk, grp, valid_k))
+        # tomograms with enough particles estimate their own priors; the others get the median of those (per half)
+        own, pooled = {}, {}
+        for big in (True, False):
+            for t, h, K, apix, sel, xyz, Pk, grp, valid_k in jobs:
+                if (len(sel) >= _MIN_OWN) != big:
+                    continue
+                prior = None if big else pooled.get(h)
                 if self.verbosity > 1:
-                    print('    Tomogram %d%s:' % (t, (', half %d' % h) if h else ''), end='', flush=True)
-                r = self._solve_tomo(st[sel][:, :K], xyz[..., :2], xyz[..., 2], Pk, grp, apix, valid_k)
+                    print('    Tomogram %d%s%s:' % (t, (', half %d' % h) if h else '', ' (pooled priors)' if prior else ''), end='', flush=True)
+                r = self._solve_tomo(st[sel][:, :K], xyz[..., :2], xyz[..., 2], Pk, grp, apix, valid_k, prior)
                 ok = _np.isfinite(r['shift'][..., 0])
                 for k in range(K):
                     i = sel[ok[:, k]]
@@ -187,6 +207,10 @@ class Solver2D:
                 a = _np.linalg.norm(rv[m], axis=-1)
                 ang_ss += float(_np.sum(a[a > 0] ** 2))
                 ang_n += int((a > 0).sum())
+                if big and 'prior' in r:
+                    own.setdefault(h, []).append(r['prior'])
+            if big:
+                pooled = {h: _pool_priors(v) for h, v in own.items()}
         self._append_variances(stats, S, post_cov, ang_var)
         if self.verbosity:
             self._summary(P, prj_t_in, T, S, post_cov, (ang_ss, ang_n), ang_noise, sorted(set(edge)), aligner)
@@ -263,10 +287,12 @@ class Solver2D:
             out[:, k] = T.project(cix, p, k) / float(T.pix_size[cix])
         return out
 
-    def _solve_tomo(self, stats, xpx, zpx, Pk, groups, apix, valid_k):
+    def _solve_tomo(self, stats, xpx, zpx, Pk, groups, apix, valid_k, prior=None):
         """stats (n, K, NF), xpx (n, K, 2) and zpx (n, K) px, Pk (K, 2, 3) the px shift on each projection of a 3D offset
         in px, groups {gs: (gstats (G, K, NF), label (n,), half (G, K, 2))} -> dict(shift (n, K, 2) px, cov (n, K, 3)
-        px^2, rv (K, 3) and var (K, 3) the rotation vector (deg, detector frame) and its variance of each projection)."""
+        px^2, rv (K, 3) and var (K, 3) the rotation vector (deg, detector frame) and its variance of each projection,
+        prior: the rotation prior, kappa and offset prior it estimated). With ``prior`` (of :func:`_pool_priors`) those
+        are fixed instead of estimated."""
         F = _F
         n, K, _ = stats.shape
         I2, I3 = _np.eye(2), _np.eye(3)
@@ -403,11 +429,15 @@ class Solver2D:
             gn = _np.concatenate([_np.add.reduceat(_np.einsum('nai,na->ni', Rfl, Iy), off[:-1]), gf[:, :, 0], gf[:, :, 1]], 1)
             return Tm.T @ Hn @ Tm, gn @ Tm
 
+        rot_prec = _np.full(3, _ROT_PREC[0]) if prior is None else prior['rot_prec'].copy()
+        c_est = []
+
         def blocks(D, lv):
-            """normal matrix with the field strengths lv (Ka, q) and a vanishing prior on the rotations"""
+            """normal matrix with the field strengths lv (Ka, q) and the zero-mean prior on the rotations"""
             A = D.copy()
             A[:, ar, ar] += lv
-            A[:, 2:5, 2:5] += _TINY * I3
+            A[:, [0, 1], [0, 1]] += _SHIFT_PREC * s_[0]
+            A[:, [2, 3, 4], [2, 3, 4]] += rot_prec
             return A
 
         def to_dense(r0, Ie):
@@ -421,6 +451,8 @@ class Solver2D:
 
         def offset_prior(r0, Ie):
             """covariance of the 3D offsets from the even/odd projection split"""
+            if prior is not None:
+                return prior['C'] / apix ** 2
             to_dense(r0, Ie / (1 + quad(r0, Ie) / 4)[:, None, None])
             C = _np.zeros((3, 3))
             qual = (dense_u[:, 0::2].sum(1) >= 8) & (dense_u[:, 1::2].sum(1) >= 8)
@@ -437,6 +469,7 @@ class Solver2D:
                 C = (De[0].T @ De[1] + De[1].T @ De[0]) / (2 * qual.sum())
                 ev, V = _np.linalg.eigh(C)
                 C = (V * _np.clip(ev, 0, None)) @ V.T
+                c_est[:] = [True]
             return C
 
         def offsets(r0, Ie, C):
@@ -458,16 +491,27 @@ class Solver2D:
             st['C'] = offset_prior(r0, Ie)
             st['delta'], st['Cp'] = offsets(r0, Ie, st['C'])
             r = r0 - proj_offsets(st['delta'])
-            m2 = quad(r, I0)
-            kap = st['kappa'].copy()
-            for a_ in range(Ka):
-                sl = slice(off[a_], off[a_ + 1])
-                v_ = isp[sl]
-                if v_.any():
-                    kap[a_] = max(_np.median(m2[sl][v_]) / _CHI2_2_MEDIAN, 1e-12)
-            st['kappa'] = kap
+            st['kappa'] = residual_scale(quad(r, I0))
             st['w'] = 1 / (1 + quad(r, scale(st)) / 4)
             return st
+
+        big_k = _np.array([isp[off[a_]:off[a_ + 1]].sum() >= _MIN_KAPPA for a_ in range(Ka)])
+        big_o = _np.repeat(big_k, cnt) & isp
+        kap0 = []
+
+        def residual_scale(m2):
+            """kappa per projection: the median of its particle residuals; with few particles the median over the
+            projections with enough of them, else over the residuals about each projection's median (the first call:
+            fitted residuals of a few peaks shrink with the fit)"""
+            if not kap0:
+                kap0.append(max(_np.median(m2[isp]) / _CHI2_2_MEDIAN, 1e-12))
+            pooled = max(_np.median(m2[big_o]) / _CHI2_2_MEDIAN, 1e-12) if big_o.any() else (
+                kap0[0] if prior is None else prior['kappa'])
+            kap = _np.full(Ka, pooled)
+            for a_ in _np.where(big_k)[0]:
+                sl = slice(off[a_], off[a_ + 1])
+                kap[a_] = max(_np.median(m2[sl][isp[sl]]) / _CHI2_2_MEDIAN, 1e-12)
+            return _np.maximum(kap, _np.median(kap) / _KAPPA_RANGE)
 
         def step(st, lam, upd):
             """one outer iteration of the base fit: solve at the strengths lam (nlev,), and their fixed-point update"""
@@ -481,6 +525,11 @@ class Solver2D:
                 sdiag = _np.bincount(lvl, _np.einsum('aqq->q', Sg[:, 5:, 5:]), nlev)
                 lam_n = (nl * Ka - lam * sdiag) / _np.maximum(_np.bincount(lvl, (u[:, 5:] ** 2).sum(0), nlev), _TINY)
                 lam_n = _np.clip(lam ** (1 - _LAM_DAMP) * _np.maximum(lam_n, _TINY) ** _LAM_DAMP, s_[0] / _LAM_RANGE, s_[0] * _LAM_RANGE)
+            if upd and prior is None:
+                # rotations: precision 1/tau^2 per axis from the same evidence fixed point (shrinks the poorly
+                # determined projections, e.g. few particles or little depth spread, towards no rotation)
+                rp = (Ka - rot_prec * st['Sc'].sum(0)) / _np.maximum((u[:, 2:5] ** 2).sum(0), _TINY)
+                rot_prec[:] = _np.clip(rot_prec ** (1 - _LAM_DAMP) * _np.maximum(rp, _TINY) ** _LAM_DAMP, *_ROT_PREC)
             return st, lam_n
 
         def dsolve(D, g, lv, frz=None, ur=None):
@@ -495,18 +544,20 @@ class Solver2D:
 
         # 1. base fit
         st = dict(kappa=_np.ones(Ka), w=_np.ones(N), delta=_np.zeros((n, 3)), C=_np.zeros((3, 3)), Cp=_np.zeros((n, 3, 3)))
+        r = Y.copy()
         for a in range(Ka):
             sl = slice(off[a], off[a + 1])
-            r = Y[sl] - _np.median(Y[sl][isp[sl]], 0)
-            st['kappa'][a] = max(_np.median(quad(r, I0[sl])[isp[sl]]) / _CHI2_2_MEDIAN, 1e-12)
+            r[sl] -= _np.median(Y[sl][isp[sl]], 0)
+        st['kappa'] = residual_scale(quad(r, I0))
         s_ = [float(I0[:, 0, 0].sum() + I0[:, 1, 1].sum()) / 2 / (2 * M - 3)]
         for _ in range(_BASE_OUTER):
             st = step(st, s_[0] * _np.ones(nlev), False)[0]
         s_[0] = float(info(st)[:, [0, 1], [0, 1]].sum() / 2) / (2 * M - 3)
         lam = s_[0] * _np.ones(nlev)
         for _ in range(_LAM_OUTER):
+            rp0 = rot_prec.copy()
             st, lam_n = step(st, lam, True)
-            done = bool((_np.abs(lam_n - lam) <= _LAM_RTOL * lam).all())
+            done = bool((_np.abs(lam_n - lam) <= _LAM_RTOL * lam).all() and (_np.abs(rot_prec - rp0) <= _LAM_RTOL * rp0).all())
             lam = lam_n
             if done:
                 break
@@ -557,10 +608,25 @@ class Solver2D:
         var[act] = Sc * deg ** 2
         if self.verbosity > 1:
             nf = _np.bincount([cands[b][0] + 1 for b in best], minlength=nlev + 1)
-            print(' finest level %d (%dx%d); per projection: %s; median kappa %.2f; offset prior sd %s A' % (
+            print(' finest level %d (%dx%d); per projection: %s; median kappa %.2f; offset prior sd %s A; rotation prior sd %s deg' % (
                 L, Gn, Gn, ', '.join('%s %d' % ('rigid' if l_ == 0 else 'level %d' % (l_ - 1), c) for l_, c in enumerate(nf) if c),
-                _np.median(st['kappa']), _np.round(_np.sqrt(_np.diag(st['C'])) * apix, 2)), flush=True)
+                _np.median(st['kappa']), _np.round(_np.sqrt(_np.diag(st['C'])) * apix, 2), _np.round(deg / _np.sqrt(rot_prec), 3)), flush=True)
+        out['prior'] = dict(rot_prec=rot_prec.copy(), kappa=float(_np.median(st['kappa'])),
+                            C=st['C'] * apix ** 2 if c_est else None)
         return out
+
+
+def _pool_priors(priors):
+    """median over tomograms of the rotation prior variance, kappa and offset prior (A^2, PSD projected)"""
+    C = [p['C'] for p in priors if p['C'] is not None]
+    if C:
+        C = _np.median(_np.stack(C), 0)
+        ev, V = _np.linalg.eigh((C + C.T) / 2)
+        C = (V * _np.clip(ev, 0, None)) @ V.T
+    else:
+        C = _np.zeros((3, 3))
+    tau2 = _np.median(_np.stack([1.0 / p['rot_prec'] for p in priors]), 0)
+    return dict(rot_prec=_np.clip(1.0 / tau2, *_ROT_PREC), kappa=float(_np.median([p['kappa'] for p in priors])), C=C)
 
 
 def _field_basis(x, G, lo, hi):

@@ -58,6 +58,20 @@ int main(int ac, char** av) {
             pool.set_stats(&stats,ptcls.p_raw);
         }
 
+        /// output_type refinement_covar: per projection evidence at the solution (ali_stats.h)
+        AliStats covar;
+        const bool save_covar = info.output_type == CTF_OUTPUT_REFINEMENT_COVAR;
+        if( save_covar ) {
+            float steps[AliCovar::NC_CTF-1];
+            ArgsCtfRef::covar_steps(info,steps);
+            covar.setup(tomos,CIRCLE,info.off_x,info.off_y,info.off_z,info.off_s,std::vector<int>(),
+                        info.n_threads,info.use_halves,std::vector<M33f>(1,M33f::Identity()));
+            covar.setup_covar(AliCovar::NC_CTF,AliCovar::FIELDS_CTF,steps);
+            covar.set_layout(ptcls,tomos);
+            covar.set_range(0,ptcls.n_ptcl,0,ptcls.n_ptcl);
+            pool.set_covar(&covar,ptcls.p_raw);
+        }
+
         stkrdr.start();
         pool.start();
 
@@ -68,6 +82,8 @@ int main(int ac, char** av) {
 
         if( save_stats && !stats.save(info.ptcls_out) )
             fprintf(stderr,"Error writing the statistics of %s\n",info.ptcls_out);
+        if( save_covar && !covar.save(info.ptcls_out) )
+            fprintf(stderr,"Error writing the covariance evidence of %s\n",info.ptcls_out);
     }
     else {
         DataInfo::exit_bad_args();

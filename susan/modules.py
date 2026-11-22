@@ -216,6 +216,15 @@ class Aligner(_BandpassFpix):
         peak of their mean CC map per angle.  Requires :attr:`refine` levels
         ``= 0``, :attr:`angle_sigma` ``= 0`` and :attr:`pseudo_symmetry`
         ``'c1'``.  Read it with :func:`susan.io.ali_stats.read`.
+        ``'alignment_covar'`` (:attr:`dimensionality` 2 only): as
+        ``'alignment'`` (the full search, with refine levels and priors),
+        plus ``{output stem}.stats.npz`` with the evidence at the solution of
+        every particle and projection: the peak statistics of the raw CC
+        over the offsets at the best orientation, the CC to log-likelihood
+        factor of its noise ring and the angular curvature of the best CC
+        about each searched axis (one extra correlation, plus two per
+        searched axis); :func:`susan.io.ali_stats.posterior` turns them into
+        the posterior covariance of the shift and the angles.
     stats_groups : list of int
         Group sizes gs of ``'alignment_stats'``: gs x gs equal-count bins of
         the particle x, y per tomogram.  Default: ``[1, 2, 3, 4, 5]``.
@@ -364,8 +373,11 @@ class Aligner(_BandpassFpix):
         if not self.cc_stats_type in ['none','sigma']:
             raise ValueError('Invalid cc statistic method. Only "none" or "sigma" are valid')
 
-        if not self.output_type in ['alignment','alignment_stats','dense']:
-            raise ValueError('Invalid output type. Only "alignment", "alignment_stats" or "dense" are valid')
+        if not self.output_type in ['alignment','alignment_stats','alignment_covar','dense']:
+            raise ValueError('Invalid output type. Only "alignment", "alignment_stats", "alignment_covar" or "dense" are valid')
+
+        if self.output_type == 'alignment_covar' and self.dimensionality != 2:
+            raise ValueError('output_type "alignment_covar" requires dimensionality 2')
 
         if self.output_type == 'alignment_stats':
             if self.dimensionality != 2:
@@ -1365,7 +1377,17 @@ class CtfRefiner(_BandpassFpix):
         recommended: the whitening biases the defocus).  Requires a
         :attr:`defocus_angstroms` span larger than 0.  Read it with
         :func:`susan.io.ctf_stats.read`, correct the particles with
-        :class:`susan.solvers.SolverCTF`.
+        :class:`susan.solvers.SolverCTF`.  ``'refinement_covar'``: as
+        ``'refinement'`` (the search with the priors), plus
+        ``{output stem}.stats.npz`` (the layout of the aligner's
+        ``'alignment_covar'``) with the evidence at the refined CTF of every
+        particle and projection: the peak statistics of the raw CC over the
+        offsets, the CC to log-likelihood factor of its noise ring and the
+        curvature of the best CC along the mean defocus, the astigmatism, the
+        astigmatism angle and the phase shift (each searched axis; one extra
+        correlation, plus two per axis);
+        :func:`susan.io.ali_stats.ctf_posterior` turns them into the
+        posterior covariance of the shift and the CTF parameters.
     stats_groups : list of int
         Group sizes gs of ``'refinement_stats'``: gs x gs equal-count bins of
         the particle x, y per tomogram.  The solver needs 1.
@@ -1457,8 +1479,8 @@ class CtfRefiner(_BandpassFpix):
         if self.phase_sigma_deg < 0:
             raise ValueError('phase_sigma_deg must be >= 0 (0 disables the phase-shift prior).')
 
-        if not self.output_type in ['refinement','refinement_stats']:
-            raise ValueError('Invalid output type. Only "refinement" or "refinement_stats" are valid')
+        if not self.output_type in ['refinement','refinement_stats','refinement_covar']:
+            raise ValueError('Invalid output type. Only "refinement", "refinement_stats" or "refinement_covar" are valid')
 
         if self.output_type == 'refinement_stats' and not self.defocus_angstroms.span > 0:
             raise ValueError('output_type "refinement_stats" requires a defocus_angstroms span larger than 0')

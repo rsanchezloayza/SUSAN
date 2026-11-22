@@ -52,11 +52,17 @@ int main(int ac, char** av) {
 
         /// type 2: per projection and grouped statistics of the CC evidence (ali_stats.h)
         AliStats stats;
-        const bool save_stats = info.output_type == ALI_OUTPUT_ALIGNMENT_STATS;
+        const bool covar = info.output_type == ALI_OUTPUT_ALIGNMENT_COVAR;
+        const bool save_stats = info.output_type == ALI_OUTPUT_ALIGNMENT_STATS || covar;
         if( save_stats ) {
             stats.setup(tomos,info.off_type,info.off_x,info.off_y,info.off_z,info.off_s,
-                        std::vector<int>(info.stats_groups,info.stats_groups+info.n_stats_groups),info.n_threads,
-                        info.ali_halves,ArgsAli::stats_angles(info));
+                        covar ? std::vector<int>() : std::vector<int>(info.stats_groups,info.stats_groups+info.n_stats_groups),
+                        info.n_threads,info.ali_halves,covar ? std::vector<M33f>(1,M33f::Identity()) : ArgsAli::stats_angles(info));
+            if( covar ) {
+                float steps[3];
+                ArgsAli::covar_steps(info,steps);
+                stats.setup_covar(AliCovar::NC,AliCovar::FIELDS,steps);
+            }
             stats.set_layout(ptcls,tomos);
             stats.set_range(0,ptcls.n_ptcl,0,ptcls.n_ptcl);
             pool.set_stats(&stats,ptcls.p_raw);

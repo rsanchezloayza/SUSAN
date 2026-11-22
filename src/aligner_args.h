@@ -135,6 +135,10 @@ inline bool validate(const Info&info) {
             rslt = false;
         }
     }
+    if( info.output_type == ALI_OUTPUT_ALIGNMENT_COVAR && info.type != 2 ) {
+        fprintf(stderr,"output_type alignment_covar requires type 2.\n");
+        rslt = false;
+    }
     for(uint32 i=0;i<info.n_stats_groups;i++) {
         if( info.stats_groups[i] < 1 ) {
             fprintf(stderr,"Invalid stats_groups size %d: it must be at least 1.\n",info.stats_groups[i]);
@@ -348,7 +352,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
                 if( strcmp(optarg,"alignment") == 0 ) info.output_type = ALI_OUTPUT_ALIGNMENT;
                 else if( strcmp(optarg,"dense") == 0 ) info.output_type = ALI_OUTPUT_DENSE;
                 else if( strcmp(optarg,"alignment_stats") == 0 ) info.output_type = ALI_OUTPUT_ALIGNMENT_STATS;
-                else { fprintf(stderr,"Invalid output_type %s. Options are: alignment, alignment_stats or dense.\n",optarg); exit(1); }
+                else if( strcmp(optarg,"alignment_covar") == 0 ) info.output_type = ALI_OUTPUT_ALIGNMENT_COVAR;
+                else { fprintf(stderr,"Invalid output_type %s. Options are: alignment, alignment_stats, alignment_covar or dense.\n",optarg); exit(1); }
                 break;
             case DENSE_REDUCE:
                 if( strcmp(optarg,"max") == 0 ) info.dense_reduce = DENSE_REDUCE_MAX;
@@ -497,6 +502,14 @@ inline std::vector<M33f> stats_angles(const Info&info) {
     return list;
 }
 
+/// alignment_covar: the angular steps (deg) of the curvature at the solution, detector x, y (cone) and z (in-plane):
+/// the finest search step of each searched axis, 0 for an axis that is not searched
+inline void covar_steps(const Info&info,float*d) {
+    const float f = (float)(1u << info.refine_level);
+    d[0] = d[1] = (info.cone_range > 0) ? info.cone_step/f : 0;
+    d[2] = (info.inplane_range > 0) ? info.inplane_step/f : 0;
+}
+
 inline void print_angles(const Info&info,FILE*fp,bool show_full=false) {
 
     if( info.output_type == ALI_OUTPUT_ALIGNMENT_STATS ) {
@@ -564,6 +577,8 @@ inline void print_full(const Info&info,FILE*fp) {
         for(uint32 i=0;i<info.n_stats_groups;i++) fprintf(fp," %dx%d",info.stats_groups[i],info.stats_groups[i]);
         fprintf(fp,").\n");
     }
+    if( info.output_type == ALI_OUTPUT_ALIGNMENT_COVAR )
+        fprintf(fp,"\t\t2D evidence:    <particles out stem>.stats.npz (peak statistics and angular curvature at the solution).\n");
 
     fprintf(fp,"\t\tVolume size: %dx%dx%d",info.box_size,info.box_size,info.box_size);
     if( info.pad_size > 0 ) {
@@ -682,7 +697,7 @@ inline void print_basic(const Info&info,FILE*fp) {
     fprintf(fp,"\n");
 
     fprintf(fp,"    - Input files: %s | %s\n",info.tomo_file,info.refs_file);
-    fprintf(fp,"    - Particles In / Output (%s): %s | %s\n",(info.output_type==ALI_OUTPUT_DENSE)?"dense":((info.output_type==ALI_OUTPUT_ALIGNMENT_STATS)?"alignment_stats":"alignment"),info.ptcls_in,info.output);
+    fprintf(fp,"    - Particles In / Output (%s): %s | %s\n",(info.output_type==ALI_OUTPUT_DENSE)?"dense":((info.output_type==ALI_OUTPUT_ALIGNMENT_STATS)?"alignment_stats":((info.output_type==ALI_OUTPUT_ALIGNMENT_COVAR)?"alignment_covar":"alignment")),info.ptcls_in,info.output);
     
     if( info.n_gpu > 1 ) {
         fprintf(fp,"    - %d GPUs (GPU ids: %d",info.n_gpu,info.p_gpu[0]);

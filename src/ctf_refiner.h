@@ -41,6 +41,8 @@
 #include "ref_ali.h"
 #include "ctf_refiner_args.h"
 #include "ctf_stats.h"
+#include "ali_stats.h"
+#include "peak_stats.h"
 #include "cc_tracker.h"
 #include "progress.h"
 
@@ -159,9 +161,11 @@ public:
     DoubleBufferHandler *p_buffer;
     RefMap              *p_refs;
     CtfStats            *p_stats;   /// CTF statistics (output_type refinement_stats), NULL when disabled
+    AliStats            *p_covar;   /// evidence at the solution (output_type refinement_covar), NULL when disabled
 
     CtfRefGpuWorker() {
         p_stats = NULL;
+        p_covar = NULL;
     }
 
     ~CtfRefGpuWorker() {
@@ -178,15 +182,19 @@ protected:
     GPU::GHostSingle hstats_curv;
     GPU::GHostSingle hstats_dref;
 
+    std::vector<float>   st_row;          /// refinement_covar: raw CC row of a projection
+    PeakStats::Workspace st_ws;
+    std::vector<float>   cov_c0, cov_cs;  /// refinement_covar: best raw CC at the solution and at +-step
+
     void main() {
 
         NP = N+P;
         MP = (NP/2)+1;
 
         /// The ranges are total widths, as in the aligner's angular search: the grids cover -range/2 .. range/2.
-        grid_def_n = setup_grid(grid_def_step,def_range/2    ,def_step    );
-        grid_ang_n = setup_grid(grid_ang_step,ang_range/2    ,ang_step    );
-        grid_ph_n  = setup_grid(grid_ph_step ,ph_shft_range/2,ph_shft_step);
+        grid_def_n = ArgsCtfRef::grid_points(grid_def_step,def_range    ,def_step    );
+        grid_ang_n = ArgsCtfRef::grid_points(grid_ang_step,ang_range    ,ang_step    );
+        grid_ph_n  = ArgsCtfRef::grid_points(grid_ph_step ,ph_shft_range,ph_shft_step);
 
         GPU::set_device(gpu_ix);
 
@@ -206,14 +214,20 @@ protected:
 
         /// Priors scaled per projection by the CC noise on a ring outside the peak (prior_lambda, cc_tracker.h).
         use_prior = (p_stats == NULL) && (offset_sigma > 0 || defocus_sigma > 0 || phase_sigma > 0);
-        if( use_prior ) {
+        if( use_prior || p_covar != NULL ) {
             ali_data.set_noise_ring(2,bandpass.y);
             if( ali_data.n_noise == 0 ) {
                 if( worker_id == 0 )
-                    fprintf(stderr,"Warning: no room for the noise ring of the priors in box %d; priors disabled.\n",NP);
+                    fprintf(stderr,"Warning: no room for the noise ring of the priors / covariance in box %d; "
+                                   "priors disabled, lambda NaN.\n",NP);
                 use_prior = false;
             }
             noise_tmp.resize(ali_data.n_noise);
+        }
+        if( p_covar != NULL ) {
+            st_row.resize(ali_data.n_pts);
+            cov_c0.resize(max_K);
+            cov_cs.resize(2*max_K);
         }
 
         RadialAverager rad_avgr(MP,NP,max_K);
@@ -512,6 +526,89 @@ protected:
         }
         
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
+
+        if( p_covar != NULL )
+            covar_ctf(ss_data,ctf_ref,ptr,ali_data,rad_avgr,cc_tracker_arr,stream);
+    }
+
+    /// CC maps (k rows, weighted by the projection weight) of the CTF of ptr->g_def plus delta, downloaded to c_cc.
+    void correlate_ctf(const DefocusDelta&delta,AliSubstack&ss_data,Refine&ctf_ref,CtfRefBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
+        ctf_ref.apply_ctf(ali_data.prj_c,delta,ptr,phase_flip,stream);
+        rad_avgr.normalize_stacks(ali_data.prj_c,ptr->K,stream);
+        ali_data.multiply(ss_data.ss_fourier,ptr->K,stream);
+        ali_data.kb_prefilter(ptr->K,stream);
+        ali_data.invert_fourier(ptr->K,stream);
+        ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+    }
+
+    /// output_type refinement_covar: the evidence at the refined CTF, per projection: the raw CC map (not weighted by
+    /// prj_w, no priors) over the offsets (PeakStats fields), lambda of its noise ring (cc_tracker.h) and the
+    /// curvature of the best raw CC over the offsets along each searched axis by finite differences at +- its grid
+    /// step (ali_stats.h, AliCovar::FIELDS_CTF). The particle is already updated; g_def is moved to the solution.
+    void covar_ctf(AliSubstack&ss_data,Refine&ctf_ref,CtfRefBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,CcTrackerDefocusArrMax&trk,GPU::Stream&stream) {
+        const int n_pts = ali_data.n_pts;
+        const int n_noise = ali_data.n_noise;
+        for(int i=0;i<ptr->K;i++) {
+            if( ptr->c_ali.ptr[i].w <= 0 ) continue;
+            DefocusDelta b = trk.get_def(i);
+            ptr->c_def.ptr[i].U       += b.U;
+            ptr->c_def.ptr[i].V       += b.V;
+            ptr->c_def.ptr[i].angle   += b.angle_deg;
+            ptr->c_def.ptr[i].ph_shft += b.phase_shift_rad;
+        }
+        GPU::upload_async(ptr->g_def.ptr,ptr->c_def.ptr,ptr->K,stream.strm);
+
+        DefocusDelta delta = {0.f,0.f,0.f,0.f};
+        correlate_ctf(delta,ss_data,ctf_ref,ptr,ali_data,rad_avgr,stream);
+        if( n_noise > 0 )
+            ali_data.download_noise_cc(ptr->g_ali,ptr->K,stream);
+        stream.sync();
+        for(int i=0;i<ptr->K;i++) {
+            cov_c0[i] = NAN;
+            const float w = ptr->c_ali.ptr[i].w;
+            if( w <= 0 ) continue;
+            const float*c = ali_data.c_cc + (size_t)i*n_pts;
+            float m = -INFINITY;
+            for(int j=0;j<n_pts;j++) {
+                st_row[j] = c[j]/w;
+                if( std::isfinite(st_row[j]) ) m = std::max(m,st_row[j]);
+            }
+            PeakStats::compute(st_ws,p_covar->particle_row(ptr->ptcl_gix,i),st_row.data(),n_pts,
+                               p_covar->pts_x.data(),p_covar->pts_y.data(),p_covar->step,p_covar->excl);
+            cov_c0[i] = m;
+            if( n_noise > 0 ) {
+                for(int j=0;j<n_noise;j++) noise_tmp[j] = ali_data.c_noise_cc[(size_t)i*n_noise+j]/w;
+                p_covar->covar_row(ptr->ptcl_gix,i)[0] = prior_lambda(noise_tmp.data(),n_noise,st_row.data(),n_pts);
+            }
+        }
+
+        for(int ax=0;ax<4;ax++) {
+            const float d = p_covar->cov_step[ax];
+            if( !(d > 0) ) continue;
+            for(int sg=0;sg<2;sg++) {
+                const float h = sg ? -d : d;
+                delta.U = delta.V = delta.angle_deg = delta.phase_shift_rad = 0.f;
+                if( ax == 0 ) { delta.U = h; delta.V =  h; }
+                if( ax == 1 ) { delta.U = h; delta.V = -h; }
+                if( ax == 2 ) delta.angle_deg = h;
+                if( ax == 3 ) delta.phase_shift_rad = h*float(M_PI)/180.f;
+                correlate_ctf(delta,ss_data,ctf_ref,ptr,ali_data,rad_avgr,stream);
+                stream.sync();
+                for(int i=0;i<ptr->K;i++) {
+                    const float w = ptr->c_ali.ptr[i].w;
+                    if( w <= 0 ) continue;
+                    const float*c = ali_data.c_cc + (size_t)i*n_pts;
+                    float m = -INFINITY;
+                    for(int j=0;j<n_pts;j++)
+                        if( std::isfinite(c[j]) ) m = std::max(m,c[j]/w);
+                    cov_cs[2*i+sg] = m;
+                }
+            }
+            for(int i=0;i<ptr->K;i++) {
+                if( ptr->c_ali.ptr[i].w <= 0 ) continue;
+                p_covar->covar_row(ptr->ptcl_gix,i)[1+ax] = (cov_cs[2*i]+cov_cs[2*i+1]-2*cov_c0[i])/(d*d);
+            }
+        }
     }
 
     /// output_type refinement_stats: the particle's profiles over the linearized coordinate and its depth curves, added to
@@ -549,16 +646,6 @@ protected:
         memcpy(p_stats->depth_row(ptr->ptcl_gix),hstats_curv.ptr,sizeof(float)*2*ND);
     }
 
-    static int setup_grid(float&out_step,const float range,const float in_step) {
-        if( !(range > SUSAN_FLOAT_TOL) || !(in_step > SUSAN_FLOAT_TOL) ) {
-            out_step = 1;
-            return 0;
-        }
-        int n = (int)fmax(round(range/in_step),1.0);
-        out_step = range/n;
-        return n;
-    }
-
     void update_particle_projection(Particle&ptcl,const Defocus&delta_def,const Vec3&t,const single cc, const int prj_ix,const float apix) {
         if( ptcl.prj_w[prj_ix] > 0 ) {
             ptcl.prj_cc[prj_ix]       = cc;
@@ -583,6 +670,7 @@ public:
     Tomogram         *p_tomo;
     RefMap           *p_refs;
     CtfStats         *p_stats;     /// NULL when disabled
+    AliStats         *p_covar;     /// NULL when disabled
     int              ptcl_offset;  /// global index of the first particle of the current tomogram
     int gpu_ix;
     int max_K;
@@ -600,6 +688,7 @@ public:
 
     CtfRefRdrWorker() {
         p_stats     = NULL;
+        p_covar     = NULL;
         ptcl_offset = 0;
     }
 
@@ -703,6 +792,7 @@ protected:
         gpu_worker.phase_sigma   = p_info->phase_sigma;
         gpu_worker.astigmatism = p_info->refine_astig;
         gpu_worker.p_stats     = p_stats;
+        gpu_worker.p_covar     = p_covar;
         gpu_worker.start();
     }
 
@@ -825,10 +915,16 @@ public:
     ProgressReporter progress;
 
     CtfStats *p_stats;     /// CTF statistics, NULL when disabled
+    AliStats *p_covar;     /// evidence at the solution, NULL when disabled
     uint8    *ptcls_base;  /// p_raw of this node's particle list (offsets of the per-tomogram subsets)
 
     void set_stats(CtfStats*stats,uint8*base) {
         p_stats    = stats;
+        ptcls_base = base;
+    }
+
+    void set_covar(AliStats*covar,uint8*base) {
+        p_covar    = covar;
         ptcls_base = base;
     }
 
@@ -840,6 +936,7 @@ public:
         workers  = new CtfRefRdrWorker[in_num_threads];
         p_info   = info;
         p_stats    = NULL;
+        p_covar    = NULL;
         ptcls_base = NULL;
         max_K    = in_max_K;
         n_ptcls  = num_ptcls;
@@ -973,6 +1070,7 @@ protected:
     void coord_init() {
         for(int i=0;i<p_info->n_threads;i++) {
             workers[i].p_stats = p_stats;
+            workers[i].p_covar = p_covar;
             workers[i].setup_global_data(i,p_refs,R,max_K,p_info,&w_cmd);
             workers[i].ss_cropper.set_local_radii(local_radii);
             workers[i].start();
@@ -986,6 +1084,8 @@ protected:
         int offset = 0;
         if( p_stats != NULL )
             offset = p_stats->lo + (int)((ptcls.p_raw - ptcls_base)/ptcls.n_bytes);
+        if( p_covar != NULL )
+            offset = p_covar->lo + (int)((ptcls.p_raw - ptcls_base)/ptcls.n_bytes);
         for(int i=0;i<p_info->n_threads;i++) {
             workers[i].ptcl_offset = offset;
             workers[i].setup_working_data(stack,proj_stats,&ptcls,&tomo);

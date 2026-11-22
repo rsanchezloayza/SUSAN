@@ -162,6 +162,7 @@ protected:
     std::vector<float>  noise_tmp;
     std::vector<float>  st_row;                 /// raw CC row (not weighted) of the statistics
     PeakStats::Workspace st_ws;
+    std::vector<float>  cov_c0, cov_cs;         /// alignment_covar: best raw CC at the solution and at +-step
     bool                use_prior;
     std::unique_ptr<CcTrackerAlignment>    cc_tracker;
     std::unique_ptr<CcTrackerAlignmentArr> cc_tracker_arr;
@@ -190,11 +191,12 @@ protected:
         /// Alignment priors: scaled per projection (2D) or particle (3D) by the CC noise on a ring outside the peak
         /// (see prior_lambda in cc_tracker.h).
         use_prior = (angle_sigma > 0 || offset_sigma > 0) && output_type != ALI_OUTPUT_DENSE;
-        if( use_prior ) {
+        if( use_prior || output_type == ALI_OUTPUT_ALIGNMENT_COVAR ) {
             ali_data.set_noise_ring(ali_type,bandpass.y);
             if( ali_data.n_noise == 0 ) {
                 if( worker_id == 0 )
-                    fprintf(stderr,"Warning: no room for the noise ring of the alignment priors in box %d; priors disabled.\n",NP);
+                    fprintf(stderr,"Warning: no room for the noise ring of the alignment priors / covariance in box %d; "
+                                   "priors disabled, lambda NaN.\n",NP);
                 use_prior = false;
             }
             noise_tmp.resize(ali_data.n_noise);
@@ -225,6 +227,10 @@ protected:
                 prior_pen.resize(max_K);
                 if( p_stats != NULL )
                     st_row.resize(ali_data.n_pts);
+                if( output_type == ALI_OUTPUT_ALIGNMENT_COVAR ) {
+                    cov_c0.resize(max_K);
+                    cov_cs.resize(2*max_K);
+                }
             }
         }
 
@@ -630,7 +636,7 @@ protected:
                 cc_tracker_arr->set_lambda(i,prior_lambda(noise_tmp.data(),ali_data.n_noise,ali_data.c_cc+i*ali_data.n_pts,ali_data.n_pts));
             }
         }
-        if( p_stats != NULL ) {
+        if( output_type == ALI_OUTPUT_ALIGNMENT_STATS ) {
             sequential_search_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,stream);
         }
         else {
@@ -667,6 +673,9 @@ protected:
             } // REFINE
         }
 
+        if( output_type == ALI_OUTPUT_ALIGNMENT_COVAR && p_stats != NULL )
+            covar_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,stream);
+
         single cc_acc=0,wgt_acc=0,cc_cur=0;
         for(int i=0;i<ptr->K;i++) {
             if( ptr->ptcl.prj_w[i] <= 0 )
@@ -685,6 +694,74 @@ protected:
                                i,ptr->ctf_vals.apix);
         }
         ptr->ptcl.ali_cc[ptr->class_ix] = cc_acc/fmax(wgt_acc,1.0);
+    }
+
+    /// output_type alignment_covar: the evidence at the solution of the search, per projection: the raw CC map (not
+    /// weighted by prj_w, no priors) at the best orientation (PeakStats fields), lambda of its noise ring (cc_tracker.h)
+    /// and the curvature of the best raw CC over the offsets about detector x, y and z (right of the solution, as the
+    /// search) by finite differences at +- the finest step of each searched axis (ali_stats.h).
+    void covar_2D(AliRef&vol,AliSubstack&ss_data,GPU::GArrSingle&ctf_wgt,AliBuffer*ptr,AliData&ali_data,RadialAverager&rad_avgr,GPU::Stream&stream) {
+        Rot33 Rot;
+        const int n_pts = ali_data.n_pts;
+        const int n_noise = ali_data.n_noise;
+        for(int i=0;i<ptr->K;i++) {
+            R_lvl[i] = cc_tracker_arr->get_rot(i);
+            Math::set(ali_data.c_lvl[i],R_lvl[i].transpose());
+        }
+        ali_data.upload_level_rotations(ptr->K,stream);
+
+        Math::set(Rot,M33f::Identity());
+        correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,true,stream);
+        ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+        if( n_noise > 0 )
+            ali_data.download_noise_cc(ptr->g_ali,ptr->K,stream);
+        stream.sync();
+        for(int i=0;i<ptr->K;i++) {
+            cov_c0[i] = NAN;
+            const float w = ptr->c_ali.ptr[i].w;
+            if( w <= 0 ) continue;
+            const float*c = ali_data.c_cc + (size_t)i*n_pts;
+            float m = -INFINITY;
+            for(int j=0;j<n_pts;j++) {
+                st_row[j] = c[j]/w;
+                if( std::isfinite(st_row[j]) ) m = std::max(m,st_row[j]);
+            }
+            PeakStats::compute(st_ws,p_stats->particle_row(ptr->ptcl_gix,i),st_row.data(),n_pts,
+                               p_stats->pts_x.data(),p_stats->pts_y.data(),p_stats->step,p_stats->excl);
+            cov_c0[i] = m;
+            if( n_noise > 0 ) {
+                for(int j=0;j<n_noise;j++) noise_tmp[j] = ali_data.c_noise_cc[(size_t)i*n_noise+j]/w;
+                p_stats->covar_row(ptr->ptcl_gix,i)[0] = prior_lambda(noise_tmp.data(),n_noise,st_row.data(),n_pts);
+            }
+        }
+
+        for(int ax=0;ax<3;ax++) {
+            const float d = p_stats->cov_step[ax];
+            if( !(d > 0) ) continue;
+            for(int sg=0;sg<2;sg++) {
+                V3f axis = V3f::Zero();
+                axis(ax) = 1;
+                M33f Rd;
+                Rd = Eigen::AngleAxisf((sg ? -d : d)*float(M_PI)/180.f,axis);
+                Math::set(Rot,Rd.transpose());
+                correlate_2D(vol,ss_data,ctf_wgt,ptr,ali_data,rad_avgr,Rot,true,stream);
+                ali_data.download_cc(ptr->g_ali,ptr->K,stream);
+                stream.sync();
+                for(int i=0;i<ptr->K;i++) {
+                    const float w = ptr->c_ali.ptr[i].w;
+                    if( w <= 0 ) continue;
+                    const float*c = ali_data.c_cc + (size_t)i*n_pts;
+                    float m = -INFINITY;
+                    for(int j=0;j<n_pts;j++)
+                        if( std::isfinite(c[j]) ) m = std::max(m,c[j]/w);
+                    cov_cs[2*i+sg] = m;
+                }
+            }
+            for(int i=0;i<ptr->K;i++) {
+                if( ptr->c_ali.ptr[i].w <= 0 ) continue;
+                p_stats->covar_row(ptr->ptcl_gix,i)[1+ax] = (cov_cs[2*i]+cov_cs[2*i+1]-2*cov_c0[i])/(d*d);
+            }
+        }
     }
 
     /// output_type alignment_stats: the angles of ArgsAli::stats_angles around the input orientation, the

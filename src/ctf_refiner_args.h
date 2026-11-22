@@ -352,7 +352,8 @@ inline bool parse_args(Info&info,int ac,char** av) {
             case OUTPUT_TYPE:
                 if( strcmp(optarg,"refinement") == 0 ) info.output_type = CTF_OUTPUT_REFINEMENT;
                 else if( strcmp(optarg,"refinement_stats") == 0 ) info.output_type = CTF_OUTPUT_REFINEMENT_STATS;
-                else { fprintf(stderr,"Invalid output_type %s. Options are: refinement or refinement_stats.\n",optarg); exit(1); }
+                else if( strcmp(optarg,"refinement_covar") == 0 ) info.output_type = CTF_OUTPUT_REFINEMENT_COVAR;
+                else { fprintf(stderr,"Invalid output_type %s. Options are: refinement, refinement_stats or refinement_covar.\n",optarg); exit(1); }
                 break;
             case STATS_GROUPS:
                 info.n_stats_groups = ArgParser::get_list_integers(info.stats_groups,optarg);
@@ -452,6 +453,33 @@ inline void print_full(const Info&info,FILE*fp=stdout) {
         for(uint32 i=0;i<info.n_stats_groups;i++) fprintf(fp," %dx%d",info.stats_groups[i],info.stats_groups[i]);
         fprintf(fp,"), particles unchanged.\n");
     }
+    if( info.output_type == CTF_OUTPUT_REFINEMENT_COVAR )
+        fprintf(fp,"\t\tCTF evidence:   <particles out stem>.stats.npz (refinement_covar).\n");
+}
+
+/// Search grid of a total width range: n points each side of 0 at out_step = (range/2)/n; 0 when not searched.
+inline int grid_points(float&out_step,const float range,const float in_step) {
+    const float half = range/2;
+    if( !(half > SUSAN_FLOAT_TOL) || !(in_step > SUSAN_FLOAT_TOL) ) {
+        out_step = 1;
+        return 0;
+    }
+    int n = (int)fmax(round(half/in_step),1.0);
+    out_step = half/n;
+    return n;
+}
+
+/// refinement_covar: steps of the curvatures (AliCovar::FIELDS_CTF): mean defocus and astigmatism (A), astigmatism
+/// angle and phase shift (deg); the grid steps of the searched axes, 0 for the others.
+inline void covar_steps(const Info&info,float*steps) {
+    float d, a, p;
+    const bool sd = grid_points(d,info.def_range,info.def_step) > 0;
+    const bool sa = grid_points(a,info.ang_range,info.ang_step) > 0;
+    const bool sp = grid_points(p,info.phase_shift_rad_span,info.phase_shift_rad_step) > 0;
+    steps[0] = sd ? d : 0;
+    steps[1] = (sd && info.refine_astig) ? d : 0;
+    steps[2] = (sa && info.refine_astig) ? a : 0;
+    steps[3] = sp ? p*180.f/float(M_PI) : 0;
 }
 
 inline void print_basic(const Info&info,FILE*fp=stdout) {
@@ -524,6 +552,8 @@ inline void print_basic(const Info&info,FILE*fp=stdout) {
     }
     if( info.output_type == CTF_OUTPUT_REFINEMENT_STATS )
         fprintf(fp," Output: refinement_stats.");
+    if( info.output_type == CTF_OUTPUT_REFINEMENT_COVAR )
+        fprintf(fp," Output: refinement_covar.");
     fprintf(fp,"\n");
 }
 
@@ -541,6 +571,8 @@ inline void print_minimal(const Info&info,FILE*fp=stdout) {
     fprintf(fp,"-> %s",info.ptcls_out);
     if( info.output_type == CTF_OUTPUT_REFINEMENT_STATS )
         fprintf(fp," (refinement_stats)");
+    if( info.output_type == CTF_OUTPUT_REFINEMENT_COVAR )
+        fprintf(fp," (refinement_covar)");
 
     if( info.n_gpu > 1 )
         fprintf(fp," on %d GPUs.\n",info.n_gpu);

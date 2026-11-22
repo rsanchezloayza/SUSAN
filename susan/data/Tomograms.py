@@ -37,13 +37,36 @@ from susan.utils import bin_frame_shape as _bin_frame_shape
 
 _APIX_RTOL = 1e-4  # relative tolerance of the MRC header pixel size (float32 cell / sampling)
 
-def _xf_geometry(A,d,tilt):
-    """Raw-stack projection for one IMOD .xf line and tilt angle (degrees).
+def tilt_eZYZ(eu):
+    """Projection ZYZ angles (degrees, ``(..., 3)``) in the tilt convention of the .tomostxt.
+
+    The same rotation as ``(a + 180, -b, c + 180)``; the one with the last Z in [-90, 90] is
+    kept, so the Y angle is the signed tilt (in [-180, 180]) and the in-plane rotation goes to
+    the first Z. All angles in [-180, 180).
+    """
+    e = _np.array(eu,_np.float64)
+    wrap = lambda x: (x + 180.0) % 360.0 - 180.0
+    flip = _np.abs(wrap(e[...,2])) > 90.0
+    e[...,0] += 180.0*flip
+    e[...,1] *= _np.where(flip,-1.0,1.0)
+    e[...,2] += 180.0*flip
+    return wrap(e)
+
+def _imod_view(tilt,xtilt=0.0):
+    """IMOD view rotation (float64) for a tilt and an x-axis tilt (degrees): ``Ry(tilt) Rx(xtilt)``."""
+    t,a = _np.radians(tilt),_np.radians(xtilt)
+    Ry = _np.array([[_np.cos(t),0.0,_np.sin(t)],[0.0,1.0,0.0],[-_np.sin(t),0.0,_np.cos(t)]])
+    Rx = _np.array([[1.0,0.0,0.0],[0.0,_np.cos(a),-_np.sin(a)],[0.0,_np.sin(a),_np.cos(a)]])
+    return Ry @ Rx
+
+def _xf_geometry(A,d,tilt,xtilt=0.0):
+    """Raw-stack projection for one IMOD .xf line, tilt and x-axis tilt (degrees).
 
     IMOD maps raw to aligned as ``A (x - c) + d`` about ``c = N/2 - 0.5``
-    (0-based pixels); SUSAN's stack centre is ``N/2``. The in-plane block of
-    ``A^-1 R_tlt`` is split by SVD as ``s Rz(a) diag(cos b, 1) Rz(c)``, so
-    stretch and skew become a 3D rotation and ``s`` an isotropic scale.
+    (0-based pixels, odd or even ``N``); SUSAN's stack centre is ``N/2``. The in-plane block of
+    ``A^-1 R_view`` (:func:`_imod_view`) is split by SVD as
+    ``s Rz(a) diag(cos b, 1) Rz(c)``, so stretch and skew become a 3D rotation
+    and ``s`` an isotropic scale.
 
     Returns
     -------
@@ -53,9 +76,7 @@ def _xf_geometry(A,d,tilt):
     scale : float
     """
     Ai    = _np.linalg.inv(_np.asarray(A,_np.float64))
-    R_tlt = _np.zeros([3,3],_np.float32)
-    _euZYZ_rotm(R_tlt,_np.array([0.0,tilt,0.0],_np.float32)*_np.float32(_np.pi/180.0))
-    G = Ai @ R_tlt[:2].astype(_np.float64)
+    G = Ai @ _imod_view(tilt,xtilt)[:2]
     U,S,Vt = _np.linalg.svd(G[:,:2])
     if _np.linalg.det(U) < 0:
         U[:,1] *= -1
@@ -79,6 +100,39 @@ def _xf_geometry(A,d,tilt):
             rot,best = R,err
     shift = Ai @ (-_np.asarray(d,_np.float64)) + (Ai - _np.eye(2)) @ _np.full(2,0.5)
     return rot.astype(_np.float32),shift,float(S[0])
+
+def _geometry_xf(R,s,shift,use_xtilt):
+    """Inverse of :func:`_xf_geometry`: IMOD view for ``R``, scale ``s`` and ``shift`` (pixels).
+
+    With ``use_xtilt``, ``R = Rz(phi) Ry(tilt) Rx(xtilt)`` and the .xf is the
+    similarity ``Rz(-phi) / s``: exact. Otherwise ``xtilt = 0`` and the .xf
+    matches ``s R`` exactly at depth 0, with the tilt that best matches the
+    depth direction; ``depth_err`` is what is left of it (pixels of position
+    error per pixel of depth).
+
+    Returns
+    -------
+    A : ndarray, float64, shape (2, 2)
+    d : ndarray, float64, shape (2,)
+    tilt, xtilt, depth_err : float
+    """
+    R = _np.asarray(R,_np.float64)
+    if use_xtilt:
+        tilt  = _np.degrees(_np.arctan2(-R[2,0],_np.hypot(R[0,0],R[1,0])))
+        xtilt = _np.degrees(_np.arctan2(R[2,1],R[2,2]))
+        phi   = _np.arctan2(R[1,0],R[0,0])
+        c,sn  = _np.cos(phi),_np.sin(phi)
+        Ai    = s*_np.array([[c,-sn],[sn,c]])
+        depth_err = 0.0
+    else:
+        r0,r2 = R[:2,0],R[:2,2]
+        tilt  = _np.degrees(_np.arctan2(r0 @ r2,r0 @ r0))
+        xtilt = 0.0
+        Ai    = s*R[:2,:2] @ _np.diag([1.0/_np.cos(_np.radians(tilt)),1.0])
+        depth_err = float(s*_np.linalg.norm(r2 - r0*_np.tan(_np.radians(tilt))))
+    A = _np.linalg.inv(Ai)
+    d = 0.5 - A @ (0.5 + _np.asarray(shift,_np.float64))
+    return A,d,float(tilt),float(xtilt),depth_err
 
 def lookup_cix(id_table,tomo_id) -> tuple[_np.ndarray, _np.ndarray]:
     """Map tomogram IDs onto their index in ``id_table``.
@@ -158,7 +212,9 @@ class Tomograms:
     .. attribute:: proj_eZYZ
        :type: ndarray, float32, shape (N, P, 3)
 
-       Per-projection tilt orientation as ZYZ Euler angles in degrees.
+       Per-projection tilt orientation as ZYZ Euler angles in degrees. Saved
+       in the convention of :func:`tilt_eZYZ`: Y is the signed tilt, the last
+       Z in [-90, 90].
 
     .. attribute:: proj_shift
        :type: ndarray, float32, shape (N, P, 2)
@@ -236,7 +292,7 @@ class Tomograms:
     .. attribute:: def_phas
        :type: ndarray, float32, shape (N, P)
 
-       Phase shift in degrees.
+       Phase shift in radians (as ``Defocus.ph_shft`` in the C++ code).
 
     .. attribute:: def_Bfct
        :type: ndarray, float32, shape (N, P)
@@ -429,7 +485,7 @@ class Tomograms:
         self.def_U    = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # U (angstroms)
         self.def_V    = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # V (angstroms)
         self.def_ang  = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # angles (sexagesimal)
-        self.def_phas = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # phase shift (sexagesimal?)
+        self.def_phas = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # phase shift (radians)
         self.def_Bfct = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # Bfactor
         self.def_ExFl = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # Exposure filter
         self.def_mres = _np.zeros((n_tomos,n_projs),dtype=_np.float32) # Max. resolution (angstroms)
@@ -565,8 +621,9 @@ class Tomograms:
             fp.write('  Dose  NomTilt  CtfScale  Mag\n')
             
             P = self.num_proj[i]
+            eu = tilt_eZYZ(self.proj_eZYZ[i,:P])
             for p in range(P):
-                fp.write('%8.8f %8.8f %8.8f ' % (self.proj_eZYZ[i,p,0],self.proj_eZYZ[i,p,1],self.proj_eZYZ[i,p,2]))
+                fp.write('%8.8f %8.8f %8.8f ' % (eu[p,0],eu[p,1],eu[p,2]))
                 fp.write('%8.8f %8.8f '       % (self.proj_shift[i,p,0],self.proj_shift[i,p,1]))
                 fp.write('%8.8f '             % (self.proj_wgt[i,p]))
                 fp.write('%8.8f %8.8f '       % (self.def_U   [i,p],self.def_V   [i,p]))             # Defocus.U    Defocus.V
@@ -900,7 +957,7 @@ class Tomograms:
         self.proj_wgt[idx,:]   = 0
         self.proj_wgt[idx,:P]  = 1
     
-    def set_angles(self, idx, tlt_filename, xf_filename=None, xf_apix=None):
+    def set_angles(self, idx, tlt_filename, xf_filename=None, xf_apix=None, xtilt_filename=None):
         """Set per-projection tilt angles and optional IMOD alignment transforms.
 
         If only ``tlt_filename`` is provided, tilt angles are set directly
@@ -908,7 +965,9 @@ class Tomograms:
         If ``xf_filename`` is also provided, the IMOD .xf affine transforms
         are combined with the tilt angles to produce full ZYZ orientations,
         X/Y shifts in Ångströms and the magnification (``proj_scale``); a
-        stretch or skew in the .xf becomes part of the 3D rotation.
+        stretch or skew in the .xf becomes part of the 3D rotation. This is
+        exact for a similarity .xf; for a stretch or skew it matches IMOD in
+        the central plane only (IMOD applies it as a 2D affine at all depths).
 
         Parameters
         ----------
@@ -921,34 +980,36 @@ class Tomograms:
         xf_apix : float, optional
             Pixel size to use when converting .xf shifts to Ångströms.
             Defaults to ``pix_size[idx]`` if not given.
+        xtilt_filename : str, optional
+            Path to a IMOD .xtilt file (one x-axis tilt per view, degrees, as
+            ``tilt -XTILTFILE``), applied before the tilt: ``Ry(tilt) Rx(xtilt)``.
         """
         self.proj_eZYZ [idx,:,:] = 0
         self.proj_shift[idx,:,:] = 0
         self.proj_wgt  [idx,:, ] = 0
         self.proj_scale[idx,:, ] = 1
-        
-        tlt = _tlt.read(tlt_filename)
-        self.nominal_tilt_angles[idx, :self.num_proj[idx]] = tlt
-        if (xf_filename == None):
-            self.proj_eZYZ[idx, :self.num_proj[idx], 1] = tlt
-            self.proj_wgt [idx, :self.num_proj[idx],  ] = 1
+
+        K   = int(self.num_proj[idx])
+        tlt = _np.atleast_1d(_tlt.read(tlt_filename))
+        self.nominal_tilt_angles[idx, :K] = tlt[:K]
+        if (xf_filename is None and xtilt_filename is None):
+            self.proj_eZYZ[idx, :K, 1] = tlt[:K]
+            self.proj_wgt [idx, :K,  ] = 1
+            return
+        xtl = _np.zeros(K) if xtilt_filename is None else _np.atleast_1d(_tlt.read(xtilt_filename))
+        if xf_filename is None:
+            xf = _np.tile(_np.array([[1.0,0.0,0.0],[0.0,1.0,0.0]]),(K,1,1))
         else:
-            xf = _xf.read(xf_filename)
-            if (xf_apix != None):
-                apix = xf_apix
-            else:
-                apix = self.pix_size[idx]
-            for i in range(self.num_proj[idx]):
-                rot,vec,scl = _xf_geometry(xf[i,:,:2],xf[i,:,2],tlt[i])
-                vec   = vec*apix
-                euler = _np.zeros(3, _np.float32)
-                _rotm_euZYZ(euler, rot)
-                self.proj_eZYZ [idx, i, :] = euler * 180.0 / _np.pi
-                self.proj_shift[idx, i, :] = vec[:2]
-                self.proj_scale[idx, i   ] = scl
-                self.proj_wgt  [idx, i,  ] = 1
-         
-         
+            xf = _xf.read(xf_filename).reshape(-1,2,3)
+        apix = self.pix_size[idx] if xf_apix is None else xf_apix
+        for i in range(K):
+            rot,vec,scl = _xf_geometry(xf[i,:,:2],xf[i,:,2],tlt[i],xtl[i])
+            euler = _np.zeros(3, _np.float32)
+            _rotm_euZYZ(euler, rot)
+            self.proj_eZYZ [idx, i, :] = tilt_eZYZ(euler * 180.0 / _np.pi)
+            self.proj_shift[idx, i, :] = vec*apix
+            self.proj_scale[idx, i   ] = scl
+            self.proj_wgt  [idx, i,  ] = 1
 
     def set_defocus(self, idx, def_file, skip_max_res=True):
         """Load CTF defocus parameters from file into a tomogram entry.
@@ -1025,6 +1086,90 @@ class Tomograms:
                 self.def_mres[idx,:P] = 0
         else:
             raise NameError('Invalid filename')
+
+    def export_imod(self, suffix='_uptd', save_xtilt=False) -> dict:
+        """Write the geometry and defocus of every tomogram as IMOD files.
+
+        For a stack ``dir/tomo1.st`` the files are ``dir/tomo1<suffix>.tlt``,
+        ``.xf``, ``.defocus`` and, with ``save_xtilt``, ``.xtilt``. They refer
+        to the stack this entry uses, at its binning: the .xf shifts are in
+        its pixels (export from the bin-8 ``Tomograms`` for the bin-8 stack).
+        IMOD then reconstructs the tomogram frame of SUSAN (``tomo_position``
+        does not enter), so particle positions stay valid: in the output of
+        ``tilt`` (before ``clip rotx``) z points the other way, and the origin
+        is at voxel ``N/2`` in y and ``floor(N/2)`` in x (IMOD's convention).
+        Reading the files back with :meth:`set_angles` (and
+        :meth:`set_defocus`) gives the same geometry.
+
+        * ``save_xtilt=True``: each view is ``Rz(phi) Ry(tilt) Rx(xtilt)``; the
+          .xf is a similarity and the x-axis tilts go to the .xtilt, for
+          ``tilt -XTILTFILE`` (a ``-XAXISTILT`` is subtracted from them by
+          IMOD, so do not combine both). Exact in IMOD.
+        * ``save_xtilt=False``: the x-axis tilts are folded into the .xf as a
+          stretch / skew, exact in the central plane. IMOD applies the .xf at
+          all depths, so at depth ``z`` a view is off by up to
+          ``depth_err * z`` (printed and returned); across views this is
+          mostly blur, the displacement in the tomogram is smaller. It is 0
+          when the geometry has no x-axis tilt (e.g. from a similarity .xf).
+
+        The .tlt holds the tilts of this geometry, not the nominal ones. The
+        .defocus is ctfplotter version 3 (astigmatism in degrees, phase
+        shift in radians when any is non-zero). ``def_ang`` is in the frame
+        of the stack SUSAN reads, so ``ctfphaseflip`` needs
+        ``-xform <exported .xf>`` on that stack; it ignores the x-axis tilts.
+        Views with ``proj_wgt == 0`` are written too and listed in
+        ``exclude`` (1-based, for ``tilt -EXCLUDELIST2``).
+
+        Parameters
+        ----------
+        suffix : str, optional
+            Added to the stack name; must not be empty (it would overwrite
+            the original IMOD files).
+        save_xtilt : bool, optional
+            Write a .xtilt with the x-axis tilts instead of folding them into
+            the .xf.
+
+        Returns
+        -------
+        dict
+            ``{tomo_id: {'tlt', 'xf', 'xtilt', 'defocus': paths ('xtilt' is
+            None without save_xtilt), 'exclude': str, 'depth_err': largest
+            error of a view per 100 nm of depth, in pixels}}``.
+        """
+        if not suffix:
+            raise ValueError('suffix must not be empty')
+        out = {}
+        for c in range(self.n_tomos):
+            K    = int(self.num_proj[c])
+            apix = float(self.pix_size[c])
+            stem = _os.path.splitext(self.stack_file[c])[0] + suffix
+            tlt,xtl,xf,err = _np.zeros(K),_np.zeros(K),_np.zeros((K,6)),0.0
+            for k in range(K):
+                R = _euZYZ_to_rotm(_np.asarray(self.proj_eZYZ[c,k],_np.float64),degrees=True)
+                A,d,tlt[k],xtl[k],e = _geometry_xf(R,float(self.proj_scale[c,k]),
+                                                   _np.asarray(self.proj_shift[c,k],_np.float64)/apix,save_xtilt)
+                xf[k] = (A[0,0],A[0,1],A[1,0],A[1,1],d[0],d[1])
+                err   = max(err,e)
+            files = {'tlt':stem+'.tlt','xf':stem+'.xf','defocus':stem+'.defocus',
+                     'xtilt':stem+'.xtilt' if save_xtilt else None}
+            _np.savetxt(files['tlt'],tlt,fmt='%.6f')
+            _np.savetxt(files['xf'],xf,fmt='%14.9f%14.9f%14.9f%14.9f%12.4f%12.4f')
+            if save_xtilt:
+                _np.savetxt(files['xtilt'],xtl,fmt='%.6f')
+            phase = bool(_np.any(self.def_phas[c,:K] != 0))
+            with open(files['defocus'],'w') as fp:
+                fp.write('%d 0 0. 0. 0 3\n' % (13 if phase else 1))
+                for k in range(K):
+                    fp.write('%d %d %.4f %.4f %.2f %.2f %.3f' % (k+1,k+1,tlt[k],tlt[k],
+                             self.def_U[c,k]/10,self.def_V[c,k]/10,self.def_ang[c,k]))
+                    fp.write(' %.5f\n' % self.def_phas[c,k] if phase else '\n')
+            files['exclude']   = ','.join(str(k+1) for k in range(K) if self.proj_wgt[c,k] <= 0)
+            files['depth_err'] = 1000.0*err/apix
+            if not save_xtilt:
+                print('tomo %d: x-axis tilt folded into the .xf, IMOD position error up to %.3f px per 100 nm of depth'
+                      % (self.tomo_id[c],files['depth_err']))
+            out[int(self.tomo_id[c])] = files
+        return out
 
     def bin(self, scale, in_subfolder=True, filename=None, write_if_mismatch=False) -> Tomograms:
         """Downsample every tilt-series stack and return a binned ``Tomograms``.

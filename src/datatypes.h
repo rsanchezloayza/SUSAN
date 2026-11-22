@@ -266,12 +266,14 @@ typedef enum {
 typedef enum {
     ALI_OUTPUT_ALIGNMENT=0,
     ALI_OUTPUT_DENSE,
-    ALI_OUTPUT_ALIGNMENT_STATS   /// alignment + the 2D statistics (<output stem>.stats.npz), type 2
+    ALI_OUTPUT_ALIGNMENT_STATS,  /// alignment + the 2D statistics (<output stem>.stats.npz), type 2
+    ALI_OUTPUT_ALIGNMENT_COVAR   /// alignment + per projection evidence at the solution (<output stem>.stats.npz), type 2
 } AliOutputType_t;
 
 typedef enum {
     CTF_OUTPUT_REFINEMENT=0,
-    CTF_OUTPUT_REFINEMENT_STATS   /// particles unchanged + the CTF statistics (<output stem>.ctfstats.npz)
+    CTF_OUTPUT_REFINEMENT_STATS,  /// particles unchanged + the CTF statistics (<output stem>.ctfstats.npz)
+    CTF_OUTPUT_REFINEMENT_COVAR   /// refinement + per projection evidence at the solution (<output stem>.stats.npz)
 } CtfOutputType_t;
 
 typedef enum {

@@ -569,7 +569,22 @@ class SubtomoAvg(SubtomoAvgCore):
        ``'ctf'``           CTF refinement
        ==================  ===========================
 
-       Default: ``3``.
+       Default: ``3``.  What runs after the alignment or refinement follows the
+       output type of the module, which is never changed internally: the
+       ``set_iteration_*`` presets set the type with the matching output
+       type and the settings it needs.
+
+       ==========================================  ========================================================
+       Preset                                      Mode
+       ==========================================  ========================================================
+       :meth:`set_iteration_3D`                    3-D alignment
+       :meth:`set_iteration_2D`                    2-D, free per particle (``'alignment'``)
+       :meth:`set_iteration_2D_regularized`        2-D with priors, uncertainty (``'alignment_covar'``)
+       :meth:`set_iteration_2D_pooled`             2-D statistics + :attr:`solver_2d` (``'alignment_stats'``)
+       :meth:`set_iteration_CTF`                   CTF, free per particle (optional smoothing)
+       :meth:`set_iteration_CTF_regularized`       CTF with priors, uncertainty (``'refinement_covar'``)
+       :meth:`set_iteration_CTF_pooled`            CTF statistics + :attr:`solver_ctf` (``'refinement_stats'``)
+       ==========================================  ========================================================
 
     .. attribute:: cc_threshold
        :type: float
@@ -605,29 +620,27 @@ class SubtomoAvg(SubtomoAvgCore):
     .. attribute:: solver_2d
        :type: :class:`~susan.solvers.Solver2D` or None
 
-       Refinement of the 2-D iterations from the alignment statistics: the
-       aligner writes ``output_type='alignment_stats'`` (recommended: offset
-       step 0.5 px; the angular search is not run, the orientation
-       correction comes from the positions; with :attr:`aligner`
-       ``halfsets_independ`` the statistics are per half-set), then
-       :meth:`~susan.solvers.Solver2D.solve` gives the particles of the next
-       iteration; the statistics also carry the uncertainty of what it applied
-       (:attr:`solver_highres`).  ``None``: plain 2-D alignment (no fitting;
-       overfits at low SNR).  Default: ``Solver2D()``.
+       Used by the 2-D iterations whose aligner writes
+       ``output_type='alignment_stats'`` (:meth:`set_iteration_2D_pooled`;
+       recommended: offset step 0.5 px; the orientation correction comes from
+       the positions; with :attr:`aligner` ``halfsets_independ`` the
+       statistics are per half-set): :meth:`~susan.solvers.Solver2D.solve`
+       gives the particles of the next iteration, and the statistics carry the
+       uncertainty of what it applied (:attr:`solver_highres`).
+       Default: ``Solver2D()``.
 
     .. attribute:: solver_ctf
        :type: :class:`~susan.solvers.SolverCTF` or None
 
-       Defocus correction of the CTF iterations from pooled statistics: the
-       :attr:`ctf_refiner` writes ``output_type='refinement_stats'`` (no
+       Used by the CTF iterations whose :attr:`ctf_refiner` writes
+       ``output_type='refinement_stats'`` (:meth:`set_iteration_CTF_pooled`; no
        per-particle search; its :attr:`~susan.modules.CtfRefiner.defocus_angstroms`
        span is the range of the per-particle depth curves; with :attr:`ctf_refiner`
        ``halfsets_independ`` the statistics are per half-set), then
        :meth:`~susan.solvers.SolverCTF.solve` gives the particles of the next
        iteration: per-tilt offset (shrunk along the acquisition order) and
        per-particle depth error.  Astigmatism and phase shift are kept.
-       ``None``: the free per-particle refinement.
-       Default: ``None``.
+       Default: ``None`` (the preset creates one).
 
     .. attribute:: solver_highres
        :type: :class:`~susan.solvers.SolverHighRes` or None
@@ -648,17 +661,23 @@ class SubtomoAvg(SubtomoAvgCore):
 
        Iteration whose 2-D statistics (``particles.stats.npz``) feed
        :attr:`solver_highres`, ``0`` none.  Set to the iteration by every 2-D
-       iteration run with :attr:`solver_2d` (before :attr:`solver_highres`, so
-       it uses its own); kept in ``info.prjtxt``.  After an aggressive 3-D
-       refinement the statistics no longer describe the particles: set it to
-       ``0``.  A missing file or a different number of particles skips that
-       part with a warning.
+       iteration with ``'alignment_stats'`` or ``'alignment_covar'`` (before
+       :attr:`solver_highres`, so it uses its own); kept in ``info.prjtxt``.
+       :meth:`set_iteration_3D` and :meth:`set_iteration_2D` set it to ``0``
+       (their alignments move the particles away from the statistics).  A missing file or a different number of particles skips that
+       part with a warning.  A later ``'refinement_covar'`` CTF iteration
+       (:attr:`use_ctf_stats`) replaces its shift posterior.
 
     .. attribute:: use_ctf_stats
        :type: int
 
-       Same for the CTF statistics (``particles.ctfstats.npz``), set by every
-       CTF iteration run with :attr:`solver_ctf`.
+       Same for the CTF statistics, set by every CTF iteration with
+       ``'refinement_stats'`` (``particles.ctfstats.npz``: tilt amplitudes)
+       or ``'refinement_covar'`` (``particles.stats.npz``: the shift
+       posterior and the CC at the refined CTF; when later than
+       :attr:`use_2d_stats` its shift posterior gives B_shift).
+       :meth:`set_iteration_3D` and :meth:`set_iteration_2D` set it to ``0``
+       when it points to ``'refinement_covar'`` evidence.
 
     .. attribute:: max_tilt_reconstruction
        :type: None, float, or array-like of length 2
@@ -922,6 +941,126 @@ class SubtomoAvg(SubtomoAvgCore):
         self._rho_v = value
 
     # ------------------------------------------------------------------
+    # Iteration presets
+    # ------------------------------------------------------------------
+
+    def _apply_preset(self, name, changes):
+        """changes: (object, attribute, value, label); sets them and prints the ones that changed."""
+        log = []
+        for obj, attr, val, label in changes:
+            old = getattr(obj, attr)
+            if not (old is val or (type(old) == type(val) and _np.all(old == val))):
+                setattr(obj, attr, val)
+                log.append('%s %r -> %r' % (label, old, val))
+        print('  [Preset %s] %s' % (name, '; '.join(log) if log else 'no change'))
+
+    def _drop_ctf_covar(self):
+        """Preset change: :attr:`use_ctf_stats` = 0 when it points to 'refinement_covar' evidence (shifts that an
+        alignment moves)."""
+        f = self._ctf_stats_path(self.iteration_files(self.use_ctf_stats).ptcl_rslt) if self.use_ctf_stats > 0 else ''
+        return [(self, 'use_ctf_stats', 0, 'use_ctf_stats')] if f.endswith('.stats.npz') and _file_exists(f) else []
+
+    @staticmethod
+    def _ctf_stats_path(ptcl_rslt):
+        """Statistics of a CTF iteration: the pooled ``.ctfstats.npz`` when it exists, else the ``'refinement_covar'``
+        ``.stats.npz``."""
+        f = _ssa_io.ctf_stats.path(ptcl_rslt)
+        return f if _file_exists(f) else _ssa_io.ali_stats.path(ptcl_rslt)
+
+    def set_iteration_3D(self):
+        """3-D alignment (``'alignment'``); :attr:`use_2d_stats` = 0, and :attr:`use_ctf_stats` = 0 when it points to
+        ``'refinement_covar'`` evidence (the 3-D search moves the particles away from the statistics)."""
+        self._apply_preset('3D', [(self, 'iteration_type', 3, 'iteration_type'),
+                                  (self.aligner, 'output_type', 'alignment', 'aligner.output_type'),
+                                  (self, 'use_2d_stats', 0, 'use_2d_stats')] + self._drop_ctf_covar())
+
+    def set_iteration_2D(self):
+        """2-D alignment, free per particle and projection (``'alignment'``, no priors); :attr:`use_2d_stats` = 0 (and
+        :attr:`use_ctf_stats` as in :meth:`set_iteration_3D`): the reconstruction gets the :attr:`cc_threshold`
+        selection only."""
+        self._apply_preset('2D', [(self, 'iteration_type', 2, 'iteration_type'),
+                                  (self.aligner, 'output_type', 'alignment', 'aligner.output_type'),
+                                  (self.aligner, 'offset_sigma', 0.0, 'aligner.offset_sigma'),
+                                  (self.aligner, 'angle_sigma', 0.0, 'aligner.angle_sigma'),
+                                  (self, 'use_2d_stats', 0, 'use_2d_stats')] + self._drop_ctf_covar())
+
+    def set_iteration_2D_regularized(self, offset_sigma, angle_sigma):
+        """2-D alignment with priors (``'alignment_covar'``): the full search (angular search and refine levels
+        allowed) with the offset (pixels) and angle (degrees) priors, plus the evidence at the solution; its posterior
+        covariance feeds :attr:`solver_highres` (weights, ``def_Bfct``, ``def_mres``)."""
+        if offset_sigma < 0 or angle_sigma < 0:
+            raise ValueError('offset_sigma and angle_sigma must be >= 0 (0: no prior).')
+        self._apply_preset('2D_regularized', [(self, 'iteration_type', 2, 'iteration_type'),
+                                              (self.aligner, 'output_type', 'alignment_covar', 'aligner.output_type'),
+                                              (self.aligner, 'offset_sigma', float(offset_sigma), 'aligner.offset_sigma'),
+                                              (self.aligner, 'angle_sigma', float(angle_sigma), 'aligner.angle_sigma')])
+
+    def set_iteration_2D_pooled(self):
+        """2-D statistics and :attr:`solver_2d` (``'alignment_stats'``): the evidence of every particle over the
+        offsets, pooled per tomogram by the solver.  Sets what the statistics need: no angular search, refine levels
+        0, no priors, pseudo-symmetry c1 (an offset step above 0.5 px is reported)."""
+        if self.solver_2d is None:
+            self.solver_2d = _ssa_solvers.Solver2D()
+            print('  [Preset 2D_pooled] solver_2d = Solver2D()')
+        a = self.aligner
+        self._apply_preset('2D_pooled', [(self, 'iteration_type', 2, 'iteration_type'),
+                                         (a, 'output_type', 'alignment_stats', 'aligner.output_type'),
+                                         (a, 'offset_sigma', 0.0, 'aligner.offset_sigma'),
+                                         (a, 'angle_sigma', 0.0, 'aligner.angle_sigma'),
+                                         (a, 'pseudo_symmetry', 'c1', 'aligner.pseudo_symmetry'),
+                                         (a.refine, 'levels', 0, 'aligner.refine.levels'),
+                                         (a, 'cone', type(a.cone)(0, 1), 'aligner.cone'),
+                                         (a, 'inplane', type(a.inplane)(0, 1), 'aligner.inplane')])
+        if a.offset.step > 0.5:
+            print('  [Preset 2D_pooled] offset step %.2f px: 0.5 px or less is recommended.' % a.offset.step)
+
+    def set_iteration_CTF(self, smooth=None):
+        """CTF refinement, free per particle (``'refinement'``, no priors); ``smooth``: None, ``'gaussian'`` or
+        ``'tps'`` smoothing of the defocus changes (:attr:`smooth_ctf`)."""
+        if smooth not in (None, 'gaussian', 'tps'):
+            raise ValueError("smooth must be None, 'gaussian' or 'tps'.")
+        c = self.ctf_refiner
+        ch = [(self, 'iteration_type', 'ctf', 'iteration_type'),
+              (c, 'output_type', 'refinement', 'ctf_refiner.output_type'),
+              (c, 'offset_sigma', 0.0, 'ctf_refiner.offset_sigma'),
+              (c, 'defocus_sigma', 0.0, 'ctf_refiner.defocus_sigma'),
+              (c, 'phase_sigma_deg', 0.0, 'ctf_refiner.phase_sigma_deg'),
+              (self, 'smooth_ctf', smooth is not None, 'smooth_ctf')]
+        if smooth is not None:
+            ch.append((self, 'type_ctf_smoothing', smooth, 'type_ctf_smoothing'))
+        self._apply_preset('CTF', ch)
+
+    def set_iteration_CTF_regularized(self, offset_sigma, defocus_sigma, phase_sigma_deg=0.0):
+        """CTF refinement with priors (``'refinement_covar'``): offset (pixels), defocus (Angstroms) and phase shift
+        (degrees), no smoothing, plus the evidence at the refined CTF: its posterior (shift, defocus, astigmatism,
+        phase shift) is added to ``particles.stats.npz`` and the shift part feeds :attr:`solver_highres`."""
+        if offset_sigma < 0 or defocus_sigma < 0 or phase_sigma_deg < 0:
+            raise ValueError('The sigmas must be >= 0 (0: no prior).')
+        c = self.ctf_refiner
+        self._apply_preset('CTF_regularized', [(self, 'iteration_type', 'ctf', 'iteration_type'),
+                                               (c, 'output_type', 'refinement_covar', 'ctf_refiner.output_type'),
+                                               (c, 'offset_sigma', float(offset_sigma), 'ctf_refiner.offset_sigma'),
+                                               (c, 'defocus_sigma', float(defocus_sigma), 'ctf_refiner.defocus_sigma'),
+                                               (c, 'phase_sigma_deg', float(phase_sigma_deg), 'ctf_refiner.phase_sigma_deg'),
+                                               (self, 'smooth_ctf', False, 'smooth_ctf')])
+
+    def set_iteration_CTF_pooled(self):
+        """CTF statistics and :attr:`solver_ctf` (``'refinement_stats'``): per-particle depth curves over the
+        :attr:`ctf_refiner` ``defocus_angstroms`` span, pooled per tomogram by the solver; no priors, no smoothing."""
+        if self.solver_ctf is None:
+            self.solver_ctf = _ssa_solvers.SolverCTF()
+            print('  [Preset CTF_pooled] solver_ctf = SolverCTF()')
+        c = self.ctf_refiner
+        self._apply_preset('CTF_pooled', [(self, 'iteration_type', 'ctf', 'iteration_type'),
+                                          (c, 'output_type', 'refinement_stats', 'ctf_refiner.output_type'),
+                                          (c, 'offset_sigma', 0.0, 'ctf_refiner.offset_sigma'),
+                                          (c, 'defocus_sigma', 0.0, 'ctf_refiner.defocus_sigma'),
+                                          (c, 'phase_sigma_deg', 0.0, 'ctf_refiner.phase_sigma_deg'),
+                                          (self, 'smooth_ctf', False, 'smooth_ctf')])
+        if not c.defocus_angstroms.span > 0:
+            print('  [Preset CTF_pooled] ctf_refiner.defocus_angstroms span is 0: set it (the range of the depth curves).')
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
@@ -940,24 +1079,22 @@ class SubtomoAvg(SubtomoAvgCore):
         self.aligner.list_gpus_ids   = self.list_gpus_ids
         self.aligner.dimensionality  = ite_type
         self.aligner.verbosity       = self.verbosity
-        self.aligner.output_type     = 'alignment_stats' if (ite_type == 2 and self.solver_2d is not None) else 'alignment'
-        prev = self.aligner.cone, self.aligner.inplane
-        if self.aligner.output_type == 'alignment_stats':
-            self.aligner.cone, self.aligner.inplane = type(prev[0])(0, 1), type(prev[1])(0, 1)
+        out = self.aligner.output_type
+        if ite_type == 3 and out in ('alignment_stats', 'alignment_covar'):
+            raise ValueError('aligner.output_type "%s" is 2-D only (set_iteration_3D sets "alignment").' % out)
+        if out == 'alignment_stats' and self.solver_2d is None:
+            raise ValueError('aligner.output_type "alignment_stats" needs solver_2d (set_iteration_2D_pooled).')
 
         print('  [%dD Alignment] Start:' % ite_type)
         t0 = _ssa_utils.time_now()
-        try:
-            if self.mpi.arg > 1:
-                self.aligner.mpi.cmd = self.mpi.cmd
-                self.aligner.mpi.arg = self.mpi.arg
-                self.aligner.align_mpi(cur.ptcl_rslt, prv.reference,
-                                       self.tomogram_file, prv.ptcl_rslt, self.box_size)
-            else:
-                self.aligner.align(cur.ptcl_rslt, prv.reference,
+        if self.mpi.arg > 1:
+            self.aligner.mpi.cmd = self.mpi.cmd
+            self.aligner.mpi.arg = self.mpi.arg
+            self.aligner.align_mpi(cur.ptcl_rslt, prv.reference,
                                    self.tomogram_file, prv.ptcl_rslt, self.box_size)
-        finally:
-            self.aligner.cone, self.aligner.inplane = prev
+        else:
+            self.aligner.align(cur.ptcl_rslt, prv.reference,
+                               self.tomogram_file, prv.ptcl_rslt, self.box_size)
         elapsed = _ssa_utils.time_now() - t0
         print('  [%dD Alignment] Finished. Elapsed time: %.1f seconds (%s).'
               % (ite_type, elapsed.total_seconds(), str(elapsed)))
@@ -965,7 +1102,8 @@ class SubtomoAvg(SubtomoAvgCore):
     def _run_ctf_refinement(self, cur, prv):
         self.ctf_refiner.list_gpus_ids   = self.list_gpus_ids
         self.ctf_refiner.verbosity       = self.verbosity
-        self.ctf_refiner.output_type     = 'refinement_stats' if self.solver_ctf is not None else 'refinement'
+        if self.ctf_refiner.output_type == 'refinement_stats' and self.solver_ctf is None:
+            raise ValueError('ctf_refiner.output_type "refinement_stats" needs solver_ctf (set_iteration_CTF_pooled).')
 
         print('  [CTF Refinement] Start:')
         t0 = _ssa_utils.time_now()
@@ -1054,6 +1192,39 @@ class SubtomoAvg(SubtomoAvgCore):
         self.use_2d_stats = cur.ite
         return P
 
+    def _covar_2d(self, cur):
+        """Posterior covariance of an 'alignment_covar' iteration, added to its statistics (:attr:`solver_highres`)."""
+        f = _ssa_io.ali_stats.path(cur.ptcl_rslt)
+        S = _ssa_io.ali_stats.read(f)
+        cov, var = _ssa_io.ali_stats.posterior(S, self.aligner.offset_sigma, self.aligner.angle_sigma)
+        _ssa_io.ali_stats.append(f, S, **{'projections/post_cov': cov, 'projections/ang_var': var})
+        self.use_2d_stats = cur.ite
+        ok = _np.isfinite(cov[..., 0])
+        with _warnings.catch_warnings():
+            _warnings.simplefilter('ignore', RuntimeWarning)
+            sd_t = _np.sqrt(0.5 * (cov[..., 0] + cov[..., 2]))[ok]
+            sd_a = _np.sqrt(_np.nanmedian(var.reshape(-1, 3), 0))
+        print('    Alignment uncertainty: %.0f%% of the projections; shift sd median %.2f px; angle sd median %s deg.' % (
+            100.0 * ok.mean() if ok.size else 0.0, _np.median(sd_t) if sd_t.size else _np.nan,
+            _np.array2string(sd_a, precision=3)))
+
+    def _covar_ctf(self, cur):
+        """Posterior covariance of a 'refinement_covar' CTF iteration, added to its statistics (:attr:`solver_highres`)."""
+        c = self.ctf_refiner
+        f = _ssa_io.ali_stats.path(cur.ptcl_rslt)
+        S = _ssa_io.ali_stats.read(f)
+        cov, var = _ssa_io.ali_stats.ctf_posterior(S, c.offset_sigma, c.defocus_sigma, c.phase_sigma_deg)
+        _ssa_io.ali_stats.append(f, S, **{'projections/post_cov': cov, 'projections/ctf_var': var})
+        self.use_ctf_stats = cur.ite
+        ok = _np.isfinite(cov[..., 0])
+        with _warnings.catch_warnings():
+            _warnings.simplefilter('ignore', RuntimeWarning)
+            sd_t = _np.sqrt(0.5 * (cov[..., 0] + cov[..., 2]))[ok]
+            sd_c = _np.sqrt(_np.nanmedian(var.reshape(-1, 4), 0))
+        print('    CTF uncertainty: %.0f%% of the projections; shift sd median %.2f px; sd median: defocus %.0f A, '
+              'astigmatism %.0f A, angle %.2f deg, phase %.2f deg (nan: not searched).' % (
+                  100.0 * ok.mean() if ok.size else 0.0, _np.median(sd_t) if sd_t.size else _np.nan, *sd_c))
+
     def _solve_ctf(self, cur, prv):
         """Defocus correction of the input particles from the statistics (:attr:`solver_ctf`); saves ``cur.ptcl_rslt``."""
         P = self.solver_ctf.solve(prv.ptcl_rslt, _ssa_io.ctf_stats.path(cur.ptcl_rslt), self.tomogram_file)
@@ -1089,14 +1260,15 @@ class SubtomoAvg(SubtomoAvgCore):
     def _solve_highres(self, ptcls, cur, prv):
         """Particles of the reconstruction from the statistics of :attr:`use_2d_stats` and :attr:`use_ctf_stats`."""
         f2d = self._stats_file(self.use_2d_stats, _ssa_io.ali_stats.path, '2D')
-        fct = self._stats_file(self.use_ctf_stats, _ssa_io.ctf_stats.path, 'CTF')
+        fct = self._stats_file(self.use_ctf_stats, self._ctf_stats_path, 'CTF')
         null = self._null_baseline(ptcls) if f2d is not None else None
         if self.solver_highres.verbosity:
             print('    Reconstruction particles from the statistics: 2D %s, CTF %s.' % (
                 ('iteration %d (%s baseline)' % (self.use_2d_stats, 'null' if null is not None else 'second peak')) if f2d else 'none',
                 ('iteration %d' % self.use_ctf_stats) if fct else 'none'))
         return self.solver_highres.solve(ptcls, f2d, fct, self.tomogram_file, cc_threshold=self.cc_threshold,
-                                         null_baseline=null, radius=self._mask_radius(prv))
+                                         null_baseline=null, radius=self._mask_radius(prv),
+                                         latest='ctf' if self.use_ctf_stats > self.use_2d_stats else '2d')
 
     # ------------------------------------------------------------------
     # Null of the 2-D statistics
@@ -1185,6 +1357,45 @@ class SubtomoAvg(SubtomoAvgCore):
             if _file_exists(f):
                 _rm(f)
         print('  [Null] Baseline kept in %s (median %.4g).' % (d, _np.nanmedian(b)))
+
+    def absorb_geometry(self, ite, tomos_out) -> _ssa_data.TomogramGeometryUpdater:
+        """Move the per-projection geometry of iteration ``ite`` into a new tomostxt and use it from now on.
+
+        Fits :class:`~susan.data.TomogramGeometryUpdater` on the iteration's particles and the current
+        :attr:`tomogram_file`, writes ``tomos_out``, converts ``particles.ptclsraw`` and ``particles_rec.ptclsraw``
+        of the iteration (crop positions and orientations unchanged; the originals are kept as
+        ``*.pre_absorb.ptclsraw``) and sets :attr:`tomogram_file` to ``tomos_out``. Other binnings of the same
+        tomograms: call ``to_tomograms`` of the returned updater on them.
+
+        Parameters
+        ----------
+        ite : int
+            Iteration (>= 1), usually after a 2D iteration.
+        tomos_out : str
+            The new ``.tomostxt``.
+
+        Returns
+        -------
+        TomogramGeometryUpdater
+        """
+        import shutil as _shutil
+        if ite < 1:
+            raise ValueError('ite must be >= 1.')
+        cur = self.iteration_files(ite)
+        files = [f for f in (cur.ptcl_rslt, cur.ptcl_rec) if _file_exists(f)]
+        bak = [f[:-len('.ptclsraw')] + '.pre_absorb.ptclsraw' for f in files]
+        for b in bak:
+            if _file_exists(b):
+                raise RuntimeError('The geometry of iteration %d was already absorbed (%s exists).' % (ite, b))
+        upd = _ssa_data.TomogramGeometryUpdater(self.tomogram_file, cur.ptcl_rslt)
+        upd.to_tomograms(self.tomogram_file, tomos_out)
+        for f, b in zip(files, bak):
+            _shutil.copyfile(f, b)
+            upd.to_particles(f, f)
+        print('  [Geometry] Iteration %d -> %s:' % (ite, tomos_out))
+        print('    ' + upd.summary().replace('\n', '\n    '))
+        self.tomogram_file = tomos_out
+        return upd
 
     def _null_baseline(self, ptcls):
         """(n_ptcl, K) null baseline of the particles from ``null/``, None when there is no null."""
@@ -1362,12 +1573,16 @@ class SubtomoAvg(SubtomoAvgCore):
         print('  [Aligned particles] Processing:')
         ptcls_in = _ssa_data.Particles(cur.ptcl_rslt)
         ite_type = self._validate_iteration_type()
-        use_solver = ite_type == 2 and self.solver_2d is not None
+        ali_out = self.aligner.output_type if ite_type == 2 else None
 
-        if use_solver:
+        if ali_out == 'alignment_stats':
             ptcls_in = self._solve_2d(ptcls_in, cur, prv)
-        if ite_type == 'ctf' and self.solver_ctf is not None:
+        if ali_out == 'alignment_covar':
+            self._covar_2d(cur)
+        if ite_type == 'ctf' and self.ctf_refiner.output_type == 'refinement_stats':
             ptcls_in = self._solve_ctf(cur, prv)
+        if ite_type == 'ctf' and self.ctf_refiner.output_type == 'refinement_covar':
+            self._covar_ctf(cur)
         if ite_type == 'ctf' and self.smooth_ctf:
             self._smooth_ctf_parameters(ptcls_in, cur, prv)
 

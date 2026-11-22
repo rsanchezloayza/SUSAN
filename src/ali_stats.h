@@ -29,6 +29,14 @@
 ///   input orientation, the cone points, the in-plane points (ArgsAli::stats_angles).
 ///   grouped<gs>/ang_cc, ang_half (gs <= ALI_STATS_ANG_MAX_GS): peak of the group's mean CC map at every angle
 ///   (n_tomo, G, max_K, A), and of the A and B splits (n_tomo, G, max_K, A, 2).
+/// alignment_covar (no groups, the input orientation only): projections/stats at the solution of the search, plus
+///   projections/covar (n_ptcl, max_K, NC): lambda = sd_cc^2 / A (cc_tracker.h: CC to log-likelihood, 1 / kappa) and
+///   the curvature (CC / deg^2, finite differences of the best CC over the offsets at +-step) about detector x, y and z
+///   at the solution, NaN for an axis that was not searched; covar_steps (3): the steps (deg).
+/// refinement_covar (CTF refiner, the same layout): projections/stats at the refined CTF, and projections/covar with
+///   lambda and the curvature of the best raw CC over the offsets along the mean defocus (U = V, CC / A^2), the
+///   astigmatism (U = -V, CC / A^2), the astigmatism angle (CC / deg^2) and the phase shift (CC / deg^2);
+///   covar_steps (4): A, A, deg, deg.
 /// The grouped sections come from partial sums of the raw CC maps (Partial: sum and count per group, projection and
 /// half-split), merged by addition: the workers' at the end of each tomogram, and the MPI nodes' for a tomogram split
 /// between nodes. A node holds the particle rows of its range (the main node, all of them).
@@ -46,6 +54,13 @@
 #include "tomogram.h"
 #include "points_provider.h"
 #include "math_cpu.h"
+
+namespace AliCovar {
+const int NC = 4;
+static const char* FIELDS[NC] = {"lambda","curv_x","curv_y","curv_z"};
+const int NC_CTF = 5;
+static const char* FIELDS_CTF[NC_CTF] = {"lambda","curv_def","curv_ast","curv_ang","curv_ph"};
+}
 
 class AliStats : public StatsGroups {
 
@@ -93,6 +108,10 @@ public:
     int   lo, hi;                       /// particles processed here: global indices [lo, hi)
     int   row0, n_rows;                 /// particle rows held here
     std::vector<float>   stats;         /// (n_rows, max_K, NF)
+    int                  n_cov;         /// covar fields (lambda + one curvature per axis), 0: no covar
+    std::vector<float>   covar;         /// (n_rows, max_K, n_cov)
+    std::vector<float>   cov_step;      /// (n_cov - 1) steps of the curvatures, 0: axis not searched
+    const char* const*   cov_fields;
     std::vector<float>   apix;
     std::vector<float>   pts_x, pts_y;
     std::vector<Group>   groups;
@@ -106,6 +125,8 @@ public:
     void setup(Tomograms&tomos,int off_type,float off_x,float off_y,float off_z,float off_s,
                const std::vector<int>&gs_list,int n_threads,bool ali_halves,const std::vector<M33f>&angles) {
         excl   = 0;   /// data-driven (3 sigma of the main peak)
+        n_cov  = 0;
+        cov_fields = NULL;
         setup_tomos(tomos,ali_halves);
         max_K  = tomos.num_proj;
         step   = off_s;
@@ -155,6 +176,13 @@ public:
         tmp.resize(PeakStats::NF);
     }
 
+    /// covar output: per particle rows of nc values named fields (lambda first); steps (nc - 1) of the curvatures
+    void setup_covar(int nc,const char* const*fields,const float*steps) {
+        n_cov = nc;
+        cov_fields = fields;
+        cov_step.assign(steps,steps+nc-1);
+    }
+
     /// Tomogram index and group labels of every particle, from the full particle list.
     void set_layout(Particles&ptcls,Tomograms&tomos) {
         std::vector<float> px, py;
@@ -172,6 +200,11 @@ public:
         row0 = in_row0;
         n_rows = in_n_rows;
         stats.assign((size_t)n_rows*max_K*PeakStats::NF,NAN);
+        covar.assign((size_t)n_rows*max_K*n_cov,NAN);
+    }
+
+    float*covar_row(int gix,int k) {
+        return covar.data() + ((size_t)(gix-row0)*max_K + k)*n_cov;
     }
 
     float*particle_row(int gix,int k) {
@@ -253,6 +286,7 @@ public:
         put(b,row0);
         put(b,n_rows);
         put_vec(b,stats);
+        put_vec(b,covar);
         int nd = 0;
         for(int t=0;t<n_tomo;t++) nd += done[t];
         put(b,nd);
@@ -288,6 +322,8 @@ public:
         get(b,pos,nr);
         size_t nf = (size_t)nr*max_K*PeakStats::NF;
         get_raw(b,pos,stats.data()+((size_t)(r0-row0)*max_K)*PeakStats::NF,nf*sizeof(float));
+        size_t nc = (size_t)nr*max_K*n_cov;
+        get_raw(b,pos,covar.data()+((size_t)(r0-row0)*max_K)*n_cov,nc*sizeof(float));
         get(b,pos,nd);
         for(int i=0;i<nd;i++) {
             int t;
@@ -342,6 +378,14 @@ public:
         ents.push_back(npy("apix","<f4",{(size_t)n_tomo},apix.data(),apix.size()*sizeof(float)));
         ents.push_back(npy("halves","<i4",{},&halves,sizeof(int)));
         ents.push_back(npy("angles","<f4",{(size_t)n_ang,3},ang_rv.data(),ang_rv.size()*sizeof(float)));
+        std::vector<uint32_t> cf(n_cov*8,0);
+        if( n_cov > 0 ) {
+            ents.push_back(npy("projections/covar","<f4",{(size_t)n_ptcl,(size_t)max_K,(size_t)n_cov},covar.data(),covar.size()*sizeof(float)));
+            for(int f=0;f<n_cov;f++)
+                for(int c=0;c<8 && cov_fields[f][c];c++) cf[f*8+c] = (uint32_t)cov_fields[f][c];
+            ents.push_back(npy("projections/covar_fields","<U8",{(size_t)n_cov},cf.data(),cf.size()*sizeof(uint32_t)));
+            ents.push_back(npy("covar_steps","<f4",{(size_t)n_cov-1},cov_step.data(),cov_step.size()*sizeof(float)));
+        }
         for(Group&g: groups) {
             std::string pfx = "grouped" + std::to_string(g.gs) + "/";
             size_t G = (size_t)g.G;

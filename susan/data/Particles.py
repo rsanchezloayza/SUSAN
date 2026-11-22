@@ -165,7 +165,7 @@ class Particles:
     .. attribute:: def_phas
        :type: ndarray, float32, shape (M, P)
 
-       Phase shift in degrees.
+       Phase shift in radians (as ``Defocus.ph_shft`` in the C++ code).
 
     .. attribute:: def_Bfct
        :type: ndarray, float32, shape (M, P)
@@ -272,7 +272,7 @@ class Particles:
         self.def_U    = _np.zeros((n_ptcl,n_proj),dtype=_np.float32) # U (angstroms)
         self.def_V    = _np.zeros((n_ptcl,n_proj),dtype=_np.float32) # V (angstroms)
         self.def_ang  = _np.zeros((n_ptcl,n_proj),dtype=_np.float32) # angles (sexagesimal)
-        self.def_phas = _np.zeros((n_ptcl,n_proj),dtype=_np.float32) # phase shift (sexagesimal?)
+        self.def_phas = _np.zeros((n_ptcl,n_proj),dtype=_np.float32) # phase shift (radians)
         self.def_Bfct = _np.zeros((n_ptcl,n_proj),dtype=_np.float32) # Bfactor
         self.def_ExFl = _np.zeros((n_ptcl,n_proj),dtype=_np.float32) # Exposure filter
         self.def_mres = _np.zeros((n_ptcl,n_proj),dtype=_np.float32) # Max. resolution (angstroms)
