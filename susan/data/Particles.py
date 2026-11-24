@@ -747,7 +747,7 @@ class Particles:
 
     @staticmethod
     def grid_2d(tomograms, step_angstroms=None, step_pixels=None,
-                skip_border_pixels=0, angle_deg_Y=0) -> Particles:
+                skip_border_pixels=0, angle_deg_Y=0, follow_slab=False) -> Particles:
         """Create a 2-D regular grid of particles at Z=0 across all tomograms.
 
         Positions are placed on an XY grid centred at the tomogram origin.
@@ -765,6 +765,10 @@ class Particles:
             Pixels to exclude near each tomogram edge. Default 0.
         angle_deg_Y : float, optional
             Rotate the grid plane by this angle around Y (degrees). Default 0.
+        follow_slab : bool, optional
+            Add the height of each tomogram's ``slab_plane`` to Z (after
+            ``angle_deg_Y``).  X and Y stay on the regular grid.  An unset
+            plane (all zeros) leaves Z unchanged.  Default False.
 
         Returns
         -------
@@ -787,6 +791,9 @@ class Particles:
             x,y,z = _np.float32(_np.meshgrid(t_x,t_y,(0)))
             pos = _np.stack( (x.flatten(),y.flatten(),z.flatten()), ).transpose()
             pos = pos@R
+            if follow_slab:
+                a,b,c = tomograms.slab_plane[i]
+                pos[:,2] += a*pos[:,0] + b*pos[:,1] + c
             pts = _np.concatenate( (pts,pos) )
             tid = _np.concatenate( (tid,_np.repeat(tomograms.tomo_id[i],pos.shape[0])) )
         
