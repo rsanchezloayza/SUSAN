@@ -547,14 +547,43 @@ class Particles:
             th = _np.quantile( self.position[idx,1].flatten() ,0.5)
             self.half_id[idx] = self.half_id[idx] + (self.position[idx,1]>th)
 
-    def halfsets_even_odd(self):
-        """Assign half-sets by even/odd index (half_id alternates 1, 2, 1, 2…)."""
-        self.half_id[0::2] = 1
-        self.half_id[1::2] = 2
+    def _halfsets_alternate(self, groups):
+        """half_id 1, 2, 1, 2... along each index array; odd groups alternate which half gets the extra one."""
+        first = 1
+        for idx in groups:
+            self.half_id[idx[0::2]] = first
+            self.half_id[idx[1::2]] = 3 - first
+            if idx.size % 2:
+                first = 3 - first
 
-    def halfsets_randomize(self):
-        """Assign half-sets randomly (each particle independently drawn from {1, 2})."""
-        self.half_id[:] = _np.random.randint(1,3,self.half_id.shape)
+    def _tomo_class_groups(self):
+        """Indices of each (ref_cix, tomo_id) group, in (ref_cix, tomo_id, ptcl_id) order."""
+        order = _np.lexsort((self.ptcl_id,self.tomo_id,self.ref_cix))
+        key = _np.stack((self.ref_cix[order],self.tomo_id[order]),axis=1)
+        cut = _np.flatnonzero(_np.any(key[1:] != key[:-1],axis=1)) + 1
+        return _np.split(order,cut)
+
+    def halfsets_even_odd(self):
+        """Assign half-sets 1, 2, 1, 2... by ptcl_id within each class (``ref_cix``) and tomogram."""
+        self._halfsets_alternate(self._tomo_class_groups())
+
+    def halfsets_randomize(self, balanced=True, seed=None):
+        """Assign half-sets randomly.
+
+        Parameters
+        ----------
+        balanced : bool
+            True: shuffle each class (``ref_cix``) and tomogram and alternate
+            1, 2, so both halves differ by at most one particle in every
+            group and in every class.  False: each particle drawn independently from {1, 2}.
+        seed : int, optional
+            Seed; ``None`` uses the global numpy random state.
+        """
+        rng = _np.random if seed is None else _np.random.RandomState(seed)
+        if balanced:
+            self._halfsets_alternate([rng.permutation(g) for g in self._tomo_class_groups()])
+        else:
+            self.half_id[:] = rng.randint(1,3,self.half_id.shape)
 
     def _refs(self, ref_cix):
         return _np.arange(self.n_refs) if ref_cix is None else _np.atleast_1d(_np.asarray(ref_cix,_np.int64))

@@ -589,7 +589,7 @@ class VolumePairs():
                     ptcls.prj_eu[:] = prj_eu0
                     ptcls.def_U[:]  = def_U0
                     ptcls.def_V[:]  = def_V0
-                ptcls.halfsets_randomize()
+                ptcls.halfsets_randomize(balanced=False)
                 if perturb:
                     sel = ptcls.half_id == 1
                     if sched_3D[count] > 0.0:
