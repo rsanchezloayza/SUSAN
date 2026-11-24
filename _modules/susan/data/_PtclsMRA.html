@@ -322,6 +322,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span> <span class="k">as</span> <span class="n">_TYPE_CHECKING</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_warnings</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">susan.utils._functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">_renamed_kw</span>
 
@@ -368,7 +369,169 @@
             <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">,</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="n">ref_cix</span><span class="p">,:]))</span>
             <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_w</span>  <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_w</span> <span class="p">,</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_w</span> <span class="p">[</span><span class="n">ref_cix</span><span class="p">,:]))</span></div>
 
-    
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expand_to_n_references</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_cix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">assign</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s1">'all'</span><span class="p">,</span> <span class="n">cc_ref</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                               <span class="n">per_tomo</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">reset_halves</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Add reference slots (:meth:`duplicate`) until there are ``n``, optionally reassigning the classes.</span>
+
+<span class="sd">        Modifies ``ptcls`` in-place.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ptcls : Particles</span>
+<span class="sd">        n : int, optional</span>
+<span class="sd">            Final number of slots; must be larger than ``ptcls.n_refs``.</span>
+<span class="sd">            Required unless ``ref_cix`` is a list.</span>
+<span class="sd">        ref_cix : None, int or list of int</span>
+<span class="sd">            Source of the new slots.  ``None``: the existing slots in turn</span>
+<span class="sd">            (new slot k copies slot ``k mod n_refs``).  int: every new slot</span>
+<span class="sd">            copies that slot.  list: the full layout, ``ref_cix[k]`` is the</span>
+<span class="sd">            source of slot k; the existing slots map to themselves</span>
+<span class="sd">            (``ref_cix[k] == k``) and ``n`` defaults to its length.</span>
+<span class="sd">        assign : None, ``'random'`` or ``'cc'``</span>
+<span class="sd">            ``None``: the classes (``ptcls.ref_cix``) are unchanged.</span>
+<span class="sd">            ``'random'``: uniform random class.  ``'cc'``: quantile bins of</span>
+<span class="sd">            the CC (equal counts), the highest CC to the first class of the</span>
+<span class="sd">            group and the lowest to the last one.</span>
+<span class="sd">        scope : ``'all'`` or ``'copies'``</span>
+<span class="sd">            ``'all'``: every particle can go to any of the ``n`` classes; the</span>
+<span class="sd">            CC of ``'cc'`` is ``ali_cc[cc_ref]``.  ``'copies'``: a particle</span>
+<span class="sd">            moves only between its class and the slots copied from it (its</span>
+<span class="sd">            class first); the CC is the one of its class.</span>
+<span class="sd">        cc_ref : int</span>
+<span class="sd">            Slot of the CC for ``assign='cc'`` with ``scope='all'``.  Default 0.</span>
+<span class="sd">        per_tomo : bool</span>
+<span class="sd">            ``assign='cc'``: quantiles per tomogram instead of global.</span>
+<span class="sd">        reset_halves : bool</span>
+<span class="sd">            Reassign the half-sets, balanced per class and tomogram</span>
+<span class="sd">            (:meth:`Particles.halfsets_randomize`).  Default False: only</span>
+<span class="sd">            safe before the first alignment, since a pose refined against one</span>
+<span class="sd">            half-map links the halves once the particle changes half.</span>
+<span class="sd">        seed : int, optional</span>
+<span class="sd">            Seed of the random generator (``assign='random'``, ``reset_halves``).</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Particles whose own slot has ``ali_w == 0`` keep their class.</span>
+<span class="sd">        """</span>
+        <span class="n">n0</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">n_refs</span>
+        <span class="k">if</span> <span class="n">ref_cix</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">_np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">ref_cix</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Set n (or give ref_cix as the full slot layout).'</span><span class="p">)</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="n">n0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'n (</span><span class="si">%d</span><span class="s1">) must be larger than the current number of references (</span><span class="si">%d</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="n">n0</span><span class="p">))</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">%</span> <span class="n">n0</span> <span class="k">if</span> <span class="n">ref_cix</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n0</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="n">n0</span><span class="p">,</span><span class="nb">int</span><span class="p">(</span><span class="n">ref_cix</span><span class="p">))]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ref_cix</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">!=</span> <span class="n">src</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'n (</span><span class="si">%d</span><span class="s1">) differs from the length of ref_cix (</span><span class="si">%d</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="n">src</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">size</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="n">n0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'ref_cix must be longer than the current number of references (</span><span class="si">%d</span><span class="s1">).'</span> <span class="o">%</span> <span class="n">n0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">src</span><span class="p">[:</span><span class="n">n0</span><span class="p">],</span><span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n0</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The existing slots must map to themselves: ref_cix[k] == k for k &lt; </span><span class="si">%d</span><span class="s1">.'</span> <span class="o">%</span> <span class="n">n0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">src</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">src</span> <span class="o">&gt;=</span> <span class="n">n0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'The sources must be existing slots (0 to </span><span class="si">%d</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span><span class="n">n0</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">assign</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span><span class="s1">'random'</span><span class="p">,</span><span class="s1">'cc'</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'assign must be None, "random" or "cc".'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scope</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'all'</span><span class="p">,</span><span class="s1">'copies'</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'scope must be "all" or "copies".'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">cc_ref</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'cc_ref must be a slot (0 to </span><span class="si">%d</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">PtclsMRA</span><span class="o">.</span><span class="n">duplicate</span><span class="p">(</span><span class="n">ptcls</span><span class="p">,</span><span class="n">src</span><span class="p">[</span><span class="n">n0</span><span class="p">:])</span>
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">assign</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">cls</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ref_cix</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">active</span> <span class="o">=</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">ali_w</span><span class="p">[</span><span class="bp">cls</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">)]</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">scope</span> <span class="o">==</span> <span class="s1">'all'</span><span class="p">:</span>
+                <span class="n">groups</span> <span class="o">=</span> <span class="p">[(</span><span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">),</span><span class="n">_np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">active</span><span class="p">),</span><span class="n">cc_ref</span><span class="p">)]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">groups</span> <span class="o">=</span> <span class="p">[(</span><span class="n">_np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">s</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">src</span><span class="p">[</span><span class="n">n0</span><span class="p">:]</span> <span class="o">==</span> <span class="n">s</span><span class="p">)</span> <span class="o">+</span> <span class="n">n0</span><span class="p">],</span><span class="n">_np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">active</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">cls</span> <span class="o">==</span> <span class="n">s</span><span class="p">)),</span><span class="n">s</span><span class="p">)</span>
+                          <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n0</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">fam</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">cc_slot</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fam</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">idx</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">assign</span> <span class="o">==</span> <span class="s1">'random'</span><span class="p">:</span>
+                    <span class="n">ptcls</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">fam</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">fam</span><span class="p">),</span><span class="n">idx</span><span class="o">.</span><span class="n">size</span><span class="p">)]</span>
+                    <span class="k">continue</span>
+                <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">==</span> <span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">_np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="n">idx</span><span class="p">])]</span> <span class="k">if</span> <span class="n">per_tomo</span> <span class="k">else</span> <span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">fam</span><span class="p">):</span>
+                        <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">'</span><span class="si">%d</span><span class="s1"> particles</span><span class="si">%s</span><span class="s1"> for </span><span class="si">%d</span><span class="s1"> classes: some classes stay empty.'</span> <span class="o">%</span> <span class="p">(</span>
+                            <span class="n">p</span><span class="o">.</span><span class="n">size</span><span class="p">,</span><span class="s1">' in tomogram </span><span class="si">%d</span><span class="s1">'</span> <span class="o">%</span> <span class="n">ptcls</span><span class="o">.</span><span class="n">tomo_id</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="k">if</span> <span class="n">per_tomo</span> <span class="k">else</span> <span class="s1">''</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">fam</span><span class="p">)),</span><span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                    <span class="n">order</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">ptcls</span><span class="o">.</span><span class="n">ali_cc</span><span class="p">[</span><span class="n">cc_slot</span><span class="p">,</span><span class="n">p</span><span class="p">],</span><span class="n">kind</span><span class="o">=</span><span class="s1">'stable'</span><span class="p">)</span>
+                    <span class="n">rank</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">size</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                    <span class="n">rank</span><span class="p">[</span><span class="n">order</span><span class="p">]</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+                    <span class="n">ptcls</span><span class="o">.</span><span class="n">ref_cix</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">fam</span><span class="p">[(</span><span class="n">rank</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">fam</span><span class="p">))</span><span class="o">//</span><span class="n">p</span><span class="o">.</span><span class="n">size</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">reset_halves</span><span class="p">:</span>
+            <span class="n">ptcls</span><span class="o">.</span><span class="n">halfsets_randomize</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">append_as_reference</span><span class="p">(</span><span class="n">ptcls_a</span><span class="p">,</span> <span class="n">ptcls_b</span><span class="p">,</span> <span class="n">id_offset</span><span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="mi">5</span><span class="p">,</span> <span class="n">tomograms</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Particles</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Merge two particle sets, the classes of ``ptcls_b`` after those of ``ptcls_a``.</span>
+
+<span class="sd">        Setup for a 2D alignment or CTF refinement with several species</span>
+<span class="sd">        (experimental: multi-class 2D/CTF has not been validated on data).</span>
+<span class="sd">        The result has ``n_refs(a) + n_refs(b)`` slots; the classes of</span>
+<span class="sd">        ``ptcls_b`` are shifted by ``n_refs(a)``, so the references file must</span>
+<span class="sd">        list the maps of ``ptcls_a`` and then those of ``ptcls_b``, in slot</span>
+<span class="sd">        order.  Each particle's own slot (``ali_*`` at its class) is copied to</span>
+<span class="sd">        the slots of the other set; ``prj_*``, defocus, ``half_id`` and</span>
+<span class="sd">        ``extra_*`` are kept.  The inputs are unchanged.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ptcls_a, ptcls_b : Particles</span>
+<span class="sd">            Same ``n_proj``.</span>
+<span class="sd">        id_offset : int</span>
+<span class="sd">            Added to the ``ptcl_id`` of ``ptcls_b`` (with a warning); must be</span>
+<span class="sd">            larger than the largest ``ptcl_id`` of ``ptcls_a``.  Default 10^5.</span>
+<span class="sd">        tomograms : Tomograms or str, optional</span>
+<span class="sd">            When given, every ``tomo_id`` must be in it and ``tomo_cix`` is</span>
+<span class="sd">            recomputed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Particles</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">ptcls_a</span><span class="o">.</span><span class="n">n_proj</span> <span class="o">!=</span> <span class="n">ptcls_b</span><span class="o">.</span><span class="n">n_proj</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Different number of projections (</span><span class="si">%d</span><span class="s1"> and </span><span class="si">%d</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span><span class="n">ptcls_a</span><span class="o">.</span><span class="n">n_proj</span><span class="p">,</span><span class="n">ptcls_b</span><span class="o">.</span><span class="n">n_proj</span><span class="p">))</span>
+        <span class="n">id_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">id_offset</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ptcls_a</span><span class="o">.</span><span class="n">n_ptcl</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">id_offset</span> <span class="o">&lt;=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ptcls_a</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">max</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'id_offset (</span><span class="si">%d</span><span class="s1">) must be larger than the largest ptcl_id of the first set (</span><span class="si">%d</span><span class="s1">).'</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">id_offset</span><span class="p">,</span><span class="nb">int</span><span class="p">(</span><span class="n">ptcls_a</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">max</span><span class="p">())))</span>
+        <span class="k">if</span> <span class="n">ptcls_b</span><span class="o">.</span><span class="n">n_ptcl</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">ptcls_b</span><span class="o">.</span><span class="n">ptcl_id</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="o">+</span> <span class="n">id_offset</span> <span class="o">&gt;</span> <span class="n">_np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'id_offset (</span><span class="si">%d</span><span class="s1">) makes the ptcl_id of the second set overflow uint32.'</span> <span class="o">%</span> <span class="n">id_offset</span><span class="p">)</span>
+
+        <span class="n">na</span><span class="p">,</span> <span class="n">nb</span> <span class="o">=</span> <span class="n">ptcls_a</span><span class="o">.</span><span class="n">n_refs</span><span class="p">,</span> <span class="n">ptcls_b</span><span class="o">.</span><span class="n">n_refs</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">ptcls_a</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">ptcls_b</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">ptcl_id</span> <span class="o">+=</span> <span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">(</span><span class="n">id_offset</span><span class="p">)</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">ref_cix</span> <span class="o">+=</span> <span class="n">_np</span><span class="o">.</span><span class="n">uint32</span><span class="p">(</span><span class="n">na</span><span class="p">)</span>
+        <span class="n">_warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">'The ptcl_id of the second set are renamed: +</span><span class="si">%d</span><span class="s1">.'</span> <span class="o">%</span> <span class="n">id_offset</span><span class="p">,</span><span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">widen</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">n_before</span><span class="p">,</span> <span class="n">n_after</span><span class="p">):</span>
+            <span class="n">own</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">ref_cix</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">-</span> <span class="n">n_before</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">n_ptcl</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'ali_eu'</span><span class="p">,</span><span class="s1">'ali_t'</span><span class="p">,</span><span class="s1">'ali_cc'</span><span class="p">,</span><span class="s1">'ali_w'</span><span class="p">):</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">fill</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">own</span><span class="p">,</span><span class="n">i</span><span class="p">]</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="n">name</span><span class="p">,</span><span class="n">_np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">_np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">fill</span><span class="p">,(</span><span class="n">n_before</span><span class="p">,)</span><span class="o">+</span><span class="n">fill</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span><span class="n">v</span><span class="p">,</span>
+                                                <span class="n">_np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">fill</span><span class="p">,(</span><span class="n">n_after</span><span class="p">,)</span><span class="o">+</span><span class="n">fill</span><span class="o">.</span><span class="n">shape</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
+        <span class="n">widen</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">nb</span><span class="p">)</span>
+        <span class="n">widen</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="n">na</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">a</span><span class="o">.</span><span class="n">append_ptcls</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tomograms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomograms</span><span class="p">,</span><span class="nb">str</span><span class="p">):</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">susan.data.Tomograms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tomograms</span> <span class="k">as</span> <span class="n">_Tomograms</span>
+                <span class="n">tomograms</span> <span class="o">=</span> <span class="n">_Tomograms</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span>
+            <span class="n">a</span><span class="o">.</span><span class="n">update_tomo_cix</span><span class="p">(</span><span class="n">tomograms</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span>
+
 <div class="viewcode-block" id="PtclsMRA.select_ref">
 <a class="viewcode-back" href="../../../api/susan.data.Particles.MRA.html#susan.data._PtclsMRA.PtclsMRA.select_ref">[docs]</a>
     <span class="nd">@staticmethod</span>

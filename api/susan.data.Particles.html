@@ -514,7 +514,7 @@ it.</p>
 <p class="rubric">Static Methods</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.data.Particles.grid_2d">
-<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">grid_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tomograms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_angstroms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_pixels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_border_pixels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angle_deg_Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#susan.data.Particles" title="susan.data.Particles.Particles"><span class="pre">Particles</span></a></span></span><a class="reference internal" href="../_modules/susan/data/Particles.html#Particles.grid_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Particles.grid_2d" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">grid_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tomograms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_angstroms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_pixels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_border_pixels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angle_deg_Y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">follow_slab</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#susan.data.Particles" title="susan.data.Particles.Particles"><span class="pre">Particles</span></a></span></span><a class="reference internal" href="../_modules/susan/data/Particles.html#Particles.grid_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Particles.grid_2d" title="Link to this definition">¶</a></dt>
 <dd><p>Create a 2-D regular grid of particles at Z=0 across all tomograms.</p>
 <p>Positions are placed on an XY grid centred at the tomogram origin.
 Defocus values are initialised from the Tomograms metadata.</p>
@@ -526,6 +526,9 @@ Defocus values are initialised from the Tomograms metadata.</p>
 <li><p><strong>step_pixels</strong> (<em>float</em><em>, </em><em>optional</em>) – Grid spacing in pixels. Mutually exclusive with step_angstroms.</p></li>
 <li><p><strong>skip_border_pixels</strong> (<em>int</em><em> or </em><em>array-like</em><em> of </em><em>int</em><em> (</em><em>3</em><em>,</em><em>)</em><em>, </em><em>optional</em>) – Pixels to exclude near each tomogram edge. Default 0.</p></li>
 <li><p><strong>angle_deg_Y</strong> (<em>float</em><em>, </em><em>optional</em>) – Rotate the grid plane by this angle around Y (degrees). Default 0.</p></li>
+<li><p><strong>follow_slab</strong> (<em>bool</em><em>, </em><em>optional</em>) – Add the height of each tomogram’s <code class="docutils literal notranslate"><span class="pre">slab_plane</span></code> to Z (after
+<code class="docutils literal notranslate"><span class="pre">angle_deg_Y</span></code>).  X and Y stay on the regular grid.  An unset
+plane (all zeros) leaves Z unchanged.  Default False.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -644,13 +647,23 @@ or below get half_id=1.  Applied per tomogram independently.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.data.Particles.halfsets_even_odd">
 <span class="sig-name descname"><span class="pre">halfsets_even_odd</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/data/Particles.html#Particles.halfsets_even_odd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Particles.halfsets_even_odd" title="Link to this definition">¶</a></dt>
-<dd><p>Assign half-sets by even/odd index (half_id alternates 1, 2, 1, 2…).</p>
+<dd><p>Assign half-sets 1, 2, 1, 2… by ptcl_id within each class (<code class="docutils literal notranslate"><span class="pre">ref_cix</span></code>) and tomogram.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="susan.data.Particles.halfsets_randomize">
-<span class="sig-name descname"><span class="pre">halfsets_randomize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/data/Particles.html#Particles.halfsets_randomize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Particles.halfsets_randomize" title="Link to this definition">¶</a></dt>
-<dd><p>Assign half-sets randomly (each particle independently drawn from {1, 2}).</p>
+<span class="sig-name descname"><span class="pre">halfsets_randomize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">balanced</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/susan/data/Particles.html#Particles.halfsets_randomize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#susan.data.Particles.halfsets_randomize" title="Link to this definition">¶</a></dt>
+<dd><p>Assign half-sets randomly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>balanced</strong> (<em>bool</em>) – True: shuffle each class (<code class="docutils literal notranslate"><span class="pre">ref_cix</span></code>) and tomogram and alternate
+1, 2, so both halves differ by at most one particle in every
+group and in every class.  False: each particle drawn independently from {1, 2}.</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Seed; <code class="docutils literal notranslate"><span class="pre">None</span></code> uses the global numpy random state.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
