@@ -20,6 +20,15 @@ import os as _os
 import math as _math
 import susan.utils.datatypes as _dt
 
+def _warn_multiclass(refs_file, what):
+    import warnings
+    from susan.data.Reference import Reference
+    if not _os.path.isfile(refs_file):
+        return
+    n = Reference(refs_file).n_refs
+    if n > 1:
+        warnings.warn('%s with %d references is experimental (not validated on data).' % (what,n),stacklevel=3)
+
 def _get_gpu_str(list_gpus_ids):
     gpu_str = ','.join( str(num) for num in  list_gpus_ids )
     return gpu_str
@@ -446,6 +455,8 @@ class Aligner(_BandpassFpix):
             ``susan_aligner`` command.
         """
         self._validate()
+        if self.dimensionality == 2 and self.output_type != 'dense':
+            _warn_multiclass(refs_file,'The 2D alignment')
         if self.bandpass_fpix.lowpass <= 0:
             self.bandpass_fpix.lowpass = (box_size/2) - 1
         n_threads = len(self.list_gpus_ids)
@@ -1520,6 +1531,7 @@ class CtfRefiner(_BandpassFpix):
             ``susan_ctf_refiner`` command.
         """
         self._validate()
+        _warn_multiclass(refs_file,'The CTF refinement')
         if self.bandpass_fpix.lowpass <= 0:
             self.bandpass_fpix.lowpass = (box_size/2) - 1
         n_threads = len(self.list_gpus_ids)
