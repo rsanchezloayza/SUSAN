@@ -978,6 +978,83 @@ class DenseReporter:
             out[idx] = v[upd]
         return out
 
+    def picks_at(self, points, tomo_id=None, field='z', source='auto'):
+        """Picks (as :meth:`pick`) at given points, for :meth:`to_particles`, :meth:`to_csv` and :meth:`to_artiax`.
+
+        Parameters
+        ----------
+        points : array (N, 3)
+            Tomogram voxels (x, y, z, 0-based from the corner), kept as the positions.
+        field : str
+            ``'z'`` or ``'cc'``: the score.
+        source : str
+            ``'volumes'`` (the assembled volumes, after :meth:`finalize`), ``'blocks'`` (the kept block files; where
+            blocks overlap, the one with the highest z, as :meth:`assemble`) or ``'auto'`` (the volumes when their
+            files exist).
+
+        Returns
+        -------
+        dict
+            As :meth:`pick`. Values and pose R(ali_eu of the block) R(table[ang]) of the nearest output voxel;
+            points outside every searched block get ang -1, z and cc NaN, block -1, eu 0.  ``block`` (ptcl_id)
+            from the volumes only when the blk volume exists (blocks with their own ali_eu), as :meth:`pick`.
+        """
+        tid, m = self._manifest(tomo_id)
+        if field not in ('z','cc'):
+            raise ValueError("field must be 'z' or 'cc'.")
+        if source == 'auto':
+            assembled = 'volumes' in m and all(_os.path.exists(m['volumes'].get(f,'')) for f in ('z','cc','ang'))
+            source = 'volumes' if assembled else 'blocks'
+        pts = _np.asarray(points,dtype=_np.float32).reshape(-1,3)
+        n = len(pts)
+        b = int(m['tomogram']['bin'])
+        zyx = self._out_voxel(m,pts)
+        z = _np.full(n,_np.nan,dtype=_np.float32)
+        cc = _np.full(n,_np.nan,dtype=_np.float32)
+        ang = _np.full(n,-1,dtype=_np.int64)
+        blk_id = _np.full(n,-1,dtype=_np.int64)
+        eu = _np.zeros((n,3),dtype=_np.float32)
+        if source == 'volumes':
+            size = _np.array(m['tomogram']['size_out_xyz'],dtype=int)[::-1]
+            inside = _np.all((zyx >= 0) & (zyx < size),axis=1)
+            if inside.any():
+                res = self._resolve_poses(m,zyx[inside])
+                z[inside], cc[inside], ang[inside] = res['z'], res['cc'], res['ang']
+                blk_id[inside], eu[inside] = res['block'], res['eu']
+        elif source == 'blocks':
+            best = _np.full(n,-_np.inf,dtype=_np.float32)
+            bix = _np.full(n,-1,dtype=_np.int64)
+            for i,blk in enumerate(m['blocks']):
+                inside = _np.all((zyx >= blk['_lo']) & (zyx < blk['_hi']),axis=1)
+                if not inside.any():
+                    continue
+                if not all(_os.path.exists(blk['files'].get(f,'')) for f in ('z','cc','ang')):
+                    raise ValueError('The block files of block %d do not exist (deleted by finalize or clean?): use source="volumes".' % i)
+                loc = tuple((zyx[inside] - blk['_lo']).T)
+                nz = blk['shape_xyz'][2]
+                bz = self._read_slab(blk,'z',0,nz)[loc]
+                upd = bz > best[inside]
+                if not upd.any():
+                    continue
+                idx = _np.flatnonzero(inside)[upd]
+                best[idx] = bz[upd]
+                z[idx] = bz[upd]
+                cc[idx] = self._read_slab(blk,'cc',0,nz)[loc][upd]
+                ang[idx] = self._read_slab(blk,'ang',0,nz)[loc][upd].astype(_np.int64)
+                bix[idx] = i
+            ok = ang >= 0
+            z[~ok], cc[~ok], bix[~ok] = _np.nan, _np.nan, -1
+            if ok.any():
+                ids = _np.array([blk['ptcl_id'] for blk in m['blocks']],dtype=_np.int64)
+                ali = _np.array([blk['ali_eu'] for blk in m['blocks']],dtype=_np.float32)
+                R = _ssa_utils.euZYZ_to_rotm(ali[bix[ok]]) @ _ssa_utils.euZYZ_to_rotm(m['_table'][ang[ok]])
+                eu[ok] = _ssa_utils.rotm_to_euZYZ(R)
+                blk_id[ok] = ids[bix[ok]]
+        else:
+            raise ValueError("source must be 'volumes', 'blocks' or 'auto'.")
+        return dict(tomo_id=_np.full(n,tid,dtype=_np.uint32), voxel=((pts - (b-1)/2.0)/b).astype(_np.float32),
+                    position=pts, score=(z if field == 'z' else cc).copy(), z=z, cc=cc, ang=ang, block=blk_id, eu=eu)
+
     def coverage(self, tomo_id=None, slab=None, thickness=None):
         """Fraction of the tomogram searched: XY footprint and XYZ volume.
 
